@@ -14,6 +14,7 @@ import { useAuthStore } from './store/authStore';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
+import { AdminDashboard } from './pages/AdminDashboard';
 
 // Configure future flags for React Router v7
 const routerConfig = {
@@ -66,6 +67,17 @@ function App() {
             <Route path="/map-test" element={
               <ProtectedRoute>
                 <MapTestPage />
+              </ProtectedRoute>
+            } />
+            
+            {/* Admin routes */}
+            <Route path="/admin" element={
+              <ProtectedRoute>
+                {user?.role === 'admin' ? (
+                  <AdminDashboard />
+                ) : (
+                  <Navigate to="/dashboard" replace />
+                )}
               </ProtectedRoute>
             } />
             

@@ -5,7 +5,7 @@ import { useAuthStore } from '../store/authStore';
 export function Login() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { signIn } = useAuthStore();
+  const { signIn, user } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -22,7 +22,12 @@ export function Login() {
 
     try {
       await signIn(email, password);
-      navigate(from, { replace: true });
+      // Check if the user is an admin and redirect accordingly
+      if (user?.role === 'admin') {
+        navigate('/admin', { replace: true });
+      } else {
+        navigate(from, { replace: true });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to sign in');
     } finally {

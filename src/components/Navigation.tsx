@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, MapPin, Trophy, Map, User, LogOut } from 'lucide-react';
+import { Home, MapPin, Trophy, Map, User, LogOut, Shield } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 
 export function Navigation() {
@@ -43,6 +43,19 @@ export function Navigation() {
                   {label}
                 </Link>
               ))}
+              {user?.role === 'admin' && (
+                <Link
+                  to="/admin"
+                  className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
+                    isActive('/admin')
+                      ? 'border-purple-500 text-gray-900'
+                      : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                  }`}
+                >
+                  <Shield className="h-5 w-5 mr-1" />
+                  Admin
+                </Link>
+              )}
             </div>
           </div>
           <div className="hidden sm:ml-6 sm:flex sm:items-center">

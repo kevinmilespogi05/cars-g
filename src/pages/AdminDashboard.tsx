@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
-import { Loader2, Check, X, AlertTriangle, MapPin, Filter, Search } from 'lucide-react';
+import { Loader2, Check, X, AlertTriangle, MapPin, Filter, Search, BarChart2, Users, Settings, User, RefreshCw, Image as ImageIcon } from 'lucide-react';
 import { awardPoints } from '../lib/points';
+import { UserManagement } from '../components/UserManagement';
+import { AdminStatistics } from '../components/AdminStatistics';
+import { AdminSettings } from '../components/AdminSettings';
+import { Notification } from '../components/Notification';
 
 interface Report {
   id: string;
@@ -14,73 +18,127 @@ interface Report {
   location_address: string;
   created_at: string;
   user_id: string;
-  user: {
-    username: string;
-  };
+  username: string;
   images: string[];
+}
+
+interface NotificationState {
+  message: string;
+  type: 'success' | 'error' | 'warning';
+  show: boolean;
 }
 
 export function AdminDashboard() {
   const { user } = useAuthStore();
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
   const [filter, setFilter] = useState<'all' | 'pending' | 'in_progress' | 'resolved' | 'rejected'>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
+  const [activeTab, setActiveTab] = useState<'reports' | 'users' | 'stats' | 'settings'>('reports');
+  const [notification, setNotification] = useState<NotificationState>({
+    message: '',
+    type: 'success',
+    show: false
+  });
 
   useEffect(() => {
     fetchReports();
   }, [filter]);
 
+  const showNotification = (message: string, type: NotificationState['type']) => {
+    setNotification({ message, type, show: true });
+    setTimeout(() => {
+      setNotification(prev => ({ ...prev, show: false }));
+    }, 3000);
+  };
+
   const fetchReports = async () => {
     setLoading(true);
     try {
+      // First fetch reports
       let query = supabase
         .from('reports')
-        .select(`
-          *,
-          user:profiles(username)
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (filter !== 'all') {
         query = query.eq('status', filter);
       }
 
-      const { data, error } = await query;
+      const { data: reportsData, error: reportsError } = await query;
 
-      if (error) throw error;
-      setReports(data || []);
+      if (reportsError) throw reportsError;
+
+      // Then fetch usernames for each report
+      const userIds = reportsData?.map(report => report.user_id) || [];
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, username')
+        .in('id', userIds);
+
+      if (profilesError) throw profilesError;
+
+      // Combine the data
+      const formattedReports = reportsData?.map(report => {
+        const profile = profilesData?.find(p => p.id === report.user_id);
+        return {
+          ...report,
+          username: profile?.username || 'Unknown User'
+        };
+      }) || [];
+
+      setReports(formattedReports);
     } catch (error) {
       console.error('Error fetching reports:', error);
+      showNotification('Failed to fetch reports', 'error');
     } finally {
       setLoading(false);
     }
   };
 
   const updateReportStatus = async (reportId: string, newStatus: Report['status']) => {
+    setActionLoading(true);
     try {
-      const { error } = await supabase
+      // First update the report status
+      const { error: updateError } = await supabase
         .from('reports')
-        .update({ status: newStatus })
+        .update({ 
+          status: newStatus,
+          updated_at: new Date().toISOString()
+        })
         .eq('id', reportId);
 
-      if (error) throw error;
+      if (updateError) {
+        console.error('Update error:', updateError);
+        throw updateError;
+      }
 
-      // Award points based on status change
+      // Then award points if applicable
       const report = reports.find(r => r.id === reportId);
       if (report) {
-        if (newStatus === 'in_progress') {
-          await awardPoints(report.user_id, 'REPORT_VERIFIED', reportId);
-        } else if (newStatus === 'resolved') {
-          await awardPoints(report.user_id, 'REPORT_RESOLVED', reportId);
+        try {
+          if (newStatus === 'in_progress') {
+            await awardPoints(report.user_id, 'REPORT_VERIFIED', reportId);
+          } else if (newStatus === 'resolved') {
+            await awardPoints(report.user_id, 'REPORT_RESOLVED', reportId);
+          }
+        } catch (pointsError) {
+          console.error('Error awarding points:', pointsError);
+          // Don't throw here, as the main update was successful
         }
       }
 
-      // Refresh reports
-      fetchReports();
+      showNotification(`Report ${newStatus.replace('_', ' ')} successfully`, 'success');
+      
+      // Refresh the reports list
+      await fetchReports();
     } catch (error) {
       console.error('Error updating report status:', error);
+      showNotification('Failed to update report status', 'error');
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -93,154 +151,240 @@ export function AdminDashboard() {
       report.description.toLowerCase().includes(searchLower) ||
       report.category.toLowerCase().includes(searchLower) ||
       report.location_address.toLowerCase().includes(searchLower) ||
-      report.user.username.toLowerCase().includes(searchLower)
+      report.username.toLowerCase().includes(searchLower)
     );
   });
 
   const getStatusColor = (status: Report['status']) => {
     switch (status) {
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'in_progress': return 'bg-blue-100 text-blue-800';
-      case 'resolved': return 'bg-green-100 text-green-800';
-      case 'rejected': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'in_progress':
+        return 'bg-blue-100 text-blue-800';
+      case 'resolved':
+        return 'bg-green-100 text-green-800';
+      case 'rejected':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
     }
   };
 
   const getPriorityColor = (priority: Report['priority']) => {
     switch (priority) {
-      case 'low': return 'bg-green-100 text-green-800';
-      case 'medium': return 'bg-yellow-100 text-yellow-800';
-      case 'high': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'high':
+        return 'bg-red-100 text-red-800';
+      case 'medium':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'low':
+        return 'bg-green-100 text-green-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
     }
   };
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-        <div className="flex space-x-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-            <input
-              type="text"
-              placeholder="Search reports..."
-              className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+      <div className="bg-white shadow sm:rounded-lg">
+        <div className="px-4 py-5 sm:p-6">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg leading-6 font-medium text-gray-900">Admin Dashboard</h3>
+            <div className="flex space-x-4">
+              <button
+                onClick={() => setActiveTab('reports')}
+                className={`inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md ${
+                  activeTab === 'reports'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-700 bg-gray-100 hover:bg-gray-200'
+                }`}
+              >
+                <MapPin className="h-4 w-4 mr-2" />
+                Reports
+              </button>
+              <button
+                onClick={() => setActiveTab('users')}
+                className={`inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md ${
+                  activeTab === 'users'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-700 bg-gray-100 hover:bg-gray-200'
+                }`}
+              >
+                <Users className="h-4 w-4 mr-2" />
+                Users
+              </button>
+              <button
+                onClick={() => setActiveTab('stats')}
+                className={`inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md ${
+                  activeTab === 'stats'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-700 bg-gray-100 hover:bg-gray-200'
+                }`}
+              >
+                <BarChart2 className="h-4 w-4 mr-2" />
+                Statistics
+              </button>
+              <button
+                onClick={() => setActiveTab('settings')}
+                className={`inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md ${
+                  activeTab === 'settings'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-700 bg-gray-100 hover:bg-gray-200'
+                }`}
+              >
+                <Settings className="h-4 w-4 mr-2" />
+                Settings
+              </button>
+            </div>
           </div>
-          <div className="relative">
-            <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-            <select
-              className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 appearance-none"
-              value={filter}
-              onChange={(e) => setFilter(e.target.value as any)}
-            >
-              <option value="all">All Reports</option>
-              <option value="pending">Pending</option>
-              <option value="in_progress">In Progress</option>
-              <option value="resolved">Resolved</option>
-              <option value="rejected">Rejected</option>
-            </select>
-          </div>
+
+          {activeTab === 'reports' && (
+            <div className="mt-6">
+              <div className="flex justify-between items-center mb-4">
+                <div className="flex space-x-2">
+                  <select
+                    value={filter}
+                    onChange={(e) => setFilter(e.target.value as any)}
+                    className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+                  >
+                    <option value="all">All Reports</option>
+                    <option value="pending">Pending</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="resolved">Resolved</option>
+                    <option value="rejected">Rejected</option>
+                  </select>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      placeholder="Search reports..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    />
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Search className="h-5 w-5 text-gray-400" />
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={fetchReports}
+                  disabled={loading}
+                  className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-gray-700 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                  Refresh
+                </button>
+              </div>
+
+              {loading ? (
+                <div className="flex justify-center items-center h-64">
+                  <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                </div>
+              ) : (
+                <div className="bg-white shadow overflow-hidden sm:rounded-md">
+                  <ul className="divide-y divide-gray-200">
+                    {filteredReports.map((report) => (
+                      <li 
+                        key={report.id} 
+                        className="px-4 py-4 sm:px-6 hover:bg-gray-50 cursor-pointer"
+                        onClick={() => setSelectedReport(report)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center">
+                              <p className="text-sm font-medium text-gray-900 truncate">
+                                {report.title}
+                              </p>
+                              <div className="ml-2 flex-shrink-0 flex">
+                                <p className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(report.status)}`}>
+                                  {report.status.replace('_', ' ')}
+                                </p>
+                                <p className={`ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getPriorityColor(report.priority)}`}>
+                                  {report.priority}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="mt-2 flex justify-between">
+                              <div className="sm:flex">
+                                <p className="flex items-center text-sm text-gray-500">
+                                  <MapPin className="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" />
+                                  {report.location_address}
+                                </p>
+                                <p className="mt-2 flex items-center text-sm text-gray-500 sm:mt-0 sm:ml-6">
+                                  <User className="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" />
+                                  {report.username}
+                                </p>
+                              </div>
+                              <div className="flex space-x-2">
+                                {report.status === 'pending' && (
+                                  <>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        updateReportStatus(report.id, 'in_progress');
+                                      }}
+                                      disabled={actionLoading}
+                                      className="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                      {actionLoading ? (
+                                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                      ) : (
+                                        <Check className="h-3 w-3 mr-1" />
+                                      )}
+                                      Accept
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        updateReportStatus(report.id, 'rejected');
+                                      }}
+                                      disabled={actionLoading}
+                                      className="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                      {actionLoading ? (
+                                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                      ) : (
+                                        <X className="h-3 w-3 mr-1" />
+                                      )}
+                                      Reject
+                                    </button>
+                                  </>
+                                )}
+                                {report.status === 'in_progress' && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      updateReportStatus(report.id, 'resolved');
+                                    }}
+                                    disabled={actionLoading}
+                                    className="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    {actionLoading ? (
+                                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                    ) : (
+                                      <Check className="h-3 w-3 mr-1" />
+                                    )}
+                                    Mark as Resolved
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'users' && <UserManagement />}
+          {activeTab === 'stats' && <AdminStatistics />}
+          {activeTab === 'settings' && <AdminSettings />}
         </div>
       </div>
 
-      {loading ? (
-        <div className="flex justify-center items-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-        </div>
-      ) : (
-        <div className="bg-white shadow overflow-hidden sm:rounded-md">
-          <ul className="divide-y divide-gray-200">
-            {filteredReports.map((report) => (
-              <li key={report.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => setSelectedReport(report)}>
-                <div className="px-4 py-4 sm:px-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <p className="text-sm font-medium text-blue-600 truncate">{report.title}</p>
-                      <div className={`ml-2 flex-shrink-0 flex`}>
-                        <p className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(report.status)}`}>
-                          {report.status.replace('_', ' ')}
-                        </p>
-                      </div>
-                      <div className={`ml-2 flex-shrink-0 flex`}>
-                        <p className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getPriorityColor(report.priority)}`}>
-                          {report.priority}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="ml-2 flex-shrink-0 flex">
-                      <p className="text-sm text-gray-500">
-                        {new Date(report.created_at).toLocaleDateString()}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="mt-2 sm:flex sm:justify-between">
-                    <div className="sm:flex">
-                      <p className="flex items-center text-sm text-gray-500">
-                        {report.category}
-                      </p>
-                      <p className="mt-2 flex items-center text-sm text-gray-500 sm:mt-0 sm:ml-6">
-                        <MapPin className="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" />
-                        {report.location_address}
-                      </p>
-                    </div>
-                    <div className="mt-2 flex items-center text-sm text-gray-500 sm:mt-0">
-                      <div className="text-sm text-gray-500">
-                        Reported by {report.user.username}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div className="bg-gray-50 px-4 py-3 sm:px-6">
-                  <div className="flex justify-end space-x-2">
-                    {report.status === 'pending' && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          updateReportStatus(report.id, 'in_progress');
-                        }}
-                        className="inline-flex items-center px-3 py-1 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                      >
-                        <Check className="h-4 w-4 mr-1" />
-                        Verify
-                      </button>
-                    )}
-                    {report.status === 'in_progress' && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          updateReportStatus(report.id, 'resolved');
-                        }}
-                        className="inline-flex items-center px-3 py-1 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                      >
-                        <Check className="h-4 w-4 mr-1" />
-                        Resolve
-                      </button>
-                    )}
-                    {(report.status === 'pending' || report.status === 'in_progress') && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          updateReportStatus(report.id, 'rejected');
-                        }}
-                        className="inline-flex items-center px-3 py-1 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                      >
-                        <X className="h-4 w-4 mr-1" />
-                        Reject
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-
+      {/* Report Details Modal */}
       {selectedReport && (
         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
@@ -277,7 +421,7 @@ export function AdminDashboard() {
                 <div>
                   <h4 className="text-sm font-medium text-gray-500">Reported By</h4>
                   <div className="text-sm text-gray-500">
-                    {selectedReport.user.username}
+                    {selectedReport.username}
                   </div>
                 </div>
                 <div className="col-span-2">
@@ -350,6 +494,15 @@ export function AdminDashboard() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Notification */}
+      {notification.show && (
+        <Notification
+          message={notification.message}
+          type={notification.type}
+          onClose={() => setNotification(prev => ({ ...prev, show: false }))}
+        />
       )}
     </div>
   );
