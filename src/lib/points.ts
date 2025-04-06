@@ -1,11 +1,10 @@
 import { supabase } from './supabase';
 
 const POINTS_CONFIG = {
-  REPORT_SUBMITTED: 10,
-  REPORT_VERIFIED: 50,
-  REPORT_RESOLVED: 100,
-  DAILY_LOGIN: 5,
-  PROFILE_COMPLETED: 25,
+  REPORT_VERIFIED: 50,    // Points awarded when report is verified by authorities
+  REPORT_RESOLVED: 100,   // Points awarded when the issue is resolved
+  DAILY_LOGIN: 5,         // Points for daily engagement
+  PROFILE_COMPLETED: 25,  // Points for completing profile
 };
 
 export async function awardPoints(
@@ -15,10 +14,22 @@ export async function awardPoints(
 ) {
   const points = POINTS_CONFIG[reason];
 
-  // Add points to user's profile
+  // First get current points
+  const { data: profile, error: fetchError } = await supabase
+    .from('profiles')
+    .select('points')
+    .eq('id', userId)
+    .single();
+
+  if (fetchError) throw fetchError;
+
+  // Calculate new points total
+  const newPoints = (profile?.points || 0) + points;
+
+  // Update points in profile
   const { error: profileError } = await supabase
     .from('profiles')
-    .update({ points: supabase.raw('points + ?', [points]) })
+    .update({ points: newPoints })
     .eq('id', userId);
 
   if (profileError) throw profileError;

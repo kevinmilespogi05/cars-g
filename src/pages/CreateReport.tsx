@@ -57,42 +57,47 @@ export function CreateReport() {
       // Upload images if any
       let imageUrls: string[] = [];
       if (uploadedImages.length > 0) {
+        console.log('Uploading images...');
         imageUrls = await uploadMultipleImages(uploadedImages);
+        console.log('Uploaded images:', imageUrls);
       }
+
+      const reportData = {
+        user_id: user.id,
+        title: formData.title,
+        description: formData.description,
+        category: formData.category,
+        priority: formData.priority,
+        location_lat: location.lat,
+        location_lng: location.lng,
+        location_address: location.address,
+        images: imageUrls,
+        status: 'pending'
+      };
+
+      console.log('Submitting report with data:', reportData);
 
       // Create the report
       const { data: report, error } = await supabase
         .from('reports')
-        .insert([
-          {
-            user_id: user.id,
-            title: formData.title,
-            description: formData.description,
-            category: formData.category,
-            priority: formData.priority,
-            location_lat: location.lat,
-            location_lng: location.lng,
-            location_address: location.address,
-            images: imageUrls,
-            status: 'pending'
-          }
-        ])
+        .insert([reportData])
         .select()
         .single();
 
       if (error) throw error;
 
-      // Award points for submitting a report
-      await awardPoints(user.id, 'REPORT_SUBMITTED', report.id);
-
       // Show success message
-      alert('Report submitted successfully! You earned 10 points.');
+      alert('Report submitted successfully! Your report will be reviewed by authorities.');
       
       // Navigate to reports page
       navigate('/reports');
     } catch (error) {
       console.error('Error creating report:', error);
-      alert('Failed to submit report. Please try again.');
+      if (error instanceof Error) {
+        alert(`Failed to submit report: ${error.message}`);
+      } else {
+        alert('Failed to submit report. Please try again.');
+      }
     } finally {
       setIsSubmitting(false);
     }

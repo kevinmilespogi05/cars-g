@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import { MapPin } from 'lucide-react';
 
 // Fix for default marker icons in Leaflet with React
 // This is needed because Leaflet's default marker icons don't work properly with React
@@ -34,28 +35,50 @@ export function MapPicker({ onLocationSelect, initialLocation }: MapPickerProps)
   const [address, setAddress] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string>('');
+  const [showLocationButton, setShowLocationButton] = useState(true);
   const mapRef = useRef<L.Map>(null);
+
+  const getLocation = () => {
+    if ("geolocation" in navigator) {
+      setIsLoading(true);
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const newPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          setPosition(newPos);
+          reverseGeocode(newPos);
+          setError('');
+          setIsLoading(false);
+        },
+        (err) => {
+          console.error('Error getting location:', err);
+          if (err.code === 1) {
+            setError('Location access was denied. You can still select a location manually on the map.');
+            setShowLocationButton(false);
+          } else if (err.code === 2) {
+            setError('Location is unavailable. Please check your device settings or select a location manually.');
+          } else if (err.code === 3) {
+            setError('Location request timed out. Please try again or select a location manually.');
+          } else {
+            setError('Unable to get your location. Please select a location manually on the map.');
+          }
+          setIsLoading(false);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 5000,
+          maximumAge: 0
+        }
+      );
+    } else {
+      setError('Geolocation is not supported by your browser. Please select a location manually on the map.');
+      setShowLocationButton(false);
+    }
+  };
 
   // Get user's location on component mount
   useEffect(() => {
     if (!initialLocation) {
-      if ("geolocation" in navigator) {
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            const newPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-            setPosition(newPos);
-            reverseGeocode(newPos);
-            setError('');
-          },
-          (err) => {
-            console.error('Error getting location:', err);
-            setError('Unable to get your location. Please enable location services or select a location manually.');
-            // Keep default position if geolocation fails
-          }
-        );
-      } else {
-        setError('Geolocation is not supported by your browser');
-      }
+      getLocation();
     }
   }, [initialLocation]);
 
@@ -90,8 +113,19 @@ export function MapPicker({ onLocationSelect, initialLocation }: MapPickerProps)
   return (
     <div className="w-full h-64 rounded-lg overflow-hidden border border-gray-300 relative">
       {error && (
-        <div className="absolute top-0 left-0 right-0 bg-yellow-100 text-yellow-800 p-2 text-sm">
-          {error}
+        <div className="absolute top-0 left-0 right-0 bg-yellow-100 text-yellow-800 p-2 text-sm flex items-center justify-between">
+          <span>{error}</span>
+          {!showLocationButton && (
+            <button
+              onClick={() => {
+                setShowLocationButton(true);
+                setError('');
+              }}
+              className="ml-2 text-yellow-800 hover:text-yellow-900 underline"
+            >
+              Try Again
+            </button>
+          )}
         </div>
       )}
       <MapContainer
@@ -105,6 +139,16 @@ export function MapPicker({ onLocationSelect, initialLocation }: MapPickerProps)
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
+        {showLocationButton && (
+          <button
+            onClick={getLocation}
+            disabled={isLoading}
+            className="absolute top-12 right-2 z-[1000] bg-white p-2 rounded-full shadow-md hover:bg-gray-50 disabled:opacity-50"
+            title="Get my location"
+          >
+            <MapPin className="h-5 w-5" />
+          </button>
+        )}
         <Marker 
           position={[position.lat, position.lng]}
           draggable={true}
