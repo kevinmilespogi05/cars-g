@@ -8,6 +8,8 @@ interface AuthState {
   setUser: (user: User | null) => void;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, username: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
+  signInWithFacebook: () => Promise<void>;
   signOut: () => Promise<void>;
   initialize: () => Promise<void>;
 }
@@ -32,29 +34,94 @@ export const useAuthStore = create<AuthState>((set) => ({
           .eq('id', session.user.id)
           .single();
           
-        if (profileError) throw profileError;
+        if (profileError && profileError.code !== 'PGRST116') {
+          throw profileError;
+        }
         
-        set({ 
-          user: profile,
-          isAuthenticated: true,
-        });
-      }
-
-      // Set up auth state listener
-      supabase.auth.onAuthStateChange(async (event, session) => {
-        if (event === 'SIGNED_IN' && session?.user) {
-          const { data: profile, error: profileError } = await supabase
+        if (!profile) {
+          // Create profile for new user
+          const { error: createError } = await supabase
+            .from('profiles')
+            .insert({
+              id: session.user.id,
+              username: session.user.email?.split('@')[0] || 'user',
+              points: 0,
+              role: 'user',
+              created_at: new Date().toISOString(),
+              avatar_url: session.user.user_metadata.avatar_url || null
+            });
+            
+          if (createError) throw createError;
+          
+          // Fetch the newly created profile
+          const { data: newProfile, error: fetchError } = await supabase
             .from('profiles')
             .select('*')
             .eq('id', session.user.id)
             .single();
             
-          if (profileError) throw profileError;
+          if (fetchError) throw fetchError;
           
+          set({ 
+            user: newProfile,
+            isAuthenticated: true,
+          });
+        } else {
           set({ 
             user: profile,
             isAuthenticated: true,
           });
+        }
+      }
+
+      // Set up auth state listener
+      supabase.auth.onAuthStateChange(async (event, session) => {
+        if (event === 'SIGNED_IN' && session?.user) {
+          // Check if profile exists
+          const { data: existingProfile, error: profileError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+            
+          if (profileError && profileError.code !== 'PGRST116') {
+            throw profileError;
+          }
+          
+          if (!existingProfile) {
+            // Create profile for new user
+            const { error: createError } = await supabase
+              .from('profiles')
+              .insert({
+                id: session.user.id,
+                username: session.user.email?.split('@')[0] || 'user',
+                points: 0,
+                role: 'user',
+                created_at: new Date().toISOString(),
+                avatar_url: session.user.user_metadata.avatar_url || null
+              });
+              
+            if (createError) throw createError;
+            
+            // Fetch the newly created profile
+            const { data: newProfile, error: fetchError } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', session.user.id)
+              .single();
+              
+            if (fetchError) throw fetchError;
+            
+            set({ 
+              user: newProfile,
+              isAuthenticated: true,
+            });
+          } else {
+            set({ 
+              user: existingProfile,
+              isAuthenticated: true,
+            });
+          }
         } else if (event === 'SIGNED_OUT') {
           set({ user: null, isAuthenticated: false });
         }
@@ -86,6 +153,36 @@ export const useAuthStore = create<AuthState>((set) => ({
         isAuthenticated: true,
       });
     }
+  },
+
+  signInWithGoogle: async () => {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        }
+      }
+    });
+    
+    if (error) throw error;
+  },
+
+  signInWithFacebook: async () => {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'facebook',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        }
+      }
+    });
+    
+    if (error) throw error;
   },
   
   signUp: async (email: string, password: string, username: string) => {
