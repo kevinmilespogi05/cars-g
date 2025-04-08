@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, MapPin, Trophy, Map, User, LogOut, Shield, Menu, X } from 'lucide-react';
+import { Home, MapPin, Trophy, Map, User, LogOut, Shield, Menu, X, MessageSquare } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 
 export function Navigation() {
@@ -32,6 +32,7 @@ export function Navigation() {
     { path: '/reports/create', icon: MapPin, label: 'New Report' },
     { path: '/map-test', icon: Map, label: 'Map Test' },
     { path: '/leaderboard', icon: Trophy, label: 'Leaderboard' },
+    { path: '/chat', icon: MessageSquare, label: 'Chat' },
   ];
 
   return (
