@@ -8,4 +8,18 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables');
 }
 
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
+// Create a single instance of the Supabase client
+let supabaseInstance: ReturnType<typeof createClient<Database>> | null = null;
+
+export const supabase = (() => {
+  if (!supabaseInstance) {
+    supabaseInstance = createClient<Database>(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true
+      }
+    });
+  }
+  return supabaseInstance;
+})();

@@ -103,7 +103,7 @@ export function AdminStatistics() {
       const bannedUsers = users?.filter(u => u.is_banned).length || 0;
 
       // Calculate reports by category
-      const reportsByCategory = reports?.reduce((acc, report) => {
+      const reportsByCategory = (reports || []).reduce((acc, report) => {
         const existing = acc.find(item => item.category === report.category);
         if (existing) {
           existing.count++;
@@ -111,10 +111,10 @@ export function AdminStatistics() {
           acc.push({ category: report.category, count: 1 });
         }
         return acc;
-      }, [] as Array<{ category: string; count: number }>) || [];
+      }, [] as Array<{ category: string; count: number }>);
 
       // Calculate reports by location
-      const reportsByLocation = reports?.reduce((acc, report) => {
+      const reportsByLocation = (reports || []).reduce((acc, report) => {
         const existing = acc.find(item => item.location === report.location_address);
         if (existing) {
           existing.count++;
@@ -122,30 +122,30 @@ export function AdminStatistics() {
           acc.push({ location: report.location_address, count: 1 });
         }
         return acc;
-      }, [] as Array<{ location: string; count: number }>) || [];
+      }, [] as Array<{ location: string; count: number }>);
 
       // Calculate reports by time of day
       const reportsByTime = Array.from({ length: 24 }, (_, hour) => ({
         hour,
-        count: reports?.filter(r => new Date(r.created_at).getHours() === hour).length || 0,
+        count: (reports || []).filter(r => new Date(r.created_at).getHours() === hour).length,
       }));
 
       // Calculate reports by day of week
       const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
       const reportsByDay = days.map(day => ({
         day,
-        count: reports?.filter(r => days[new Date(r.created_at).getDay()] === day).length || 0,
+        count: (reports || []).filter(r => days[new Date(r.created_at).getDay()] === day).length,
       }));
 
       // Calculate reports by month
       const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
       const reportsByMonth = months.map(month => ({
         month,
-        count: reports?.filter(r => months[new Date(r.created_at).getMonth()] === month).length || 0,
+        count: (reports || []).filter(r => months[new Date(r.created_at).getMonth()] === month).length,
       }));
 
       // Calculate resolution times
-      const resolvedReportsWithTimes = reports?.filter(r => r.status === 'resolved' && r.created_at && r.updated_at) || [];
+      const resolvedReportsWithTimes = (reports || []).filter(r => r.status === 'resolved' && r.created_at && r.updated_at);
       const resolutionTimes = resolvedReportsWithTimes.map(report => {
         const created = new Date(report.created_at).getTime();
         const updated = new Date(report.updated_at).getTime();

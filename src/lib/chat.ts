@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient';
+import { supabase } from './supabase';
 import { ChatRoom, ChatMessage, ChatParticipant } from '@/types/chat';
 
 export const chatService = {

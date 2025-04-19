@@ -3,7 +3,7 @@ import { MapPicker } from './MapPicker';
 import { uploadMultipleImages } from '../lib/storage';
 import { awardPoints } from '../lib/points';
 import { useAuthStore } from '../store/authStore';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Upload, X, MapPin, Image as ImageIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 interface IssueReportFormProps {
@@ -32,6 +32,12 @@ const categories = [
   'Traffic Sign',
   'Other'
 ];
+
+const priorityColors = {
+  low: 'text-success bg-success bg-opacity-10',
+  medium: 'text-warning-dark bg-warning bg-opacity-10',
+  high: 'text-danger bg-danger bg-opacity-10'
+};
 
 export const IssueReportForm: React.FC<IssueReportFormProps> = ({ onSubmit }) => {
   const { user } = useAuthStore();
@@ -74,12 +80,6 @@ export const IssueReportForm: React.FC<IssueReportFormProps> = ({ onSubmit }) =>
         throw new Error('Please select a location on the map');
       }
 
-      // Upload images if any
-      let imageUrls: string[] = [];
-      if (uploadedImages.length > 0) {
-        imageUrls = await uploadMultipleImages(uploadedImages);
-      }
-
       // Create the report
       const { data: report, error } = await supabase
         .from('reports')
@@ -93,7 +93,7 @@ export const IssueReportForm: React.FC<IssueReportFormProps> = ({ onSubmit }) =>
           location_lng: location.lng,
           location_address: location.address,
           user_id: user.id,
-          images: imageUrls,
+          images: uploadedImages,
         })
         .select()
         .single();
@@ -107,14 +107,14 @@ export const IssueReportForm: React.FC<IssueReportFormProps> = ({ onSubmit }) =>
       setFormData({
         title: '',
         description: '',
-        category: 'road',
+        category: '',
         priority: 'medium',
+        images: [],
       });
       setLocation(null);
       setUploadedImages([]);
       
-      // Show success message
-      alert('Report submitted successfully! You earned 10 points.');
+      onSubmit(report);
     } catch (error) {
       console.error('Error submitting report:', error);
       alert(error instanceof Error ? error.message : 'Failed to submit report');
@@ -124,112 +124,169 @@ export const IssueReportForm: React.FC<IssueReportFormProps> = ({ onSubmit }) =>
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 max-w-2xl mx-auto">
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Title</label>
-        <input
-          type="text"
-          required
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-          value={formData.title}
-          onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-        />
-      </div>
+    <form onSubmit={handleSubmit} className="space-y-6 max-w-2xl mx-auto bg-white rounded-xl shadow-lg p-6">
+      <div className="space-y-6">
+        <div>
+          <label className="label" htmlFor="title">
+            Title
+          </label>
+          <input
+            id="title"
+            type="text"
+            required
+            className="input"
+            value={formData.title}
+            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+            placeholder="Brief description of the issue"
+          />
+        </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Category</label>
-        <select
-          required
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-          value={formData.category}
-          onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-        >
-          <option value="">Select a category</option>
-          {categories.map((category) => (
-            <option key={category} value={category}>
-              {category}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Description</label>
-        <textarea
-          required
-          rows={4}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-          value={formData.description}
-          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-        />
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Priority</label>
-        <select
-          required
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-          value={formData.priority}
-          onChange={(e) => setFormData({ ...formData, priority: e.target.value as 'low' | 'medium' | 'high' })}
-        >
-          <option value="low">Low</option>
-          <option value="medium">Medium</option>
-          <option value="high">High</option>
-        </select>
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Location
-        </label>
-        <MapPicker 
-          onLocationSelect={setLocation} 
-          initialLocation={location || undefined}
-        />
-        {location && (
-          <p className="mt-2 text-sm text-gray-500">
-            Selected: {location.address || `${location.lat}, ${location.lng}`}
-          </p>
-        )}
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700">Images (Optional)</label>
-        <input
-          type="file"
-          multiple
-          accept="image/*"
-          className="mt-1 block w-full"
-          onChange={(e) => handleImageUpload(e.target.files)}
-        />
-        {uploadedImages.length > 0 && (
-          <div className="mt-2 grid grid-cols-3 gap-2">
-            {uploadedImages.map((url, index) => (
-              <img
-                key={index}
-                src={url}
-                alt={`Uploaded ${index + 1}`}
-                className="w-full h-24 object-cover rounded"
-              />
+        <div>
+          <label className="label" htmlFor="category">
+            Category
+          </label>
+          <select
+            id="category"
+            required
+            className="input"
+            value={formData.category}
+            onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+          >
+            <option value="">Select a category</option>
+            {categories.map((category) => (
+              <option key={category} value={category.toLowerCase()}>
+                {category}
+              </option>
             ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="label" htmlFor="description">
+            Description
+          </label>
+          <textarea
+            id="description"
+            required
+            rows={4}
+            className="input"
+            value={formData.description}
+            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+            placeholder="Provide detailed information about the issue"
+          />
+        </div>
+
+        <div>
+          <label className="label" htmlFor="priority">
+            Priority
+          </label>
+          <select
+            id="priority"
+            required
+            className="input"
+            value={formData.priority}
+            onChange={(e) => setFormData({ ...formData, priority: e.target.value as 'low' | 'medium' | 'high' })}
+          >
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+          </select>
+          {formData.priority && (
+            <div className={`mt-2 inline-flex items-center px-3 py-1 rounded-full text-sm ${priorityColors[formData.priority]}`}>
+              {formData.priority.charAt(0).toUpperCase() + formData.priority.slice(1)} Priority
+            </div>
+          )}
+        </div>
+
+        <div>
+          <label className="label mb-2">
+            Location
+          </label>
+          <div className="rounded-lg overflow-hidden border border-gray-200">
+            <MapPicker 
+              onLocationSelect={setLocation} 
+              initialLocation={location || undefined}
+            />
           </div>
-        )}
+          {location && (
+            <div className="mt-2 flex items-center text-sm text-gray-600">
+              <MapPin className="h-4 w-4 mr-1" />
+              {location.address || `${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`}
+            </div>
+          )}
+        </div>
+
+        <div>
+          <label className="label mb-2">
+            Images
+            <span className="text-sm text-gray-500 ml-2">(Optional)</span>
+          </label>
+          <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg hover:border-primary-color transition-colors">
+            <div className="space-y-1 text-center">
+              <ImageIcon className="mx-auto h-12 w-12 text-gray-400" />
+              <div className="flex text-sm text-gray-600">
+                <label htmlFor="images" className="relative cursor-pointer rounded-md font-medium text-primary-color hover:text-primary-dark focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-primary-color">
+                  <span>Upload images</span>
+                  <input
+                    id="images"
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    className="sr-only"
+                    onChange={(e) => handleImageUpload(e.target.files)}
+                  />
+                </label>
+                <p className="pl-1">or drag and drop</p>
+              </div>
+              <p className="text-xs text-gray-500">PNG, JPG, GIF up to 10MB</p>
+            </div>
+          </div>
+
+          {uploadedImages.length > 0 && (
+            <div className="mt-4 grid grid-cols-3 gap-4">
+              {uploadedImages.map((url, index) => (
+                <div key={index} className="relative group">
+                  <img
+                    src={url}
+                    alt={`Preview ${index + 1}`}
+                    className="h-24 w-full object-cover rounded-lg"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUploadedImages(prev => prev.filter((_, i) => i !== index));
+                      setFormData(prev => ({
+                        ...prev,
+                        images: prev.images?.filter((_, i) => i !== index)
+                      }));
+                    }}
+                    className="absolute top-1 right-1 p-1 bg-white rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <X className="h-4 w-4 text-gray-500" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
-      <button
-        type="submit"
-        disabled={isSubmitting}
-        className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-      >
-        {isSubmitting ? (
-          <>
-            <Loader2 className="h-5 w-5 animate-spin mr-2" />
-            Submitting...
-          </>
-        ) : (
-          'Submit Report'
-        )}
-      </button>
+      <div className="flex justify-end pt-6 border-t border-gray-200">
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="btn btn-primary"
+        >
+          {isSubmitting ? (
+            <>
+              <Loader2 className="h-5 w-5 animate-spin mr-2" />
+              Submitting...
+            </>
+          ) : (
+            'Submit Report'
+          )}
+        </button>
+      </div>
     </form>
   );
 }; 

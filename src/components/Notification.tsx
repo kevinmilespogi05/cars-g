@@ -17,44 +17,67 @@ export function Notification({ message, type, onClose, duration = 5000 }: Notifi
   const getTypeStyles = () => {
     switch (type) {
       case 'success':
-        return 'bg-green-50 text-green-800 border-green-200';
+        return {
+          bg: 'bg-success bg-opacity-10',
+          text: 'text-success',
+          icon: CheckCircle,
+          border: 'border-success'
+        };
       case 'error':
-        return 'bg-red-50 text-red-800 border-red-200';
+        return {
+          bg: 'bg-danger bg-opacity-10',
+          text: 'text-danger',
+          icon: XCircle,
+          border: 'border-danger'
+        };
       case 'warning':
-        return 'bg-yellow-50 text-yellow-800 border-yellow-200';
+        return {
+          bg: 'bg-warning bg-opacity-10',
+          text: 'text-warning-dark',
+          icon: AlertCircle,
+          border: 'border-warning'
+        };
       default:
-        return 'bg-gray-50 text-gray-800 border-gray-200';
+        return {
+          bg: 'bg-gray-100',
+          text: 'text-gray-800',
+          icon: AlertCircle,
+          border: 'border-gray-300'
+        };
     }
   };
 
-  const getIcon = () => {
-    switch (type) {
-      case 'success':
-        return <CheckCircle className="h-5 w-5 text-green-400" />;
-      case 'error':
-        return <XCircle className="h-5 w-5 text-red-400" />;
-      case 'warning':
-        return <AlertCircle className="h-5 w-5 text-yellow-400" />;
-      default:
-        return null;
-    }
-  };
+  const styles = getTypeStyles();
+  const Icon = styles.icon;
 
   return (
-    <div className="fixed top-4 right-4 z-50">
-      <div className={`rounded-lg p-4 shadow-lg border ${getTypeStyles()}`}>
-        <div className="flex items-center">
-          <div className="flex-shrink-0">{getIcon()}</div>
-          <div className="ml-3">
-            <p className="text-sm font-medium">{message}</p>
+    <div className="fixed top-4 right-4 z-50 animate-slide-down">
+      <div 
+        className={`
+          rounded-lg shadow-lg border-l-4 ${styles.border}
+          bg-white p-4 max-w-md w-full transform transition-all
+          hover:scale-102 hover:shadow-xl
+        `}
+      >
+        <div className="flex items-start space-x-3">
+          <div className={`flex-shrink-0 ${styles.text}`}>
+            <Icon className="h-5 w-5" />
           </div>
-          <div className="ml-4 flex-shrink-0 flex">
+          <div className="flex-1 min-w-0">
+            <p className={`text-sm font-medium ${styles.text}`}>{message}</p>
+          </div>
+          <div className="flex-shrink-0">
             <button
               type="button"
               onClick={onClose}
-              className="inline-flex text-gray-400 hover:text-gray-500 focus:outline-none"
+              className={`
+                rounded-full p-1.5 inline-flex items-center justify-center
+                text-gray-400 hover:text-gray-500 focus:outline-none
+                focus:ring-2 focus:ring-offset-2 focus:ring-${type === 'success' ? 'success' : type === 'error' ? 'danger' : 'warning'}
+              `}
             >
-              <X className="h-5 w-5" />
+              <span className="sr-only">Close</span>
+              <X className="h-4 w-4" />
             </button>
           </div>
         </div>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, AlertCircle, AlertOctagon } from 'lucide-react';
 
 interface ConfirmationDialogProps {
   isOpen: boolean;
@@ -27,36 +27,58 @@ export function ConfirmationDialog({
   const getTypeStyles = () => {
     switch (type) {
       case 'danger':
-        return 'bg-red-50 text-red-800 border-red-200';
+        return {
+          bg: 'bg-danger bg-opacity-10',
+          text: 'text-danger',
+          icon: AlertOctagon,
+          button: 'btn-danger'
+        };
       case 'warning':
-        return 'bg-yellow-50 text-yellow-800 border-yellow-200';
+        return {
+          bg: 'bg-warning bg-opacity-10',
+          text: 'text-warning-dark',
+          icon: AlertTriangle,
+          button: 'btn-warning'
+        };
       case 'info':
-        return 'bg-blue-50 text-blue-800 border-blue-200';
+        return {
+          bg: 'bg-info bg-opacity-10',
+          text: 'text-info',
+          icon: AlertCircle,
+          button: 'btn-primary'
+        };
       default:
-        return 'bg-gray-50 text-gray-800 border-gray-200';
+        return {
+          bg: 'bg-gray-100',
+          text: 'text-gray-800',
+          icon: AlertCircle,
+          button: 'btn-primary'
+        };
     }
   };
 
+  const styles = getTypeStyles();
+  const Icon = styles.icon;
+
   return (
-    <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-md w-full">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 animate-fade-in">
+      <div className="bg-white rounded-xl max-w-md w-full shadow-xl transform transition-all animate-slide-up">
         <div className="p-6">
-          <div className="flex items-center">
-            <div className={`flex-shrink-0 rounded-full p-2 ${getTypeStyles()}`}>
-              <AlertTriangle className="h-6 w-6" />
+          <div className="flex items-start space-x-4">
+            <div className={`flex-shrink-0 rounded-full p-2 ${styles.bg}`}>
+              <Icon className={`h-6 w-6 ${styles.text}`} />
             </div>
-            <div className="ml-3">
-              <h3 className="text-lg font-medium text-gray-900">{title}</h3>
-              <div className="mt-2">
-                <p className="text-sm text-gray-500">{message}</p>
-              </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">{title}</h3>
+              <p className="text-sm text-gray-600">{message}</p>
             </div>
           </div>
-          <div className="mt-5 flex justify-end space-x-3">
+          
+          <div className="mt-6 flex justify-end space-x-3">
             <button
               type="button"
               onClick={onClose}
-              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="btn btn-outline"
             >
               {cancelText}
             </button>
@@ -66,13 +88,7 @@ export function ConfirmationDialog({
                 onConfirm();
                 onClose();
               }}
-              className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white ${
-                type === 'danger'
-                  ? 'bg-red-600 hover:bg-red-700 focus:ring-red-500'
-                  : type === 'warning'
-                  ? 'bg-yellow-600 hover:bg-yellow-700 focus:ring-yellow-500'
-                  : 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500'
-              } focus:outline-none focus:ring-2 focus:ring-offset-2`}
+              className={`btn ${styles.button}`}
             >
               {confirmText}
             </button>

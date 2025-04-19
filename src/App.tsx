@@ -56,7 +56,7 @@ function App() {
     <Router {...routerConfig}>
       <div className="min-h-screen bg-gray-50">
         <Navigation />
-        <main className="pt-16">
+        <main className="pt-16 sm:pt-20">
           <Routes>
             {/* Public routes */}
             <Route path="/" element={<Home />} />
@@ -78,7 +78,7 @@ function App() {
               element={
                 isAuthenticated ? (
                   <ProtectedRoute>
-                    <div className="container mx-auto px-4 py-8">
+                    <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-8">
                       <Dashboard />
                     </div>
                   </ProtectedRoute>
@@ -92,7 +92,9 @@ function App() {
               element={
                 isAuthenticated ? (
                   <ProtectedRoute>
-                    <Chat />
+                    <div className="h-[calc(100vh-4rem)] sm:h-[calc(100vh-5rem)]">
+                      <Chat />
+                    </div>
                   </ProtectedRoute>
                 ) : (
                   <Navigate to="/login" state={{ from: { pathname: '/chat' } }} replace />
@@ -104,7 +106,7 @@ function App() {
               element={
                 isAuthenticated ? (
                   <ProtectedRoute>
-                    <div className="container mx-auto px-4 py-8">
+                    <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-8">
                       <Reports />
                     </div>
                   </ProtectedRoute>
@@ -118,7 +120,7 @@ function App() {
               element={
                 isAuthenticated ? (
                   <ProtectedRoute>
-                    <div className="container mx-auto px-4 py-8">
+                    <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-8">
                       <CreateReport />
                     </div>
                   </ProtectedRoute>
@@ -132,7 +134,7 @@ function App() {
               element={
                 isAuthenticated ? (
                   <ProtectedRoute>
-                    <div className="container mx-auto px-4 py-8">
+                    <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-8">
                       <LeaderboardPage />
                     </div>
                   </ProtectedRoute>
@@ -146,7 +148,7 @@ function App() {
               element={
                 isAuthenticated ? (
                   <ProtectedRoute>
-                    <div className="container mx-auto px-4 py-8">
+                    <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-8">
                       <Profile />
                     </div>
                   </ProtectedRoute>
@@ -160,7 +162,7 @@ function App() {
               element={
                 isAuthenticated ? (
                   <ProtectedRoute>
-                    <div className="container mx-auto px-4 py-8">
+                    <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-8">
                       <MapTestPage />
                     </div>
                   </ProtectedRoute>
@@ -176,7 +178,7 @@ function App() {
               element={
                 isAuthenticated && user?.role === 'admin' ? (
                   <ProtectedRoute>
-                    <div className="container mx-auto px-4 py-8">
+                    <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-8">
                       <AdminDashboard />
                     </div>
                   </ProtectedRoute>

@@ -1,29 +1,37 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { MapPin, Shield, Award, ArrowRight, Users, BarChart, Globe } from 'lucide-react';
+import { MapPin, Shield, Award, ArrowRight, Users, BarChart, Globe, Star } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export function Home() {
   return (
     <div className="min-h-screen">
-      {/* Hero Section */}
+      {/* Hero Section with Video Background */}
       <section className="relative bg-gradient-to-r from-primary-dark to-primary-color text-white pt-32 pb-20">
         <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute inset-0 bg-black opacity-20"></div>
-          <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1579547945413-497e1b99dac0?ixlib=rb-1.2.1&auto=format&fit=crop&w=1950&q=80')] bg-cover bg-center opacity-10"></div>
+          <div className="absolute inset-0 bg-black opacity-50"></div>
+          <video
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="absolute inset-0 w-full h-full object-cover"
+          >
+            <source src="/videos/community-hero.mp4" type="video/mp4" />
+          </video>
         </div>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="text-center">
             <motion.h1 
-              className="text-5xl md:text-6xl font-bold mb-6"
+              className="text-5xl md:text-6xl font-bold mb-6 text-white drop-shadow-lg"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
             >
-          Community Assistance and Reporting System
+              Community Assistance and Reporting System
             </motion.h1>
             <motion.p 
-              className="text-xl md:text-2xl mb-10 max-w-3xl mx-auto"
+              className="text-2xl md:text-3xl mb-10 max-w-3xl mx-auto font-semibold text-white drop-shadow-lg"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
@@ -47,7 +55,7 @@ export function Home() {
         </div>
       </section>
 
-      {/* Features Section */}
+      {/* Features Section with Images */}
       <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
@@ -67,6 +75,13 @@ export function Home() {
               transition={{ duration: 0.5 }}
               viewport={{ once: true }}
             >
+              <div className="relative h-48 mb-6 rounded-lg overflow-hidden">
+                <img 
+                  src="/images/feature-location.jpg" 
+                  alt="Location-based reporting" 
+                  className="w-full h-full object-cover"
+                />
+              </div>
               <div className="flex justify-center mb-6">
                 <div className="p-3 bg-primary-light bg-opacity-10 rounded-full">
                   <MapPin className="h-10 w-10 text-primary-color" />
@@ -85,6 +100,13 @@ export function Home() {
               transition={{ duration: 0.5, delay: 0.2 }}
               viewport={{ once: true }}
             >
+              <div className="relative h-48 mb-6 rounded-lg overflow-hidden">
+                <img 
+                  src="/images/feature-tracking.jpg" 
+                  alt="Real-time tracking" 
+                  className="w-full h-full object-cover"
+                />
+              </div>
               <div className="flex justify-center mb-6">
                 <div className="p-3 bg-secondary-light bg-opacity-10 rounded-full">
                   <Shield className="h-10 w-10 text-secondary-color" />
@@ -103,6 +125,13 @@ export function Home() {
               transition={{ duration: 0.5, delay: 0.4 }}
               viewport={{ once: true }}
             >
+              <div className="relative h-48 mb-6 rounded-lg overflow-hidden">
+                <img 
+                  src="/images/feature-gamification.jpg" 
+                  alt="Gamification and rewards" 
+                  className="w-full h-full object-cover"
+                />
+              </div>
               <div className="flex justify-center mb-6">
                 <div className="p-3 bg-warning-color bg-opacity-10 rounded-full">
                   <Award className="h-10 w-10 text-warning-color" />
@@ -114,7 +143,201 @@ export function Home() {
               </p>
             </motion.div>
           </div>
-            </div>
+        </div>
+      </section>
+
+      {/* Testimonials Section */}
+      <section className="py-20 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+              What Our Users Say
+            </h2>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+              Join thousands of satisfied users who are making their communities better.
+            </p>
+          </div>
+          
+          <div className="grid md:grid-cols-3 gap-8">
+            <motion.div 
+              className="bg-white p-8 rounded-lg shadow-lg"
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              viewport={{ once: true }}
+            >
+              <div className="flex items-center mb-4">
+                <img 
+                  src="/images/testimonial-1.jpg" 
+                  alt="User testimonial" 
+                  className="w-12 h-12 rounded-full mr-4"
+                />
+                <div>
+                  <h4 className="font-semibold">Sarah Johnson</h4>
+                  <div className="flex text-yellow-400">
+                    <Star className="w-4 h-4" />
+                    <Star className="w-4 h-4" />
+                    <Star className="w-4 h-4" />
+                    <Star className="w-4 h-4" />
+                    <Star className="w-4 h-4" />
+                  </div>
+                </div>
+              </div>
+              <p className="text-gray-600">
+                "This platform has transformed how our community handles issues. The response time has improved dramatically!"
+              </p>
+            </motion.div>
+            
+            <motion.div 
+              className="bg-white p-8 rounded-lg shadow-lg"
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+              viewport={{ once: true }}
+            >
+              <div className="flex items-center mb-4">
+                <img 
+                  src="/images/testimonial-2.jpg" 
+                  alt="User testimonial" 
+                  className="w-12 h-12 rounded-full mr-4"
+                />
+                <div>
+                  <h4 className="font-semibold">Michael Chen</h4>
+                  <div className="flex text-yellow-400">
+                    <Star className="w-4 h-4" />
+                    <Star className="w-4 h-4" />
+                    <Star className="w-4 h-4" />
+                    <Star className="w-4 h-4" />
+                    <Star className="w-4 h-4" />
+                  </div>
+                </div>
+              </div>
+              <p className="text-gray-600">
+                "The real-time tracking feature is amazing. I can see exactly what's happening in my neighborhood."
+              </p>
+            </motion.div>
+            
+            <motion.div 
+              className="bg-white p-8 rounded-lg shadow-lg"
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.4 }}
+              viewport={{ once: true }}
+            >
+              <div className="flex items-center mb-4">
+                <img 
+                  src="/images/testimonial-3.jpg" 
+                  alt="User testimonial" 
+                  className="w-12 h-12 rounded-full mr-4"
+                />
+                <div>
+                  <h4 className="font-semibold">Emma Rodriguez</h4>
+                  <div className="flex text-yellow-400">
+                    <Star className="w-4 h-4" />
+                    <Star className="w-4 h-4" />
+                    <Star className="w-4 h-4" />
+                    <Star className="w-4 h-4" />
+                    <Star className="w-4 h-4" />
+                  </div>
+                </div>
+              </div>
+              <p className="text-gray-600">
+                "The gamification aspect makes reporting issues fun and engaging. I love earning badges for helping my community!"
+              </p>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* Gallery Section */}
+      <section className="py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+              See CARS-G in Action
+            </h2>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+              Take a look at how our platform is being used to create safer communities.
+            </p>
+          </div>
+          
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <motion.div 
+              className="relative h-48 rounded-lg overflow-hidden"
+              initial={{ opacity: 0, scale: 0.9 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.5 }}
+              viewport={{ once: true }}
+            >
+              <img 
+                src="/images/gallery-1.jpg" 
+                alt="Community meeting" 
+                className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+              />
+            </motion.div>
+            
+            <motion.div 
+              className="relative h-48 rounded-lg overflow-hidden"
+              initial={{ opacity: 0, scale: 0.9 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.5, delay: 0.1 }}
+              viewport={{ once: true }}
+            >
+              <img 
+                src="/images/gallery-2.jpg" 
+                alt="Mobile app usage" 
+                className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+              />
+            </motion.div>
+            
+            <motion.div 
+              className="relative h-48 rounded-lg overflow-hidden"
+              initial={{ opacity: 0, scale: 0.9 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+              viewport={{ once: true }}
+            >
+              <img 
+                src="/images/gallery-3.jpg" 
+                alt="Community event" 
+                className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+              />
+            </motion.div>
+            
+            <motion.div 
+              className="relative h-48 rounded-lg overflow-hidden"
+              initial={{ opacity: 0, scale: 0.9 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.5, delay: 0.3 }}
+              viewport={{ once: true }}
+            >
+              <img 
+                src="/images/gallery-4.jpg" 
+                alt="Success story" 
+                className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+              />
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="py-20 bg-primary-color text-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="text-3xl md:text-4xl font-bold mb-6">
+            Ready to Make a Difference?
+          </h2>
+          <p className="text-xl mb-8 max-w-3xl mx-auto">
+            Join our community of active citizens and start making your neighborhood safer today.
+          </p>
+          <Link 
+            to="/register" 
+            className="inline-flex items-center px-6 py-3 border border-transparent text-lg font-medium rounded-md text-primary-color bg-white hover:bg-gray-100 transition-colors duration-200"
+          >
+            Get Started Now
+            <ArrowRight className="ml-2 h-5 w-5" />
+          </Link>
+        </div>
       </section>
 
       {/* Stats Section */}
@@ -174,7 +397,7 @@ export function Home() {
               <div className="text-gray-600">User Satisfaction</div>
             </motion.div>
           </div>
-            </div>
+        </div>
       </section>
 
       {/* How It Works Section */}
@@ -244,44 +467,6 @@ export function Home() {
               </p>
             </motion.div>
           </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="py-20 bg-gradient-to-r from-primary-dark to-primary-color text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <motion.h2 
-            className="text-3xl md:text-4xl font-bold mb-6"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            viewport={{ once: true }}
-          >
-            Ready to Make a Difference?
-          </motion.h2>
-          <motion.p 
-            className="text-xl mb-10 max-w-3xl mx-auto"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            viewport={{ once: true }}
-          >
-            Join thousands of active users who are already making their communities safer and more connected.
-          </motion.p>
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.4 }}
-            viewport={{ once: true }}
-          >
-            <Link 
-              to="/register" 
-              className="inline-flex items-center px-6 py-3 border border-transparent text-lg font-medium rounded-md text-primary-color bg-white hover:bg-gray-100 transition-colors duration-200"
-            >
-              Get Started Today
-              <ArrowRight className="ml-2 h-5 w-5" />
-            </Link>
-          </motion.div>
         </div>
       </section>
 
