@@ -102,7 +102,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, roomName, onDelete }
         const existingReaction = updatedReactions.find(r => r.reaction === reaction);
         
         if (existingReaction) {
-          existingReaction.count = count; // Use the actual count from the server
+          existingReaction.count = count;
           if (existingReaction.count <= 0) {
             updatedReactions.splice(updatedReactions.indexOf(existingReaction), 1);
           }
@@ -117,52 +117,12 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, roomName, onDelete }
       });
     });
 
-    // Subscribe to message updates (for status changes)
-    const messageUpdateSubscription = supabase
-      .channel(`message_updates:${roomId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'chat_messages',
-          filter: `room_id=eq.${roomId}`,
-        },
-        (payload) => {
-          setMessages(prev => 
-            prev.map(msg => 
-              msg.id === payload.new.id ? { ...msg, ...payload.new } : msg
-            )
-          );
-        }
-      )
-      .subscribe();
-
-    // Subscribe to message deletions
-    const messageDeleteSubscription = supabase
-      .channel(`message_deletes:${roomId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'DELETE',
-          schema: 'public',
-          table: 'chat_messages',
-          filter: `room_id=eq.${roomId}`,
-        },
-        (payload) => {
-          setMessages(prev => prev.filter(msg => msg.id !== payload.old.id));
-        }
-      )
-      .subscribe();
-
     setIsSubscribed(true);
 
     return () => {
       messageSubscription();
       typingSubscription();
       reactionSubscription();
-      messageUpdateSubscription.unsubscribe();
-      messageDeleteSubscription.unsubscribe();
       setIsSubscribed(false);
     };
   }, [roomId]);
