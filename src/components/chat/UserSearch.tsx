@@ -1,23 +1,27 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
+import { Search, UserPlus, X } from 'lucide-react';
+import { useAuthStore } from '../../store/authStore';
 
 interface User {
   id: string;
   username: string;
   avatar_url: string | null;
+  role?: string;
 }
 
 interface UserSearchProps {
   onStartConversation: (userId: string, username: string) => void;
+  excludeUsers?: string[];
 }
 
-export const UserSearch: React.FC<UserSearchProps> = ({ onStartConversation }) => {
+export const UserSearch: React.FC<UserSearchProps> = ({ onStartConversation, excludeUsers = [] }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { user: currentUser } = useAuth();
+  const { user: currentUser } = useAuthStore();
 
   const searchUsers = useCallback(async (term: string) => {
     if (!term.trim()) {
@@ -31,13 +35,22 @@ export const UserSearch: React.FC<UserSearchProps> = ({ onStartConversation }) =
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, username, avatar_url')
+        .select('id, username, avatar_url, role')
         .ilike('username', `%${term}%`)
         .neq('id', currentUser?.id)
         .limit(10);
 
       if (error) throw error;
-      setUsers(data || []);
+      
+      // Filter out admin users if current user is not an admin
+      const filteredUsers = currentUser?.role === 'admin'
+        ? data
+        : data.filter((user: User) => user.role !== 'admin');
+      
+      // Filter out excluded users
+      const finalUsers = filteredUsers.filter((user: User) => !excludeUsers.includes(user.id));
+      
+      setUsers(finalUsers || []);
     } catch (err) {
       console.error('Error searching users:', err);
       setError('Failed to search users. Please try again.');
@@ -45,7 +58,7 @@ export const UserSearch: React.FC<UserSearchProps> = ({ onStartConversation }) =
     } finally {
       setIsLoading(false);
     }
-  }, [currentUser?.id]);
+  }, [currentUser?.id, excludeUsers, currentUser?.role]);
 
   useEffect(() => {
     const debounceTimer = setTimeout(() => searchUsers(searchTerm), 300);

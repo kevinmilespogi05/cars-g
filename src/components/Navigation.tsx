@@ -1,13 +1,16 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { Home, MapPin, Trophy, Map, User, LogOut, Shield, Menu, X, MessageSquare, FileText, Award } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Home, MapPin, Trophy, Map, User, LogOut, Shield, Menu, X, MessageSquare, FileText, Award, ChevronDown } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 
 export function Navigation() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { user, signOut } = useAuthStore();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
 
   // Handle scroll effect
   useEffect(() => {
@@ -19,6 +22,18 @@ export function Navigation() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Handle click outside profile menu
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
+        setIsProfileMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const navItems = [
     { path: '/reports', icon: FileText, label: 'Reports' },
     { path: '/map-test', icon: Map, label: 'Map' },
@@ -28,6 +43,15 @@ export function Navigation() {
 
   const isActive = (path: string) => {
     return location.pathname === path;
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      navigate('/login');
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
   };
 
   return (
@@ -45,7 +69,11 @@ export function Navigation() {
             to="/" 
             className="flex items-center space-x-2 text-gray-900 hover:text-primary-color transition-colors"
           >
-            <Shield className="h-8 w-8" />
+            <img 
+              src="/images/logo.jpg" 
+              alt="CARS-G Logo" 
+              className="h-8 w-8 object-contain"
+            />
             <span className="text-2xl font-bold">CARS-G</span>
           </Link>
 
@@ -68,6 +96,60 @@ export function Navigation() {
                 {label}
               </Link>
             ))}
+
+            {/* Profile Dropdown */}
+            {user && (
+              <div className="relative ml-4" ref={profileMenuRef}>
+                <button
+                  onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+                  className="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  {user.avatar_url ? (
+                    <img
+                      src={user.avatar_url}
+                      alt={user.username || 'Profile'}
+                      className="h-8 w-8 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="h-8 w-8 rounded-full bg-primary-color/10 flex items-center justify-center">
+                      <User className="h-5 w-5 text-primary-color" />
+                    </div>
+                  )}
+                  <ChevronDown className={`h-4 w-4 text-gray-500 transition-transform ${isProfileMenuOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {/* Dropdown Menu */}
+                {isProfileMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 z-50">
+                    <Link
+                      to="/profile"
+                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                      onClick={() => setIsProfileMenuOpen(false)}
+                    >
+                      <User className="h-4 w-4 mr-2" />
+                      Profile
+                    </Link>
+                    {user?.role === 'admin' && (
+                      <Link
+                        to="/admin"
+                        className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                        onClick={() => setIsProfileMenuOpen(false)}
+                      >
+                        <Shield className="h-4 w-4 mr-2" />
+                        Admin Dashboard
+                      </Link>
+                    )}
+                    <button
+                      onClick={handleLogout}
+                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                    >
+                      <LogOut className="h-4 w-4 mr-2" />
+                      Log Out
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -112,6 +194,25 @@ export function Navigation() {
               {label}
             </Link>
           ))}
+          {user && (
+            <>
+              <Link
+                to="/profile"
+                className="flex items-center px-4 py-3 rounded-lg text-sm font-medium text-gray-900 hover:text-primary-color hover:bg-gray-50"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                <User className="h-5 w-5 mr-3" />
+                Profile
+              </Link>
+              <button
+                onClick={handleLogout}
+                className="flex items-center w-full px-4 py-3 rounded-lg text-sm font-medium text-gray-900 hover:text-primary-color hover:bg-gray-50"
+              >
+                <LogOut className="h-5 w-5 mr-3" />
+                Log Out
+              </button>
+            </>
+          )}
         </div>
       </div>
     </nav>

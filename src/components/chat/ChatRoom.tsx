@@ -38,6 +38,8 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, roomName, onDelete }
   const [selectedMessage, setSelectedMessage] = useState<string | null>(null);
   const [reactionMenuOpen, setReactionMenuOpen] = useState<string | null>(null);
   const [messageReactions, setMessageReactions] = useState<Record<string, MessageReaction[]>>({});
+  const menuRef = useRef<HTMLDivElement>(null);
+  const reactionMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const initializeChat = async () => {
@@ -98,22 +100,30 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, roomName, onDelete }
     const reactionSubscription = chatService.subscribeToReactions(roomId, (messageId, reaction, count) => {
       setMessageReactions(prev => {
         const currentReactions = prev[messageId] || [];
-        const updatedReactions = [...currentReactions];
-        const existingReaction = updatedReactions.find(r => r.reaction === reaction);
         
-        if (existingReaction) {
-          existingReaction.count = count;
-          if (existingReaction.count <= 0) {
-            updatedReactions.splice(updatedReactions.indexOf(existingReaction), 1);
+        if (count <= 0) {
+          // Remove the reaction if count is 0
+          return {
+            ...prev,
+            [messageId]: currentReactions.filter(r => r.reaction !== reaction)
+          };
+        } else {
+          // Update or add the reaction
+          const existingReaction = currentReactions.find(r => r.reaction === reaction);
+          if (existingReaction) {
+            return {
+              ...prev,
+              [messageId]: currentReactions.map(r => 
+                r.reaction === reaction ? { reaction, count } : r
+              )
+            };
+          } else {
+            return {
+              ...prev,
+              [messageId]: [...currentReactions, { reaction, count }]
+            };
           }
-        } else if (count > 0) {
-          updatedReactions.push({ reaction, count });
         }
-        
-        return {
-          ...prev,
-          [messageId]: updatedReactions
-        };
       });
     });
 
@@ -271,10 +281,66 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, roomName, onDelete }
 
   const handleAddReaction = async (messageId: string, reaction: string) => {
     try {
-      await chatService.addReaction(messageId, reaction);
+      // Check if user already has a reaction on this message
+      const currentReactions = messageReactions[messageId] || [];
+      const userReaction = currentReactions.find(r => r.reaction === reaction);
+      
+      if (userReaction) {
+        // If user already has this reaction, remove it
+        await handleRemoveReaction(messageId, reaction);
+        return;
+      }
+
+      // Remove any existing reaction from the user
+      const otherReactions = currentReactions.filter(r => r.reaction !== reaction);
+      
+      // Optimistically update the UI
+      setMessageReactions(prev => ({
+        ...prev,
+        [messageId]: [...otherReactions, { reaction, count: 1 }]
+      }));
+
+      // Close the reaction menu
       setReactionMenuOpen(null);
+
+      // Send the reaction to the server
+      await chatService.addReaction(messageId, reaction);
     } catch (err) {
       console.error('Failed to add reaction:', err);
+      // Revert the optimistic update if the server request fails
+      setMessageReactions(prev => {
+        const currentReactions = prev[messageId] || [];
+        return {
+          ...prev,
+          [messageId]: currentReactions.filter(r => r.reaction !== reaction)
+        };
+      });
+    }
+  };
+
+  const handleRemoveReaction = async (messageId: string, reaction: string) => {
+    try {
+      // Optimistically update the UI
+      setMessageReactions(prev => {
+        const currentReactions = prev[messageId] || [];
+        return {
+          ...prev,
+          [messageId]: currentReactions.filter(r => r.reaction !== reaction)
+        };
+      });
+
+      // Send the removal to the server
+      await chatService.removeReaction(messageId, reaction);
+    } catch (err) {
+      console.error('Failed to remove reaction:', err);
+      // Revert the optimistic update if the server request fails
+      setMessageReactions(prev => {
+        const currentReactions = prev[messageId] || [];
+        return {
+          ...prev,
+          [messageId]: [...currentReactions, { reaction, count: 1 }]
+        };
+      });
     }
   };
 
@@ -287,13 +353,22 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, roomName, onDelete }
     }
   };
 
-  const handleRemoveReaction = async (messageId: string, reaction: string) => {
-    try {
-      await chatService.removeReaction(messageId, reaction);
-    } catch (err) {
-      console.error('Failed to remove reaction:', err);
-    }
-  };
+  // Add click outside handler for both menus
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setSelectedMessage(null);
+      }
+      if (reactionMenuRef.current && !reactionMenuRef.current.contains(event.target as Node)) {
+        setReactionMenuOpen(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   if (isLoading && messages.length === 0) {
     return (
@@ -367,28 +442,40 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, roomName, onDelete }
             <div
               className={`max-w-[70%] rounded-lg p-3 ${
                 message.sender_id === user?.id
-                  ? 'bg-primary-color text-white rounded-br-none'
+                  ? 'bg-gradient-to-br from-primary-dark to-primary-color text-white rounded-br-none shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-[1.02]'
                   : 'bg-white text-gray-900 rounded-bl-none shadow-sm'
               }`}
             >
               <div className="flex items-center space-x-2 mb-1">
-                <span className="font-medium">
+                <span className={`font-medium ${
+                  message.sender_id === user?.id
+                    ? 'text-white text-opacity-100 drop-shadow-[0_1px_1px_rgba(0,0,0,0.3)]'
+                    : 'text-gray-900'
+                }`}>
                   {message.sender_id === user?.id ? 'You' : message.profiles?.username}
                 </span>
-                <span className="text-xs opacity-70">
+                <span className={`text-xs ${
+                  message.sender_id === user?.id
+                    ? 'text-white text-opacity-90 drop-shadow-[0_1px_1px_rgba(0,0,0,0.2)]'
+                    : 'text-gray-500'
+                }`}>
                   {formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}
                 </span>
                 {message.sender_id === user?.id && (
                   <span className="ml-1">
                     {message.status === 'delivered' ? (
-                      <CheckCheck className="w-3 h-3" />
+                      <CheckCheck className="w-3 h-3 text-white text-opacity-90 drop-shadow-[0_1px_1px_rgba(0,0,0,0.2)]" />
                     ) : (
-                      <Check className="w-3 h-3" />
+                      <Check className="w-3 h-3 text-white text-opacity-90 drop-shadow-[0_1px_1px_rgba(0,0,0,0.2)]" />
                     )}
                   </span>
                 )}
               </div>
-              <p className="text-sm">{message.content}</p>
+              <p className={`text-sm ${
+                message.sender_id === user?.id
+                  ? 'text-white text-opacity-100 drop-shadow-[0_1px_1px_rgba(0,0,0,0.3)] leading-relaxed'
+                  : 'text-gray-900 leading-relaxed'
+              }`}>{message.content}</p>
               
               {/* Message Reactions */}
               {(messageReactions[message.id] || []).length > 0 && (
@@ -401,7 +488,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, roomName, onDelete }
                         onClick={() => isUserReaction && handleRemoveReaction(message.id, reaction.reaction)}
                         className={`text-xs px-2 py-1 rounded-full ${
                           message.sender_id === user?.id
-                            ? 'bg-white/20 hover:bg-white/30 cursor-pointer'
+                            ? 'bg-white/20 hover:bg-white/30 cursor-pointer text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.2)]'
                             : 'bg-gray-100'
                         }`}
                       >
@@ -415,14 +502,22 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, roomName, onDelete }
               {/* Message Actions */}
               <div className="flex items-center justify-end mt-2 space-x-2">
                 <button
-                  onClick={() => setReactionMenuOpen(message.id)}
-                  className="p-1 rounded-full hover:bg-white/10 transition-colors"
+                  onClick={() => setReactionMenuOpen(reactionMenuOpen === message.id ? null : message.id)}
+                  className={`p-1 rounded-full transition-colors ${
+                    message.sender_id === user?.id
+                      ? 'hover:bg-white/20 text-white/90'
+                      : 'hover:bg-gray-100'
+                  }`}
                 >
                   <Smile className="w-4 h-4" />
                 </button>
                 <button
-                  onClick={() => setSelectedMessage(message.id)}
-                  className="p-1 rounded-full hover:bg-white/10 transition-colors"
+                  onClick={() => setSelectedMessage(selectedMessage === message.id ? null : message.id)}
+                  className={`p-1 rounded-full transition-colors ${
+                    message.sender_id === user?.id
+                      ? 'hover:bg-white/20 text-white/90'
+                      : 'hover:bg-gray-100'
+                  }`}
                 >
                   <MoreVertical className="w-4 h-4" />
                 </button>
@@ -452,7 +547,10 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, roomName, onDelete }
 
       {/* Reaction Menu */}
       {reactionMenuOpen && (
-        <div className="absolute bottom-20 right-4 bg-white rounded-lg shadow-lg border border-gray-200 p-2 flex space-x-2">
+        <div 
+          ref={reactionMenuRef}
+          className="absolute bottom-20 right-4 bg-white rounded-lg shadow-lg border border-gray-200 p-2 flex space-x-2"
+        >
           <button
             onClick={() => handleAddReaction(reactionMenuOpen, '👍')}
             className="p-2 hover:bg-gray-100 rounded-full transition-colors"
@@ -488,7 +586,10 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, roomName, onDelete }
 
       {/* Quick Reply Menu */}
       {selectedMessage && (
-        <div className="absolute bottom-20 right-4 bg-white rounded-lg shadow-lg border border-gray-200 p-2">
+        <div 
+          ref={menuRef}
+          className="absolute bottom-20 right-4 bg-white rounded-lg shadow-lg border border-gray-200 p-2"
+        >
           <div className="space-y-2">
             <button
               onClick={() => handleQuickReply(selectedMessage, 'Yes, I agree!')}

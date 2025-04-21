@@ -183,7 +183,7 @@ function App() {
                     </div>
                   </ProtectedRoute>
                 ) : (
-                  <Navigate to="/login" state={{ from: { pathname: '/admin' } }} replace />
+                  <Navigate to="/" replace />
                 )
               }
             />

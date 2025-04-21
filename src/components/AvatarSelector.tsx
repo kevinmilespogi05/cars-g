@@ -3,11 +3,11 @@ import { User, Upload } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 const DEFAULT_AVATARS = [
-  '/avatars/avatar1.png',
-  '/avatars/avatar2.png',
-  '/avatars/avatar3.png',
-  '/avatars/avatar4.png',
-  '/avatars/avatar5.png',
+  '/avatars/avatar1.svg',
+  '/avatars/avatar2.svg',
+  '/avatars/avatar3.svg',
+  '/avatars/avatar4.svg',
+  '/avatars/avatar5.svg',
 ];
 
 interface AvatarSelectorProps {

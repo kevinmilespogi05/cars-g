@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { useAuthStore } from '../store/authStore';
 import { Loader2, RefreshCw, TrendingUp, TrendingDown, Minus, Calendar, Clock, User, AlertTriangle, Download, Filter } from 'lucide-react';
 import { Notification } from './Notification';
 
@@ -28,6 +29,7 @@ interface Statistics {
 }
 
 export function AdminStatistics() {
+  const { user: currentUser } = useAuthStore();
   const [statistics, setStatistics] = useState<Statistics>({
     totalReports: 0,
     pendingReports: 0,
@@ -45,16 +47,18 @@ export function AdminStatistics() {
     fastestResolutionTime: 0,
     slowestResolutionTime: 0,
   });
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [notification, setNotification] = useState<{
     message: string;
     type: 'success' | 'error' | 'warning';
   } | null>(null);
-  const [timeRange, setTimeRange] = useState<'day' | 'week' | 'month' | 'year'>('month');
+  const [timeRange, setTimeRange] = useState<'day' | 'week' | 'month' | 'year'>('week');
 
   useEffect(() => {
-    fetchStatistics();
-  }, [timeRange]);
+    if (currentUser?.role === 'admin') {
+      fetchStatistics();
+    }
+  }, [timeRange, currentUser?.role]);
 
   const fetchStatistics = async () => {
     setLoading(true);
@@ -235,6 +239,10 @@ export function AdminStatistics() {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
+
+  if (currentUser?.role !== 'admin') {
+    return null;
+  }
 
   if (loading) {
     return (

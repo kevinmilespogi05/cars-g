@@ -19,6 +19,7 @@ interface Report {
   created_at: string;
   user_id: string;
   username: string;
+  avatar_url: string | null;
   images: string[];
 }
 
@@ -71,11 +72,11 @@ export function AdminDashboard() {
 
       if (reportsError) throw reportsError;
 
-      // Then fetch usernames for each report
+      // Then fetch usernames and avatar_urls for each report
       const userIds = reportsData?.map(report => report.user_id) || [];
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
-        .select('id, username')
+        .select('id, username, avatar_url')
         .in('id', userIds);
 
       if (profilesError) throw profilesError;
@@ -85,7 +86,8 @@ export function AdminDashboard() {
         const profile = profilesData?.find(p => p.id === report.user_id);
         return {
           ...report,
-          username: profile?.username || 'Unknown User'
+          username: profile?.username || 'Unknown User',
+          avatar_url: profile?.avatar_url || null
         };
       }) || [];
 
@@ -290,82 +292,99 @@ export function AdminDashboard() {
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center">
-                              <p className="text-sm font-medium text-gray-900 truncate">
-                                {report.title}
-                              </p>
-                              <div className="ml-2 flex-shrink-0 flex">
-                                <p className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(report.status)}`}>
-                                  {report.status.replace('_', ' ')}
-                                </p>
-                                <p className={`ml-2 px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getPriorityColor(report.priority)}`}>
-                                  {report.priority}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="mt-2 flex justify-between">
-                              <div className="sm:flex">
-                                <p className="flex items-center text-sm text-gray-500">
-                                  <MapPin className="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" />
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1 pr-4">
+                                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                                  {report.title}
+                                </h3>
+                                <div className="flex items-center text-sm text-gray-600 mb-3">
+                                  <MapPin className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />
                                   {report.location_address}
-                                </p>
-                                <p className="mt-2 flex items-center text-sm text-gray-500 sm:mt-0 sm:ml-6">
-                                  <User className="flex-shrink-0 mr-1.5 h-5 w-5 text-gray-400" />
-                                  {report.username}
-                                </p>
+                                </div>
+                                <div className="flex items-center space-x-3">
+                                  <p className={`px-3 py-1 inline-flex text-xs font-medium rounded-full ${getStatusColor(report.status)}`}>
+                                    {report.status.replace('_', ' ')}
+                                  </p>
+                                  <p className={`px-3 py-1 inline-flex text-xs font-medium rounded-full ${getPriorityColor(report.priority)}`}>
+                                    {report.priority}
+                                  </p>
+                                </div>
                               </div>
-                              <div className="flex space-x-2">
-                                {report.status === 'pending' && (
-                                  <>
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        updateReportStatus(report.id, 'in_progress');
-                                      }}
-                                      disabled={actionLoading}
-                                      className="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                      {actionLoading ? (
-                                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                                      ) : (
-                                        <Check className="h-3 w-3 mr-1" />
-                                      )}
-                                      Accept
-                                    </button>
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        updateReportStatus(report.id, 'rejected');
-                                      }}
-                                      disabled={actionLoading}
-                                      className="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                      {actionLoading ? (
-                                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                                      ) : (
-                                        <X className="h-3 w-3 mr-1" />
-                                      )}
-                                      Reject
-                                    </button>
-                                  </>
-                                )}
-                                {report.status === 'in_progress' && (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      updateReportStatus(report.id, 'resolved');
-                                    }}
-                                    disabled={actionLoading}
-                                    className="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                                  >
-                                    {actionLoading ? (
-                                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                              <div className="flex items-center space-x-4">
+                                <div className="flex items-center">
+                                  <div className="flex-shrink-0">
+                                    {report.avatar_url ? (
+                                      <img
+                                        src={report.avatar_url}
+                                        alt={report.username}
+                                        className="h-12 w-12 rounded-full object-cover border-2 border-gray-200 shadow-sm"
+                                      />
                                     ) : (
-                                      <Check className="h-3 w-3 mr-1" />
+                                      <div className="h-12 w-12 rounded-full bg-gray-100 flex items-center justify-center border-2 border-gray-200 shadow-sm">
+                                        <span className="text-gray-500 font-medium text-lg">
+                                          {report.username.charAt(0).toUpperCase()}
+                                        </span>
+                                      </div>
                                     )}
-                                    Mark as Resolved
-                                  </button>
-                                )}
+                                  </div>
+                                  <div className="ml-3">
+                                    <div className="text-sm font-medium text-gray-900">{report.username}</div>
+                                    <div className="text-xs text-gray-500">{new Date(report.created_at).toLocaleDateString()}</div>
+                                  </div>
+                                </div>
+                                <div className="flex space-x-2">
+                                  {report.status === 'pending' && (
+                                    <>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          updateReportStatus(report.id, 'in_progress');
+                                        }}
+                                        disabled={actionLoading}
+                                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                                      >
+                                        {actionLoading ? (
+                                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                        ) : (
+                                          <Check className="h-4 w-4 mr-2" />
+                                        )}
+                                        Accept
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          updateReportStatus(report.id, 'rejected');
+                                        }}
+                                        disabled={actionLoading}
+                                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                                      >
+                                        {actionLoading ? (
+                                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                        ) : (
+                                          <X className="h-4 w-4 mr-2" />
+                                        )}
+                                        Reject
+                                      </button>
+                                    </>
+                                  )}
+                                  {report.status === 'in_progress' && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        updateReportStatus(report.id, 'resolved');
+                                      }}
+                                      disabled={actionLoading}
+                                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                                    >
+                                      {actionLoading ? (
+                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                      ) : (
+                                        <Check className="h-4 w-4 mr-2" />
+                                      )}
+                                      Mark as Resolved
+                                    </button>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -420,8 +439,26 @@ export function AdminDashboard() {
                 </div>
                 <div>
                   <h4 className="text-sm font-medium text-gray-500">Reported By</h4>
-                  <div className="text-sm text-gray-500">
-                    {selectedReport.username}
+                  <div className="mt-2 flex items-center">
+                    {selectedReport.avatar_url ? (
+                      <img
+                        src={selectedReport.avatar_url}
+                        alt={selectedReport.username}
+                        className="h-10 w-10 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
+                        <span className="text-gray-500 font-medium">
+                          {selectedReport.username.charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                    )}
+                    <div className="ml-4">
+                      <div className="text-sm font-medium text-gray-900">{selectedReport.username}</div>
+                      <div className="text-sm text-gray-500">
+                        {new Date(selectedReport.created_at).toLocaleDateString()}
+                      </div>
+                    </div>
                   </div>
                 </div>
                 <div className="col-span-2">
@@ -448,42 +485,6 @@ export function AdminDashboard() {
                 </div>
               )}
               <div className="mt-5 flex justify-end space-x-2">
-                {selectedReport.status === 'pending' && (
-                  <button
-                    onClick={() => {
-                      updateReportStatus(selectedReport.id, 'in_progress');
-                      setSelectedReport(null);
-                    }}
-                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                  >
-                    <Check className="h-4 w-4 mr-1" />
-                    Verify Report
-                  </button>
-                )}
-                {selectedReport.status === 'in_progress' && (
-                  <button
-                    onClick={() => {
-                      updateReportStatus(selectedReport.id, 'resolved');
-                      setSelectedReport(null);
-                    }}
-                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-                  >
-                    <Check className="h-4 w-4 mr-1" />
-                    Mark as Resolved
-                  </button>
-                )}
-                {(selectedReport.status === 'pending' || selectedReport.status === 'in_progress') && (
-                  <button
-                    onClick={() => {
-                      updateReportStatus(selectedReport.id, 'rejected');
-                      setSelectedReport(null);
-                    }}
-                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                  >
-                    <X className="h-4 w-4 mr-1" />
-                    Reject Report
-                  </button>
-                )}
                 <button
                   onClick={() => setSelectedReport(null)}
                   className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"

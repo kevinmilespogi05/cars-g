@@ -63,12 +63,12 @@ export const useAuthStore = create<AuthState>((set) => ({
           if (fetchError) throw fetchError;
           
           set({ 
-            user: newProfile,
+            user: { ...newProfile, email: session.user.email },
             isAuthenticated: true,
           });
         } else {
           set({ 
-            user: profile,
+            user: { ...profile, email: session.user.email },
             isAuthenticated: true,
           });
         }
@@ -113,12 +113,12 @@ export const useAuthStore = create<AuthState>((set) => ({
             if (fetchError) throw fetchError;
             
             set({ 
-              user: newProfile,
+              user: { ...newProfile, email: session.user.email },
               isAuthenticated: true,
             });
           } else {
             set({ 
-              user: existingProfile,
+              user: { ...existingProfile, email: session.user.email },
               isAuthenticated: true,
             });
           }
@@ -149,7 +149,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       if (profileError) throw profileError;
         
       set({ 
-        user: profile,
+        user: { ...profile, email: data.user.email },
         isAuthenticated: true,
       });
     }
@@ -204,13 +204,15 @@ export const useAuthStore = create<AuthState>((set) => ({
         const { data: existingProfiles, error: checkError } = await supabase
           .from('profiles')
           .select('id')
-          .eq('id', data.user.id);
+          .eq('id', data.user.id)
+          .maybeSingle();
 
         if (checkError) {
           console.error('Error checking existing profile:', checkError);
+          throw checkError;
         }
 
-        if (!existingProfiles || existingProfiles.length === 0) {
+        if (!existingProfiles) {
           console.log('Creating new profile for user:', data.user.id);
           const { error: profileError } = await supabase
             .from('profiles')

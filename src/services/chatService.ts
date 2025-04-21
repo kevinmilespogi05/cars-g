@@ -34,7 +34,7 @@ export const chatService = {
 
     const deletedRoomIds = deletedRooms?.map(dr => dr.room_id) || [];
 
-    // Get all rooms that the user is a participant in and not deleted
+    // First get the rooms with basic participant info
     let query = supabase
       .from('chat_rooms')
       .select(`
@@ -55,17 +55,33 @@ export const chatService = {
     if (error) throw new ChatServiceError(`Failed to get rooms: ${error.message}`);
     if (!rooms) return [];
 
-    // For each room, get all participants
+    // For each room, get the full participant details with profiles
     const roomsWithParticipants = await Promise.all(
       rooms.map(async (room) => {
+        // First get the participant user IDs
         const { data: participants } = await supabase
           .from('chat_participants')
           .select('user_id')
           .eq('room_id', room.id);
-        
+
+        if (!participants) return { ...room, chat_participants: [] };
+
+        // Then get the profiles for these users
+        const userIds = participants.map(p => p.user_id);
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, username, avatar_url, role')
+          .in('id', userIds);
+
+        // Combine the data
+        const chatParticipants = participants.map(participant => ({
+          user_id: participant.user_id,
+          profiles: profiles?.find(p => p.id === participant.user_id) || null
+        }));
+
         return {
           ...room,
-          chat_participants: participants || []
+          chat_participants: chatParticipants
         };
       })
     );
@@ -139,25 +155,75 @@ export const chatService = {
 
   // Direct Messaging
   async createDirectMessageRoom(otherUserId: string): Promise<ChatRoom> {
-    const { data: otherUser, error: userError } = await supabase
-      .from('profiles')
-      .select('username')
-      .eq('id', otherUserId)
-      .single();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new ChatServiceError('User not authenticated');
 
-    if (userError) throw new ChatServiceError(`Failed to get user: ${userError.message}`);
-    if (!otherUser) throw new ChatServiceError('User not found');
+    // First check if a direct message room already exists between these users
+    const { data: existingRooms, error: existingError } = await supabase
+      .from('chat_rooms')
+      .select(`
+        *,
+        chat_participants (
+          user_id
+        )
+      `)
+      .eq('is_direct_message', true)
+      .or(`user_id.eq.${user.id},user_id.eq.${otherUserId}`, { foreignTable: 'chat_participants' });
 
-    const { data, error } = await supabase
-      .rpc('create_direct_message_room', { 
+    if (existingError) throw new ChatServiceError(`Failed to check existing rooms: ${existingError.message}`);
+
+    // Find a room where both users are participants
+    const existingRoom = existingRooms?.find(room => {
+      const participantIds = room.chat_participants?.map(p => p.user_id) || [];
+      return participantIds.includes(user.id) && participantIds.includes(otherUserId);
+    });
+
+    if (existingRoom) {
+      // Get the full room data with profiles
+      const { data: fullRoom, error: roomError } = await supabase
+        .from('chat_rooms')
+        .select(`
+          *,
+          chat_participants (
+            user_id
+          )
+        `)
+        .eq('id', existingRoom.id)
+        .single();
+
+      if (roomError) throw new ChatServiceError(`Failed to get room data: ${roomError.message}`);
+      if (!fullRoom) throw new ChatServiceError('Room not found');
+
+      // Get profiles for all participants
+      const participantIds = fullRoom.chat_participants?.map(p => p.user_id) || [];
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, username, avatar_url, role')
+        .in('id', participantIds);
+
+      if (profilesError) throw new ChatServiceError(`Failed to get profiles: ${profilesError.message}`);
+
+      // Combine the data
+      return {
+        ...fullRoom,
+        chat_participants: fullRoom.chat_participants?.map(participant => ({
+          ...participant,
+          profiles: profiles?.find(p => p.id === participant.user_id) || null
+        })) || []
+      };
+    }
+
+    // If no existing room, create a new one using a stored procedure
+    const { data: newRoom, error: createError } = await supabase
+      .rpc('create_direct_message_room', {
         other_user_id: otherUserId,
-        room_name: `${otherUser.username}`
-      })
-      .returns<ChatRoom>();
+        room_name: 'Direct Message'
+      });
 
-    if (error) throw new ChatServiceError(`Failed to create DM room: ${error.message}`);
-    if (!data) throw new ChatServiceError('No data returned from create DM room');
-    return data;
+    if (createError) throw new ChatServiceError(`Failed to create room: ${createError.message}`);
+    if (!newRoom) throw new ChatServiceError('No room created');
+
+    return newRoom;
   },
 
   // Messages
@@ -531,6 +597,50 @@ export const chatService = {
             const count = existingReactions?.length || 0;
             callback(payload.old.message_id, payload.old.reaction, -count);
           }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  },
+
+  subscribeToRoomDeletions(callback: (roomId: string, userId: string) => void) {
+    const subscription = supabase
+      .channel('room_deletions')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'chat_deletions',
+          filter: `user_id=eq.${supabase.auth.getUser().then(({ data }) => data.user?.id)}`
+        },
+        (payload) => {
+          callback(payload.new.room_id, payload.new.user_id);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  },
+
+  subscribeToRoomRestorations(callback: (roomId: string, userId: string) => void) {
+    const subscription = supabase
+      .channel('room_restorations')
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'chat_deletions',
+          filter: `user_id=eq.${supabase.auth.getUser().then(({ data }) => data.user?.id)}`
+        },
+        (payload) => {
+          callback(payload.old.room_id, payload.old.user_id);
         }
       )
       .subscribe();

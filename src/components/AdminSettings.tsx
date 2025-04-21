@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Loader2, RefreshCw, Save } from 'lucide-react';
+import { useAuthStore } from '../store/authStore';
+import { Loader2, RefreshCw, Save, AlertTriangle } from 'lucide-react';
 import { Notification } from './Notification';
 
 interface Setting {
@@ -18,6 +19,7 @@ interface NotificationState {
 }
 
 export function AdminSettings() {
+  const { user: currentUser } = useAuthStore();
   const [settings, setSettings] = useState<Setting[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -28,8 +30,10 @@ export function AdminSettings() {
   });
 
   useEffect(() => {
-    fetchSettings();
-  }, []);
+    if (currentUser?.role === 'admin') {
+      fetchSettings();
+    }
+  }, [currentUser?.role]);
 
   const showNotification = (message: string, type: NotificationState['type']) => {
     setNotification({ message, type, show: true });
@@ -91,6 +95,10 @@ export function AdminSettings() {
       )
     );
   };
+
+  if (currentUser?.role !== 'admin') {
+    return null;
+  }
 
   if (loading) {
     return (

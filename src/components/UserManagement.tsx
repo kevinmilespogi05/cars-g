@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { Loader2, UserPlus, UserMinus, Shield, Ban, RefreshCw } from 'lucide-react';
 import { ConfirmationDialog } from './ConfirmationDialog';
 import { Notification } from './Notification';
+import { useAuthStore } from '../store/authStore';
 
 interface User {
   id: string;
@@ -12,6 +13,7 @@ interface User {
   is_banned: boolean;
   created_at: string;
   last_sign_in: string;
+  avatar_url: string | null;
 }
 
 interface ConfirmationState {
@@ -23,6 +25,7 @@ interface ConfirmationState {
 }
 
 export function UserManagement() {
+  const { user: currentUser } = useAuthStore();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -52,7 +55,11 @@ export function UserManagement() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setUsers(data || []);
+      // Filter out admin users if current user is not an admin
+      const filteredUsers = currentUser?.role === 'admin' 
+        ? data 
+        : data?.filter(user => user.role !== 'admin') || [];
+      setUsers(filteredUsers);
     } catch (error) {
       console.error('Error fetching users:', error);
       setNotification({
@@ -183,11 +190,19 @@ export function UserManagement() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
-                      <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
-                        <span className="text-gray-500 font-medium">
-                          {user.username.charAt(0).toUpperCase()}
-                        </span>
-                      </div>
+                      {user.avatar_url ? (
+                        <img
+                          src={user.avatar_url}
+                          alt={user.username}
+                          className="h-10 w-10 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
+                          <span className="text-gray-500 font-medium">
+                            {user.username.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                      )}
                     </div>
                     <div className="ml-4">
                       <div className="text-sm font-medium text-gray-900">{user.username}</div>
@@ -195,72 +210,76 @@ export function UserManagement() {
                     </div>
                   </div>
                   <div className="flex items-center space-x-4">
-                    <div className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'
-                    }`}>
-                      {user.role}
-                    </div>
+                    {currentUser?.role === 'admin' && (
+                      <div className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                        user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'
+                      }`}>
+                        {user.role}
+                      </div>
+                    )}
                     <div className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                       user.is_banned ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
                     }`}>
                       {user.is_banned ? 'Banned' : 'Active'}
                     </div>
-                    <div className="flex space-x-2">
-                      {user.role === 'user' ? (
-                        <button
-                          onClick={() => handleRoleChange(user.id, 'admin')}
-                          disabled={actionLoading === user.id}
-                          className="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50"
-                        >
-                          {actionLoading === user.id ? (
-                            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                          ) : (
-                            <Shield className="h-3 w-3 mr-1" />
-                          )}
-                          Make Admin
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => handleRoleChange(user.id, 'user')}
-                          disabled={actionLoading === user.id}
-                          className="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-gray-600 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50"
-                        >
-                          {actionLoading === user.id ? (
-                            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                          ) : (
-                            <UserMinus className="h-3 w-3 mr-1" />
-                          )}
-                          Remove Admin
-                        </button>
-                      )}
-                      {!user.is_banned ? (
-                        <button
-                          onClick={() => handleBanToggle(user.id, true)}
-                          disabled={actionLoading === user.id}
-                          className="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
-                        >
-                          {actionLoading === user.id ? (
-                            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                          ) : (
-                            <Ban className="h-3 w-3 mr-1" />
-                          )}
-                          Ban User
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => handleBanToggle(user.id, false)}
-                          disabled={actionLoading === user.id}
-                          className="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
-                        >
-                          {actionLoading === user.id ? (
-                            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                          ) : (
-                            <UserPlus className="h-3 w-3 mr-1" />
-                          )}
-                          Unban User
-                        </button>
-                      )}
-                    </div>
+                    {currentUser?.role === 'admin' && (
+                      <div className="flex space-x-2">
+                        {user.role === 'user' ? (
+                          <button
+                            onClick={() => handleRoleChange(user.id, 'admin')}
+                            disabled={actionLoading === user.id}
+                            className="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50"
+                          >
+                            {actionLoading === user.id ? (
+                              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                            ) : (
+                              <Shield className="h-3 w-3 mr-1" />
+                            )}
+                            Make Admin
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleRoleChange(user.id, 'user')}
+                            disabled={actionLoading === user.id}
+                            className="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-gray-600 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50"
+                          >
+                            {actionLoading === user.id ? (
+                              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                            ) : (
+                              <UserMinus className="h-3 w-3 mr-1" />
+                            )}
+                            Remove Admin
+                          </button>
+                        )}
+                        {!user.is_banned ? (
+                          <button
+                            onClick={() => handleBanToggle(user.id, true)}
+                            disabled={actionLoading === user.id}
+                            className="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
+                          >
+                            {actionLoading === user.id ? (
+                              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                            ) : (
+                              <Ban className="h-3 w-3 mr-1" />
+                            )}
+                            Ban User
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleBanToggle(user.id, false)}
+                            disabled={actionLoading === user.id}
+                            className="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50"
+                          >
+                            {actionLoading === user.id ? (
+                              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                            ) : (
+                              <UserPlus className="h-3 w-3 mr-1" />
+                            )}
+                            Unban User
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               </li>

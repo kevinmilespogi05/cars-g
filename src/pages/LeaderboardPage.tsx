@@ -3,6 +3,7 @@ import { getLeaderboard } from '../lib/points';
 import { Trophy, Medal, Award, User, Calendar, Filter, Search, ChevronLeft, ChevronRight, ArrowUpDown, Star, TrendingUp, Zap } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuthStore } from '../store/authStore';
 
 interface LeaderboardEntry {
   id: string;
@@ -14,6 +15,7 @@ interface LeaderboardEntry {
   reports_verified?: number;
   reports_resolved?: number;
   previous_rank?: number;
+  role?: string;
 }
 
 type TimeFrame = 'all' | 'month' | 'week' | 'today';
@@ -30,6 +32,7 @@ interface CachedData {
 }
 
 export function LeaderboardPage() {
+  const { user: currentUser } = useAuthStore();
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -47,7 +50,7 @@ export function LeaderboardPage() {
 
   useEffect(() => {
     fetchLeaderboard();
-  }, [timeFrame]);
+  }, [timeFrame, sortField, sortOrder]);
 
   useEffect(() => {
     // Focus search input when component mounts
@@ -69,24 +72,32 @@ export function LeaderboardPage() {
       // Check cache first
       const cachedData = cache[timeFrame];
       if (cachedData && Date.now() - cachedData.timestamp < CACHE_DURATION) {
-        setEntries(cachedData.data);
+        const filteredData = currentUser?.role === 'admin'
+          ? cachedData.data
+          : cachedData.data.filter(entry => entry.role !== 'admin');
+        setEntries(filteredData);
         setLoading(false);
         return;
       }
 
-      const data = await getLeaderboard(100); // Get top 100 for full page
+      const data = await getLeaderboard();
       
-      // Add rank to each entry
-      const rankedData = data.map((entry, index) => ({
+      // Filter out admin users if current user is not an admin
+      const filteredData = currentUser?.role === 'admin'
+        ? data
+        : data.filter(entry => entry.role !== 'admin') || [];
+      
+      // Add rank to filtered data (after filtering out admins)
+      const rankedData = filteredData.map((entry, index) => ({
         ...entry,
         rank: index + 1
       }));
       
-      // Update cache
+      // Update cache with unfiltered data
       setCache(prev => ({
         ...prev,
         [timeFrame]: {
-          data: rankedData,
+          data: data,
           timestamp: Date.now()
         }
       }));

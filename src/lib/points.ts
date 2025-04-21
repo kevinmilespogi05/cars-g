@@ -63,7 +63,7 @@ export async function getPointsHistory(userId: string) {
 export async function getLeaderboard(limit = 10) {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, username, points, avatar_url')
+    .select('id, username, points, avatar_url, role')
     .order('points', { ascending: false })
     .limit(limit);
 

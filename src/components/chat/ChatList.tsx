@@ -4,6 +4,7 @@ import { chatService } from '../../services/chatService';
 import { UserSearch } from './UserSearch';
 import { Plus, Search, MessageSquare } from 'lucide-react';
 import { ChatServiceError } from '../../services/chatService';
+import { useAuthStore } from '../../store/authStore';
 
 interface ChatListProps {
   onSelectRoom: (room: ChatRoom) => void;
@@ -14,6 +15,7 @@ export const ChatList: React.FC<ChatListProps> = ({
   onSelectRoom,
   selectedRoomId,
 }) => {
+  const { user: currentUser } = useAuthStore();
   const [rooms, setRooms] = useState<ChatRoom[]>([]);
   const [newRoomName, setNewRoomName] = useState('');
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
@@ -26,14 +28,85 @@ export const ChatList: React.FC<ChatListProps> = ({
 
   useEffect(() => {
     loadRooms();
-  }, []);
+
+    // Subscribe to room deletions
+    const unsubscribeDeletions = chatService.subscribeToRoomDeletions((roomId, userId) => {
+      if (userId === currentUser?.id) {
+        setRooms(prevRooms => {
+          // Remove the deleted room from the list
+          const updatedRooms = prevRooms.filter(room => room.id !== roomId);
+          // If the deleted room was selected, clear the selection
+          if (selectedRoomId === roomId) {
+            onSelectRoom(null as any);
+          }
+          return updatedRooms;
+        });
+      }
+    });
+
+    // Subscribe to room restorations
+    const unsubscribeRestorations = chatService.subscribeToRoomRestorations((roomId, userId) => {
+      if (userId === currentUser?.id) {
+        // Reload rooms to get the restored room
+        loadRooms();
+      }
+    });
+
+    // Cleanup subscriptions
+    return () => {
+      unsubscribeDeletions();
+      unsubscribeRestorations();
+    };
+  }, [currentUser?.id, selectedRoomId, onSelectRoom]);
 
   const loadRooms = async () => {
     try {
+      setIsLoading(true);
       const loadedRooms = await chatService.getRooms();
-      setRooms(loadedRooms);
+      
+      // Create a Map to store unique rooms by their ID
+      const uniqueRoomsMap = new Map<string, ChatRoom>();
+      
+      // Filter out admin users if current user is not an admin
+      const filteredRooms = loadedRooms.filter((room: ChatRoom) => {
+        // Skip if we already have this room
+        if (uniqueRoomsMap.has(room.id)) {
+          return false;
+        }
+
+        // For group chats, check if any participant is an admin
+        if (room.isGroup) {
+          const hasAdmin = room.participants?.some(p => p.role === 'admin');
+          if (currentUser?.role !== 'admin' && hasAdmin) {
+            return false;
+          }
+        } else {
+          // For direct chats, check if the other user is an admin
+          const otherUser = room.participants?.find(p => p.id !== currentUser?.id);
+          if (currentUser?.role !== 'admin' && otherUser?.role === 'admin') {
+            return false;
+          }
+        }
+
+        // Add to map and include in filtered results
+        uniqueRoomsMap.set(room.id, room);
+        return true;
+      });
+
+      // Sort rooms by most recent activity
+      const sortedRooms = filteredRooms.sort((a, b) => {
+        const dateA = new Date(a.updated_at || a.created_at);
+        const dateB = new Date(b.updated_at || b.created_at);
+        return dateB.getTime() - dateA.getTime();
+      });
+      
+      setRooms(sortedRooms);
+      setError(null);
     } catch (error) {
       console.error('Error loading rooms:', error);
+      setError('Failed to load chats');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -42,6 +115,7 @@ export const ChatList: React.FC<ChatListProps> = ({
     if (!newRoomName.trim()) return;
 
     try {
+      setIsLoading(true);
       const newRoom = await chatService.createRoom(newRoomName);
       if (newRoom) {
         setRooms((prev) => [newRoom, ...prev]);
@@ -50,19 +124,46 @@ export const ChatList: React.FC<ChatListProps> = ({
       }
     } catch (error) {
       console.error('Error creating room:', error);
+      setError('Failed to create chat room');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleStartConversation = async (userId: string, username: string) => {
     try {
+      setIsLoading(true);
+      setError(null);
+
+      // Check if conversation already exists
+      const existingRoom = rooms.find(room => 
+        room.is_direct_message && 
+        room.participants?.some(p => p.id === userId)
+      );
+
+      if (existingRoom) {
+        onSelectRoom(existingRoom);
+        setActiveTab('rooms');
+        return;
+      }
+
       const room = await chatService.createDirectMessageRoom(userId);
       if (room) {
-        setRooms((prev) => [room, ...prev]);
+        // Remove any existing duplicates first
+        setRooms(prev => {
+          const filtered = prev.filter(r => 
+            !(r.is_direct_message && r.participants?.some(p => p.id === userId))
+          );
+          return [room, ...filtered];
+        });
         onSelectRoom(room);
         setActiveTab('rooms');
       }
     } catch (error) {
       console.error('Error starting conversation:', error);
+      setError('Failed to start conversation');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -76,9 +177,8 @@ export const ChatList: React.FC<ChatListProps> = ({
       setError(null);
       const success = await chatService.deleteRoom(roomId);
       if (success) {
+        // The real-time subscription will handle updating the UI
         console.log('Chat room deleted successfully');
-        // Remove the room from the local state
-        setRooms(prev => prev.filter(room => room.id !== roomId));
       }
     } catch (err) {
       const errorMessage = err instanceof ChatServiceError 
@@ -111,9 +211,18 @@ export const ChatList: React.FC<ChatListProps> = ({
     }
   };
 
-  const filteredRooms = rooms.filter(room =>
-    room.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Filter rooms based on search query
+  const filteredRooms = rooms.filter(room => {
+    const searchLower = searchQuery.toLowerCase();
+    const roomName = room.name?.toLowerCase() || '';
+    const participantNames = room.participants
+      ?.map(p => p.username?.toLowerCase())
+      .filter(Boolean)
+      .join(' ');
+    
+    return roomName.includes(searchLower) || 
+           participantNames?.includes(searchLower);
+  });
 
   return (
     <div className="w-80 bg-white rounded-lg shadow-lg flex flex-col h-full">
