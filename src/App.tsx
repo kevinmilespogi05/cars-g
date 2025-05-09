@@ -17,6 +17,7 @@ import { Register } from './pages/Register';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { PrivacyPolicy } from './pages/PrivacyPolicy';
 import { Chat } from './pages/Chat';
+import { Analytics } from "@vercel/analytics/react";
 
 // Configure future flags for React Router v7
 const routerConfig = {
@@ -193,6 +194,7 @@ function App() {
           </Routes>
         </main>
       </div>
+      <Analytics />
     </Router>
   );
 }
