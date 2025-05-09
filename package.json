@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "npm run generate-pwa-assets && vite build",
+    "generate-pwa-assets": "node scripts/generate-pwa-assets.js",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "jest",
@@ -14,7 +15,9 @@
     "cypress:open": "cypress open",
     "cypress:run": "cypress run",
     "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx,css,md,json}\"",
-    "prepare": "husky install"
+    "prepare": "husky install",
+    "server": "node server/websocket.js",
+    "start": "concurrently \"npm run dev\" \"npm run server\""
   },
   "dependencies": {
     "@googlemaps/js-api-loader": "^1.16.6",
@@ -22,6 +25,7 @@
     "@supabase/supabase-js": "^2.39.7",
     "bootstrap": "^5.3.5",
     "bootstrap-icons": "^1.11.3",
+    "date-fns": "^4.1.0",
     "framer-motion": "^12.6.3",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.344.0",
@@ -41,8 +45,10 @@
     "@types/leaflet": "^1.9.8",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",
+    "@vite-pwa/assets-generator": "^1.0.0",
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.18",
+    "concurrently": "^9.1.2",
     "cypress": "^14.2.1",
     "eslint": "^9.9.1",
     "eslint-plugin-react-hooks": "^5.1.0-rc.0",
@@ -53,10 +59,17 @@
     "lint-staged": "^15.5.0",
     "postcss": "^8.4.35",
     "prettier": "^3.5.3",
+    "sharp": "^0.34.1",
     "tailwindcss": "^3.4.1",
     "typescript": "^5.5.3",
     "typescript-eslint": "^8.3.0",
-    "vite": "^5.4.2"
+    "vite": "^5.4.2",
+    "vite-plugin-pwa": "^1.0.0",
+    "workbox-cacheable-response": "^7.3.0",
+    "workbox-expiration": "^7.3.0",
+    "workbox-precaching": "^7.3.0",
+    "workbox-routing": "^7.3.0",
+    "workbox-strategies": "^7.3.0"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [

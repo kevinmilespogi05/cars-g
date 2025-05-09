@@ -52,20 +52,20 @@ export function MapPicker({ onLocationSelect, initialLocation }: MapPickerProps)
         (err) => {
           console.error('Error getting location:', err);
           if (err.code === 1) {
-            setError('Location access was denied. You can still select a location manually on the map.');
+            setError('Location access was denied. Please enable location access in your browser settings and try again.');
             setShowLocationButton(false);
           } else if (err.code === 2) {
-            setError('Location is unavailable. Please check your device settings or select a location manually.');
+            setError('Location is unavailable. Please check your device settings and ensure location services are enabled.');
           } else if (err.code === 3) {
-            setError('Location request timed out. Please try again or select a location manually.');
+            setError('Location request timed out. Please check your internet connection and try again.');
           } else {
-            setError('Unable to get your location. Please select a location manually on the map.');
+            setError('Unable to get your location. Please check your device settings and try again.');
           }
           setIsLoading(false);
         },
         {
           enableHighAccuracy: true,
-          timeout: 5000,
+          timeout: 10000, // Increased timeout to 10 seconds
           maximumAge: 0
         }
       );

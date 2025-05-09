@@ -155,7 +155,7 @@ export function Navigation() {
           {/* Mobile Menu Button */}
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="md:hidden touch-target p-2 rounded-lg transition-colors text-gray-900 hover:text-primary-color hover:bg-gray-50"
+            className="md:hidden touch-target p-3 rounded-lg transition-colors text-gray-900 hover:text-primary-color hover:bg-gray-50"
             aria-label="Toggle menu"
           >
             {isMobileMenuOpen ? (
@@ -170,19 +170,28 @@ export function Navigation() {
       {/* Mobile Menu */}
       <div
         className={`
-          md:hidden absolute top-full left-0 right-0 
+          md:hidden fixed inset-0 bg-black bg-opacity-50 z-40
           transition-all duration-300 transform
-          ${isMobileMenuOpen ? 'translate-y-0 opacity-100' : '-translate-y-4 opacity-0 pointer-events-none'}
+          ${isMobileMenuOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}
         `}
+        onClick={() => setIsMobileMenuOpen(false)}
       >
-        <div className="bg-white shadow-lg rounded-b-lg py-2 px-4 mx-4 space-y-1">
+        <div 
+          className={`
+            absolute top-[72px] left-0 right-0 
+            bg-white shadow-lg rounded-b-lg py-2 px-4 mx-4 space-y-1
+            transform transition-transform duration-300
+            ${isMobileMenuOpen ? 'translate-y-0' : '-translate-y-4'}
+          `}
+          onClick={e => e.stopPropagation()}
+        >
           {navItems.map(({ path, icon: Icon, label }) => (
             <Link
               key={path}
               to={path}
               className={`
-                flex items-center px-4 py-3 rounded-lg text-sm font-medium
-                transition-colors duration-200
+                flex items-center px-4 py-4 rounded-lg text-base font-medium
+                transition-colors duration-200 touch-target
                 ${isActive(path)
                   ? 'text-primary-color bg-primary-color bg-opacity-10'
                   : 'text-gray-900 hover:text-primary-color hover:bg-gray-50'
@@ -190,7 +199,7 @@ export function Navigation() {
               `}
               onClick={() => setIsMobileMenuOpen(false)}
             >
-              <Icon className="h-5 w-5 mr-3" />
+              <Icon className="h-6 w-6 mr-3" />
               {label}
             </Link>
           ))}
@@ -198,17 +207,17 @@ export function Navigation() {
             <>
               <Link
                 to="/profile"
-                className="flex items-center px-4 py-3 rounded-lg text-sm font-medium text-gray-900 hover:text-primary-color hover:bg-gray-50"
+                className="flex items-center px-4 py-4 rounded-lg text-base font-medium text-gray-900 hover:text-primary-color hover:bg-gray-50 touch-target"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
-                <User className="h-5 w-5 mr-3" />
+                <User className="h-6 w-6 mr-3" />
                 Profile
               </Link>
               <button
                 onClick={handleLogout}
-                className="flex items-center w-full px-4 py-3 rounded-lg text-sm font-medium text-gray-900 hover:text-primary-color hover:bg-gray-50"
+                className="flex items-center w-full px-4 py-4 rounded-lg text-base font-medium text-gray-900 hover:text-primary-color hover:bg-gray-50 touch-target"
               >
-                <LogOut className="h-5 w-5 mr-3" />
+                <LogOut className="h-6 w-6 mr-3" />
                 Log Out
               </button>
             </>

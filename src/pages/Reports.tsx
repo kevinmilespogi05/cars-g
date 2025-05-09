@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { MapPin, Filter, Search, Loader2 } from 'lucide-react';
+import { MapPin, Filter, Search, Loader2, Plus } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
 import { Link } from 'react-router-dom';
@@ -132,130 +132,130 @@ export function Reports() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-bold">Reports</h1>
+    <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 py-2 bg-gray-900 min-h-screen">
+      {/* Header Section */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+        <h1 className="text-2xl sm:text-3xl font-bold text-white">Reports</h1>
         <Link
           to="/reports/create"
-          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          className="w-full sm:w-auto flex items-center justify-center gap-2 bg-primary-color text-white px-4 py-3 rounded-lg hover:bg-primary-dark transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-color touch-target"
         >
-          Create New Report
+          <Plus className="h-5 w-5" />
+          <span>Create New Report</span>
         </Link>
       </div>
 
-      <div className="bg-white shadow rounded-lg mb-6">
-        <div className="p-4 border-b border-gray-200">
-          <div className="flex items-center space-x-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-                <input
-                  type="text"
-                  placeholder="Search reports..."
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Filter className="h-5 w-5 text-gray-400" />
-              <select
-                className="border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
-                value={filters.category}
-                onChange={(e) => setFilters({ ...filters, category: e.target.value })}
-              >
-                {CATEGORIES.map((category) => (
-                  <option key={category} value={category}>
-                    {category}
-                  </option>
-                ))}
-              </select>
-              <select
-                className="border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
-                value={filters.status}
-                onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-              >
-                {STATUSES.map((status) => (
-                  <option key={status} value={status}>
-                    {status}
-                  </option>
-                ))}
-              </select>
-              <select
-                className="border border-gray-300 rounded-md px-3 py-2 focus:ring-blue-500 focus:border-blue-500"
-                value={filters.priority}
-                onChange={(e) => setFilters({ ...filters, priority: e.target.value })}
-              >
-                {PRIORITIES.map((priority) => (
-                  <option key={priority} value={priority}>
-                    {priority}
-                  </option>
-                ))}
-              </select>
-            </div>
+      {/* Search and Filters Section */}
+      <div className="bg-gray-800 shadow rounded-lg mb-4 p-2 sm:p-4">
+        {/* Search Bar */}
+        <div className="mb-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+            <input
+              type="text"
+              placeholder="Search reports..."
+              className="w-full pl-10 pr-4 py-3 border border-gray-700 rounded-lg focus:ring-primary-color focus:border-primary-color text-base bg-gray-900 text-white placeholder-gray-400"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
         </div>
 
+        {/* Filters */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4">
+          <div className="relative">
+            <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+            <select
+              className="w-full pl-10 pr-4 py-3 border border-gray-700 rounded-lg focus:ring-primary-color focus:border-primary-color text-base appearance-none bg-gray-900 text-white"
+              value={filters.category}
+              onChange={(e) => setFilters({ ...filters, category: e.target.value })}
+            >
+              {CATEGORIES.map((category) => (
+                <option key={category} value={category}>
+                  {category}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="relative">
+            <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+            <select
+              className="w-full pl-10 pr-4 py-3 border border-gray-700 rounded-lg focus:ring-primary-color focus:border-primary-color text-base appearance-none bg-gray-900 text-white"
+              value={filters.status}
+              onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+            >
+              {STATUSES.map((status) => (
+                <option key={status} value={status}>
+                  {status}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="relative">
+            <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+            <select
+              className="w-full pl-10 pr-4 py-3 border border-gray-700 rounded-lg focus:ring-primary-color focus:border-primary-color text-base appearance-none bg-gray-900 text-white"
+              value={filters.priority}
+              onChange={(e) => setFilters({ ...filters, priority: e.target.value })}
+            >
+              {PRIORITIES.map((priority) => (
+                <option key={priority} value={priority}>
+                  {priority}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Reports List */}
+      <div>
         {loading ? (
           <div className="flex justify-center items-center h-64">
-            <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+            <Loader2 className="h-8 w-8 animate-spin text-primary-color" />
           </div>
         ) : filteredReports.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-gray-500">No reports found</p>
+            <p className="text-gray-400 text-lg">No reports found</p>
           </div>
         ) : (
-          <div className="divide-y divide-gray-200">
+          <div className="flex flex-col gap-4">
             {filteredReports.map((report) => (
-              <div key={report.id} className="p-4 hover:bg-gray-50">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <h3 className="text-lg font-medium text-gray-900">
-                      {report.title}
-                    </h3>
-                    <p className="mt-1 text-sm text-gray-500">
-                      {report.description}
-                    </p>
-                    <div className="mt-2 flex items-center space-x-4">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(report.status)}`}>
-                        {report.status.replace('_', ' ')}
-                      </span>
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPriorityColor(report.priority)}`}>
-                        {report.priority}
-                      </span>
-                      <div className="flex items-center text-sm text-gray-500">
-                        <MapPin className="h-4 w-4 mr-1" />
-                        {report.location_address}
-                      </div>
-                    </div>
+              <div key={report.id} className="bg-gray-800 rounded-lg p-4 flex flex-col gap-3 shadow-md">
+                {/* Report Content */}
+                <div className="flex flex-col gap-2">
+                  <h3 className="text-lg font-semibold text-white break-words">{report.title}</h3>
+                  <p className="text-sm text-gray-300 mb-1 break-words line-clamp-3">{report.description}</p>
+                  <div className="flex flex-wrap gap-2 mb-1">
+                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(report.status)}`}>{report.status.replace('_', ' ')}</span>
+                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getPriorityColor(report.priority)}`}>{report.priority}</span>
                   </div>
-                  <div className="ml-4 flex-shrink-0">
-                    <div className="flex items-center">
-                      <img
-                        className="h-10 w-10 rounded-full"
-                        src={report.user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(report.user.username)}`}
-                        alt={report.user.username}
-                      />
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">
-                          {report.user.username}
-                        </div>
-                        <p className="text-sm text-gray-500">
-                          {new Date(report.created_at).toLocaleDateString()}
-                        </p>
-                      </div>
-                    </div>
+                  <div className="flex items-center text-xs text-gray-400 break-words">
+                    <MapPin className="h-4 w-4 mr-1.5 flex-shrink-0" />
+                    <span className="truncate break-words">{report.location_address}</span>
                   </div>
                 </div>
+                {/* User Info (stacked below on mobile) */}
+                <div className="flex items-center gap-3 mt-2">
+                  <img
+                    className="h-9 w-9 rounded-full object-cover border border-gray-700"
+                    src={report.user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(report.user.username)}`}
+                    alt={report.user.username}
+                  />
+                  <div>
+                    <div className="text-xs font-medium text-white">{report.user.username}</div>
+                    <p className="text-xs text-gray-400">{new Date(report.created_at).toLocaleDateString()}</p>
+                  </div>
+                </div>
+                {/* Report Images */}
                 {report.images && report.images.length > 0 && (
-                  <div className="mt-4 grid grid-cols-3 gap-4">
+                  <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-2">
                     {report.images.map((image, index) => (
                       <img
                         key={index}
                         src={image}
                         alt={`Report image ${index + 1}`}
-                        className="h-24 w-full object-cover rounded-md"
+                        className="h-24 w-full object-cover rounded-md border border-gray-700"
                       />
                     ))}
                   </div>

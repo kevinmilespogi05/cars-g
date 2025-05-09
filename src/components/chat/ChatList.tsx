@@ -225,7 +225,7 @@ export const ChatList: React.FC<ChatListProps> = ({
   });
 
   return (
-    <div className="w-80 bg-white rounded-lg shadow-lg flex flex-col h-full">
+    <div className="w-full bg-white rounded-lg shadow-lg flex flex-col h-full">
       {/* Header */}
       <div className="p-4 border-b border-gray-200">
         <h2 className="text-xl font-semibold text-gray-900">Messages</h2>
@@ -235,7 +235,7 @@ export const ChatList: React.FC<ChatListProps> = ({
             placeholder="Search conversations..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 rounded-full border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-color focus:border-transparent"
+            className="w-full pl-10 pr-4 py-3 rounded-full border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-color focus:border-transparent"
           />
           <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
         </div>
@@ -244,7 +244,7 @@ export const ChatList: React.FC<ChatListProps> = ({
       {/* Tabs */}
       <div className="flex border-b">
         <button
-          className={`flex-1 py-3 text-center ${
+          className={`flex-1 py-4 text-center ${
             activeTab === 'rooms'
               ? 'border-b-2 border-primary-color text-primary-color'
               : 'text-gray-500 hover:text-gray-700'
@@ -252,12 +252,12 @@ export const ChatList: React.FC<ChatListProps> = ({
           onClick={() => setActiveTab('rooms')}
         >
           <div className="flex items-center justify-center space-x-2">
-            <MessageSquare className="w-4 h-4" />
+            <MessageSquare className="w-5 h-5" />
             <span>Chats</span>
           </div>
         </button>
         <button
-          className={`flex-1 py-3 text-center ${
+          className={`flex-1 py-4 text-center ${
             activeTab === 'search'
               ? 'border-b-2 border-primary-color text-primary-color'
               : 'text-gray-500 hover:text-gray-700'
@@ -265,7 +265,7 @@ export const ChatList: React.FC<ChatListProps> = ({
           onClick={() => setActiveTab('search')}
         >
           <div className="flex items-center justify-center space-x-2">
-            <Search className="w-4 h-4" />
+            <Search className="w-5 h-5" />
             <span>Find Users</span>
           </div>
         </button>
@@ -280,7 +280,7 @@ export const ChatList: React.FC<ChatListProps> = ({
               {!isCreatingRoom ? (
                 <button
                   onClick={() => setIsCreatingRoom(true)}
-                  className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-primary-color text-white rounded-full hover:bg-primary-dark transition-colors"
+                  className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-primary-color text-white rounded-full hover:bg-primary-dark transition-colors"
                 >
                   <Plus className="w-5 h-5" />
                   <span>Create New Room</span>
@@ -292,20 +292,20 @@ export const ChatList: React.FC<ChatListProps> = ({
                     value={newRoomName}
                     onChange={(e) => setNewRoomName(e.target.value)}
                     placeholder="Room name..."
-                    className="w-full px-4 py-2 rounded-full border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-color focus:border-transparent"
+                    className="w-full px-4 py-3 rounded-full border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-color focus:border-transparent"
                     autoFocus
                   />
                   <div className="flex space-x-2">
                     <button
                       type="submit"
-                      className="flex-1 px-4 py-2 bg-primary-color text-white rounded-full hover:bg-primary-dark transition-colors"
+                      className="flex-1 px-4 py-3 bg-primary-color text-white rounded-full hover:bg-primary-dark transition-colors"
                     >
                       Create
                     </button>
                     <button
                       type="button"
                       onClick={() => setIsCreatingRoom(false)}
-                      className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-full hover:bg-gray-300 transition-colors"
+                      className="flex-1 px-4 py-3 bg-gray-200 text-gray-700 rounded-full hover:bg-gray-300 transition-colors"
                     >
                       Cancel
                     </button>
@@ -327,8 +327,8 @@ export const ChatList: React.FC<ChatListProps> = ({
                   }`}
                 >
                   <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 rounded-full bg-primary-color/10 flex items-center justify-center">
-                      <span className="text-primary-color font-bold">
+                    <div className="w-12 h-12 rounded-full bg-primary-color/10 flex items-center justify-center">
+                      <span className="text-primary-color font-bold text-lg">
                         {room.name?.charAt(0).toUpperCase()}
                       </span>
                     </div>

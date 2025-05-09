@@ -393,104 +393,49 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, roomName, onDelete }
   }
 
   return (
-    <div className="flex flex-col h-full bg-white rounded-lg shadow-lg overflow-hidden">
-      {/* Header */}
-      <div className="flex-none p-4 border-b border-gray-200 bg-gradient-to-r from-primary-color to-primary-dark">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center">
-              <span className="text-primary-color font-bold text-lg">
-                {roomName?.charAt(0).toUpperCase()}
-              </span>
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-white">{roomName}</h2>
-              <p className="text-sm text-white/80">
-                {messages.length} {messages.length === 1 ? 'message' : 'messages'}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={() => setIsMuted(!isMuted)}
-              className="p-2 rounded-full hover:bg-white/10 transition-colors"
-              title={isMuted ? "Unmute notifications" : "Mute notifications"}
-            >
-              {isMuted ? (
-                <BellOff className="w-5 h-5 text-white" />
-              ) : (
-                <Bell className="w-5 h-5 text-white" />
-              )}
-            </button>
-            <button
-              onClick={() => setRoomMenuOpen(!roomMenuOpen)}
-              className="p-2 rounded-full hover:bg-white/10 transition-colors"
-            >
-              <MoreVertical className="w-5 h-5 text-white" />
-            </button>
-          </div>
-        </div>
-      </div>
-
+    <div className="flex flex-col h-full bg-[#f0f2f5]">
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
+      <div className="flex-1 overflow-y-auto px-1 py-2 space-y-1">
         {messages.map((message) => (
           <div
             key={message.id}
             className={`flex ${message.sender_id === user?.id ? 'justify-end' : 'justify-start'}`}
           >
             <div
-              className={`max-w-[70%] rounded-lg p-3 ${
+              className={`relative px-4 py-2 rounded-2xl text-sm max-w-[90%] md:max-w-[70%] shadow-sm ${
                 message.sender_id === user?.id
-                  ? 'bg-gradient-to-br from-primary-dark to-primary-color text-white rounded-br-none shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-[1.02]'
-                  : 'bg-white text-gray-900 rounded-bl-none shadow-sm'
+                  ? 'bg-[#0084ff] text-white rounded-br-md mr-1'
+                  : 'bg-white text-gray-900 rounded-bl-md ml-1'
               }`}
+              style={{
+                marginRight: message.sender_id === user?.id ? '0' : undefined,
+                marginLeft: message.sender_id !== user?.id ? '0' : undefined,
+              }}
             >
-              <div className="flex items-center space-x-2 mb-1">
-                <span className={`font-medium ${
-                  message.sender_id === user?.id
-                    ? 'text-white text-opacity-100 drop-shadow-[0_1px_1px_rgba(0,0,0,0.3)]'
-                    : 'text-gray-900'
-                }`}>
-                  {message.sender_id === user?.id ? 'You' : message.profiles?.username}
-                </span>
-                <span className={`text-xs ${
-                  message.sender_id === user?.id
-                    ? 'text-white text-opacity-90 drop-shadow-[0_1px_1px_rgba(0,0,0,0.2)]'
-                    : 'text-gray-500'
-                }`}>
-                  {formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}
-                </span>
+              <div className="flex items-center space-x-2 mb-0.5">
+                <span className={`font-semibold ${message.sender_id === user?.id ? 'text-white' : 'text-gray-900'}`}>{message.sender_id === user?.id ? 'You' : message.profiles?.username}</span>
+                <span className={`text-xs ${message.sender_id === user?.id ? 'text-white/80' : 'text-gray-500'}`}>{formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}</span>
                 {message.sender_id === user?.id && (
                   <span className="ml-1">
                     {message.status === 'delivered' ? (
-                      <CheckCheck className="w-3 h-3 text-white text-opacity-90 drop-shadow-[0_1px_1px_rgba(0,0,0,0.2)]" />
+                      <CheckCheck className="w-3 h-3 text-white/80" />
                     ) : (
-                      <Check className="w-3 h-3 text-white text-opacity-90 drop-shadow-[0_1px_1px_rgba(0,0,0,0.2)]" />
+                      <Check className="w-3 h-3 text-white/80" />
                     )}
                   </span>
                 )}
               </div>
-              <p className={`text-sm ${
-                message.sender_id === user?.id
-                  ? 'text-white text-opacity-100 drop-shadow-[0_1px_1px_rgba(0,0,0,0.3)] leading-relaxed'
-                  : 'text-gray-900 leading-relaxed'
-              }`}>{message.content}</p>
-              
+              <p className="leading-relaxed break-words">{message.content}</p>
               {/* Message Reactions */}
               {(messageReactions[message.id] || []).length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-2">
+                <div className="flex flex-wrap gap-1 mt-1">
                   {messageReactions[message.id].map((reaction, index) => {
                     const isUserReaction = message.sender_id === user?.id;
                     return (
                       <button
                         key={index}
                         onClick={() => isUserReaction && handleRemoveReaction(message.id, reaction.reaction)}
-                        className={`text-xs px-2 py-1 rounded-full ${
-                          message.sender_id === user?.id
-                            ? 'bg-white/20 hover:bg-white/30 cursor-pointer text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.2)]'
-                            : 'bg-gray-100'
-                        }`}
+                        className={`text-xs px-2 py-1 rounded-full ${message.sender_id === user?.id ? 'bg-white/20 text-white' : 'bg-gray-100'}`}
                       >
                         {reaction.reaction} {reaction.count}
                       </button>
@@ -498,26 +443,17 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, roomName, onDelete }
                   })}
                 </div>
               )}
-
               {/* Message Actions */}
-              <div className="flex items-center justify-end mt-2 space-x-2">
+              <div className="flex items-center justify-end mt-1 space-x-1">
                 <button
                   onClick={() => setReactionMenuOpen(reactionMenuOpen === message.id ? null : message.id)}
-                  className={`p-1 rounded-full transition-colors ${
-                    message.sender_id === user?.id
-                      ? 'hover:bg-white/20 text-white/90'
-                      : 'hover:bg-gray-100'
-                  }`}
+                  className={`p-2 rounded-full transition-colors ${message.sender_id === user?.id ? 'hover:bg-white/20 text-white/90' : 'hover:bg-gray-100'}`}
                 >
                   <Smile className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => setSelectedMessage(selectedMessage === message.id ? null : message.id)}
-                  className={`p-1 rounded-full transition-colors ${
-                    message.sender_id === user?.id
-                      ? 'hover:bg-white/20 text-white/90'
-                      : 'hover:bg-gray-100'
-                  }`}
+                  className={`p-2 rounded-full transition-colors ${message.sender_id === user?.id ? 'hover:bg-white/20 text-white/90' : 'hover:bg-gray-100'}`}
                 >
                   <MoreVertical className="w-4 h-4" />
                 </button>
@@ -525,97 +461,24 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, roomName, onDelete }
             </div>
           </div>
         ))}
-        
         {/* Typing Indicators */}
         {typingUsers.size > 0 && (
-          <div className="flex items-center space-x-2 text-sm text-gray-500">
+          <div className="flex items-center space-x-2 text-sm text-gray-500 px-4">
             <div className="flex space-x-1">
               <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
               <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
               <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
             </div>
             <span>
-              {typingUsers.size === 1
-                ? 'Someone is typing...'
-                : `${typingUsers.size} people are typing...`}
+              {typingUsers.size === 1 ? 'Someone is typing...' : `${typingUsers.size} people are typing...`}
             </span>
           </div>
         )}
-        
         <div ref={messagesEndRef} />
       </div>
-
-      {/* Reaction Menu */}
-      {reactionMenuOpen && (
-        <div 
-          ref={reactionMenuRef}
-          className="absolute bottom-20 right-4 bg-white rounded-lg shadow-lg border border-gray-200 p-2 flex space-x-2"
-        >
-          <button
-            onClick={() => handleAddReaction(reactionMenuOpen, '👍')}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-          >
-            <ThumbsUp className="w-5 h-5" />
-          </button>
-          <button
-            onClick={() => handleAddReaction(reactionMenuOpen, '❤️')}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-          >
-            <Heart className="w-5 h-5" />
-          </button>
-          <button
-            onClick={() => handleAddReaction(reactionMenuOpen, '😂')}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-          >
-            <Laugh className="w-5 h-5" />
-          </button>
-          <button
-            onClick={() => handleAddReaction(reactionMenuOpen, '😢')}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-          >
-            <Frown className="w-5 h-5" />
-          </button>
-          <button
-            onClick={() => handleAddReaction(reactionMenuOpen, '😠')}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-          >
-            <Angry className="w-5 h-5" />
-          </button>
-        </div>
-      )}
-
-      {/* Quick Reply Menu */}
-      {selectedMessage && (
-        <div 
-          ref={menuRef}
-          className="absolute bottom-20 right-4 bg-white rounded-lg shadow-lg border border-gray-200 p-2"
-        >
-          <div className="space-y-2">
-            <button
-              onClick={() => handleQuickReply(selectedMessage, 'Yes, I agree!')}
-              className="w-full px-4 py-2 text-left hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              Yes, I agree!
-            </button>
-            <button
-              onClick={() => handleQuickReply(selectedMessage, 'No, I disagree.')}
-              className="w-full px-4 py-2 text-left hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              No, I disagree.
-            </button>
-            <button
-              onClick={() => handleQuickReply(selectedMessage, 'Let me think about it.')}
-              className="w-full px-4 py-2 text-left hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              Let me think about it.
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Message Input */}
-      <div className="flex-none p-4 border-t border-gray-200 bg-white">
-        <form onSubmit={handleSendMessage} className="flex items-center space-x-2">
+      {/* Floating Input Bar */}
+      <div className="flex-none px-2 pb-3 pt-1">
+        <form onSubmit={handleSendMessage} className="flex items-center space-x-2 bg-white rounded-full shadow-lg px-3 py-2">
           <button
             type="button"
             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
@@ -637,53 +500,46 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, roomName, onDelete }
               handleTyping();
             }}
             placeholder="Type a message..."
-            className="flex-1 px-4 py-2 rounded-full border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-color focus:border-transparent"
+            className="flex-1 px-3 py-2 rounded-full border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-color focus:border-transparent bg-[#f0f2f5]"
           />
           <button
             type="submit"
             disabled={!newMessage.trim() || isLoading}
-            className="p-2 rounded-full bg-primary-color text-white hover:bg-primary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="p-2 rounded-full bg-[#0084ff] text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Send className="w-5 h-5" />
           </button>
         </form>
       </div>
-
-      {/* Room Menu */}
-      {roomMenuOpen && (
-        <div className="absolute top-16 right-4 bg-white rounded-lg shadow-lg border border-gray-200 w-48">
-          <button
-            onClick={handleMuteRoom}
-            className="w-full px-4 py-2 text-left hover:bg-gray-100 flex items-center space-x-2"
-          >
-            {isMuted ? (
-              <>
-                <Bell className="w-4 h-4" />
-                <span>Unmute Notifications</span>
-              </>
-            ) : (
-              <>
-                <BellOff className="w-4 h-4" />
-                <span>Mute Notifications</span>
-              </>
-            )}
-          </button>
-          {onDelete && (
-            <button
-              onClick={handleDeleteRoom}
-              disabled={isDeleting}
-              className="w-full px-4 py-2 text-left text-red-600 hover:bg-gray-100 flex items-center space-x-2"
-            >
-              <Trash className="w-4 h-4" />
-              <span>{isDeleting ? 'Deleting...' : 'Delete Chat'}</span>
-            </button>
-          )}
+      {/* Reaction Menu */}
+      {reactionMenuOpen && (
+        <div 
+          ref={reactionMenuRef}
+          className="fixed bottom-24 right-4 bg-white rounded-lg shadow-lg border border-gray-200 p-2 flex space-x-2 md:absolute"
+        >
+          <button onClick={() => handleAddReaction(reactionMenuOpen, '👍')} className="p-3 hover:bg-gray-100 rounded-full transition-colors"><ThumbsUp className="w-5 h-5" /></button>
+          <button onClick={() => handleAddReaction(reactionMenuOpen, '❤️')} className="p-3 hover:bg-gray-100 rounded-full transition-colors"><Heart className="w-5 h-5" /></button>
+          <button onClick={() => handleAddReaction(reactionMenuOpen, '😂')} className="p-3 hover:bg-gray-100 rounded-full transition-colors"><Laugh className="w-5 h-5" /></button>
+          <button onClick={() => handleAddReaction(reactionMenuOpen, '😢')} className="p-3 hover:bg-gray-100 rounded-full transition-colors"><Frown className="w-5 h-5" /></button>
+          <button onClick={() => handleAddReaction(reactionMenuOpen, '😠')} className="p-3 hover:bg-gray-100 rounded-full transition-colors"><Angry className="w-5 h-5" /></button>
         </div>
       )}
-
+      {/* Quick Reply Menu */}
+      {selectedMessage && (
+        <div 
+          ref={menuRef}
+          className="fixed bottom-24 right-4 bg-white rounded-lg shadow-lg border border-gray-200 p-2 md:absolute"
+        >
+          <div className="space-y-2">
+            <button onClick={() => handleQuickReply(selectedMessage, 'Yes, I agree!')} className="w-full px-4 py-3 text-left hover:bg-gray-100 rounded-lg transition-colors">Yes, I agree!</button>
+            <button onClick={() => handleQuickReply(selectedMessage, 'No, I disagree.')} className="w-full px-4 py-3 text-left hover:bg-gray-100 rounded-lg transition-colors">No, I disagree.</button>
+            <button onClick={() => handleQuickReply(selectedMessage, 'Let me think about it.')} className="w-full px-4 py-3 text-left hover:bg-gray-100 rounded-lg transition-colors">Let me think about it.</button>
+          </div>
+        </div>
+      )}
       {/* Error Message */}
       {error && (
-        <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg shadow-lg">
+        <div className="fixed bottom-20 left-1/2 transform -translate-x-1/2 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg shadow-lg md:absolute">
           <div className="flex items-center space-x-2">
             <X className="w-5 h-5" />
             <span>{error}</span>

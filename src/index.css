@@ -261,7 +261,205 @@
   }
   
   .btn {
-    @apply min-h-[44px];
+    @apply min-h-[44px] px-4 py-3 text-base;
+  }
+
+  /* Prevent zoom on input focus for iOS */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  input[type="tel"],
+  input[type="url"],
+  input[type="search"],
+  textarea {
+    font-size: 16px !important;
+  }
+
+  /* Improved touch targets for mobile */
+  .nav-link,
+  .btn,
+  .card,
+  .menu-item {
+    @apply touch-target;
+  }
+
+  /* Mobile-friendly spacing */
+  .container {
+    @apply px-4;
+  }
+
+  /* Mobile-friendly typography */
+  h1 {
+    @apply text-3xl;
+  }
+  
+  h2 {
+    @apply text-2xl;
+  }
+  
+  h3 {
+    @apply text-xl;
+  }
+  
+  h4 {
+    @apply text-lg;
+  }
+  
+  p {
+    @apply text-base;
+  }
+
+  /* Mobile-friendly cards */
+  .card {
+    @apply p-4;
+  }
+
+  /* Mobile-friendly forms */
+  .form-group {
+    @apply mb-4;
+  }
+
+  .form-label {
+    @apply text-sm mb-1;
+  }
+
+  /* Mobile-friendly tables */
+  .table-responsive {
+    @apply block w-full overflow-x-auto;
+  }
+
+  /* Mobile-friendly modals */
+  .modal-content {
+    @apply m-4 rounded-lg;
+  }
+
+  /* Mobile-friendly navigation */
+  .nav-item {
+    @apply py-3;
+  }
+
+  /* Mobile-friendly lists */
+  .list-item {
+    @apply py-3;
+  }
+
+  /* Mobile-friendly buttons */
+  .btn {
+    @apply w-full justify-center;
+  }
+
+  /* Mobile-friendly grid */
+  .grid {
+    @apply grid-cols-1 gap-4;
+  }
+
+  /* Mobile-friendly spacing */
+  .space-y-4 > * + * {
+    @apply mt-4;
+  }
+
+  .space-y-8 > * + * {
+    @apply mt-8;
+  }
+
+  /* Mobile-friendly shadows */
+  .shadow-mobile {
+    @apply shadow-sm;
+  }
+}
+
+/* Custom Scrollbar for Mobile */
+@media (max-width: 768px) {
+  ::-webkit-scrollbar {
+    @apply w-1;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-gray-300 rounded-full;
+  }
+}
+
+/* Mobile-friendly animations */
+@media (max-width: 768px) {
+  @keyframes slideInFromBottom {
+    from {
+      transform: translateY(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  .animate-slide-up-mobile {
+    animation: slideInFromBottom 0.3s ease-out;
+  }
+}
+
+/* Mobile-friendly transitions */
+@media (max-width: 768px) {
+  .transition-mobile {
+    @apply transition-all duration-200;
+  }
+}
+
+/* Mobile-friendly focus states */
+@media (max-width: 768px) {
+  .focus-mobile:focus {
+    @apply outline-none ring-2 ring-primary-color ring-opacity-50;
+  }
+}
+
+/* Mobile-friendly hover states */
+@media (hover: none) {
+  .hover-mobile:active {
+    @apply bg-gray-100;
+  }
+}
+
+/* Mobile-friendly text selection */
+@media (max-width: 768px) {
+  ::selection {
+    @apply bg-primary-color bg-opacity-20;
+  }
+}
+
+/* Mobile-friendly tap highlight */
+@media (max-width: 768px) {
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* Mobile-friendly viewport height */
+@media (max-width: 768px) {
+  .vh-mobile {
+    height: calc(var(--vh, 1vh) * 100);
+  }
+}
+
+/* Mobile-friendly safe areas */
+@supports (padding: max(0px)) {
+  .safe-area-top {
+    padding-top: max(1rem, env(safe-area-inset-top));
+  }
+  
+  .safe-area-bottom {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+  
+  .safe-area-left {
+    padding-left: max(1rem, env(safe-area-inset-left));
+  }
+  
+  .safe-area-right {
+    padding-right: max(1rem, env(safe-area-inset-right));
   }
 }
 
