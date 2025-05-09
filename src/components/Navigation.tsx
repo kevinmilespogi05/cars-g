@@ -58,8 +58,8 @@ export function Navigation() {
     <nav 
       className={`fixed w-full z-50 transition-all duration-300 ${
         isScrolled 
-          ? 'bg-white shadow-md py-2' 
-          : 'bg-white/90 backdrop-blur-sm py-4'
+          ? 'bg-[#800000] shadow-md py-2' 
+          : 'bg-[#800000]/90 backdrop-blur-sm py-4'
       }`}
     >
       <div className="container">
@@ -67,7 +67,7 @@ export function Navigation() {
           {/* Logo */}
           <Link 
             to="/" 
-            className="flex items-center space-x-2 text-gray-900 hover:text-primary-color transition-colors"
+            className="flex items-center space-x-2 text-white hover:text-gray-200 transition-colors"
           >
             <img 
               src="/images/logo.jpg" 
@@ -87,8 +87,8 @@ export function Navigation() {
                   inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium 
                   transition-all duration-200 hover:scale-105
                   ${isActive(path)
-                    ? 'text-primary-color bg-primary-color bg-opacity-10' 
-                    : 'text-gray-900 hover:text-primary-color hover:bg-gray-50'
+                    ? 'text-white bg-white bg-opacity-10' 
+                    : 'text-white hover:text-gray-200 hover:bg-white/10'
                   }
                 `}
               >

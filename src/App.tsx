@@ -55,7 +55,7 @@ function App() {
 
   return (
     <Router {...routerConfig}>
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gray-100">
         <Navigation />
         <main className="pt-16 sm:pt-20">
           <Routes>

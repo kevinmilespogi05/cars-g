@@ -132,13 +132,13 @@ export function Reports() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 py-2 bg-white min-h-screen">
+    <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 py-6 bg-gray-50 min-h-screen">
       {/* Header Section */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
-        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Reports</h1>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <h1 className="text-2xl sm:text-3xl font-bold text-[#800000]">Reports</h1>
         <Link
           to="/reports/create"
-          className="w-full sm:w-auto flex items-center justify-center gap-2 bg-primary-color text-white px-4 py-3 rounded-lg hover:bg-primary-dark transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-color touch-target"
+          className="w-full sm:w-auto flex items-center justify-center gap-2 bg-primary-color text-white px-4 py-3 rounded-lg shadow hover:bg-primary-dark transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-color touch-target"
         >
           <Plus className="h-5 w-5" />
           <span>Create New Report</span>
@@ -146,15 +146,15 @@ export function Reports() {
       </div>
 
       {/* Search and Filters Section */}
-      <div className="bg-white shadow rounded-lg mb-4 p-2 sm:p-4">
+      <div className="bg-white shadow-md rounded-xl mb-6 p-4 border border-gray-100">
         {/* Search Bar */}
-        <div className="mb-3">
+        <div className="mb-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
             <input
               type="text"
               placeholder="Search reports..."
-              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-primary-color focus:border-primary-color text-base bg-white text-gray-900 placeholder-gray-400"
+              className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-primary-color focus:border-primary-color text-base bg-gray-50 text-gray-900 placeholder-gray-400"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -162,11 +162,11 @@ export function Reports() {
         </div>
 
         {/* Filters */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="relative">
             <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
             <select
-              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-primary-color focus:border-primary-color text-base appearance-none bg-white text-gray-900"
+              className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-primary-color focus:border-primary-color text-base appearance-none bg-gray-50 text-gray-900"
               value={filters.category}
               onChange={(e) => setFilters({ ...filters, category: e.target.value })}
             >
@@ -180,7 +180,7 @@ export function Reports() {
           <div className="relative">
             <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
             <select
-              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-primary-color focus:border-primary-color text-base appearance-none bg-white text-gray-900"
+              className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-primary-color focus:border-primary-color text-base appearance-none bg-gray-50 text-gray-900"
               value={filters.status}
               onChange={(e) => setFilters({ ...filters, status: e.target.value })}
             >
@@ -194,7 +194,7 @@ export function Reports() {
           <div className="relative">
             <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
             <select
-              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-primary-color focus:border-primary-color text-base appearance-none bg-white text-gray-900"
+              className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-primary-color focus:border-primary-color text-base appearance-none bg-gray-50 text-gray-900"
               value={filters.priority}
               onChange={(e) => setFilters({ ...filters, priority: e.target.value })}
             >
@@ -219,13 +219,13 @@ export function Reports() {
             <p className="text-gray-400 text-lg">No reports found</p>
           </div>
         ) : (
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-6">
             {filteredReports.map((report) => (
-              <div key={report.id} className="bg-white rounded-lg p-4 flex flex-col gap-3 shadow-md">
+              <div key={report.id} className="bg-white rounded-xl p-6 flex flex-col gap-3 shadow border border-gray-100 transition hover:shadow-lg">
                 {/* Report Content */}
                 <div className="flex flex-col gap-2">
                   <h3 className="text-lg font-semibold text-gray-900 break-words">{report.title}</h3>
-                  <p className="text-sm text-gray-700 mb-1 break-words line-clamp-3">{report.description}</p>
+                  <p className="text-sm text-gray-600 mb-1 break-words line-clamp-3">{report.description}</p>
                   <div className="flex flex-wrap gap-2 mb-1">
                     <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(report.status)}`}>{report.status.replace('_', ' ')}</span>
                     <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getPriorityColor(report.priority)}`}>{report.priority}</span>
@@ -238,7 +238,7 @@ export function Reports() {
                 {/* User Info (stacked below on mobile) */}
                 <div className="flex items-center gap-3 mt-2">
                   <img
-                    className="h-9 w-9 rounded-full object-cover border border-gray-300"
+                    className="h-9 w-9 rounded-full object-cover border border-gray-200"
                     src={report.user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(report.user.username)}`}
                     alt={report.user.username}
                   />
@@ -255,7 +255,7 @@ export function Reports() {
                         key={index}
                         src={image}
                         alt={`Report image ${index + 1}`}
-                        className="h-24 w-full object-cover rounded-md border border-gray-300"
+                        className="h-24 w-full object-cover rounded-md border border-gray-200"
                       />
                     ))}
                   </div>
