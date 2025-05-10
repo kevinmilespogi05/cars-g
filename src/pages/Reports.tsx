@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { MapPin, Filter, Search, Loader2, Plus } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { MapPin, Filter, Search, Loader2, Plus, X, ChevronLeft, ChevronRight, Heart, MessageCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
 import { Link } from 'react-router-dom';
@@ -19,6 +20,9 @@ interface Report {
     avatar_url: string;
   };
   images: string[];
+  likes_count: number;
+  comments_count: number;
+  is_liked: boolean;
 }
 
 const CATEGORIES = ['All', 'Infrastructure', 'Safety', 'Environmental', 'Public Services', 'Other'];
@@ -26,6 +30,7 @@ const STATUSES = ['All', 'Pending', 'In Progress', 'Resolved', 'Rejected'];
 const PRIORITIES = ['All', 'Low', 'Medium', 'High'];
 
 export function Reports() {
+  const navigate = useNavigate();
   const { user } = useAuthStore();
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,6 +40,9 @@ export function Reports() {
     status: 'All',
     priority: 'All',
   });
+  const [selectedImage, setSelectedImage] = useState<{ url: string; index: number } | null>(null);
+  const [imageLoading, setImageLoading] = useState<{ [key: string]: boolean }>({});
+  const [likeLoading, setLikeLoading] = useState<{ [key: string]: boolean }>({});
 
   useEffect(() => {
     fetchReports();
@@ -42,10 +50,14 @@ export function Reports() {
 
   const fetchReports = async () => {
     try {
-      // First, fetch all reports
+      // First, fetch all reports with likes and comments count
       let query = supabase
         .from('reports')
-        .select('*')
+        .select(`
+          *,
+          likes:likes(count),
+          comments:comments(count)
+        `)
         .order('created_at', { ascending: false });
 
       if (filters.category !== 'All') {
@@ -82,11 +94,24 @@ export function Reports() {
       profilesData?.forEach(profile => {
         profilesMap.set(profile.id, profile);
       });
+
+      // Fetch user's likes for all reports
+      const { data: userLikes, error: likesError } = await supabase
+        .from('likes')
+        .select('report_id')
+        .eq('user_id', user?.id);
+
+      if (likesError) throw likesError;
+
+      const likedReportIds = new Set(userLikes?.map(like => like.report_id));
       
-      // Combine reports with user data
+      // Combine reports with user data and likes/comments count
       const reportsWithUsers = reportsData.map(report => ({
         ...report,
-        user: profilesMap.get(report.user_id) || { username: 'Unknown User', avatar_url: null }
+        user: profilesMap.get(report.user_id) || { username: 'Unknown User', avatar_url: null },
+        likes_count: report.likes?.[0]?.count || 0,
+        comments_count: report.comments?.[0]?.count || 0,
+        is_liked: likedReportIds.has(report.id)
       }));
       
       setReports(reportsWithUsers);
@@ -128,6 +153,66 @@ export function Reports() {
         return 'bg-red-100 text-red-800';
       default:
         return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const handleImageClick = (imageUrl: string, index: number) => {
+    setSelectedImage({ url: imageUrl, index });
+  };
+
+  const handleNextImage = (currentImages: string[]) => {
+    if (!selectedImage) return;
+    const nextIndex = (selectedImage.index + 1) % currentImages.length;
+    setSelectedImage({ url: currentImages[nextIndex], index: nextIndex });
+  };
+
+  const handlePrevImage = (currentImages: string[]) => {
+    if (!selectedImage) return;
+    const prevIndex = (selectedImage.index - 1 + currentImages.length) % currentImages.length;
+    setSelectedImage({ url: currentImages[prevIndex], index: prevIndex });
+  };
+
+  const handleLike = async (reportId: string) => {
+    if (!user) return;
+    
+    setLikeLoading(prev => ({ ...prev, [reportId]: true }));
+    try {
+      const report = reports.find(r => r.id === reportId);
+      if (!report) return;
+
+      if (report.is_liked) {
+        // Unlike
+        const { error } = await supabase
+          .from('likes')
+          .delete()
+          .eq('report_id', reportId)
+          .eq('user_id', user.id);
+
+        if (error) throw error;
+
+        setReports(prev => prev.map(r => 
+          r.id === reportId 
+            ? { ...r, is_liked: false, likes_count: r.likes_count - 1 }
+            : r
+        ));
+      } else {
+        // Like
+        const { error } = await supabase
+          .from('likes')
+          .insert({ report_id: reportId, user_id: user.id });
+
+        if (error) throw error;
+
+        setReports(prev => prev.map(r => 
+          r.id === reportId 
+            ? { ...r, is_liked: true, likes_count: r.likes_count + 1 }
+            : r
+        ));
+      }
+    } catch (error) {
+      console.error('Error toggling like:', error);
+    } finally {
+      setLikeLoading(prev => ({ ...prev, [reportId]: false }));
     }
   };
 
@@ -221,9 +306,12 @@ export function Reports() {
         ) : (
           <div className="flex flex-col gap-6">
             {filteredReports.map((report) => (
-              <div key={report.id} className="bg-white rounded-xl p-6 flex flex-col gap-3 shadow border border-gray-100 transition hover:shadow-lg">
-                {/* Report Content */}
-                <div className="flex flex-col gap-2">
+              <div
+                key={report.id}
+                className="bg-white rounded-xl p-6 flex flex-col gap-3 shadow border border-gray-100 transition hover:shadow-lg cursor-pointer"
+                onClick={() => navigate(`/reports/${report.id}`)}
+              >
+                <Link to={`/reports/${report.id}`} className="flex flex-col gap-2">
                   <h3 className="text-lg font-semibold text-gray-900 break-words">{report.title}</h3>
                   <p className="text-sm text-gray-600 mb-1 break-words line-clamp-3">{report.description}</p>
                   <div className="flex flex-wrap gap-2 mb-1">
@@ -234,37 +322,79 @@ export function Reports() {
                     <MapPin className="h-4 w-4 mr-1.5 flex-shrink-0" />
                     <span className="truncate break-words">{report.location_address}</span>
                   </div>
-                </div>
-                {/* User Info (stacked below on mobile) */}
-                <div className="flex items-center gap-3 mt-2">
-                  <img
-                    className="h-9 w-9 rounded-full object-cover border border-gray-200"
-                    src={report.user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(report.user.username)}`}
-                    alt={report.user.username}
-                  />
-                  <div>
-                    <div className="text-xs font-medium text-gray-900">{report.user.username}</div>
-                    <p className="text-xs text-gray-500">{new Date(report.created_at).toLocaleDateString()}</p>
+                </Link>
+
+                {/* User Info and Interactions */}
+                <div className="flex items-center justify-between mt-2">
+                  <div className="flex items-center gap-3">
+                    <img
+                      className="h-9 w-9 rounded-full object-cover border border-gray-200"
+                      src={report.user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(report.user.username)}`}
+                      alt={report.user.username}
+                    />
+                    <div>
+                      <div className="text-xs font-medium text-gray-900">{report.user.username}</div>
+                      <p className="text-xs text-gray-500">{new Date(report.created_at).toLocaleDateString()}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-4">
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleLike(report.id);
+                      }}
+                      disabled={likeLoading[report.id]}
+                      className={`flex items-center gap-1.5 text-sm ${
+                        report.is_liked ? 'text-red-500' : 'text-gray-500 hover:text-red-500'
+                      } transition-colors`}
+                    >
+                      <Heart className={`h-5 w-5 ${report.is_liked ? 'fill-current' : ''}`} />
+                      <span>{report.likes_count}</span>
+                    </button>
+                    <Link
+                      to={`/reports/${report.id}`}
+                      className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-blue-500 transition-colors"
+                    >
+                      <MessageCircle className="h-5 w-5" />
+                      <span>{report.comments_count}</span>
+                    </Link>
                   </div>
                 </div>
-                {/* Report Images */}
-                {report.images && report.images.length > 0 && (
-                  <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {report.images.map((image, index) => (
-                      <img
-                        key={index}
-                        src={image}
-                        alt={`Report image ${index + 1}`}
-                        className="h-24 w-full object-cover rounded-md border border-gray-200"
-                      />
-                    ))}
-                  </div>
-                )}
               </div>
             ))}
           </div>
         )}
       </div>
+
+      {/* Lightbox */}
+      {selectedImage && (
+        <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center">
+          <button
+            onClick={() => setSelectedImage(null)}
+            className="absolute top-4 right-4 text-white hover:text-gray-300"
+          >
+            <X className="h-8 w-8" />
+          </button>
+          <button
+            onClick={() => handlePrevImage(reports.find(r => r.images.includes(selectedImage.url))?.images || [])}
+            className="absolute left-4 text-white hover:text-gray-300"
+          >
+            <ChevronLeft className="h-8 w-8" />
+          </button>
+          <button
+            onClick={() => handleNextImage(reports.find(r => r.images.includes(selectedImage.url))?.images || [])}
+            className="absolute right-4 text-white hover:text-gray-300"
+          >
+            <ChevronRight className="h-8 w-8" />
+          </button>
+          <img
+            src={selectedImage.url}
+            alt="Selected report image"
+            className="max-h-[90vh] max-w-[90vw] object-contain"
+          />
+        </div>
+      )}
     </div>
   );
 }
