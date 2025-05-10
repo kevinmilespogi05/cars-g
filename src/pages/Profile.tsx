@@ -5,11 +5,22 @@ import { AvatarSelector } from '../components/AvatarSelector';
 import { supabase } from '../lib/supabase';
 import { motion } from 'framer-motion';
 
+interface UserStats {
+  reports_submitted: number;
+  reports_verified: number;
+  reports_resolved: number;
+}
+
 export function Profile() {
   const { user, setUser } = useAuthStore();
   const [isUpdating, setIsUpdating] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editedUsername, setEditedUsername] = useState('');
+  const [userStats, setUserStats] = useState<UserStats>({
+    reports_submitted: 0,
+    reports_verified: 0,
+    reports_resolved: 0
+  });
   const [notificationSettings, setNotificationSettings] = useState({
     email: true,
     push: true,
@@ -19,8 +30,43 @@ export function Profile() {
   useEffect(() => {
     if (user) {
       setEditedUsername(user.username || '');
+      fetchUserStats();
     }
   }, [user]);
+
+  const fetchUserStats = async () => {
+    if (!user?.id) return;
+
+    try {
+      // Fetch reports submitted
+      const { count: submittedCount } = await supabase
+        .from('reports')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+
+      // Fetch reports verified (reports that have been verified by authorities)
+      const { count: verifiedCount } = await supabase
+        .from('reports')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('status', 'in_progress');
+
+      // Fetch reports resolved
+      const { count: resolvedCount } = await supabase
+        .from('reports')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('status', 'resolved');
+
+      setUserStats({
+        reports_submitted: submittedCount || 0,
+        reports_verified: verifiedCount || 0,
+        reports_resolved: resolvedCount || 0
+      });
+    } catch (error) {
+      console.error('Error fetching user stats:', error);
+    }
+  };
 
   const handleAvatarChange = async (newAvatarUrl: string) => {
     if (!user) return;
@@ -292,15 +338,15 @@ export function Profile() {
                 <p className="text-sm text-gray-500">Total Points</p>
               </div>
               <div className="bg-gray-50 rounded-lg p-4">
-                <p className="text-2xl font-bold text-primary-color">0</p>
+                <p className="text-2xl font-bold text-primary-color">{userStats.reports_submitted}</p>
                 <p className="text-sm text-gray-500">Reports Submitted</p>
               </div>
               <div className="bg-gray-50 rounded-lg p-4">
-                <p className="text-2xl font-bold text-primary-color">0</p>
+                <p className="text-2xl font-bold text-primary-color">{userStats.reports_verified}</p>
                 <p className="text-sm text-gray-500">Reports Verified</p>
               </div>
               <div className="bg-gray-50 rounded-lg p-4">
-                <p className="text-2xl font-bold text-primary-color">0</p>
+                <p className="text-2xl font-bold text-primary-color">{userStats.reports_resolved}</p>
                 <p className="text-sm text-gray-500">Reports Resolved</p>
               </div>
             </div>

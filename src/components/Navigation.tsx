@@ -35,7 +35,6 @@ export function Navigation() {
   }, []);
 
   const navItems = [
-    { path: '/dashboard', icon: Home, label: 'Dashboard' },
     { path: '/reports', icon: FileText, label: 'Reports' },
     { path: '/leaderboard', icon: Award, label: 'Leaderboard' },
     { path: '/chat', icon: MessageSquare, label: 'Chat' },

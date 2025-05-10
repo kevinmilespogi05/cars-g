@@ -32,3 +32,24 @@ export interface LeaderboardEntry {
   points: number;
   rank: string;
 }
+
+export interface Activity {
+  id: string;
+  user_id: string;
+  type: 'report_created' | 'report_resolved' | 'achievement_earned' | 'points_earned';
+  description: string;
+  created_at: string;
+  metadata?: Record<string, any>;
+}
+
+export interface Achievement {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  points: number;
+  criteria: string;
+  user_id: string;
+  earned_at: string;
+  progress?: number;
+}

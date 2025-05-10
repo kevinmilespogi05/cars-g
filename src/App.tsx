@@ -2,7 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Navigation } from './components/Navigation';
 import { Home } from './pages/Home';
-import { Dashboard } from './pages/Dashboard';
 import { Reports } from './pages/Reports';
 import { CreateReport } from './pages/CreateReport';
 import { Leaderboard } from './pages/Leaderboard';
@@ -18,6 +17,7 @@ import { AdminDashboard } from './pages/AdminDashboard';
 import { PrivacyPolicy } from './pages/PrivacyPolicy';
 import { Chat } from './pages/Chat';
 import { Analytics } from "@vercel/analytics/react";
+import { initializeAchievements } from './lib/initAchievements';
 
 // Configure future flags for React Router v7
 const routerConfig = {
@@ -35,6 +35,8 @@ function App() {
     const init = async () => {
       try {
         await initialize();
+        // Initialize achievements when the app starts
+        await initializeAchievements();
       } catch (error) {
         console.error('Error initializing auth:', error);
       } finally {
@@ -74,20 +76,6 @@ function App() {
             />
             
             {/* Protected routes */}
-            <Route
-              path="/dashboard"
-              element={
-                isAuthenticated ? (
-                  <ProtectedRoute>
-                    <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-8">
-                      <Dashboard />
-                    </div>
-                  </ProtectedRoute>
-                ) : (
-                  <Navigate to="/login" state={{ from: { pathname: '/dashboard' } }} replace />
-                )
-              }
-            />
             <Route
               path="/chat"
               element={
