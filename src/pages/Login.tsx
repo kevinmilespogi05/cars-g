@@ -14,8 +14,8 @@ export function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSocialLoading, setIsSocialLoading] = useState<'google' | 'facebook' | null>(null);
 
-  // Get the redirect path from location state or default to dashboard
-  const from = (location.state as any)?.from?.pathname || '/dashboard';
+  // Get the redirect path from location state or default to reports
+  const from = (location.state as any)?.from?.pathname || '/reports';
   const message = (location.state as any)?.message;
 
   const handleSubmit = async (e: React.FormEvent) => {

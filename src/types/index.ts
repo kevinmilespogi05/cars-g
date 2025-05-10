@@ -1,9 +1,12 @@
 export interface User {
   id: string;
   email: string;
-  points: number;
-  rank: string;
-  created_at: string;
+  username?: string;
+  avatar_url?: string | null;
+  points?: number;
+  role?: string;
+  created_at?: string;
+  rank?: string;
 }
 
 export interface Report {

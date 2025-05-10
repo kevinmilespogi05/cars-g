@@ -68,7 +68,7 @@ function App() {
               path="/auth/callback" 
               element={
                 <ProtectedRoute>
-                  <Navigate to="/dashboard" replace />
+                  <Navigate to="/reports" replace />
                 </ProtectedRoute>
               } 
             />

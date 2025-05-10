@@ -35,8 +35,8 @@ export function Navigation() {
   }, []);
 
   const navItems = [
+    { path: '/dashboard', icon: Home, label: 'Dashboard' },
     { path: '/reports', icon: FileText, label: 'Reports' },
-    { path: '/map-test', icon: Map, label: 'Map' },
     { path: '/leaderboard', icon: Award, label: 'Leaderboard' },
     { path: '/chat', icon: MessageSquare, label: 'Chat' },
   ];
@@ -87,8 +87,8 @@ export function Navigation() {
                   inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium 
                   transition-all duration-200 hover:scale-105
                   ${isActive(path)
-                    ? 'text-white bg-white bg-opacity-10' 
-                    : 'text-white hover:text-gray-200 hover:bg-white/10'
+                    ? 'text-white bg-[#fff7ed] bg-opacity-10' 
+                    : 'text-white hover:text-gray-200 hover:bg-[#f4f1ee]'
                   }
                 `}
               >
@@ -120,7 +120,7 @@ export function Navigation() {
 
                 {/* Dropdown Menu */}
                 {isProfileMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 z-50">
+                  <div className="absolute right-0 mt-2 w-48 bg-[#fff7ed] rounded-lg shadow-lg py-1 z-50">
                     <Link
                       to="/profile"
                       className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
