@@ -21,6 +21,8 @@ import { Analytics } from "@vercel/analytics/react";
 import { initializeAchievements } from './lib/initAchievements';
 import { Providers } from './components/Providers';
 import { motion, AnimatePresence } from 'framer-motion';
+import useOnlineStatus from './hooks/useOnlineStatus';
+import OfflinePage from './components/OfflinePage';
 
 // Configure future flags for React Router v7
 const routerConfig = {
@@ -44,6 +46,7 @@ const PageTransition = ({ children }: { children: React.ReactNode }) => (
 function App() {
   const { initialize, isAuthenticated, user } = useAuthStore();
   const [isInitialized, setIsInitialized] = useState(false);
+  const isOnline = useOnlineStatus();
 
   useEffect(() => {
     const init = async () => {
@@ -65,6 +68,10 @@ function App() {
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-color"></div>
       </div>
     );
+  }
+
+  if (!isOnline) {
+    return <OfflinePage />;
   }
 
   return (
