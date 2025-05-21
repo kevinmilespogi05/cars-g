@@ -5,9 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npm run generate-pwa-assets && npm run convert-images && vite build",
+    "build": "npm run generate-pwa-assets && vite build",
     "generate-pwa-assets": "node scripts/generate-pwa-assets.js",
-    "convert-images": "node scripts/convert-images.js",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "jest",
@@ -24,8 +23,8 @@
     "@googlemaps/js-api-loader": "^1.16.6",
     "@popperjs/core": "^2.11.8",
     "@supabase/supabase-js": "^2.39.7",
-    "@tanstack/react-query": "^5.24.1",
-    "@tanstack/react-query-devtools": "^5.24.1",
+    "@tanstack/react-query": "^5.75.7",
+    "@tanstack/react-query-devtools": "^5.75.7",
     "@vercel/analytics": "^1.5.0",
     "bootstrap": "^5.3.5",
     "bootstrap-icons": "^1.11.3",
@@ -38,7 +37,6 @@
     "react-error-boundary": "^4.0.12",
     "react-leaflet": "^4.2.1",
     "react-router-dom": "^6.22.3",
-    "sharp": "^0.34.1",
     "zustand": "^4.5.2"
   },
   "devDependencies": {
@@ -75,8 +73,7 @@
     "workbox-expiration": "^7.3.0",
     "workbox-precaching": "^7.3.0",
     "workbox-routing": "^7.3.0",
-    "workbox-strategies": "^7.3.0",
-    "rollup-plugin-visualizer": "^5.12.0"
+    "workbox-strategies": "^7.3.0"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [
