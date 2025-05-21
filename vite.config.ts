@@ -119,7 +119,7 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
         skipWaiting: true,
         clientsClaim: true,
-        navigationFallback: '/offline'
+        navigateFallback: '/offline'
       }
     }),
     visualizer({

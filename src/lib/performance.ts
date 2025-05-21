@@ -1,4 +1,4 @@
-import { webVitals } from '@vercel/analytics';
+import { getCLS, getFID, getFCP, getLCP, getTTFB } from 'web-vitals';
 
 interface PerformanceMetric {
   name: string;
@@ -27,15 +27,21 @@ class PerformanceMonitor {
   }
 
   private setupWebVitals(): void {
-    webVitals.track((metric) => {
-      this.addMetric({
-        name: metric.name,
-        value: metric.value,
-        rating: metric.rating,
-        delta: metric.delta,
-      });
-    });
+    getCLS(this.handleWebVital);
+    getFID(this.handleWebVital);
+    getFCP(this.handleWebVital);
+    getLCP(this.handleWebVital);
+    getTTFB(this.handleWebVital);
   }
+
+  private handleWebVital = (metric: any) => {
+    this.addMetric({
+      name: metric.name,
+      value: metric.value,
+      rating: metric.rating || 'good',
+      delta: metric.delta || 0,
+    });
+  };
 
   private setupPerformanceObserver(): void {
     if (typeof window === 'undefined') return;
