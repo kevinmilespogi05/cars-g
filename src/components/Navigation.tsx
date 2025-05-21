@@ -2,11 +2,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Home, MapPin, Trophy, Map, User, LogOut, Shield, Menu, X, MessageSquare, FileText, Award, ChevronDown } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
+import { useTheme } from '../context/ThemeContext';
 
 export function Navigation() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut } = useAuthStore();
+  const { theme } = useTheme();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
@@ -57,8 +59,8 @@ export function Navigation() {
     <nav 
       className={`fixed w-full z-50 transition-all duration-300 ${
         isScrolled 
-          ? 'bg-[#800000] shadow-md py-2' 
-          : 'bg-[#800000]/90 backdrop-blur-sm py-4'
+          ? 'bg-[#800000] dark:bg-gray-900 shadow-md py-2' 
+          : 'bg-[#800000]/90 dark:bg-gray-900/90 backdrop-blur-sm py-4'
       }`}
     >
       <div className="container">
@@ -66,7 +68,7 @@ export function Navigation() {
           {/* Logo */}
           <Link 
             to="/" 
-            className="flex items-center space-x-2 text-white hover:text-gray-200 transition-colors"
+            className="flex items-center space-x-2 text-white dark:text-gray-100 hover:text-gray-200 dark:hover:text-gray-300 transition-colors"
           >
             <img 
               src="/images/logo.jpg" 
@@ -86,8 +88,8 @@ export function Navigation() {
                   inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium 
                   transition-all duration-200 hover:scale-105
                   ${isActive(path)
-                    ? 'text-white bg-[#fff7ed] bg-opacity-10' 
-                    : 'text-white hover:text-gray-200 hover:bg-[#f4f1ee]'
+                    ? 'text-white dark:text-gray-100 bg-[#fff7ed] dark:bg-gray-700 bg-opacity-10' 
+                    : 'text-white dark:text-gray-200 hover:text-gray-200 dark:hover:text-gray-300 hover:bg-[#f4f1ee] dark:hover:bg-gray-700'
                   }
                 `}
               >
@@ -101,7 +103,7 @@ export function Navigation() {
               <div className="relative ml-4" ref={profileMenuRef}>
                 <button
                   onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-                  className="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="flex items-center space-x-2 p-2 rounded-lg text-white dark:text-gray-200 hover:bg-[#fff7ed] dark:hover:bg-gray-700 bg-opacity-10 transition-colors"
                 >
                   {user.avatar_url ? (
                     <img
@@ -110,19 +112,19 @@ export function Navigation() {
                       className="h-8 w-8 rounded-full object-cover"
                     />
                   ) : (
-                    <div className="h-8 w-8 rounded-full bg-primary-color/10 flex items-center justify-center">
-                      <User className="h-5 w-5 text-primary-color" />
+                    <div className="h-8 w-8 rounded-full bg-primary-color/10 dark:bg-gray-700 flex items-center justify-center">
+                      <User className="h-5 w-5 text-white dark:text-gray-200" />
                     </div>
                   )}
-                  <ChevronDown className={`h-4 w-4 text-gray-500 transition-transform ${isProfileMenuOpen ? 'rotate-180' : ''}`} />
+                  <ChevronDown className={`h-4 w-4 text-white dark:text-gray-200 transition-transform ${isProfileMenuOpen ? 'rotate-180' : ''}`} />
                 </button>
 
                 {/* Dropdown Menu */}
                 {isProfileMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-48 bg-[#fff7ed] rounded-lg shadow-lg py-1 z-50">
+                  <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg py-1 z-50">
                     <Link
                       to="/profile"
-                      className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                      className="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
                       onClick={() => setIsProfileMenuOpen(false)}
                     >
                       <User className="h-4 w-4 mr-2" />
@@ -131,7 +133,7 @@ export function Navigation() {
                     {user?.role === 'admin' && (
                       <Link
                         to="/admin"
-                        className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                        className="flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
                         onClick={() => setIsProfileMenuOpen(false)}
                       >
                         <Shield className="h-4 w-4 mr-2" />
@@ -140,7 +142,7 @@ export function Navigation() {
                     )}
                     <button
                       onClick={handleLogout}
-                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
                     >
                       <LogOut className="h-4 w-4 mr-2" />
                       Log Out
@@ -154,7 +156,7 @@ export function Navigation() {
           {/* Mobile Menu Button */}
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="md:hidden touch-target p-3 rounded-lg transition-colors text-gray-900 hover:text-primary-color hover:bg-gray-50"
+            className="md:hidden touch-target p-3 rounded-lg transition-colors text-white dark:text-gray-200 hover:bg-[#fff7ed] dark:hover:bg-gray-700 bg-opacity-10"
             aria-label="Toggle menu"
           >
             {isMobileMenuOpen ? (
@@ -178,7 +180,7 @@ export function Navigation() {
         <div 
           className={`
             absolute top-[72px] left-0 right-0 
-            bg-white shadow-lg rounded-b-lg py-2 px-4 mx-4 space-y-1
+            bg-white dark:bg-gray-800 shadow-lg rounded-b-lg py-2 px-4 mx-4 space-y-1
             transform transition-transform duration-300
             ${isMobileMenuOpen ? 'translate-y-0' : '-translate-y-4'}
           `}
@@ -192,35 +194,16 @@ export function Navigation() {
                 flex items-center px-4 py-4 rounded-lg text-base font-medium
                 transition-colors duration-200 touch-target
                 ${isActive(path)
-                  ? 'text-primary-color bg-primary-color bg-opacity-10'
-                  : 'text-gray-900 hover:text-primary-color hover:bg-gray-50'
+                  ? 'text-primary-color dark:text-blue-400 bg-primary-color/10 dark:bg-blue-400/10'
+                  : 'text-gray-900 dark:text-gray-200 hover:text-primary-color dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700'
                 }
               `}
               onClick={() => setIsMobileMenuOpen(false)}
             >
-              <Icon className="h-6 w-6 mr-3" />
+              <Icon className="h-5 w-5 mr-3" />
               {label}
             </Link>
           ))}
-          {user && (
-            <>
-              <Link
-                to="/profile"
-                className="flex items-center px-4 py-4 rounded-lg text-base font-medium text-gray-900 hover:text-primary-color hover:bg-gray-50 touch-target"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                <User className="h-6 w-6 mr-3" />
-                Profile
-              </Link>
-              <button
-                onClick={handleLogout}
-                className="flex items-center w-full px-4 py-4 rounded-lg text-base font-medium text-gray-900 hover:text-primary-color hover:bg-gray-50 touch-target"
-              >
-                <LogOut className="h-6 w-6 mr-3" />
-                Log Out
-              </button>
-            </>
-          )}
         </div>
       </div>
     </nav>

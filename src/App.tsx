@@ -1,4 +1,4 @@
-import React, { useEffect, useState, Suspense } from 'react';
+import React, { useEffect, useState, Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Navigation } from './components/Navigation';
 import { Home } from './pages/Home';
@@ -22,7 +22,26 @@ import { initializeAchievements } from './lib/initAchievements';
 import { Providers } from './components/Providers';
 import { motion, AnimatePresence } from 'framer-motion';
 import useOnlineStatus from './hooks/useOnlineStatus';
-import OfflinePage from './components/OfflinePage';
+import { Offline } from './pages/Offline';
+import { ThemeProvider } from './context/ThemeContext';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { ThemeToggle } from './components/ThemeToggle';
+import { AccessibilityProvider } from './context/AccessibilityContext';
+import { SkipLink } from './components/SkipLink';
+
+// Lazy load components
+const HomeLazy = lazy(() => import('./pages/Home'));
+const ReportsLazy = lazy(() => import('./pages/Reports'));
+const CreateReportLazy = lazy(() => import('./pages/CreateReport'));
+const ReportDetailLazy = lazy(() => import('./pages/ReportDetail'));
+const LeaderboardLazy = lazy(() => import('./pages/Leaderboard'));
+const ProfileLazy = lazy(() => import('./pages/Profile'));
+const LoginLazy = lazy(() => import('./pages/Login'));
+const RegisterLazy = lazy(() => import('./pages/Register'));
+const AdminDashboardLazy = lazy(() => import('./pages/AdminDashboard'));
+const PrivacyPolicyLazy = lazy(() => import('./pages/PrivacyPolicy'));
+const ChatLazy = lazy(() => import('./pages/Chat'));
+const OfflineLazy = lazy(() => import('./pages/Offline'));
 
 // Configure future flags for React Router v7
 const routerConfig = {
@@ -41,6 +60,13 @@ const PageTransition = ({ children }: { children: React.ReactNode }) => (
   >
     {children}
   </motion.div>
+);
+
+// Loading component
+const LoadingSpinner = () => (
+  <div className="min-h-[50vh] flex items-center justify-center" role="status" aria-label="Loading">
+    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-color"></div>
+  </div>
 );
 
 function App() {
@@ -64,203 +90,213 @@ function App() {
 
   if (!isInitialized) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center dark:bg-gray-900">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-color"></div>
       </div>
     );
   }
 
   if (!isOnline) {
-    return <OfflinePage />;
+    return (
+      <Suspense fallback={<LoadingSpinner />}>
+        <OfflineLazy />
+      </Suspense>
+    );
   }
 
   return (
-    <Providers>
-      <Router {...routerConfig}>
-        <div className="min-h-screen bg-gray-100">
-          <Navigation />
-          <main className="pt-16 sm:pt-20">
-            <AnimatePresence mode="wait">
-              <Routes>
-                {/* Public routes */}
-                <Route path="/" element={
-                  <PageTransition>
-                    <Home />
-                  </PageTransition>
-                } />
-                <Route path="/login" element={
-                  <PageTransition>
-                    <Login />
-                  </PageTransition>
-                } />
-                <Route path="/register" element={
-                  <PageTransition>
-                    <Register />
-                  </PageTransition>
-                } />
-                <Route path="/privacy-policy" element={
-                  <PageTransition>
-                    <PrivacyPolicy />
-                  </PageTransition>
-                } />
-                <Route 
-                  path="/auth/callback" 
-                  element={
-                    <ProtectedRoute>
-                      <PageTransition>
-                        <Navigate to="/reports" replace />
-                      </PageTransition>
-                    </ProtectedRoute>
-                  } 
-                />
-                
-                {/* Protected routes */}
-                <Route
-                  path="/chat"
-                  element={
-                    isAuthenticated ? (
-                      <ProtectedRoute>
-                        <PageTransition>
-                          <div className="h-[calc(100vh-4rem)] sm:h-[calc(100vh-5rem)]">
-                            <Suspense fallback={
-                              <div className="h-full flex items-center justify-center">
-                                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-color"></div>
-                              </div>
-                            }>
-                              <Chat />
-                            </Suspense>
-                          </div>
-                        </PageTransition>
-                      </ProtectedRoute>
-                    ) : (
-                      <Navigate to="/login" state={{ from: { pathname: '/chat' } }} replace />
-                    )
-                  }
-                />
-                <Route
-                  path="/reports"
-                  element={
-                    isAuthenticated ? (
-                      <ProtectedRoute>
-                        <PageTransition>
-                          <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-8">
-                            <Reports />
-                          </div>
-                        </PageTransition>
-                      </ProtectedRoute>
-                    ) : (
-                      <Navigate to="/login" state={{ from: { pathname: '/reports' } }} replace />
-                    )
-                  }
-                />
-                <Route
-                  path="/reports/:id"
-                  element={
-                    isAuthenticated ? (
-                      <ProtectedRoute>
-                        <PageTransition>
-                          <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-8">
-                            <ReportDetail />
-                          </div>
-                        </PageTransition>
-                      </ProtectedRoute>
-                    ) : (
-                      <Navigate to="/login" state={{ from: { pathname: '/reports' } }} replace />
-                    )
-                  }
-                />
-                <Route
-                  path="/reports/create"
-                  element={
-                    isAuthenticated ? (
-                      <ProtectedRoute>
-                        <PageTransition>
-                          <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-8">
-                            <CreateReport />
-                          </div>
-                        </PageTransition>
-                      </ProtectedRoute>
-                    ) : (
-                      <Navigate to="/login" state={{ from: { pathname: '/reports/create' } }} replace />
-                    )
-                  }
-                />
-                <Route
-                  path="/leaderboard"
-                  element={
-                    isAuthenticated ? (
-                      <ProtectedRoute>
-                        <PageTransition>
-                          <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-8">
-                            <LeaderboardPage />
-                          </div>
-                        </PageTransition>
-                      </ProtectedRoute>
-                    ) : (
-                      <Navigate to="/login" state={{ from: { pathname: '/leaderboard' } }} replace />
-                    )
-                  }
-                />
-                <Route
-                  path="/profile"
-                  element={
-                    isAuthenticated ? (
-                      <ProtectedRoute>
-                        <PageTransition>
-                          <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-8">
-                            <Profile />
-                          </div>
-                        </PageTransition>
-                      </ProtectedRoute>
-                    ) : (
-                      <Navigate to="/login" state={{ from: { pathname: '/profile' } }} replace />
-                    )
-                  }
-                />
-                <Route
-                  path="/map-test"
-                  element={
-                    isAuthenticated ? (
-                      <ProtectedRoute>
-                        <PageTransition>
-                          <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-8">
-                            <MapTestPage />
-                          </div>
-                        </PageTransition>
-                      </ProtectedRoute>
-                    ) : (
-                      <Navigate to="/login" state={{ from: { pathname: '/map-test' } }} replace />
-                    )
-                  }
-                />
-                
-                {/* Admin routes */}
-                <Route
-                  path="/admin"
-                  element={
-                    isAuthenticated && user?.role === 'admin' ? (
-                      <ProtectedRoute>
-                        <PageTransition>
-                          <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-8">
-                            <AdminDashboard />
-                          </div>
-                        </PageTransition>
-                      </ProtectedRoute>
-                    ) : (
-                      <Navigate to="/" replace />
-                    )
-                  }
-                />
-                
-                {/* Catch all route */}
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
-            </AnimatePresence>
-          </main>
-        </div>
-        <Analytics />
-      </Router>
-    </Providers>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <AccessibilityProvider>
+          <Providers>
+            <Router {...routerConfig}>
+              <div className="min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors">
+                <SkipLink />
+                <Navigation />
+                <div className="fixed bottom-4 right-4 z-50">
+                  <ThemeToggle />
+                </div>
+                <main id="main-content" tabIndex={-1} className="pt-16 sm:pt-20 focus:outline-none">
+                  <AnimatePresence mode="wait">
+                    <Suspense fallback={<LoadingSpinner />}>
+                      <Routes>
+                        {/* Public routes */}
+                        <Route path="/" element={
+                          <PageTransition>
+                            <HomeLazy />
+                          </PageTransition>
+                        } />
+                        <Route path="/login" element={
+                          <PageTransition>
+                            <LoginLazy />
+                          </PageTransition>
+                        } />
+                        <Route path="/register" element={
+                          <PageTransition>
+                            <RegisterLazy />
+                          </PageTransition>
+                        } />
+                        <Route path="/privacy-policy" element={
+                          <PageTransition>
+                            <PrivacyPolicyLazy />
+                          </PageTransition>
+                        } />
+                        <Route 
+                          path="/auth/callback" 
+                          element={
+                            <ProtectedRoute>
+                              <PageTransition>
+                                <Navigate to="/reports" replace />
+                              </PageTransition>
+                            </ProtectedRoute>
+                          } 
+                        />
+                        
+                        {/* Protected routes */}
+                        <Route
+                          path="/chat"
+                          element={
+                            isAuthenticated ? (
+                              <ProtectedRoute>
+                                <PageTransition>
+                                  <div className="h-[calc(100vh-4rem)] sm:h-[calc(100vh-5rem)]">
+                                    <ChatLazy />
+                                  </div>
+                                </PageTransition>
+                              </ProtectedRoute>
+                            ) : (
+                              <Navigate to="/login" state={{ from: { pathname: '/chat' } }} replace />
+                            )
+                          }
+                        />
+                        <Route
+                          path="/reports"
+                          element={
+                            isAuthenticated ? (
+                              <ProtectedRoute>
+                                <PageTransition>
+                                  <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-8">
+                                    <ReportsLazy />
+                                  </div>
+                                </PageTransition>
+                              </ProtectedRoute>
+                            ) : (
+                              <Navigate to="/login" state={{ from: { pathname: '/reports' } }} replace />
+                            )
+                          }
+                        />
+                        <Route
+                          path="/reports/:id"
+                          element={
+                            isAuthenticated ? (
+                              <ProtectedRoute>
+                                <PageTransition>
+                                  <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-8">
+                                    <ReportDetailLazy />
+                                  </div>
+                                </PageTransition>
+                              </ProtectedRoute>
+                            ) : (
+                              <Navigate to="/login" state={{ from: { pathname: '/reports' } }} replace />
+                            )
+                          }
+                        />
+                        <Route
+                          path="/reports/create"
+                          element={
+                            isAuthenticated ? (
+                              <ProtectedRoute>
+                                <PageTransition>
+                                  <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-8">
+                                    <CreateReportLazy />
+                                  </div>
+                                </PageTransition>
+                              </ProtectedRoute>
+                            ) : (
+                              <Navigate to="/login" state={{ from: { pathname: '/reports/create' } }} replace />
+                            )
+                          }
+                        />
+                        <Route
+                          path="/leaderboard"
+                          element={
+                            isAuthenticated ? (
+                              <ProtectedRoute>
+                                <PageTransition>
+                                  <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-8">
+                                    <LeaderboardLazy />
+                                  </div>
+                                </PageTransition>
+                              </ProtectedRoute>
+                            ) : (
+                              <Navigate to="/login" state={{ from: { pathname: '/leaderboard' } }} replace />
+                            )
+                          }
+                        />
+                        <Route
+                          path="/profile"
+                          element={
+                            isAuthenticated ? (
+                              <ProtectedRoute>
+                                <PageTransition>
+                                  <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-8">
+                                    <ProfileLazy />
+                                  </div>
+                                </PageTransition>
+                              </ProtectedRoute>
+                            ) : (
+                              <Navigate to="/login" state={{ from: { pathname: '/profile' } }} replace />
+                            )
+                          }
+                        />
+                        <Route
+                          path="/map-test"
+                          element={
+                            isAuthenticated ? (
+                              <ProtectedRoute>
+                                <PageTransition>
+                                  <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-8">
+                                    <MapTestPage />
+                                  </div>
+                                </PageTransition>
+                              </ProtectedRoute>
+                            ) : (
+                              <Navigate to="/login" state={{ from: { pathname: '/map-test' } }} replace />
+                            )
+                          }
+                        />
+                        
+                        {/* Admin routes */}
+                        <Route
+                          path="/admin"
+                          element={
+                            isAuthenticated && user?.role === 'admin' ? (
+                              <ProtectedRoute>
+                                <PageTransition>
+                                  <div className="container mx-auto px-4 sm:px-6 py-4 sm:py-8">
+                                    <AdminDashboardLazy />
+                                  </div>
+                                </PageTransition>
+                              </ProtectedRoute>
+                            ) : (
+                              <Navigate to="/" replace />
+                            )
+                          }
+                        />
+                        
+                        {/* Catch all route */}
+                        <Route path="*" element={<Navigate to="/" replace />} />
+                      </Routes>
+                    </Suspense>
+                  </AnimatePresence>
+                </main>
+                <Analytics />
+              </div>
+            </Router>
+          </Providers>
+        </AccessibilityProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 }
 
