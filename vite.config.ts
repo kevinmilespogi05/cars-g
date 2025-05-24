@@ -5,13 +5,7 @@ import { VitePWA } from 'vite-plugin-pwa';
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
-    react({
-      jsxRuntime: 'automatic',
-      fastRefresh: true,
-      babel: {
-        plugins: []
-      }
-    }),
+    react(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: [
@@ -103,20 +97,10 @@ export default defineConfig({
         prefer_related_applications: false,
         crossorigin: 'use-credentials'
       },
-      injectManifest: {
-        rollupOptions: {
-          input: 'src/sw.js'
-        },
-        injectionPoint: undefined,
-        manifestTransforms: [
-          (manifest) => {
-            manifest.crossorigin = 'use-credentials';
-            return { manifest };
-          }
-        ]
-      },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        cleanupOutdatedCaches: true,
+        skipWaiting: true,
+        clientsClaim: true,
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/api\.mapbox\.com\/.*/i,
@@ -190,9 +174,6 @@ export default defineConfig({
             }
           }
         ],
-        skipWaiting: true,
-        clientsClaim: true,
-        cleanupOutdatedCaches: true,
         navigationPreload: false,
         sourcemap: true
       },
@@ -204,7 +185,7 @@ export default defineConfig({
       includeManifestIcons: true,
       manifestFilename: 'manifest.webmanifest',
       injectRegister: 'auto',
-      strategies: 'generateSW',
+      strategies: 'injectManifest',
       srcDir: 'src',
       filename: 'service-worker.js',
       outDir: 'dist'
