@@ -9,9 +9,7 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg', 'offline.html'],
-      strategies: 'injectManifest',
-      srcDir: 'src',
-      filename: 'service-worker.ts',
+      strategies: 'generateSW',
       manifest: {
         name: 'Cars-G',
         short_name: 'Cars-G',
@@ -25,25 +23,25 @@ export default defineConfig({
         categories: ['automotive', 'utilities'],
         icons: [
           {
-            src: 'pwa-192x192.png',
+            src: '/pwa-192x192.png',
             sizes: '192x192',
             type: 'image/png',
             purpose: 'any'
           },
           {
-            src: 'pwa-512x512.png',
+            src: '/pwa-512x512.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any'
           },
           {
-            src: 'pwa-512x512.png',
+            src: '/pwa-512x512.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'maskable'
           },
           {
-            src: 'pwa-192x192.png',
+            src: '/pwa-192x192.png',
             sizes: '192x192',
             type: 'image/png',
             purpose: 'maskable'
@@ -51,14 +49,14 @@ export default defineConfig({
         ],
         screenshots: [
           {
-            src: 'screenshot-wide.png',
+            src: '/screenshot-wide.png',
             sizes: '1280x720',
             type: 'image/png',
             form_factor: 'wide',
             label: 'Cars-G Desktop View'
           },
           {
-            src: 'screenshot-narrow.png',
+            src: '/screenshot-narrow.png',
             sizes: '750x1334',
             type: 'image/png',
             form_factor: 'narrow',
@@ -79,10 +77,6 @@ export default defineConfig({
         ],
         related_applications: [],
         prefer_related_applications: false
-      },
-      injectManifest: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-        maximumFileSizeToCacheInBytes: 3000000
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
@@ -141,12 +135,6 @@ export default defineConfig({
               },
               cacheableResponse: {
                 statuses: [0, 200]
-              },
-              backgroundSync: {
-                name: 'apiQueue',
-                options: {
-                  maxRetentionTime: 24 * 60 // Retry for up to 24 hours (specified in minutes)
-                }
               }
             }
           },
@@ -168,7 +156,6 @@ export default defineConfig({
         skipWaiting: true,
         clientsClaim: true,
         cleanupOutdatedCaches: true,
-        offlineGoogleAnalytics: true,
         navigationPreload: true
       },
       devOptions: {

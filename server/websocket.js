@@ -2,6 +2,7 @@ const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 const WebSocket = require('ws');
 const { createClient } = require('@supabase/supabase-js');
+const { createServer } = require('http');
 
 // Add debug logging
 console.log('Initializing WebSocket server...');
@@ -23,15 +24,49 @@ const supabase = createClient(
   }
 );
 
-const wss = new WebSocket.Server({ 
-  port: 3001,
-  clientTracking: true,
-  // Add ping timeout
-  pingTimeout: 5000,
-});
+// Rate limiting configuration
+const RATE_LIMIT = {
+  messages: {
+    windowMs: 60000, // 1 minute
+    maxRequests: 120, // 120 messages per minute
+  },
+  connections: {
+    windowMs: 60000, // 1 minute
+    maxRequests: 60, // 60 connection attempts per minute
+  },
+};
 
 // Store active connections with metadata
 const connections = new Map();
+const connectionLimiter = new Map();
+const messageLimiter = new Map();
+
+// Create HTTP server
+const server = createServer();
+const wss = new WebSocket.Server({ server });
+
+// Utility functions
+function getRateLimitKey(ip) {
+  return `${ip}-${Math.floor(Date.now() / RATE_LIMIT.messages.windowMs)}`;
+}
+
+function isRateLimited(limiter, ip, limit) {
+  const key = getRateLimitKey(ip);
+  const count = limiter.get(key) || 0;
+  
+  if (count >= limit.maxRequests) {
+    return true;
+  }
+  
+  limiter.set(key, count + 1);
+  
+  // Clean up old entries
+  setTimeout(() => {
+    limiter.delete(key);
+  }, limit.windowMs);
+  
+  return false;
+}
 
 function heartbeat() {
   this.isAlive = true;
@@ -58,13 +93,30 @@ wss.on('close', function close() {
   clearInterval(healthCheckInterval);
 });
 
+// Handle new connections
 wss.on('connection', (ws, req) => {
-  console.log('New client connected');
+  const ip = req.socket.remoteAddress;
+  
+  // Check connection rate limit
+  if (isRateLimited(connectionLimiter, ip, RATE_LIMIT.connections)) {
+    console.warn(`Connection rate limit exceeded for IP: ${ip}`);
+    ws.send(JSON.stringify({
+      type: 'error',
+      data: {
+        code: 'RATE_LIMIT_EXCEEDED',
+        message: 'Too many connection attempts. Please try again later.',
+      },
+    }));
+    return ws.close(1008, 'Rate limit exceeded');
+  }
+
+  console.log('New client connected from:', ip);
   
   // Setup connection tracking
   ws.isAlive = true;
-  ws.ip = req.socket.remoteAddress;
+  ws.ip = ip;
   ws.connectionTime = new Date();
+  ws.messageCount = 0;
   
   ws.on('pong', heartbeat);
   
@@ -72,21 +124,43 @@ wss.on('connection', (ws, req) => {
     ws.pong();
   });
 
+  // Handle incoming messages
   ws.on('message', async (message) => {
     try {
+      // Check message rate limit
+      if (isRateLimited(messageLimiter, ip, RATE_LIMIT.messages)) {
+        throw new Error('Message rate limit exceeded');
+      }
+
       // Handle heartbeat messages
       if (message.toString() === 'ping') {
         ws.send('pong');
         return;
       }
 
-      const { type, data } = JSON.parse(message);
-      console.log('Received message:', type, data);
-
-      if (!type || !data) {
-        throw new Error('Invalid message format');
+      // Parse and validate message
+      let parsedMessage;
+      try {
+        parsedMessage = JSON.parse(message);
+      } catch (e) {
+        throw new Error('Invalid message format: not valid JSON');
       }
 
+      const { type, data } = parsedMessage;
+
+      if (!type || !data) {
+        throw new Error('Invalid message format: missing type or data');
+      }
+
+      // Validate message size
+      const messageSize = message.length;
+      if (messageSize > 1024 * 1024) { // 1MB limit
+        throw new Error('Message size exceeds limit');
+      }
+
+      console.log('Received message:', type, data);
+
+      // Handle different message types
       switch (type) {
         case 'message':
           await handleMessage(ws, data);
@@ -104,55 +178,93 @@ wss.on('connection', (ws, req) => {
           await handleMessageDelete(ws, data);
           break;
         default:
-          console.warn('Unknown message type:', type);
+          throw new Error(`Unsupported message type: ${type}`);
       }
+
+      // Update message count
+      ws.messageCount++;
+
     } catch (error) {
       console.error('Error handling message:', error);
-      // Send error back to client
-      ws.send(JSON.stringify({
+      
+      // Send appropriate error response
+      const errorResponse = {
         type: 'error',
         data: {
-          message: 'Failed to process message',
-          error: error.message
-        }
-      }));
+          code: error.code || 'INTERNAL_ERROR',
+          message: error.message || 'An unexpected error occurred',
+        },
+      };
+
+      // Don't send error details in production
+      if (process.env.NODE_ENV !== 'production') {
+        errorResponse.data.details = error.stack;
+      }
+
+      try {
+        ws.send(JSON.stringify(errorResponse));
+      } catch (e) {
+        console.error('Failed to send error message to client:', e);
+      }
+
+      // Close connection for severe errors
+      if (error.message.includes('rate limit') || error.message.includes('size exceeds')) {
+        ws.close(1008, error.message);
+      }
     }
   });
 
+  // Handle connection errors
   ws.on('error', (error) => {
     console.error('WebSocket error:', error);
     try {
-      ws.send(JSON.stringify({
+      const errorResponse = {
         type: 'error',
         data: {
-          message: 'WebSocket error occurred',
-          error: error.message
-        }
-      }));
+          code: 'CONNECTION_ERROR',
+          message: 'A connection error occurred',
+        },
+      };
+
+      if (process.env.NODE_ENV !== 'production') {
+        errorResponse.data.details = error.message;
+      }
+
+      ws.send(JSON.stringify(errorResponse));
     } catch (e) {
       console.error('Failed to send error message to client:', e);
     }
   });
 
+  // Handle connection close
   ws.on('close', () => {
-    console.log('Client disconnected');
-    // Remove from connections and cleanup
+    console.log('Client disconnected:', ip);
+    // Clean up any resources
     for (const [roomId, clients] of connections.entries()) {
-      const updatedClients = clients.filter((client) => client !== ws);
-      if (updatedClients.length === 0) {
-        connections.delete(roomId);
-      } else {
-        connections.set(roomId, updatedClients);
+      const index = clients.indexOf(ws);
+      if (index !== -1) {
+        clients.splice(index, 1);
+        if (clients.length === 0) {
+          connections.delete(roomId);
+        }
       }
     }
   });
 });
 
+// Message handlers
 async function handleMessage(ws, data) {
   try {
-    const { roomId, content } = data;
-    if (!roomId || !content) {
-      throw new Error('Invalid message data: roomId and content are required');
+    const { roomId, content, userId } = data;
+    
+    // Validate required fields
+    if (!roomId || !content || !userId) {
+      throw new Error('Invalid message data: roomId, content, and userId are required');
+    }
+
+    // Validate content length
+    if (content.length > 5000) { // 5000 character limit
+      throw new Error('Message content exceeds maximum length');
     }
 
     console.log('Handling message for room:', roomId);
@@ -168,7 +280,10 @@ async function handleMessage(ws, data) {
     // Broadcast to all clients in the room
     broadcastToRoom(roomId, ws, {
       type: 'message',
-      data
+      data: {
+        ...data,
+        timestamp: new Date().toISOString(),
+      },
     });
   } catch (error) {
     console.error('Error in handleMessage:', error);
@@ -179,6 +294,8 @@ async function handleMessage(ws, data) {
 function handleTyping(ws, data) {
   try {
     const { roomId, userId, isTyping } = data;
+    
+    // Validate required fields
     if (!roomId || !userId) {
       throw new Error('Invalid typing data: roomId and userId are required');
     }
@@ -187,7 +304,10 @@ function handleTyping(ws, data) {
     
     broadcastToRoom(roomId, ws, {
       type: 'typing',
-      data
+      data: {
+        ...data,
+        timestamp: new Date().toISOString(),
+      },
     });
   } catch (error) {
     console.error('Error in handleTyping:', error);
@@ -226,16 +346,26 @@ async function handleReaction(ws, data) {
 
 async function handleMessageUpdate(ws, data) {
   try {
-    const { messageId, content, roomId } = data;
-    if (!messageId || !content || !roomId) {
-      throw new Error('Invalid message update data: messageId, content, and roomId are required');
+    const { messageId, content, roomId, userId } = data;
+    
+    // Validate required fields
+    if (!messageId || !content || !roomId || !userId) {
+      throw new Error('Invalid message update data: messageId, content, roomId, and userId are required');
+    }
+
+    // Validate content length
+    if (content.length > 5000) {
+      throw new Error('Updated message content exceeds maximum length');
     }
 
     console.log('Handling message update for message:', messageId);
     
     broadcastToRoom(roomId, null, {
       type: 'message_update',
-      data
+      data: {
+        ...data,
+        timestamp: new Date().toISOString(),
+      },
     });
   } catch (error) {
     console.error('Error in handleMessageUpdate:', error);
@@ -245,16 +375,21 @@ async function handleMessageUpdate(ws, data) {
 
 async function handleMessageDelete(ws, data) {
   try {
-    const { messageId, roomId } = data;
-    if (!messageId || !roomId) {
-      throw new Error('Invalid message delete data: messageId and roomId are required');
+    const { messageId, roomId, userId } = data;
+    
+    // Validate required fields
+    if (!messageId || !roomId || !userId) {
+      throw new Error('Invalid message delete data: messageId, roomId, and userId are required');
     }
 
     console.log('Handling message delete for message:', messageId);
     
     broadcastToRoom(roomId, null, {
       type: 'message_delete',
-      data
+      data: {
+        ...data,
+        timestamp: new Date().toISOString(),
+      },
     });
   } catch (error) {
     console.error('Error in handleMessageDelete:', error);
@@ -262,20 +397,26 @@ async function handleMessageDelete(ws, data) {
   }
 }
 
-function broadcastToRoom(roomId, excludeWs = null, message) {
-  const clients = connections.get(roomId);
-  if (clients) {
-    clients.forEach((client) => {
-      if (client !== excludeWs && client.readyState === WebSocket.OPEN) {
-        try {
-          client.send(JSON.stringify(message));
-        } catch (error) {
-          console.error('Error broadcasting to client:', error);
-        }
+function broadcastToRoom(roomId, sender, message) {
+  const clients = connections.get(roomId) || [];
+  const messageStr = JSON.stringify(message);
+
+  clients.forEach((client) => {
+    if (client !== sender && client.readyState === WebSocket.OPEN) {
+      try {
+        client.send(messageStr);
+      } catch (error) {
+        console.error('Error broadcasting to client:', error);
       }
-    });
-  }
+    }
+  });
 }
+
+// Start the server
+const PORT = process.env.WS_PORT || 3001;
+server.listen(PORT, () => {
+  console.log(`WebSocket server is running on port ${PORT}`);
+});
 
 process.on('SIGINT', () => {
   console.log('Shutting down WebSocket server...');
@@ -283,6 +424,4 @@ process.on('SIGINT', () => {
     console.log('WebSocket server closed');
     process.exit(0);
   });
-});
-
-console.log('WebSocket server running on port 3001'); 
+}); 

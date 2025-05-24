@@ -17,13 +17,14 @@ class WebSocketService {
   private socket: WebSocket | null = null;
   private reconnectAttempts = 0;
   private reconnectTimer: NodeJS.Timeout | null = null;
-  private heartbeatInterval: NodeJS.Timeout | null = null;
-  private lastPongTime: number = Date.now();
-  private eventHandlers = new Map<WebSocketEvent, ((data: any) => void)[]>();
-  private config: Required<WebSocketConfig> = {
+  private heartbeatTimer: NodeJS.Timeout | null = null;
+  private eventHandlers = new Map<string, ((data: any) => void)[]>();
+  private readonly config = {
+    connectionTimeout: 5000,
+    heartbeatInterval: 30000,
     maxReconnectAttempts: 5,
-    reconnectInterval: 3000,
-    connectionTimeout: 10000,
+    reconnectInterval: 1000,
+    maxMessageSize: 1024 * 1024, // 1MB
   };
 
   constructor(config?: WebSocketConfig) {
@@ -35,12 +36,16 @@ class WebSocketService {
       return;
     }
 
+    // Clear any existing timers
+    this.cleanup();
+
     const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:3001';
     this.socket = new WebSocket(wsUrl);
 
     // Set connection timeout
     const connectionTimeout = setTimeout(() => {
       if (this.socket?.readyState !== WebSocket.OPEN) {
+        console.warn('WebSocket connection timeout');
         this.socket?.close();
         this.handleReconnect();
       }
@@ -51,10 +56,16 @@ class WebSocketService {
       clearTimeout(connectionTimeout);
       this.reconnectAttempts = 0;
       this.startHeartbeat();
+      this.emit('connection', { status: 'connected' });
     };
 
     this.socket.onmessage = (event) => {
       try {
+        // Check message size
+        if (event.data.length > this.config.maxMessageSize) {
+          throw new Error('Message size exceeds limit');
+        }
+
         if (event.data === 'pong') {
           this.handlePong();
           return;
@@ -63,11 +74,18 @@ class WebSocketService {
         const message: WebSocketMessage = JSON.parse(event.data);
         const handlers = this.eventHandlers.get(message.type);
         if (handlers) {
-          handlers.forEach(handler => handler(message.data));
+          handlers.forEach(handler => {
+            try {
+              handler(message.data);
+            } catch (error) {
+              console.error('Error in message handler:', error);
+              this.handleError(new Error('Handler execution failed'));
+            }
+          });
         }
       } catch (error) {
-        console.error('Error parsing WebSocket message:', error);
-        this.handleError(new Error('Failed to parse WebSocket message'));
+        console.error('Error processing WebSocket message:', error);
+        this.handleError(new Error('Failed to process WebSocket message'));
       }
     };
 
@@ -75,30 +93,42 @@ class WebSocketService {
       console.log('WebSocket disconnected', event.code, event.reason);
       clearTimeout(connectionTimeout);
       this.cleanup();
-      this.handleReconnect();
+      
+      // Don't reconnect if the closure was intentional
+      if (!event.wasClean) {
+        this.handleReconnect();
+      } else {
+        this.emit('connection', { status: 'disconnected', clean: true });
+      }
     };
 
     this.socket.onerror = (error) => {
       console.error('WebSocket error:', error);
       this.handleError(error instanceof Error ? error : new Error('WebSocket error'));
       this.cleanup();
+      this.emit('connection', { status: 'error', error });
     };
   }
 
   private handleError(error: Error) {
-    // Implement custom error handling logic here
     console.error('WebSocket error:', error);
-    // You could emit an error event or call a callback
+    this.emit('error', { error });
   }
 
   private handleReconnect() {
     if (this.reconnectAttempts >= this.config.maxReconnectAttempts) {
       console.error('Max reconnection attempts reached');
+      this.emit('connection', { status: 'failed', reason: 'max_attempts' });
       return;
     }
 
-    const delay = this.config.reconnectInterval * Math.pow(2, this.reconnectAttempts);
-    console.log(`Attempting to reconnect in ${delay}ms...`);
+    const delay = Math.min(
+      this.config.reconnectInterval * Math.pow(2, this.reconnectAttempts),
+      30000 // Max delay of 30 seconds
+    );
+    
+    console.log(`Attempting to reconnect in ${delay}ms... (attempt ${this.reconnectAttempts + 1}/${this.config.maxReconnectAttempts})`);
+    this.emit('connection', { status: 'reconnecting', attempt: this.reconnectAttempts + 1 });
 
     this.reconnectTimer = setTimeout(() => {
       this.reconnectAttempts++;
@@ -107,9 +137,9 @@ class WebSocketService {
   }
 
   private cleanup() {
-    if (this.heartbeatInterval) {
-      clearInterval(this.heartbeatInterval);
-      this.heartbeatInterval = null;
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
     }
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
@@ -118,21 +148,15 @@ class WebSocketService {
   }
 
   private startHeartbeat() {
-    this.heartbeatInterval = setInterval(() => {
+    this.heartbeatTimer = setInterval(() => {
       if (this.socket?.readyState === WebSocket.OPEN) {
         this.socket.send('ping');
-        
-        // Check if we haven't received a pong in a while
-        if (Date.now() - this.lastPongTime > this.config.connectionTimeout) {
-          console.warn('No pong received, reconnecting...');
-          this.socket.close();
-        }
       }
-    }, 30000); // Send heartbeat every 30 seconds
+    }, this.config.heartbeatInterval);
   }
 
   private handlePong() {
-    this.lastPongTime = Date.now();
+    // Handle pong logic
   }
 
   public addEventListener<T>(event: WebSocketEvent, callback: (data: T) => void) {
@@ -172,6 +196,19 @@ class WebSocketService {
     if (this.socket) {
       this.socket.close();
       this.socket = null;
+    }
+  }
+
+  private emit(type: string, data: any) {
+    const handlers = this.eventHandlers.get(type);
+    if (handlers) {
+      handlers.forEach(handler => {
+        try {
+          handler(data);
+        } catch (error) {
+          console.error('Error in event handler:', error);
+        }
+      });
     }
   }
 }
