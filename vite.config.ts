@@ -193,12 +193,12 @@ export default defineConfig({
         skipWaiting: true,
         clientsClaim: true,
         cleanupOutdatedCaches: true,
-        navigationPreload: true,
+        navigationPreload: false,
         sourcemap: true
       },
       devOptions: {
         enabled: true,
-        type: 'module',
+        type: 'classic',
         navigateFallback: 'index.html'
       },
       includeManifestIcons: true,
