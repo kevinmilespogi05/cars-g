@@ -8,8 +8,15 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg', 'offline.html'],
-      strategies: 'generateSW',
+      includeAssets: [
+        'favicon.ico',
+        'apple-touch-icon.png',
+        'masked-icon.svg',
+        'pwa-192x192.png',
+        'pwa-512x512.png',
+        'screenshot-wide.png',
+        'screenshot-narrow.png'
+      ],
       manifest: {
         name: 'Cars-G',
         short_name: 'Cars-G',
@@ -23,25 +30,25 @@ export default defineConfig({
         categories: ['automotive', 'utilities'],
         icons: [
           {
-            src: '/pwa-192x192.png',
+            src: 'pwa-192x192.png',
             sizes: '192x192',
             type: 'image/png',
             purpose: 'any'
           },
           {
-            src: '/pwa-512x512.png',
+            src: 'pwa-512x512.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any'
           },
           {
-            src: '/pwa-512x512.png',
+            src: 'pwa-512x512.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'maskable'
           },
           {
-            src: '/pwa-192x192.png',
+            src: 'pwa-192x192.png',
             sizes: '192x192',
             type: 'image/png',
             purpose: 'maskable'
@@ -49,14 +56,14 @@ export default defineConfig({
         ],
         screenshots: [
           {
-            src: '/screenshot-wide.png',
+            src: 'screenshot-wide.png',
             sizes: '1280x720',
             type: 'image/png',
             form_factor: 'wide',
             label: 'Cars-G Desktop View'
           },
           {
-            src: '/screenshot-narrow.png',
+            src: 'screenshot-narrow.png',
             sizes: '750x1334',
             type: 'image/png',
             form_factor: 'narrow',
@@ -156,16 +163,29 @@ export default defineConfig({
         skipWaiting: true,
         clientsClaim: true,
         cleanupOutdatedCaches: true,
-        navigationPreload: true
+        navigationPreload: true,
+        sourcemap: true
       },
       devOptions: {
         enabled: true,
         type: 'module',
         navigateFallback: 'index.html'
-      }
+      },
+      includeManifestIcons: true,
+      manifestFilename: 'manifest.webmanifest',
+      injectRegister: 'auto'
     })
   ],
   optimizeDeps: {
     exclude: ['lucide-react'],
   },
+  build: {
+    sourcemap: true,
+    assetsDir: 'assets',
+    rollupOptions: {
+      output: {
+        manualChunks: undefined
+      }
+    }
+  }
 });
