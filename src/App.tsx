@@ -1,5 +1,5 @@
 import React, { useEffect, useState, Suspense } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useRoutes } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Navigation } from './components/Navigation';
 import { Home } from './pages/Home';
 import { Reports } from './pages/Reports';
@@ -65,32 +65,8 @@ const ErrorFallback = ({ error, resetErrorBoundary }: { error: Error; resetError
   </div>
 );
 
-function AppRoutes() {
-  const { isAuthenticated, user } = useAuthStore();
-  
-  const routes = [
-    ...publicRoutes,
-    ...(isAuthenticated ? protectedRoutes : []),
-    ...(isAuthenticated && user?.role === 'admin' ? adminRoutes : []),
-    {
-      path: '*',
-      element: <Navigate to={isAuthenticated ? "/reports" : "/login"} replace />
-    }
-  ];
-
-  const element = useRoutes(routes);
-
-  return (
-    <AnimatePresence mode="wait">
-      <PageTransition>
-        {element}
-      </PageTransition>
-    </AnimatePresence>
-  );
-}
-
 function App() {
-  const { initialize } = useAuthStore();
+  const { initialize, isAuthenticated, user } = useAuthStore();
   const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
@@ -114,18 +90,35 @@ function App() {
   return (
     <ErrorBoundary>
       <Providers>
-        <Router {...routerConfig}>
+        <BrowserRouter>
           <div className="min-h-screen bg-gray-100">
             <Navigation />
             <main className="pt-16 sm:pt-20">
               <Suspense fallback={<LoadingSpinner />}>
-                <AppRoutes />
+                <Routes>
+                  {publicRoutes.map((route) => (
+                    <Route key={route.path} {...route} />
+                  ))}
+                  {isAuthenticated &&
+                    protectedRoutes.map((route) => (
+                      <Route key={route.path} {...route} />
+                    ))}
+                  {isAuthenticated &&
+                    user?.role === 'admin' &&
+                    adminRoutes.map((route) => (
+                      <Route key={route.path} {...route} />
+                    ))}
+                  <Route
+                    path="*"
+                    element={<Navigate to={isAuthenticated ? "/reports" : "/login"} replace />}
+                  />
+                </Routes>
               </Suspense>
             </main>
             <PWAPrompt />
           </div>
           <Analytics />
-        </Router>
+        </BrowserRouter>
       </Providers>
     </ErrorBoundary>
   );

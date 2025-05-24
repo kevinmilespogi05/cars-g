@@ -210,14 +210,10 @@ export default defineConfig({
     })
   ],
   optimizeDeps: {
-    include: [
-      'react',
-      'react-dom',
-      'react/jsx-runtime',
-      'react/jsx-dev-runtime',
-      'react-router-dom'
-    ],
-    exclude: ['lucide-react']
+    include: ['react', 'react-dom', 'react-router-dom'],
+    esbuildOptions: {
+      target: 'es2020'
+    }
   },
   resolve: {
     alias: {
@@ -226,27 +222,16 @@ export default defineConfig({
     }
   },
   build: {
+    target: 'es2020',
     sourcemap: true,
     assetsDir: 'assets',
     chunkSizeWarningLimit: 800,
     rollupOptions: {
+      external: ['react', 'react-dom'],
       output: {
-        manualChunks: (id) => {
-          if (id.includes('node_modules')) {
-            if (id.includes('react/') || id.includes('react-dom') || id.includes('react-router-dom')) {
-              return 'vendor-react';
-            }
-            if (id.includes('mapbox')) {
-              return 'vendor-mapbox';
-            }
-            return 'vendor-other';
-          }
-          if (id.includes('/components/')) {
-            return 'components';
-          }
-          if (id.includes('/utils/')) {
-            return 'utils';
-          }
+        globals: {
+          react: 'React',
+          'react-dom': 'ReactDOM'
         }
       }
     }
