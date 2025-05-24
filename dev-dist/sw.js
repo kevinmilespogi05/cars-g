@@ -67,7 +67,7 @@ if (!self.define) {
     });
   };
 }
-define(['./workbox-147b8f7b'], (function (workbox) { 'use strict';
+define(['./workbox-d2ce875b'], (function (workbox) { 'use strict';
 
   workbox.enable();
   self.skipWaiting();
@@ -80,13 +80,25 @@ define(['./workbox-147b8f7b'], (function (workbox) { 'use strict';
    */
   workbox.precacheAndRoute([{
     "url": "index.html",
-    "revision": "0.226g193t5so"
+    "revision": "0.2p39v91sfm"
   }], {});
   workbox.cleanupOutdatedCaches();
   workbox.registerRoute(new workbox.NavigationRoute(workbox.createHandlerBoundToURL("index.html"), {
     allowlist: [/^\/$/]
   }));
-  workbox.registerRoute(/^https:\/\/api\.mapbox\.com\/.*/i, new workbox.CacheFirst({
+  workbox.registerRoute(({
+    request
+  }) => request.mode === "navigate", new workbox.NetworkFirst({
+    "cacheName": "navigation-cache",
+    "networkTimeoutSeconds": 3,
+    plugins: [new workbox.ExpirationPlugin({
+      maxEntries: 32,
+      maxAgeSeconds: 86400
+    }), new workbox.CacheableResponsePlugin({
+      statuses: [0, 200]
+    })]
+  }), 'GET');
+  workbox.registerRoute(/^https:\/\/api\.mapbox\.com/, new workbox.CacheFirst({
     "cacheName": "mapbox-cache",
     plugins: [new workbox.ExpirationPlugin({
       maxEntries: 50,
@@ -95,7 +107,7 @@ define(['./workbox-147b8f7b'], (function (workbox) { 'use strict';
       statuses: [0, 200]
     })]
   }), 'GET');
-  workbox.registerRoute(/^https:\/\/fonts\.googleapis\.com\/.*/i, new workbox.CacheFirst({
+  workbox.registerRoute(/^https:\/\/fonts\.googleapis\.com/, new workbox.CacheFirst({
     "cacheName": "google-fonts-cache",
     plugins: [new workbox.ExpirationPlugin({
       maxEntries: 10,
@@ -104,7 +116,7 @@ define(['./workbox-147b8f7b'], (function (workbox) { 'use strict';
       statuses: [0, 200]
     })]
   }), 'GET');
-  workbox.registerRoute(/^https:\/\/fonts\.gstatic\.com\/.*/i, new workbox.CacheFirst({
+  workbox.registerRoute(/^https:\/\/fonts\.gstatic\.com/, new workbox.CacheFirst({
     "cacheName": "google-fonts-webfonts",
     plugins: [new workbox.ExpirationPlugin({
       maxEntries: 30,
@@ -113,7 +125,7 @@ define(['./workbox-147b8f7b'], (function (workbox) { 'use strict';
       statuses: [0, 200]
     })]
   }), 'GET');
-  workbox.registerRoute(/^https:\/\/api\.supabase\.co\/.*/i, new workbox.NetworkFirst({
+  workbox.registerRoute(/^https:\/\/api\.supabase\.co/, new workbox.NetworkFirst({
     "cacheName": "api-cache",
     "networkTimeoutSeconds": 5,
     plugins: [new workbox.ExpirationPlugin({

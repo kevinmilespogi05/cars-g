@@ -40,14 +40,15 @@ export default defineConfig({
         clientsClaim: true,
         skipWaiting: true,
         sourcemap: true,
-        navigationPreload: true,
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,json}'],
+        navigateFallback: 'index.html',
+        navigateFallbackDenylist: [/^\/api/],
+        navigationPreload: false,
         runtimeCaching: [
           {
             urlPattern: ({ request }) => request.mode === 'navigate',
             handler: 'NetworkFirst',
             options: {
-              cacheName: 'navigation-cache',
+              cacheName: 'pages-cache',
               networkTimeoutSeconds: 3,
               expiration: {
                 maxEntries: 32,
@@ -55,6 +56,9 @@ export default defineConfig({
               },
               cacheableResponse: {
                 statuses: [0, 200]
+              },
+              matchOptions: {
+                ignoreSearch: true
               }
             }
           },
