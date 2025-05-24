@@ -206,7 +206,8 @@ export default defineConfig({
       injectRegister: 'auto',
       strategies: 'generateSW',
       srcDir: 'src',
-      filename: 'sw.js'
+      filename: 'service-worker.js',
+      outDir: 'dist'
     })
   ],
   optimizeDeps: {
