@@ -1,5 +1,5 @@
 import React from 'react'
-import ReactDOM from 'react-dom/client'
+import { createRoot } from 'react-dom/client'
 import App from './App'
 import './index.css'
 import 'bootstrap/dist/js/bootstrap.bundle.min.js'
@@ -18,7 +18,8 @@ const updateSW = registerSW({
   },
 })
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
+const root = createRoot(document.getElementById('root')!)
+root.render(
   <React.StrictMode>
     <Providers>
       <App />

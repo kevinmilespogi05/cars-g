@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npm run generate-pwa-assets && vite build",
+    "build": "npm run generate-icons && npm run generate-pwa-assets && vite build",
     "generate-pwa-assets": "node scripts/generate-pwa-assets.js",
+    "generate-icons": "node scripts/icons.js",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "jest",
