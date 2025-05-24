@@ -4,7 +4,6 @@ import App from './App'
 import './index.css'
 import 'bootstrap/dist/js/bootstrap.bundle.min.js'
 import { registerSW } from 'virtual:pwa-register'
-import { Providers } from './components/Providers'
 
 // Register service worker
 const updateSW = registerSW({
@@ -21,8 +20,6 @@ const updateSW = registerSW({
 const root = createRoot(document.getElementById('root')!)
 root.render(
   <React.StrictMode>
-    <Providers>
-      <App />
-    </Providers>
+    <App />
   </React.StrictMode>,
 )
