@@ -227,11 +227,9 @@ export default defineConfig({
     assetsDir: 'assets',
     chunkSizeWarningLimit: 800,
     rollupOptions: {
-      external: ['react', 'react-dom'],
       output: {
-        globals: {
-          react: 'React',
-          'react-dom': 'ReactDOM'
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom'],
         }
       }
     }
