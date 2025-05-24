@@ -88,7 +88,14 @@ export default defineConfig({
       injectManifest: {
         rollupOptions: {
           input: 'src/sw.js'
-        }
+        },
+        injectionPoint: undefined,
+        manifestTransforms: [
+          (manifest) => {
+            manifest.crossorigin = 'use-credentials';
+            return { manifest };
+          }
+        ]
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
@@ -181,16 +188,7 @@ export default defineConfig({
       injectRegister: 'auto',
       strategies: 'generateSW',
       srcDir: 'src',
-      filename: 'sw.js',
-      injectManifest: {
-        injectionPoint: undefined,
-        manifestTransforms: [
-          (manifest) => {
-            manifest.crossorigin = 'use-credentials';
-            return { manifest };
-          }
-        ]
-      }
+      filename: 'sw.js'
     })
   ],
   optimizeDeps: {
