@@ -83,7 +83,8 @@ export default defineConfig({
           }
         ],
         related_applications: [],
-        prefer_related_applications: false
+        prefer_related_applications: false,
+        crossorigin: 'use-credentials'
       },
       injectManifest: {
         rollupOptions: {

@@ -1,3 +1,4 @@
+import React from 'react';
 import { create } from 'zustand';
 import { User } from '../types';
 import { supabase } from '../lib/supabase';
