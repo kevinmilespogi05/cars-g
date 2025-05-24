@@ -85,6 +85,11 @@ export default defineConfig({
         related_applications: [],
         prefer_related_applications: false
       },
+      injectManifest: {
+        rollupOptions: {
+          input: 'src/sw.js'
+        }
+      },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         runtimeCaching: [
@@ -176,7 +181,16 @@ export default defineConfig({
       injectRegister: 'auto',
       strategies: 'generateSW',
       srcDir: 'src',
-      filename: 'sw.js'
+      filename: 'sw.js',
+      injectManifest: {
+        injectionPoint: undefined,
+        manifestTransforms: [
+          (manifest) => {
+            manifest.crossorigin = 'use-credentials';
+            return { manifest };
+          }
+        ]
+      }
     })
   ],
   optimizeDeps: {
