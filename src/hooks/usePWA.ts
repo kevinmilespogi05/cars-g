@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { Workbox, messageSW } from 'workbox-window';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -11,51 +10,53 @@ interface UsePWAReturn {
   installPrompt: BeforeInstallPromptEvent | null;
   isInstalled: boolean;
   handleInstall: () => Promise<void>;
-  handleUpdate: () => Promise<void>;
+  handleUpdate: () => void;
 }
 
 export function usePWA(): UsePWAReturn {
-  const [wb, setWb] = useState<Workbox | null>(null);
   const [isUpdateAvailable, setIsUpdateAvailable] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
+  const [registration, setRegistration] = useState<ServiceWorkerRegistration | null>(null);
 
   useEffect(() => {
     if ('serviceWorker' in navigator && import.meta.env.PROD) {
-      const workbox = new Workbox('/service-worker.js', {
-        type: 'module',
-        scope: '/'
-      });
-
-      // Handle waiting worker
-      workbox.addEventListener('waiting', (event) => {
-        setIsUpdateAvailable(true);
-      });
-
-      // Handle controller change
-      workbox.addEventListener('controlling', () => {
-        window.location.reload();
-      });
-
-      // Handle registration error
-      workbox.addEventListener('error', (error) => {
-        console.error('Service Worker registration failed:', error);
-      });
-
-      // Register the service worker with error handling
+      // Register service worker
       const registerSW = async () => {
         try {
-          const registration = await workbox.register();
-          console.log('Service Worker registered successfully:', registration);
+          const reg = await navigator.serviceWorker.register('/sw.js', {
+            type: 'module'
+          });
+          
+          setRegistration(reg);
+          
+          // Check for updates
+          reg.addEventListener('updatefound', () => {
+            const newWorker = reg.installing;
+            if (newWorker) {
+              newWorker.addEventListener('statechange', () => {
+                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                  setIsUpdateAvailable(true);
+                }
+              });
+            }
+          });
+          
+          console.log('Service Worker registered successfully:', reg);
         } catch (error) {
           console.error('Service Worker registration failed:', error);
+          
           // Attempt to unregister any existing service workers
           const registrations = await navigator.serviceWorker.getRegistrations();
           await Promise.all(registrations.map(r => r.unregister()));
+          
           // Retry registration
           try {
-            const registration = await workbox.register();
-            console.log('Service Worker registered successfully after retry:', registration);
+            const reg = await navigator.serviceWorker.register('/sw.js', {
+              type: 'module'
+            });
+            setRegistration(reg);
+            console.log('Service Worker registered successfully after retry:', reg);
           } catch (retryError) {
             console.error('Service Worker registration failed after retry:', retryError);
           }
@@ -63,7 +64,6 @@ export function usePWA(): UsePWAReturn {
       };
 
       registerSW();
-      setWb(workbox);
     }
 
     // Handle PWA installation prompt
@@ -107,18 +107,11 @@ export function usePWA(): UsePWAReturn {
     }
   };
 
-  const handleUpdate = async () => {
-    if (!wb) return;
-
-    try {
-      const registration = await wb.getSW();
-      if (registration) {
-        await messageSW(registration, { type: 'SKIP_WAITING' });
-      }
-    } catch (error) {
-      console.error('Error updating service worker:', error);
-      window.location.reload();
-    }
+  const handleUpdate = () => {
+    if (!registration || !registration.waiting) return;
+    
+    registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+    window.location.reload();
   };
 
   return {

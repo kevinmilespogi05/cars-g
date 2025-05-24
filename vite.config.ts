@@ -8,102 +8,38 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: [
-        'favicon.ico',
-        'favicon-16x16.png',
-        'favicon-32x32.png',
-        'apple-touch-icon.png',
-        'masked-icon.svg',
-        'pwa-192x192.png',
-        'pwa-512x512.png',
-        'screenshot-wide.png',
-        'screenshot-narrow.png'
-      ],
       manifest: {
-        name: 'Cars-G',
-        short_name: 'Cars-G',
-        description: 'Your comprehensive car management system',
-        theme_color: '#3b82f6',
-        background_color: '#ffffff',
-        display: 'standalone',
-        start_url: '/',
-        scope: '/',
-        orientation: 'any',
-        categories: ['automotive', 'utilities'],
+        name: 'Cars App',
+        short_name: 'Cars',
+        description: 'Your car rental application',
+        theme_color: '#ffffff',
         icons: [
-          {
-            src: 'favicon-16x16.png',
-            sizes: '16x16',
-            type: 'image/png'
-          },
-          {
-            src: 'favicon-32x32.png',
-            sizes: '32x32',
-            type: 'image/png'
-          },
-          {
-            src: 'apple-touch-icon.png',
-            sizes: '180x180',
-            type: 'image/png'
-          },
           {
             src: 'pwa-192x192.png',
             sizes: '192x192',
-            type: 'image/png',
-            purpose: 'any'
+            type: 'image/png'
+          },
+          {
+            src: 'pwa-512x512.png',
+            sizes: '512x512',
+            type: 'image/png'
           },
           {
             src: 'pwa-512x512.png',
             sizes: '512x512',
             type: 'image/png',
-            purpose: 'any'
-          },
-          {
-            src: 'pwa-512x512.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'maskable'
+            purpose: 'any maskable'
           }
-        ],
-        screenshots: [
-          {
-            src: 'screenshot-wide.png',
-            sizes: '1280x720',
-            type: 'image/png',
-            form_factor: 'wide',
-            label: 'Cars-G Desktop View'
-          },
-          {
-            src: 'screenshot-narrow.png',
-            sizes: '750x1334',
-            type: 'image/png',
-            form_factor: 'narrow',
-            label: 'Cars-G Mobile View'
-          }
-        ],
-        shortcuts: [
-          {
-            name: 'Create Report',
-            url: '/reports/create',
-            description: 'Create a new report'
-          },
-          {
-            name: 'View Reports',
-            url: '/reports',
-            description: 'View all reports'
-          }
-        ],
-        related_applications: [],
-        prefer_related_applications: false,
-        crossorigin: 'use-credentials'
+        ]
       },
       workbox: {
         cleanupOutdatedCaches: true,
-        skipWaiting: true,
         clientsClaim: true,
+        skipWaiting: true,
+        sourcemap: true,
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/api\.mapbox\.com\/.*/i,
+            urlPattern: /^https:\/\/api\.mapbox\.com/,
             handler: 'CacheFirst',
             options: {
               cacheName: 'mapbox-cache',
@@ -117,7 +53,7 @@ export default defineConfig({
             }
           },
           {
-            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
+            urlPattern: /^https:\/\/fonts\.googleapis\.com/,
             handler: 'CacheFirst',
             options: {
               cacheName: 'google-fonts-cache',
@@ -131,7 +67,7 @@ export default defineConfig({
             }
           },
           {
-            urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
+            urlPattern: /^https:\/\/fonts\.gstatic\.com/,
             handler: 'CacheFirst',
             options: {
               cacheName: 'google-fonts-webfonts',
@@ -145,7 +81,7 @@ export default defineConfig({
             }
           },
           {
-            urlPattern: /^https:\/\/api\.supabase\.co\/.*/i,
+            urlPattern: /^https:\/\/api\.supabase\.co/,
             handler: 'NetworkFirst',
             options: {
               cacheName: 'api-cache',
@@ -173,22 +109,13 @@ export default defineConfig({
               }
             }
           }
-        ],
-        navigationPreload: false,
-        sourcemap: true
+        ]
       },
       devOptions: {
         enabled: true,
-        type: 'classic',
+        type: 'module',
         navigateFallback: 'index.html'
-      },
-      includeManifestIcons: true,
-      manifestFilename: 'manifest.webmanifest',
-      injectRegister: 'auto',
-      strategies: 'injectManifest',
-      srcDir: 'src',
-      filename: 'service-worker.js',
-      outDir: 'dist'
+      }
     })
   ],
   optimizeDeps: {
