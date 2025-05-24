@@ -136,4 +136,7 @@ export const ErrorBoundary: React.FC<ErrorBoundaryProps> = ({
   );
 };
 
+// Add AppErrorBoundary export
+export const AppErrorBoundary = ErrorBoundary;
+
 export default ErrorBoundary; 

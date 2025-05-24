@@ -21,7 +21,7 @@ import { Analytics } from "@vercel/analytics/react";
 import { initializeAchievements } from './lib/initAchievements';
 import { Providers } from './components/Providers';
 import { motion, AnimatePresence } from 'framer-motion';
-import { AppErrorBoundary } from './components/ErrorBoundary';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { publicRoutes, protectedRoutes, adminRoutes } from './routes/routes';
 import { PWAPrompt } from './components/PWAPrompt';
 
@@ -112,7 +112,7 @@ function App() {
   }
 
   return (
-    <AppErrorBoundary>
+    <ErrorBoundary>
       <Providers>
         <Router {...routerConfig}>
           <div className="min-h-screen bg-gray-100">
@@ -127,7 +127,7 @@ function App() {
           <Analytics />
         </Router>
       </Providers>
-    </AppErrorBoundary>
+    </ErrorBoundary>
   );
 }
 
