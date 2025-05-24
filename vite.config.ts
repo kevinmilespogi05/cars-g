@@ -8,6 +8,9 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      injectRegister: 'auto',
+      filename: 'sw.js',
+      strategies: 'generateSW',
       manifest: {
         name: 'Cars App',
         short_name: 'Cars',
@@ -37,7 +40,24 @@ export default defineConfig({
         clientsClaim: true,
         skipWaiting: true,
         sourcemap: true,
+        navigationPreload: true,
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,json}'],
         runtimeCaching: [
+          {
+            urlPattern: ({ request }) => request.mode === 'navigate',
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'navigation-cache',
+              networkTimeoutSeconds: 3,
+              expiration: {
+                maxEntries: 32,
+                maxAgeSeconds: 24 * 60 * 60 // 24 hours
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
+              }
+            }
+          },
           {
             urlPattern: /^https:\/\/api\.mapbox\.com/,
             handler: 'CacheFirst',

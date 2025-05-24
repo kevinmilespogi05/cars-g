@@ -24,11 +24,27 @@ export function usePWA(): UsePWAReturn {
       // Register service worker
       const registerSW = async () => {
         try {
-          const reg = await navigator.serviceWorker.register('/sw.js', {
-            type: 'module'
+          // First try to unregister any existing service workers
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(registrations.map(r => r.unregister()));
+
+          // Get the base URL for the app
+          const baseUrl = import.meta.env.BASE_URL || '/';
+          const swUrl = new URL('sw.js', window.location.origin + baseUrl).href;
+
+          // Register the service worker
+          const reg = await navigator.serviceWorker.register(swUrl, {
+            type: 'module',
+            updateViaCache: 'none',
+            scope: baseUrl
           });
           
           setRegistration(reg);
+
+          // Enable navigation preload if supported
+          if (reg.navigationPreload) {
+            await reg.navigationPreload.enable();
+          }
           
           // Check for updates
           reg.addEventListener('updatefound', () => {
@@ -41,25 +57,22 @@ export function usePWA(): UsePWAReturn {
               });
             }
           });
+
+          // Handle controller change
+          navigator.serviceWorker.addEventListener('controllerchange', () => {
+            if (registration && registration.waiting) {
+              window.location.reload();
+            }
+          });
           
           console.log('Service Worker registered successfully:', reg);
         } catch (error) {
           console.error('Service Worker registration failed:', error);
-          
-          // Attempt to unregister any existing service workers
-          const registrations = await navigator.serviceWorker.getRegistrations();
-          await Promise.all(registrations.map(r => r.unregister()));
-          
-          // Retry registration
-          try {
-            const reg = await navigator.serviceWorker.register('/sw.js', {
-              type: 'module'
-            });
-            setRegistration(reg);
-            console.log('Service Worker registered successfully after retry:', reg);
-          } catch (retryError) {
-            console.error('Service Worker registration failed after retry:', retryError);
-          }
+          console.error('Registration error details:', {
+            error: error instanceof Error ? error.message : String(error),
+            location: window.location.href,
+            origin: window.location.origin
+          });
         }
       };
 
@@ -111,7 +124,6 @@ export function usePWA(): UsePWAReturn {
     if (!registration || !registration.waiting) return;
     
     registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-    window.location.reload();
   };
 
   return {
