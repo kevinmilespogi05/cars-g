@@ -173,7 +173,10 @@ export default defineConfig({
       },
       includeManifestIcons: true,
       manifestFilename: 'manifest.webmanifest',
-      injectRegister: 'auto'
+      injectRegister: 'auto',
+      strategies: 'generateSW',
+      srcDir: 'src',
+      filename: 'sw.js'
     })
   ],
   optimizeDeps: {
@@ -182,9 +185,26 @@ export default defineConfig({
   build: {
     sourcemap: true,
     assetsDir: 'assets',
+    chunkSizeWarningLimit: 800,
     rollupOptions: {
       output: {
-        manualChunks: undefined
+        manualChunks: (id) => {
+          if (id.includes('node_modules')) {
+            if (id.includes('react/') || id.includes('react-dom') || id.includes('react-router-dom')) {
+              return 'vendor-react';
+            }
+            if (id.includes('mapbox')) {
+              return 'vendor-mapbox';
+            }
+            return 'vendor-other';
+          }
+          if (id.includes('/components/')) {
+            return 'components';
+          }
+          if (id.includes('/utils/')) {
+            return 'utils';
+          }
+        }
       }
     }
   }
