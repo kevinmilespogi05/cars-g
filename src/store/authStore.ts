@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { User } from '../types';
 import { supabase } from '../lib/supabase';
+import { initializeUserStats } from '../lib/initAchievements';
 
 interface AuthState {
   user: User | null;
@@ -52,6 +53,9 @@ export const useAuthStore = create<AuthState>((set) => ({
             });
             
           if (createError) throw createError;
+
+          // Initialize user stats
+          await initializeUserStats(session.user.id);
           
           // Fetch the newly created profile
           const { data: newProfile, error: fetchError } = await supabase
@@ -67,6 +71,9 @@ export const useAuthStore = create<AuthState>((set) => ({
             isAuthenticated: true,
           });
         } else {
+          // Initialize user stats if they don't exist
+          await initializeUserStats(session.user.id);
+          
           set({ 
             user: { ...profile, email: session.user.email },
             isAuthenticated: true,
@@ -102,6 +109,9 @@ export const useAuthStore = create<AuthState>((set) => ({
               });
               
             if (createError) throw createError;
+
+            // Initialize user stats
+            await initializeUserStats(session.user.id);
             
             // Fetch the newly created profile
             const { data: newProfile, error: fetchError } = await supabase
@@ -117,6 +127,9 @@ export const useAuthStore = create<AuthState>((set) => ({
               isAuthenticated: true,
             });
           } else {
+            // Initialize user stats if they don't exist
+            await initializeUserStats(session.user.id);
+            
             set({ 
               user: { ...existingProfile, email: session.user.email },
               isAuthenticated: true,
@@ -147,6 +160,9 @@ export const useAuthStore = create<AuthState>((set) => ({
         .single();
         
       if (profileError) throw profileError;
+
+      // Initialize user stats if they don't exist
+      await initializeUserStats(data.user.id);
         
       set({ 
         user: { ...profile, email: data.user.email },
@@ -228,9 +244,15 @@ export const useAuthStore = create<AuthState>((set) => ({
             console.error('Error creating profile:', profileError);
             throw profileError;
           }
+
+          // Initialize user stats
+          await initializeUserStats(data.user.id);
+          
           console.log('Profile created successfully');
         } else {
           console.log('Profile already exists for user:', data.user.id);
+          // Initialize user stats if they don't exist
+          await initializeUserStats(data.user.id);
         }
       }
     } catch (error) {

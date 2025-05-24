@@ -4,6 +4,7 @@ import { Award, MapPin, Star, Edit2, Save, X, Camera, Shield, Bell, Lock } from 
 import { AvatarSelector } from '../components/AvatarSelector';
 import { supabase } from '../lib/supabase';
 import { motion } from 'framer-motion';
+import { useParams } from 'react-router-dom';
 
 interface UserStats {
   reports_submitted: number;
@@ -11,11 +12,23 @@ interface UserStats {
   reports_resolved: number;
 }
 
+interface ProfileData {
+  id: string;
+  username: string;
+  avatar_url: string | null;
+  role: string;
+  points: number;
+  created_at: string;
+  email?: string;
+}
+
 export function Profile() {
-  const { user, setUser } = useAuthStore();
+  const { id } = useParams();
+  const { user: currentUser, setUser } = useAuthStore();
   const [isUpdating, setIsUpdating] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editedUsername, setEditedUsername] = useState('');
+  const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [userStats, setUserStats] = useState<UserStats>({
     reports_submitted: 0,
     reports_verified: 0,
@@ -27,35 +40,78 @@ export function Profile() {
     chat: true
   });
 
+  const isOwnProfile = !id || (currentUser && id === currentUser.id);
+  const user = isOwnProfile ? currentUser : profileData;
+
   useEffect(() => {
-    if (user) {
-      setEditedUsername(user.username || '');
-      fetchUserStats();
+    if (isOwnProfile) {
+      if (currentUser) {
+        setEditedUsername(currentUser.username || '');
+        fetchUserStats(currentUser.id);
+      }
+    } else if (id) {
+      fetchProfile(id);
+      fetchUserStats(id);
     }
-  }, [user]);
+  }, [id, currentUser, isOwnProfile]);
 
-  const fetchUserStats = async () => {
-    if (!user?.id) return;
+  const fetchProfile = async (userId: string) => {
+    try {
+      console.log('Fetching profile for user:', userId);
+      
+      const { data, error } = await supabase
+        .from('profiles')
+        .select(`
+          id,
+          username,
+          avatar_url,
+          role,
+          points,
+          created_at
+        `)
+        .eq('id', userId)
+        .single();
 
+      if (error) {
+        console.error('Error fetching profile:', error);
+        return;
+      }
+
+      if (!data) {
+        console.error('No profile found for user:', userId);
+        return;
+      }
+
+      console.log('Fetched profile:', data);
+      setProfileData(data);
+      
+      // Also fetch user stats
+      await fetchUserStats(userId);
+    } catch (error) {
+      console.error('Error in fetchProfile:', error);
+    }
+  };
+
+  const fetchUserStats = async (userId: string) => {
     try {
       // Fetch reports submitted
       const { count: submittedCount } = await supabase
         .from('reports')
         .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id);
+        .eq('user_id', userId);
 
       // Fetch reports verified (reports that have been verified by authorities)
       const { count: verifiedCount } = await supabase
         .from('reports')
         .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .eq('status', 'in_progress');
 
       // Fetch reports resolved
       const { count: resolvedCount } = await supabase
         .from('reports')
         .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .eq('status', 'resolved');
 
       setUserStats({
@@ -65,6 +121,11 @@ export function Profile() {
       });
     } catch (error) {
       console.error('Error fetching user stats:', error);
+      setUserStats({
+        reports_submitted: 0,
+        reports_verified: 0,
+        reports_resolved: 0
+      });
     }
   };
 
@@ -134,6 +195,16 @@ export function Profile() {
     }
   };
 
+  const formatDate = (dateString: string | undefined) => {
+    if (!dateString) return 'Not available';
+    try {
+      return new Date(dateString).toLocaleDateString();
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return 'Not available';
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <motion.div
@@ -149,20 +220,30 @@ export function Profile() {
             <div className="flex items-end justify-between">
               <div className="flex items-end space-x-4">
                 <div className="relative">
-                  <AvatarSelector
-                    currentAvatar={user?.avatar_url || null}
-                    onAvatarChange={handleAvatarChange}
-                    userId={user?.id || ''}
-                  />
-                  <button
-                    className="absolute bottom-0 right-0 bg-white rounded-full p-1 shadow-md hover:bg-gray-100 transition-colors"
-                    onClick={() => document.getElementById('avatar-upload')?.click()}
-                  >
-                    <Camera className="w-4 h-4 text-gray-600" />
-                  </button>
+                  {isOwnProfile ? (
+                    <>
+                      <AvatarSelector
+                        currentAvatar={user?.avatar_url || null}
+                        onAvatarChange={handleAvatarChange}
+                        userId={user?.id || ''}
+                      />
+                      <button
+                        className="absolute bottom-0 right-0 bg-white rounded-full p-1 shadow-md hover:bg-gray-100 transition-colors"
+                        onClick={() => document.getElementById('avatar-upload')?.click()}
+                      >
+                        <Camera className="w-4 h-4 text-gray-600" />
+                      </button>
+                    </>
+                  ) : (
+                    <img
+                      src={user?.avatar_url || '/images/default-avatar.png'}
+                      alt={user?.username}
+                      className="h-20 w-20 rounded-full object-cover border-4 border-white shadow-lg"
+                    />
+                  )}
                 </div>
                 <div>
-                  {isEditing ? (
+                  {isOwnProfile && isEditing ? (
                     <div className="flex items-center space-x-2">
                       <input
                         type="text"
@@ -187,15 +268,19 @@ export function Profile() {
                   ) : (
                     <div className="flex items-center space-x-2">
                       <h2 className="text-2xl font-bold text-gray-900">{user?.username || 'Not set'}</h2>
-                      <button
-                        onClick={() => setIsEditing(true)}
-                        className="p-1 rounded-full hover:bg-gray-100 transition-colors"
-                      >
-                        <Edit2 className="w-4 h-4 text-gray-500" />
-                      </button>
+                      {isOwnProfile && (
+                        <button
+                          onClick={() => setIsEditing(true)}
+                          className="p-1 rounded-full hover:bg-gray-100 transition-colors"
+                        >
+                          <Edit2 className="w-4 h-4 text-gray-500" />
+                        </button>
+                      )}
                     </div>
                   )}
-                  <p className="text-sm text-gray-500">Member since {new Date(user?.created_at || '').toLocaleDateString()}</p>
+                  <p className="text-sm text-gray-500">
+                    Member since {formatDate(user?.created_at)}
+                  </p>
                 </div>
               </div>
               <div className="flex items-center space-x-2">
@@ -214,89 +299,93 @@ export function Profile() {
 
         {/* Profile Sections */}
         <div className="grid md:grid-cols-2 gap-8">
-          {/* Account Settings */}
-          <div className="bg-white rounded-lg shadow-lg p-6">
-            <h3 className="text-lg font-semibold mb-4 flex items-center">
-              <Lock className="w-5 h-5 mr-2 text-gray-500" />
-              Account Settings
-            </h3>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Email</label>
-                <p className="mt-1 text-gray-900">{user?.email || 'Not set'}</p>
-              </div>
-              {user?.role === 'admin' && (
+          {/* Account Settings - Only show for own profile */}
+          {isOwnProfile && (
+            <div className="bg-white rounded-lg shadow-lg p-6">
+              <h3 className="text-lg font-semibold mb-4 flex items-center">
+                <Lock className="w-5 h-5 mr-2 text-gray-500" />
+                Account Settings
+              </h3>
+              <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Account Type</label>
-                  <p className="mt-1 text-gray-900 capitalize">{user.role}</p>
+                  <label className="block text-sm font-medium text-gray-700">Email</label>
+                  <p className="mt-1 text-gray-900">{user?.email || 'Not set'}</p>
                 </div>
-              )}
+                {user?.role === 'admin' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Account Type</label>
+                    <p className="mt-1 text-gray-900 capitalize">{user.role}</p>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* Notification Settings */}
-          <div className="bg-white rounded-lg shadow-lg p-6">
-            <h3 className="text-lg font-semibold mb-4 flex items-center">
-              <Bell className="w-5 h-5 mr-2 text-gray-500" />
-              Notification Settings
-            </h3>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Email Notifications</label>
-                  <p className="text-sm text-gray-500">Receive updates via email</p>
-                </div>
-                <button
-                  onClick={() => handleNotificationToggle('email')}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    notificationSettings.email ? 'bg-primary-color' : 'bg-gray-200'
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      notificationSettings.email ? 'translate-x-6' : 'translate-x-1'
+          {/* Notification Settings - Only show for own profile */}
+          {isOwnProfile && (
+            <div className="bg-white rounded-lg shadow-lg p-6">
+              <h3 className="text-lg font-semibold mb-4 flex items-center">
+                <Bell className="w-5 h-5 mr-2 text-gray-500" />
+                Notification Settings
+              </h3>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Email Notifications</label>
+                    <p className="text-sm text-gray-500">Receive updates via email</p>
+                  </div>
+                  <button
+                    onClick={() => handleNotificationToggle('email')}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      notificationSettings.email ? 'bg-primary-color' : 'bg-gray-200'
                     }`}
-                  />
-                </button>
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Push Notifications</label>
-                  <p className="text-sm text-gray-500">Receive push notifications</p>
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        notificationSettings.email ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
                 </div>
-                <button
-                  onClick={() => handleNotificationToggle('push')}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    notificationSettings.push ? 'bg-primary-color' : 'bg-gray-200'
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      notificationSettings.push ? 'translate-x-6' : 'translate-x-1'
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Push Notifications</label>
+                    <p className="text-sm text-gray-500">Receive push notifications</p>
+                  </div>
+                  <button
+                    onClick={() => handleNotificationToggle('push')}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      notificationSettings.push ? 'bg-primary-color' : 'bg-gray-200'
                     }`}
-                  />
-                </button>
-              </div>
-              <div className="flex items-center justify-between">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Chat Notifications</label>
-                  <p className="text-sm text-gray-500">Receive chat message notifications</p>
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        notificationSettings.push ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
                 </div>
-                <button
-                  onClick={() => handleNotificationToggle('chat')}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    notificationSettings.chat ? 'bg-primary-color' : 'bg-gray-200'
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      notificationSettings.chat ? 'translate-x-6' : 'translate-x-1'
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Chat Notifications</label>
+                    <p className="text-sm text-gray-500">Receive chat message notifications</p>
+                  </div>
+                  <button
+                    onClick={() => handleNotificationToggle('chat')}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      notificationSettings.chat ? 'bg-primary-color' : 'bg-gray-200'
                     }`}
-                  />
-                </button>
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        notificationSettings.chat ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Achievements */}
           <div className="bg-white rounded-lg shadow-lg p-6">

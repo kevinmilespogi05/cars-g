@@ -21,11 +21,14 @@ export function usePWA(): UsePWAReturn {
   const [isInstalled, setIsInstalled] = useState(false);
 
   useEffect(() => {
-    if ('serviceWorker' in navigator) {
-      const workbox = new Workbox('/service-worker.js');
+    if ('serviceWorker' in navigator && import.meta.env.PROD) {
+      const workbox = new Workbox('/service-worker.js', {
+        type: 'module',
+        scope: '/'
+      });
 
       // Handle waiting worker
-      workbox.addEventListener('waiting', () => {
+      workbox.addEventListener('waiting', (event) => {
         setIsUpdateAvailable(true);
       });
 
@@ -34,8 +37,32 @@ export function usePWA(): UsePWAReturn {
         window.location.reload();
       });
 
-      // Register the service worker
-      workbox.register().catch(console.error);
+      // Handle registration error
+      workbox.addEventListener('error', (error) => {
+        console.error('Service Worker registration failed:', error);
+      });
+
+      // Register the service worker with error handling
+      const registerSW = async () => {
+        try {
+          const registration = await workbox.register();
+          console.log('Service Worker registered successfully:', registration);
+        } catch (error) {
+          console.error('Service Worker registration failed:', error);
+          // Attempt to unregister any existing service workers
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(registrations.map(r => r.unregister()));
+          // Retry registration
+          try {
+            const registration = await workbox.register();
+            console.log('Service Worker registered successfully after retry:', registration);
+          } catch (retryError) {
+            console.error('Service Worker registration failed after retry:', retryError);
+          }
+        }
+      };
+
+      registerSW();
       setWb(workbox);
     }
 
@@ -81,12 +108,16 @@ export function usePWA(): UsePWAReturn {
   };
 
   const handleUpdate = async () => {
-    if (!wb || !wb.messageSkipWaiting) return;
+    if (!wb) return;
 
     try {
-      await messageSW(wb.getSW(), { type: 'SKIP_WAITING' });
+      const registration = await wb.getSW();
+      if (registration) {
+        await messageSW(registration, { type: 'SKIP_WAITING' });
+      }
     } catch (error) {
       console.error('Error updating service worker:', error);
+      window.location.reload();
     }
   };
 

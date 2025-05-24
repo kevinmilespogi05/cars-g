@@ -3,7 +3,6 @@ import { RouteObject } from 'react-router-dom';
 import { ProtectedRoute } from '../components/ProtectedRoute';
 
 // Lazy load components
-const Home = lazy(() => import('../pages/Home').then(module => ({ default: module.Home })));
 const Login = lazy(() => import('../pages/Login').then(module => ({ default: module.Login })));
 const Register = lazy(() => import('../pages/Register').then(module => ({ default: module.Register })));
 const Reports = lazy(() => import('../pages/Reports').then(module => ({ default: module.Reports })));
@@ -19,7 +18,7 @@ const Chat = lazy(() => import('../pages/Chat').then(module => ({ default: modul
 export const publicRoutes: RouteObject[] = [
   {
     path: '/',
-    element: <Home />
+    element: <Login />
   },
   {
     path: '/login',
@@ -54,6 +53,10 @@ export const protectedRoutes: RouteObject[] = [
   },
   {
     path: '/profile',
+    element: <ProtectedRoute><Profile /></ProtectedRoute>
+  },
+  {
+    path: '/profile/:id',
     element: <ProtectedRoute><Profile /></ProtectedRoute>
   },
   {

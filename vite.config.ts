@@ -9,6 +9,9 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg', 'offline.html'],
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'service-worker.ts',
       manifest: {
         name: 'Cars-G',
         short_name: 'Cars-G',
@@ -77,10 +80,12 @@ export default defineConfig({
         related_applications: [],
         prefer_related_applications: false
       },
+      injectManifest: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        maximumFileSizeToCacheInBytes: 3000000
+      },
       workbox: {
-        globPatterns: [
-          '**/*.{js,css,html,ico,png,svg,woff2}'
-        ],
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/api\.mapbox\.com\/.*/i,
@@ -163,12 +168,13 @@ export default defineConfig({
         skipWaiting: true,
         clientsClaim: true,
         cleanupOutdatedCaches: true,
-        offlineAnalytics: true,
+        offlineGoogleAnalytics: true,
         navigationPreload: true
       },
       devOptions: {
         enabled: true,
-        type: 'module'
+        type: 'module',
+        navigateFallback: 'index.html'
       }
     })
   ],

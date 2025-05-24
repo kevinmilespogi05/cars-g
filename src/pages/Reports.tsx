@@ -217,13 +217,13 @@ export function Reports() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 py-6 bg-gray-50 min-h-screen">
+    <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 py-4 sm:py-6 bg-gray-50 min-h-screen">
       {/* Header Section */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 sm:mb-6">
         <h1 className="text-2xl sm:text-3xl font-bold text-[#800000]">Reports</h1>
         <Link
           to="/reports/create"
-          className="w-full sm:w-auto flex items-center justify-center gap-2 bg-primary-color text-white px-4 py-3 rounded-lg shadow hover:bg-primary-dark transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-color touch-target"
+          className="w-full sm:w-auto flex items-center justify-center gap-2 bg-primary-color text-white px-4 py-2.5 rounded-lg shadow hover:bg-primary-dark transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-color"
         >
           <Plus className="h-5 w-5" />
           <span>Create New Report</span>
@@ -231,27 +231,25 @@ export function Reports() {
       </div>
 
       {/* Search and Filters Section */}
-      <div className="bg-white shadow-md rounded-xl mb-6 p-4 border border-gray-100">
+      <div className="space-y-4 mb-6">
         {/* Search Bar */}
-        <div className="mb-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-            <input
-              type="text"
-              placeholder="Search reports..."
-              className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-primary-color focus:border-primary-color text-base bg-gray-50 text-gray-900 placeholder-gray-400"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+          <input
+            type="text"
+            placeholder="Search reports..."
+            className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-primary-color focus:border-primary-color text-base bg-white text-gray-900 placeholder-gray-400"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
         </div>
 
         {/* Filters */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           <div className="relative">
             <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
             <select
-              className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-primary-color focus:border-primary-color text-base appearance-none bg-gray-50 text-gray-900"
+              className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-primary-color focus:border-primary-color text-base appearance-none bg-white text-gray-900"
               value={filters.category}
               onChange={(e) => setFilters({ ...filters, category: e.target.value })}
             >
@@ -265,7 +263,7 @@ export function Reports() {
           <div className="relative">
             <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
             <select
-              className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-primary-color focus:border-primary-color text-base appearance-none bg-gray-50 text-gray-900"
+              className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-primary-color focus:border-primary-color text-base appearance-none bg-white text-gray-900"
               value={filters.status}
               onChange={(e) => setFilters({ ...filters, status: e.target.value })}
             >
@@ -279,7 +277,7 @@ export function Reports() {
           <div className="relative">
             <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
             <select
-              className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-primary-color focus:border-primary-color text-base appearance-none bg-gray-50 text-gray-900"
+              className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-primary-color focus:border-primary-color text-base appearance-none bg-white text-gray-900"
               value={filters.priority}
               onChange={(e) => setFilters({ ...filters, priority: e.target.value })}
             >
@@ -304,60 +302,94 @@ export function Reports() {
             <p className="text-gray-400 text-lg">No reports found</p>
           </div>
         ) : (
-          <div className="flex flex-col gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
             {filteredReports.map((report) => (
               <div
                 key={report.id}
-                className="bg-white rounded-xl p-6 flex flex-col gap-3 shadow border border-gray-100 transition hover:shadow-lg cursor-pointer"
+                className="bg-white rounded-xl p-4 sm:p-6 flex flex-col gap-3 shadow-sm hover:shadow-md transition-shadow border border-gray-100 cursor-pointer"
                 onClick={() => navigate(`/reports/${report.id}`)}
               >
                 <Link to={`/reports/${report.id}`} className="flex flex-col gap-2">
-                  <h3 className="text-lg font-semibold text-gray-900 break-words">{report.title}</h3>
-                  <p className="text-sm text-gray-600 mb-1 break-words line-clamp-3">{report.description}</p>
-                  <div className="flex flex-wrap gap-2 mb-1">
-                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(report.status)}`}>{report.status.replace('_', ' ')}</span>
-                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getPriorityColor(report.priority)}`}>{report.priority}</span>
+                  <h3 className="text-lg font-semibold text-gray-900 break-words line-clamp-2">{report.title}</h3>
+                  <p className="text-sm text-gray-600 break-words line-clamp-2">{report.description}</p>
+                  <div className="flex flex-wrap gap-2">
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(report.status)}`}>
+                      {report.status.replace('_', ' ')}
+                    </span>
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPriorityColor(report.priority)}`}>
+                      {report.priority}
+                    </span>
                   </div>
-                  <div className="flex items-center text-xs text-gray-500 break-words">
+                  <div className="flex items-center text-xs text-gray-500">
                     <MapPin className="h-4 w-4 mr-1.5 flex-shrink-0" />
-                    <span className="truncate break-words">{report.location_address}</span>
+                    <span className="truncate">{report.location_address}</span>
                   </div>
+
+                  {/* Images Grid */}
+                  {report.images && report.images.length > 0 && (
+                    <div className="relative mt-2">
+                      <div className="grid grid-cols-3 gap-2">
+                        {report.images.slice(0, 3).map((image, index) => (
+                          <div
+                            key={index}
+                            className="relative aspect-square cursor-pointer group"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              handleImageClick(image, index);
+                            }}
+                          >
+                            <img
+                              src={image}
+                              alt={`Report image ${index + 1}`}
+                              className="h-full w-full object-cover rounded-lg"
+                              loading="lazy"
+                            />
+                            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-opacity rounded-lg" />
+                          </div>
+                        ))}
+                      </div>
+                      {report.images.length > 3 && (
+                        <div className="absolute bottom-2 right-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded-full">
+                          +{report.images.length - 3}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </Link>
 
                 {/* User Info and Interactions */}
-                <div className="flex items-center justify-between mt-2">
-                  <div className="flex items-center gap-3">
+                <div className="flex items-center justify-between mt-2 pt-3 border-t border-gray-100">
+                  <div className="flex items-center space-x-2">
                     <img
-                      className="h-9 w-9 rounded-full object-cover border border-gray-200"
-                      src={report.user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(report.user.username)}`}
+                      src={report.user.avatar_url || '/default-avatar.png'}
                       alt={report.user.username}
+                      className="h-6 w-6 rounded-full"
                     />
-                    <div>
-                      <div className="text-xs font-medium text-gray-900">{report.user.username}</div>
-                      <p className="text-xs text-gray-500">{new Date(report.created_at).toLocaleDateString()}</p>
-                    </div>
+                    <span className="text-sm text-gray-600">{report.user.username}</span>
                   </div>
-
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center space-x-4">
                     <button
                       onClick={(e) => {
                         e.preventDefault();
+                        e.stopPropagation();
                         handleLike(report.id);
                       }}
                       disabled={likeLoading[report.id]}
-                      className={`flex items-center gap-1.5 text-sm ${
-                        report.is_liked ? 'text-red-500' : 'text-gray-500 hover:text-red-500'
-                      } transition-colors`}
+                      className="flex items-center text-gray-500 hover:text-red-500 transition-colors"
                     >
-                      <Heart className={`h-5 w-5 ${report.is_liked ? 'fill-current' : ''}`} />
-                      <span>{report.likes_count}</span>
+                      <Heart
+                        className={`h-5 w-5 ${report.is_liked ? 'fill-red-500 text-red-500' : ''}`}
+                      />
+                      <span className="ml-1 text-sm">{report.likes_count}</span>
                     </button>
                     <Link
                       to={`/reports/${report.id}`}
-                      className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-blue-500 transition-colors"
+                      onClick={(e) => e.stopPropagation()}
+                      className="flex items-center text-gray-500 hover:text-primary-color transition-colors"
                     >
                       <MessageCircle className="h-5 w-5" />
-                      <span>{report.comments_count}</span>
+                      <span className="ml-1 text-sm">{report.comments_count}</span>
                     </Link>
                   </div>
                 </div>
@@ -367,24 +399,24 @@ export function Reports() {
         )}
       </div>
 
-      {/* Lightbox */}
+      {/* Image Modal */}
       {selectedImage && (
-        <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center">
+        <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4">
           <button
             onClick={() => setSelectedImage(null)}
-            className="absolute top-4 right-4 text-white hover:text-gray-300"
+            className="absolute top-4 right-4 text-white hover:text-gray-300 focus:outline-none"
           >
             <X className="h-8 w-8" />
           </button>
           <button
             onClick={() => handlePrevImage(reports.find(r => r.images.includes(selectedImage.url))?.images || [])}
-            className="absolute left-4 text-white hover:text-gray-300"
+            className="absolute left-4 text-white hover:text-gray-300 focus:outline-none"
           >
             <ChevronLeft className="h-8 w-8" />
           </button>
           <button
             onClick={() => handleNextImage(reports.find(r => r.images.includes(selectedImage.url))?.images || [])}
-            className="absolute right-4 text-white hover:text-gray-300"
+            className="absolute right-4 text-white hover:text-gray-300 focus:outline-none"
           >
             <ChevronRight className="h-8 w-8" />
           </button>

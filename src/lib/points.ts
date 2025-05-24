@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 
 const POINTS_CONFIG = {
+  REPORT_SUBMITTED: 25,   // Points awarded when a report is submitted
   REPORT_VERIFIED: 50,    // Points awarded when report is verified by authorities
   REPORT_RESOLVED: 100,   // Points awarded when the issue is resolved
   DAILY_LOGIN: 5,         // Points for daily engagement
@@ -61,12 +62,11 @@ export async function getPointsHistory(userId: string) {
 }
 
 export async function getLeaderboard(limit = 10) {
+  // Use a raw SQL query to get accurate counts
   const { data, error } = await supabase
-    .from('profiles')
-    .select('id, username, points, avatar_url, role')
-    .order('points', { ascending: false })
-    .limit(limit);
+    .rpc('get_user_leaderboard', { limit_count: limit });
 
   if (error) throw error;
+
   return data;
-} 
+}

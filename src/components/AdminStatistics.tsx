@@ -224,16 +224,95 @@ export function AdminStatistics() {
   };
 
   const exportStatistics = () => {
-    const data = {
-      ...statistics,
-      timestamp: new Date().toISOString(),
-      timeRange,
-    };
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    // Prepare data for CSV
+    const csvData = [
+      // Headers
+      ['Metric', 'Value', 'Time Range'],
+      
+      // Basic Stats
+      ['Total Reports', statistics.totalReports, timeRange],
+      ['Pending Reports', statistics.pendingReports, timeRange],
+      ['In Progress Reports', statistics.inProgressReports, timeRange],
+      ['Resolved Reports', statistics.resolvedReports, timeRange],
+      ['Total Users', statistics.totalUsers, timeRange],
+      ['Active Users', statistics.activeUsers, timeRange],
+      ['Banned Users', statistics.bannedUsers, timeRange],
+      
+      // Resolution Times
+      ['Average Resolution Time (ms)', statistics.averageResolutionTime, timeRange],
+      ['Fastest Resolution Time (ms)', statistics.fastestResolutionTime, timeRange],
+      ['Slowest Resolution Time (ms)', statistics.slowestResolutionTime, timeRange],
+      
+      // Empty row as separator
+      [],
+      
+      // Reports by Category
+      ['Category', 'Count', 'Percentage'],
+      ...statistics.reportsByCategory.map(item => [
+        item.category,
+        item.count,
+        ((item.count / statistics.totalReports) * 100).toFixed(1) + '%'
+      ]),
+      
+      // Empty row as separator
+      [],
+      
+      // Reports by Location
+      ['Location', 'Count', 'Percentage'],
+      ...statistics.reportsByLocation.map(item => [
+        item.location,
+        item.count,
+        ((item.count / statistics.totalReports) * 100).toFixed(1) + '%'
+      ]),
+      
+      // Empty row as separator
+      [],
+      
+      // Reports by Time
+      ['Hour', 'Count'],
+      ...statistics.reportsByTime.map(item => [
+        item.hour.toString().padStart(2, '0') + ':00',
+        item.count
+      ]),
+      
+      // Empty row as separator
+      [],
+      
+      // Reports by Day
+      ['Day', 'Count'],
+      ...statistics.reportsByDay.map(item => [
+        item.day,
+        item.count
+      ]),
+      
+      // Empty row as separator
+      [],
+      
+      // Reports by Month
+      ['Month', 'Count'],
+      ...statistics.reportsByMonth.map(item => [
+        item.month,
+        item.count
+      ])
+    ];
+
+    // Convert array to CSV string
+    const csvString = csvData.map(row => 
+      row.map(cell => {
+        // Handle cells that might contain commas by wrapping in quotes
+        if (cell && cell.toString().includes(',')) {
+          return `"${cell}"`;
+        }
+        return cell;
+      }).join(',')
+    ).join('\n');
+
+    // Create and download the file
+    const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `statistics-${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `statistics-${new Date().toISOString().split('T')[0]}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

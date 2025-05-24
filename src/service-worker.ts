@@ -58,7 +58,13 @@ registerRoute(
 
 // Cache images with a cache-first strategy
 registerRoute(
-  ({ request }) => request.destination === 'image',
+  ({ request, url }) => {
+    // Use NetworkFirst for Supabase storage URLs
+    if (url.hostname.includes('supabase')) {
+      return false;
+    }
+    return request.destination === 'image';
+  },
   new CacheFirst({
     cacheName: 'images',
     plugins: [
@@ -66,6 +72,40 @@ registerRoute(
         maxEntries: 60,
         maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
       }),
+    ],
+  })
+);
+
+// Add specific route for Supabase storage URLs
+registerRoute(
+  ({ url }) => url.hostname.includes('supabase') && url.pathname.includes('/storage/v1/object/public/'),
+  new NetworkFirst({
+    cacheName: 'supabase-images',
+    plugins: [
+      new CacheableResponsePlugin({
+        statuses: [0, 200, 304]
+      }),
+      new ExpirationPlugin({
+        maxEntries: 100,
+        maxAgeSeconds: 24 * 60 * 60 // 24 hours
+      })
+    ]
+  })
+);
+
+// Add specific route for Supabase API requests
+registerRoute(
+  ({ url }) => url.hostname.includes('supabase') && !url.pathname.includes('/storage/v1/object/public/'),
+  new NetworkFirst({
+    cacheName: 'supabase-api',
+    plugins: [
+      new ExpirationPlugin({
+        maxEntries: 100,
+        maxAgeSeconds: 24 * 60 * 60 // 24 hours
+      }),
+      new CacheableResponsePlugin({
+        statuses: [0, 200]
+      })
     ],
   })
 );

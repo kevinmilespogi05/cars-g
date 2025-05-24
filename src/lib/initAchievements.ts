@@ -1,7 +1,17 @@
 import { supabase } from './supabase';
 import { ACHIEVEMENTS } from './achievements';
 
+let isInitializing = false;
+let isInitialized = false;
+
 export async function initializeAchievements() {
+  // If already initialized or currently initializing, skip
+  if (isInitialized || isInitializing) {
+    return;
+  }
+
+  isInitializing = true;
+
   try {
     // Check if achievements already exist
     const { data: existingAchievements, error: checkError } = await supabase
@@ -11,9 +21,9 @@ export async function initializeAchievements() {
 
     if (checkError) throw checkError;
 
-    // If achievements already exist, skip initialization
+    // If achievements already exist, mark as initialized and return
     if (existingAchievements && existingAchievements.length > 0) {
-      console.log('Achievements already initialized');
+      isInitialized = true;
       return;
     }
 
@@ -35,14 +45,27 @@ export async function initializeAchievements() {
 
     if (insertError) throw insertError;
 
+    isInitialized = true;
     console.log('Achievements initialized successfully');
   } catch (error) {
     console.error('Error initializing achievements:', error);
     throw error;
+  } finally {
+    isInitializing = false;
   }
 }
 
+let userStatsInitializing = new Set<string>();
+let initializedUserStats = new Set<string>();
+
 export async function initializeUserStats(userId: string) {
+  // If already initialized or currently initializing for this user, skip
+  if (initializedUserStats.has(userId) || userStatsInitializing.has(userId)) {
+    return;
+  }
+
+  userStatsInitializing.add(userId);
+
   try {
     // Check if user stats already exist
     const { data: existingStats, error: checkError } = await supabase
@@ -53,9 +76,9 @@ export async function initializeUserStats(userId: string) {
 
     if (checkError && checkError.code !== 'PGRST116') throw checkError;
 
-    // If user stats already exist, skip initialization
+    // If user stats already exist, mark as initialized and return
     if (existingStats) {
-      console.log('User stats already initialized');
+      initializedUserStats.add(userId);
       return;
     }
 
@@ -74,9 +97,12 @@ export async function initializeUserStats(userId: string) {
 
     if (insertError) throw insertError;
 
+    initializedUserStats.add(userId);
     console.log('User stats initialized successfully');
   } catch (error) {
     console.error('Error initializing user stats:', error);
     throw error;
+  } finally {
+    userStatsInitializing.delete(userId);
   }
 } 

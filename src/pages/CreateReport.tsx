@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Camera, MapPin, Loader2 } from 'lucide-react';
+import { Camera, MapPin, Loader2, AlertCircle, X } from 'lucide-react';
 import { MapPicker } from '../components/MapPicker';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
@@ -15,10 +15,13 @@ const CATEGORIES = [
   'Other'
 ];
 
+const MAX_IMAGES = 5;
+
 export function CreateReport() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -30,14 +33,44 @@ export function CreateReport() {
   const [imagePreviewUrls, setImagePreviewUrls] = useState<string[]>([]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setUploadError(null);
     if (!e.target.files || e.target.files.length === 0) return;
     
     const files = Array.from(e.target.files);
+    
+    // Check if adding new files would exceed the limit
+    if (uploadedImages.length + files.length > MAX_IMAGES) {
+      setUploadError(`You can only upload up to ${MAX_IMAGES} images`);
+      return;
+    }
+
+    // Validate file types and sizes
+    const invalidFiles = files.filter(file => {
+      const isValidType = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.type);
+      const isValidSize = file.size <= 10 * 1024 * 1024; // 10MB
+      return !isValidType || !isValidSize;
+    });
+
+    if (invalidFiles.length > 0) {
+      setUploadError('Some files were invalid. Please ensure all files are images under 10MB.');
+      return;
+    }
+
     setUploadedImages(prev => [...prev, ...files]);
     
     // Create preview URLs
     const newPreviewUrls = files.map(file => URL.createObjectURL(file));
     setImagePreviewUrls(prev => [...prev, ...newPreviewUrls]);
+  };
+
+  const removeImage = (index: number) => {
+    setUploadedImages(prev => prev.filter((_, i) => i !== index));
+    setImagePreviewUrls(prev => {
+      // Revoke the URL to prevent memory leaks
+      URL.revokeObjectURL(prev[index]);
+      return prev.filter((_, i) => i !== index);
+    });
+    setUploadError(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -52,20 +85,37 @@ export function CreateReport() {
       return;
     }
 
+    if (!formData.title.trim()) {
+      alert('Please enter a title for the report');
+      return;
+    }
+
+    if (!formData.category) {
+      alert('Please select a category for the report');
+      return;
+    }
+
     setIsSubmitting(true);
+    setUploadError(null);
+
     try {
       // Upload images if any
       let imageUrls: string[] = [];
       if (uploadedImages.length > 0) {
-        console.log('Uploading images...');
-        imageUrls = await uploadMultipleImages(uploadedImages);
-        console.log('Uploaded images:', imageUrls);
+        try {
+          console.log('Uploading images...');
+          imageUrls = await uploadMultipleImages(uploadedImages);
+          console.log('Uploaded images:', imageUrls);
+        } catch (error) {
+          console.error('Error uploading images:', error);
+          throw new Error('Failed to upload images. Please try again.');
+        }
       }
 
       const reportData = {
         user_id: user.id,
-        title: formData.title,
-        description: formData.description,
+        title: formData.title.trim(),
+        description: formData.description.trim(),
         category: formData.category,
         priority: formData.priority,
         location_lat: location.lat,
@@ -86,6 +136,17 @@ export function CreateReport() {
 
       if (error) throw error;
 
+      // Award points for submitting the report
+      try {
+        await awardPoints(user.id, 'REPORT_SUBMITTED', report.id);
+      } catch (error) {
+        console.error('Error awarding points:', error);
+        // Don't throw here, as the report was still created successfully
+      }
+
+      // Clean up preview URLs
+      imagePreviewUrls.forEach(url => URL.revokeObjectURL(url));
+
       // Show success message
       alert('Report submitted successfully! Your report will be reviewed by authorities.');
       
@@ -94,19 +155,25 @@ export function CreateReport() {
     } catch (error) {
       console.error('Error creating report:', error);
       if (error instanceof Error) {
-        alert(`Failed to submit report: ${error.message}`);
+        setUploadError(error.message);
       } else {
-        alert('Failed to submit report. Please try again.');
+        setUploadError('Failed to submit report. Please try again.');
       }
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  // Clean up preview URLs when component unmounts
+  React.useEffect(() => {
+    return () => {
+      imagePreviewUrls.forEach(url => URL.revokeObjectURL(url));
+    };
+  }, []);
+
   return (
-    <div className="max-w-3xl mx-auto">
-      <h1 className="text-3xl font-bold mb-8">Create New Report</h1>
-      
+    <div className="max-w-2xl mx-auto p-6">
+      <h1 className="text-2xl font-bold mb-6">Create New Report</h1>
       <form onSubmit={handleSubmit} className="space-y-6">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -190,7 +257,7 @@ export function CreateReport() {
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Images (Optional)
           </label>
-          <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
+          <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md hover:border-primary-color transition-colors">
             <div className="space-y-1 text-center">
               <Camera className="mx-auto h-12 w-12 text-gray-400" />
               <div className="flex text-sm text-gray-600">
@@ -205,22 +272,30 @@ export function CreateReport() {
                     type="file"
                     className="sr-only"
                     multiple
-                    accept="image/*"
+                    accept="image/jpeg,image/png,image/gif,image/webp"
                     onChange={handleImageUpload}
+                    disabled={isSubmitting}
                   />
                 </label>
                 <p className="pl-1">or drag and drop</p>
               </div>
               <p className="text-xs text-gray-500">
-                PNG, JPG, GIF up to 10MB
+                PNG, JPG, GIF, WebP up to 10MB (max {MAX_IMAGES} images)
               </p>
             </div>
           </div>
           
+          {uploadError && (
+            <div className="mt-2 text-sm text-red-600 flex items-center">
+              <AlertCircle className="h-4 w-4 mr-1" />
+              {uploadError}
+            </div>
+          )}
+          
           {imagePreviewUrls.length > 0 && (
             <div className="mt-4 grid grid-cols-3 gap-4">
               {imagePreviewUrls.map((url, index) => (
-                <div key={index} className="relative">
+                <div key={index} className="relative group">
                   <img
                     src={url}
                     alt={`Preview ${index + 1}`}
@@ -228,15 +303,11 @@ export function CreateReport() {
                   />
                   <button
                     type="button"
-                    className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1"
-                    onClick={() => {
-                      setImagePreviewUrls(prev => prev.filter((_, i) => i !== index));
-                      setUploadedImages(prev => prev.filter((_, i) => i !== index));
-                    }}
+                    className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={() => removeImage(index)}
+                    disabled={isSubmitting}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                    </svg>
+                    <X className="h-4 w-4" />
                   </button>
                 </div>
               ))}

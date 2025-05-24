@@ -1,7 +1,7 @@
 -- Create likes table
 CREATE TABLE IF NOT EXISTS public.likes (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     report_id UUID NOT NULL REFERENCES public.reports(id) ON DELETE CASCADE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     UNIQUE(user_id, report_id)
@@ -26,7 +26,7 @@ CREATE POLICY "Users can view all likes"
 
 CREATE POLICY "Authenticated users can like reports"
     ON public.likes FOR INSERT
-    WITH CHECK (auth.role() = 'authenticated');
+    WITH CHECK (auth.uid() = user_id);
 
 CREATE POLICY "Users can unlike their own likes"
     ON public.likes FOR DELETE

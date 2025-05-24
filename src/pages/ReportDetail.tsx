@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { MapPin, Heart, MessageCircle, Send, Loader2, ChevronLeft, ArrowLeft, Image as ImageIcon } from 'lucide-react';
+import { MapPin, Heart, MessageCircle, Send, Loader2, ChevronLeft, ChevronRight, ArrowLeft, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
 
@@ -76,21 +76,20 @@ export function ReportDetail() {
       if (profileError) throw profileError;
 
       // Check if current user has liked this report
-      const { data: userLike, error: likeError } = await supabase
+      const { data: userLikes, error: likeError } = await supabase
         .from('likes')
         .select('id')
         .eq('report_id', id)
-        .eq('user_id', user?.id)
-        .single();
+        .eq('user_id', user?.id);
 
-      if (likeError && likeError.code !== 'PGRST116') throw likeError;
+      if (likeError) throw likeError;
 
       setReport({
         ...reportData,
         user: profileData,
         likes_count: reportData.likes?.[0]?.count || 0,
         comments_count: reportData.comments?.[0]?.count || 0,
-        is_liked: !!userLike
+        is_liked: userLikes && userLikes.length > 0
       });
     } catch (error) {
       console.error('Error fetching report:', error);
