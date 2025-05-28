@@ -7,8 +7,7 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
-      injectRegister: 'auto',
+      registerType: 'prompt',
       includeAssets: ['favicon.ico', '*.png'],
       manifest: {
         name: 'Cars App',
@@ -37,10 +36,6 @@ export default defineConfig({
             purpose: 'any maskable'
           }
         ]
-      },
-      devOptions: {
-        enabled: true,
-        type: 'module'
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,json,vue,txt,woff2}'],
