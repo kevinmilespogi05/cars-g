@@ -8,8 +8,8 @@ export default defineConfig({
     react(),
     VitePWA({
       strategies: 'generateSW',
-      registerType: 'prompt',
-      injectRegister: 'script',
+      registerType: 'autoUpdate',
+      injectRegister: 'auto',
       manifest: {
         name: 'Cars App',
         short_name: 'Cars',
@@ -39,7 +39,9 @@ export default defineConfig({
       },
       devOptions: {
         enabled: true,
-        navigateFallback: 'index.html'
+        type: 'module',
+        navigateFallback: 'index.html',
+        suppressWarnings: true
       },
       workbox: {
         globDirectory: 'dist',
@@ -48,6 +50,9 @@ export default defineConfig({
         ],
         cleanupOutdatedCaches: true,
         sourcemap: true,
+        navigateFallback: '/index.html',
+        navigateFallbackAllowlist: [/^(?!\/__).*/],
+        swDest: 'dist/sw.js',
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/[a-z0-9-]+\.supabase\.co\/storage\/v1\/object\/public/,

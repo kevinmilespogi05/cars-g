@@ -1,84 +1,24 @@
 {
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist",
-  "framework": "vite",
-  "headers": [
+  "routes": [
     {
-      "source": "/manifest.webmanifest",
-      "headers": [
-        {
-          "key": "Content-Type",
-          "value": "application/manifest+json"
-        },
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "*"
-        },
-        {
-          "key": "Access-Control-Allow-Methods",
-          "value": "GET"
-        },
-        {
-          "key": "Access-Control-Allow-Headers",
-          "value": "X-Requested-With, Content-Type, Accept"
-        },
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=0, must-revalidate"
-        }
-      ]
+      "src": "/sw.js",
+      "headers": {
+        "cache-control": "public, max-age=0, must-revalidate",
+        "Service-Worker-Allowed": "/"
+      },
+      "continue": true
     },
     {
-      "source": "/assets/(.+)\\.js$",
-      "headers": [
-        {
-          "key": "Content-Type",
-          "value": "application/javascript; charset=utf-8"
-        }
-      ]
+      "src": "/dev-sw.js",
+      "headers": {
+        "cache-control": "public, max-age=0, must-revalidate",
+        "Service-Worker-Allowed": "/"
+      },
+      "continue": true
     },
     {
-      "source": "/assets/(.+)\\.css$",
-      "headers": [
-        {
-          "key": "Content-Type",
-          "value": "text/css; charset=utf-8"
-        }
-      ]
-    },
-    {
-      "source": "/service-worker.js",
-      "headers": [
-        {
-          "key": "Content-Type",
-          "value": "text/javascript; charset=utf-8"
-        },
-        {
-          "key": "Cache-Control",
-          "value": "no-cache, no-store, must-revalidate"
-        },
-        {
-          "key": "Service-Worker-Allowed",
-          "value": "/"
-        }
-      ]
-    },
-    {
-      "source": "/(.*)",
-      "headers": [
-        {
-          "key": "X-Content-Type-Options",
-          "value": "nosniff"
-        },
-        {
-          "key": "X-Frame-Options",
-          "value": "DENY"
-        },
-        {
-          "key": "X-XSS-Protection",
-          "value": "1; mode=block"
-        }
-      ]
+      "src": "/(.*)",
+      "dest": "/index.html"
     }
   ]
 } 
