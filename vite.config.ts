@@ -40,6 +40,11 @@ export default defineConfig({
         clientsClaim: true,
         skipWaiting: true,
         sourcemap: true,
+        globDirectory: 'dist',
+        globPatterns: [
+          '**/*.{js,css,html,ico,png,svg,jpg,jpeg,gif,woff2}',
+          'assets/**/*'
+        ],
         navigateFallback: 'index.html',
         navigateFallbackDenylist: [/^\/api/],
         navigationPreload: false,
@@ -105,6 +110,24 @@ export default defineConfig({
             }
           },
           {
+            urlPattern: /^https:\/\/[a-z0-9-]+\.supabase\.co\/storage\/v1\/object\/public/,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'supabase-storage-cache',
+              networkTimeoutSeconds: 5,
+              expiration: {
+                maxEntries: 100,
+                maxAgeSeconds: 60 * 60 * 24 * 7 // 7 days
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
+              },
+              matchOptions: {
+                ignoreSearch: true
+              }
+            }
+          },
+          {
             urlPattern: /^https:\/\/api\.supabase\.co/,
             handler: 'NetworkFirst',
             options: {
@@ -138,7 +161,8 @@ export default defineConfig({
       devOptions: {
         enabled: true,
         type: 'module',
-        navigateFallback: 'index.html'
+        navigateFallback: 'index.html',
+        suppressWarnings: true
       }
     })
   ],

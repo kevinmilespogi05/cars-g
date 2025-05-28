@@ -46,12 +46,13 @@ export const Chat: React.FC = () => {
                 <button
                   onClick={() => setSelectedRoom(null)}
                   className="p-2 -ml-2 rounded-full hover:bg-gray-100 mr-2"
+                  aria-label="Go back to chat list"
                 >
                   <ArrowLeft className="w-5 h-5 text-gray-900" />
                 </button>
                 <div className="flex-1">
                   <h2 className="text-lg font-semibold text-gray-900">{selectedRoom.name}</h2>
-                  <p className="text-sm text-gray-500">Active now</p>
+                  <p className="text-sm text-gray-700">Active now</p>
                 </div>
               </div>
             </div>
@@ -67,12 +68,13 @@ export const Chat: React.FC = () => {
             {/* Mobile Header */}
             <div className="flex-none bg-white border-b border-gray-200">
               <div className="flex items-center justify-between px-4 py-3">
-                <h2 className="text-xl font-semibold">Messages</h2>
+                <h2 className="text-xl font-semibold text-gray-900">Messages</h2>
                 <button
                   onClick={() => setActiveTab('search')}
                   className="p-2 rounded-full hover:bg-gray-100"
+                  aria-label="Search users"
                 >
-                  <Search className="w-5 h-5" />
+                  <Search className="w-5 h-5 text-gray-700" />
                 </button>
               </div>
             </div>
@@ -86,7 +88,7 @@ export const Chat: React.FC = () => {
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">
                   Select a Chat
                 </h3>
-                <p className="text-gray-500 max-w-md">
+                <p className="text-gray-700 max-w-md">
                   Choose a conversation from the sidebar or start a new one to begin messaging.
                 </p>
               </div>
@@ -99,7 +101,7 @@ export const Chat: React.FC = () => {
                   <button
                     onClick={() => setActiveTab('chats')}
                     className={`flex flex-col items-center p-2 ${
-                      activeTab === 'chats' ? 'text-primary-color' : 'text-gray-500'
+                      activeTab === 'chats' ? 'text-primary-color' : 'text-gray-700'
                     }`}
                   >
                     <MessageSquare className="w-6 h-6" />
@@ -108,7 +110,7 @@ export const Chat: React.FC = () => {
                   <button
                     onClick={() => setActiveTab('search')}
                     className={`flex flex-col items-center p-2 ${
-                      activeTab === 'search' ? 'text-primary-color' : 'text-gray-500'
+                      activeTab === 'search' ? 'text-primary-color' : 'text-gray-700'
                     }`}
                   >
                     <Search className="w-6 h-6" />
@@ -123,6 +125,7 @@ export const Chat: React.FC = () => {
               <button
                 onClick={() => setActiveTab('search')}
                 className="fixed bottom-20 right-4 w-14 h-14 bg-primary-color text-white rounded-full shadow-lg flex items-center justify-center hover:bg-primary-dark transition-colors"
+                aria-label="Start new chat"
               >
                 <Plus className="w-6 h-6" />
               </button>

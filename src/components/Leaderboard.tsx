@@ -93,7 +93,7 @@ export function Leaderboard({ limit = 10 }: { limit?: number }) {
     <div className="bg-white shadow rounded-lg overflow-hidden">
       <div className="px-6 py-4 border-b border-gray-200">
         <h2 className="text-xl font-bold text-gray-800">Community Leaderboard</h2>
-        <p className="text-sm text-gray-500">Top contributors this month</p>
+        <p className="text-sm text-gray-700">Top contributors this month</p>
       </div>
       
       <ul className="divide-y divide-gray-200">
@@ -109,7 +109,7 @@ export function Leaderboard({ limit = 10 }: { limit?: number }) {
                   <img
                     className="h-10 w-10 rounded-full"
                     src={entry.avatar_url}
-                    alt={entry.username}
+                    alt={`Profile picture of ${entry.username}`}
                   />
                 ) : (
                   <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
@@ -125,7 +125,7 @@ export function Leaderboard({ limit = 10 }: { limit?: number }) {
                 >
                   {entry.username}
                 </Link>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-gray-700">
                   {entry.points.toLocaleString()} points
                 </p>
               </div>

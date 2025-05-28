@@ -414,13 +414,13 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, roomName, onDelete }
             >
               <div className="flex items-center space-x-2 mb-0.5">
                 <span className={`font-semibold ${message.sender_id === user?.id ? 'text-white' : 'text-gray-900'}`}>{message.sender_id === user?.id ? 'You' : message.profiles?.username}</span>
-                <span className={`text-xs ${message.sender_id === user?.id ? 'text-white/80' : 'text-gray-500'}`}>{formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}</span>
+                <span className={`text-xs ${message.sender_id === user?.id ? 'text-white/90' : 'text-gray-700'}`}>{formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}</span>
                 {message.sender_id === user?.id && (
                   <span className="ml-1">
                     {message.status === 'delivered' ? (
-                      <CheckCheck className="w-3 h-3 text-white/80" />
+                      <CheckCheck className="w-3 h-3 text-white/90" />
                     ) : (
-                      <Check className="w-3 h-3 text-white/80" />
+                      <Check className="w-3 h-3 text-white/90" />
                     )}
                   </span>
                 )}
@@ -435,7 +435,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, roomName, onDelete }
                       <button
                         key={index}
                         onClick={() => isUserReaction && handleRemoveReaction(message.id, reaction.reaction)}
-                        className={`text-xs px-2 py-1 rounded-full ${message.sender_id === user?.id ? 'bg-white/20 text-white' : 'bg-gray-100'}`}
+                        className={`text-xs px-2 py-1 rounded-full ${message.sender_id === user?.id ? 'bg-white/30 text-white' : 'bg-gray-100'}`}
                       >
                         {reaction.reaction} {reaction.count}
                       </button>
@@ -447,13 +447,15 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, roomName, onDelete }
               <div className="flex items-center justify-end mt-1 space-x-1">
                 <button
                   onClick={() => setReactionMenuOpen(reactionMenuOpen === message.id ? null : message.id)}
-                  className={`p-2 rounded-full transition-colors ${message.sender_id === user?.id ? 'hover:bg-white/20 text-white/90' : 'hover:bg-gray-100'}`}
+                  className={`p-2 rounded-full transition-colors ${message.sender_id === user?.id ? 'hover:bg-white/30 text-white' : 'hover:bg-gray-100'}`}
+                  aria-label="Add reaction"
                 >
                   <Smile className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => setSelectedMessage(selectedMessage === message.id ? null : message.id)}
-                  className={`p-2 rounded-full transition-colors ${message.sender_id === user?.id ? 'hover:bg-white/20 text-white/90' : 'hover:bg-gray-100'}`}
+                  className={`p-2 rounded-full transition-colors ${message.sender_id === user?.id ? 'hover:bg-white/30 text-white' : 'hover:bg-gray-100'}`}
+                  aria-label="Message options"
                 >
                   <MoreVertical className="w-4 h-4" />
                 </button>
@@ -463,11 +465,11 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, roomName, onDelete }
         ))}
         {/* Typing Indicators */}
         {typingUsers.size > 0 && (
-          <div className="flex items-center space-x-2 text-sm text-gray-500 px-4">
+          <div className="flex items-center space-x-2 text-sm text-gray-700 px-4">
             <div className="flex space-x-1">
-              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+              <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+              <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+              <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
             </div>
             <span>
               {typingUsers.size === 1 ? 'Someone is typing...' : `${typingUsers.size} people are typing...`}
@@ -483,12 +485,14 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, roomName, onDelete }
             type="button"
             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
             className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+            aria-label="Open emoji picker"
           >
             <Smile className="w-5 h-5 text-gray-500" />
           </button>
           <button
             type="button"
             className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+            aria-label="Upload image"
           >
             <Image className="w-5 h-5 text-gray-500" />
           </button>
@@ -506,6 +510,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, roomName, onDelete }
             type="submit"
             disabled={!newMessage.trim() || isLoading}
             className="p-2 rounded-full bg-[#0084ff] text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            aria-label="Send message"
           >
             <Send className="w-5 h-5" />
           </button>
@@ -517,11 +522,11 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, roomName, onDelete }
           ref={reactionMenuRef}
           className="fixed bottom-24 right-4 bg-white rounded-lg shadow-lg border border-gray-200 p-2 flex space-x-2 md:absolute"
         >
-          <button onClick={() => handleAddReaction(reactionMenuOpen, '👍')} className="p-3 hover:bg-gray-100 rounded-full transition-colors"><ThumbsUp className="w-5 h-5" /></button>
-          <button onClick={() => handleAddReaction(reactionMenuOpen, '❤️')} className="p-3 hover:bg-gray-100 rounded-full transition-colors"><Heart className="w-5 h-5" /></button>
-          <button onClick={() => handleAddReaction(reactionMenuOpen, '😂')} className="p-3 hover:bg-gray-100 rounded-full transition-colors"><Laugh className="w-5 h-5" /></button>
-          <button onClick={() => handleAddReaction(reactionMenuOpen, '😢')} className="p-3 hover:bg-gray-100 rounded-full transition-colors"><Frown className="w-5 h-5" /></button>
-          <button onClick={() => handleAddReaction(reactionMenuOpen, '😠')} className="p-3 hover:bg-gray-100 rounded-full transition-colors"><Angry className="w-5 h-5" /></button>
+          <button onClick={() => handleAddReaction(reactionMenuOpen, '👍')} className="p-3 hover:bg-gray-100 rounded-full transition-colors" aria-label="React with thumbs up"><ThumbsUp className="w-5 h-5" /></button>
+          <button onClick={() => handleAddReaction(reactionMenuOpen, '❤️')} className="p-3 hover:bg-gray-100 rounded-full transition-colors" aria-label="React with heart"><Heart className="w-5 h-5" /></button>
+          <button onClick={() => handleAddReaction(reactionMenuOpen, '😂')} className="p-3 hover:bg-gray-100 rounded-full transition-colors" aria-label="React with laugh"><Laugh className="w-5 h-5" /></button>
+          <button onClick={() => handleAddReaction(reactionMenuOpen, '😢')} className="p-3 hover:bg-gray-100 rounded-full transition-colors" aria-label="React with sad face"><Frown className="w-5 h-5" /></button>
+          <button onClick={() => handleAddReaction(reactionMenuOpen, '😠')} className="p-3 hover:bg-gray-100 rounded-full transition-colors" aria-label="React with angry face"><Angry className="w-5 h-5" /></button>
         </div>
       )}
       {/* Quick Reply Menu */}

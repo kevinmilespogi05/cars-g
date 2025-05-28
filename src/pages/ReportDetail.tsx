@@ -280,10 +280,10 @@ export function ReportDetail() {
           </span>
         </div>
 
-        <p className="text-gray-600 mb-4 whitespace-pre-wrap">{report.description}</p>
+        <p className="text-gray-700 mb-4 whitespace-pre-wrap">{report.description}</p>
 
-        <div className="flex items-center text-sm text-gray-500 mb-6">
-          <MapPin className="h-4 w-4 mr-1.5 flex-shrink-0" />
+        <div className="flex items-center text-sm text-gray-700 mb-6">
+          <MapPin className="h-4 w-4 mr-1.5 flex-shrink-0 text-gray-700" />
           <span>{report.location_address}</span>
         </div>
 
@@ -320,7 +320,7 @@ export function ReportDetail() {
             />
             <div>
               <div className="text-sm font-medium text-gray-900">{report.user.username}</div>
-              <p className="text-xs text-gray-500">{new Date(report.created_at).toLocaleDateString()}</p>
+              <p className="text-xs text-gray-700">{new Date(report.created_at).toLocaleDateString()}</p>
             </div>
           </div>
 
@@ -329,13 +329,13 @@ export function ReportDetail() {
               onClick={handleLike}
               disabled={likeLoading}
               className={`flex items-center gap-1.5 text-sm ${
-                report.is_liked ? 'text-red-500' : 'text-gray-500 hover:text-red-500'
+                report.is_liked ? 'text-red-500' : 'text-gray-700 hover:text-red-500'
               } transition-colors`}
             >
               <Heart className={`h-5 w-5 ${report.is_liked ? 'fill-current' : ''}`} />
               <span>{report.likes_count}</span>
             </button>
-            <div className="flex items-center gap-1.5 text-sm text-gray-500">
+            <div className="flex items-center gap-1.5 text-sm text-gray-700">
               <MessageCircle className="h-5 w-5" />
               <span>{report.comments_count}</span>
             </div>
@@ -386,11 +386,11 @@ export function ReportDetail() {
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-gray-900">{comment.user.username}</span>
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-gray-700">
                       {new Date(comment.created_at).toLocaleDateString()}
                     </span>
                   </div>
-                  <p className="mt-1 text-sm text-gray-600 whitespace-pre-wrap">{comment.content}</p>
+                  <p className="mt-1 text-sm text-gray-700 whitespace-pre-wrap">{comment.content}</p>
                 </div>
               </div>
             </div>

@@ -237,7 +237,7 @@ export const ChatList: React.FC<ChatListProps> = ({
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-3 rounded-full border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary-color focus:border-transparent"
           />
-          <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+          <Search className="w-5 h-5 text-gray-700 absolute left-3 top-1/2 transform -translate-y-1/2" />
         </div>
       </div>
 
@@ -247,7 +247,7 @@ export const ChatList: React.FC<ChatListProps> = ({
           className={`flex-1 py-4 text-center ${
             activeTab === 'rooms'
               ? 'border-b-2 border-primary-color text-primary-color'
-              : 'text-gray-500 hover:text-gray-700'
+              : 'text-gray-700 hover:text-gray-900'
           }`}
           onClick={() => setActiveTab('rooms')}
         >
@@ -260,7 +260,7 @@ export const ChatList: React.FC<ChatListProps> = ({
           className={`flex-1 py-4 text-center ${
             activeTab === 'search'
               ? 'border-b-2 border-primary-color text-primary-color'
-              : 'text-gray-500 hover:text-gray-700'
+              : 'text-gray-700 hover:text-gray-900'
           }`}
           onClick={() => setActiveTab('search')}
         >
@@ -336,7 +336,7 @@ export const ChatList: React.FC<ChatListProps> = ({
                       <h3 className="font-medium text-gray-900 truncate">
                         {room.name}
                       </h3>
-                      <p className="text-sm text-gray-500 truncate">
+                      <p className="text-sm text-gray-700 truncate">
                         Last updated: {new Date(room.updated_at).toLocaleDateString()}
                       </p>
                     </div>

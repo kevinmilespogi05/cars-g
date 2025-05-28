@@ -167,7 +167,7 @@ export function LeaderboardPage() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Community Leaderboard</h1>
-          <p className="mt-2 text-sm text-gray-500">
+          <p className="mt-2 text-sm text-gray-700">
             See who's making the biggest impact in our community
           </p>
         </div>
@@ -187,7 +187,10 @@ export function LeaderboardPage() {
           
           <div className="relative">
             <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+            <label htmlFor="timeframe-select" className="sr-only">Filter by time frame</label>
             <select
+              id="timeframe-select"
+              aria-label="Filter by time frame"
               className="pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 appearance-none"
               value={timeFrame}
               onChange={(e) => setTimeFrame(e.target.value as TimeFrame)}
@@ -269,7 +272,7 @@ export function LeaderboardPage() {
                           <img
                             className="h-20 w-20 rounded-full border-4 border-white shadow-lg"
                             src={entry.avatar_url}
-                            alt={entry.username}
+                            alt={`Profile picture of ${entry.username}`}
                           />
                         ) : (
                           <div className="h-20 w-20 rounded-full bg-gray-200 flex items-center justify-center border-4 border-white shadow-lg">
@@ -304,7 +307,7 @@ export function LeaderboardPage() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-4">
                   <Calendar className="h-5 w-5 text-gray-400" />
-                  <span className="text-sm text-gray-500">
+                  <span className="text-sm text-gray-700">
                     {timeFrame === 'all' ? 'All Time Rankings' :
                      timeFrame === 'month' ? 'This Month\'s Rankings' :
                      timeFrame === 'week' ? 'This Week\'s Rankings' :
@@ -312,7 +315,7 @@ export function LeaderboardPage() {
                   </span>
                 </div>
                 <div className="flex items-center space-x-4">
-                  <span className="text-sm text-gray-500">
+                  <span className="text-sm text-gray-700">
                     {sortedAndFilteredEntries.length} users
                   </span>
                   <button
@@ -330,14 +333,14 @@ export function LeaderboardPage() {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
                         Rank
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
                         User
                       </th>
                       <th 
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider cursor-pointer"
                         onClick={() => handleSort('points')}
                       >
                         <div className="flex items-center space-x-1">
@@ -349,7 +352,7 @@ export function LeaderboardPage() {
                         </div>
                       </th>
                       <th 
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider cursor-pointer"
                         onClick={() => handleSort('reports_submitted')}
                       >
                         <div className="flex items-center space-x-1">
@@ -361,7 +364,7 @@ export function LeaderboardPage() {
                         </div>
                       </th>
                       <th 
-                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider cursor-pointer"
                         onClick={() => handleSort('reports_verified')}
                       >
                         <div className="flex items-center space-x-1">
@@ -411,7 +414,7 @@ export function LeaderboardPage() {
                                   <img
                                     className="h-10 w-10 rounded-full"
                                     src={entry.avatar_url}
-                                    alt={entry.username}
+                                    alt={`Profile picture of ${entry.username}`}
                                   />
                                 ) : (
                                   <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
@@ -430,13 +433,13 @@ export function LeaderboardPage() {
                               </div>
                             </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                             {entry.points.toLocaleString()}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                             {entry.reports_submitted || 0}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                             {entry.reports_verified || 0}
                           </td>
                         </motion.tr>
@@ -465,7 +468,7 @@ export function LeaderboardPage() {
                               <img
                                 className="h-12 w-12 rounded-full"
                                 src={entry.avatar_url}
-                                alt={entry.username}
+                                alt={`Profile picture of ${entry.username}`}
                               />
                             ) : (
                               <div className="h-12 w-12 rounded-full bg-gray-200 flex items-center justify-center">
@@ -639,7 +642,7 @@ export function LeaderboardPage() {
                     <img
                       className="h-16 w-16 rounded-full"
                       src={selectedUser.avatar_url}
-                      alt={selectedUser.username}
+                      alt={`Profile picture of ${selectedUser.username}`}
                     />
                   ) : (
                     <div className="h-16 w-16 rounded-full bg-gray-200 flex items-center justify-center">
@@ -650,9 +653,9 @@ export function LeaderboardPage() {
                 
                 <div className="ml-4">
                   <h4 className="text-xl font-medium text-gray-900">{selectedUser.username}</h4>
-                  <p className="text-sm text-gray-500">Rank #{selectedUser.rank}</p>
+                  <p className="text-sm text-gray-700">Rank #{selectedUser.rank}</p>
                   {getRankChange(selectedUser) && (
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-gray-700">
                       {getRankChange(selectedUser) === 'up' ? '↑ Moved up' : '↓ Moved down'} in rankings
                     </p>
                   )}
@@ -661,28 +664,28 @@ export function LeaderboardPage() {
               
               <div className="mt-6 grid grid-cols-2 gap-4">
                 <div className="bg-gray-50 rounded-lg p-4">
-                  <p className="text-sm font-medium text-gray-500">Total Points</p>
+                  <p className="text-sm font-medium text-gray-700">Total Points</p>
                   <p className="mt-1 text-2xl font-semibold text-gray-900">
                     {selectedUser.points.toLocaleString()}
                   </p>
                 </div>
                 
                 <div className="bg-gray-50 rounded-lg p-4">
-                  <p className="text-sm font-medium text-gray-500">Reports Submitted</p>
+                  <p className="text-sm font-medium text-gray-700">Reports Submitted</p>
                   <p className="mt-1 text-2xl font-semibold text-gray-900">
                     {selectedUser.reports_submitted || 0}
                   </p>
                 </div>
                 
                 <div className="bg-gray-50 rounded-lg p-4">
-                  <p className="text-sm font-medium text-gray-500">Reports Verified</p>
+                  <p className="text-sm font-medium text-gray-700">Reports Verified</p>
                   <p className="mt-1 text-2xl font-semibold text-gray-900">
                     {selectedUser.reports_verified || 0}
                   </p>
                 </div>
                 
                 <div className="bg-gray-50 rounded-lg p-4">
-                  <p className="text-sm font-medium text-gray-500">Reports Resolved</p>
+                  <p className="text-sm font-medium text-gray-700">Reports Resolved</p>
                   <p className="mt-1 text-2xl font-semibold text-gray-900">
                     {selectedUser.reports_resolved || 0}
                   </p>

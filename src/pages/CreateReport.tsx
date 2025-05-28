@@ -190,10 +190,12 @@ export function CreateReport() {
         </div>
         
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="category-select" className="block text-sm font-medium text-gray-700 mb-1">
             Category
           </label>
           <select
+            id="category-select"
+            aria-label="Select report category"
             required
             className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
             value={formData.category}
@@ -209,10 +211,12 @@ export function CreateReport() {
         </div>
         
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="priority-select" className="block text-sm font-medium text-gray-700 mb-1">
             Priority
           </label>
           <select
+            id="priority-select"
+            aria-label="Select report priority"
             required
             className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
             value={formData.priority}
@@ -279,7 +283,7 @@ export function CreateReport() {
                 </label>
                 <p className="pl-1">or drag and drop</p>
               </div>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-gray-700">
                 PNG, JPG, GIF, WebP up to 10MB (max {MAX_IMAGES} images)
               </p>
             </div>

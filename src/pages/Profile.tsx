@@ -230,6 +230,7 @@ export function Profile() {
                       <button
                         className="absolute bottom-0 right-0 bg-white rounded-full p-1 shadow-md hover:bg-gray-100 transition-colors"
                         onClick={() => document.getElementById('avatar-upload')?.click()}
+                        aria-label="Change profile picture"
                       >
                         <Camera className="w-4 h-4 text-gray-600" />
                       </button>
@@ -255,12 +256,14 @@ export function Profile() {
                         onClick={handleSaveProfile}
                         disabled={isUpdating}
                         className="p-1 rounded-full bg-primary-color text-white hover:bg-primary-dark transition-colors"
+                        aria-label="Save username"
                       >
                         <Save className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => setIsEditing(false)}
                         className="p-1 rounded-full bg-gray-200 text-gray-600 hover:bg-gray-300 transition-colors"
+                        aria-label="Cancel editing"
                       >
                         <X className="w-4 h-4" />
                       </button>
@@ -272,24 +275,25 @@ export function Profile() {
                         <button
                           onClick={() => setIsEditing(true)}
                           className="p-1 rounded-full hover:bg-gray-100 transition-colors"
+                          aria-label="Edit username"
                         >
                           <Edit2 className="w-4 h-4 text-gray-500" />
                         </button>
                       )}
                     </div>
                   )}
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-gray-600">
                     Member since {formatDate(user?.created_at)}
                   </p>
                 </div>
               </div>
               <div className="flex items-center space-x-2">
                 {user?.role === 'admin' && (
-                  <div className="bg-primary-color/10 text-primary-color px-3 py-1 rounded-full text-sm font-medium">
+                  <div className="bg-primary-color/20 text-primary-dark px-3 py-1 rounded-full text-sm font-medium">
                     {user.role}
                   </div>
                 )}
-                <div className="bg-primary-color/10 text-primary-color px-3 py-1 rounded-full text-sm font-medium">
+                <div className="bg-primary-color/20 text-primary-dark px-3 py-1 rounded-full text-sm font-medium">
                   {user?.points || 0} Points
                 </div>
               </div>
@@ -332,13 +336,14 @@ export function Profile() {
                 <div className="flex items-center justify-between">
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Email Notifications</label>
-                    <p className="text-sm text-gray-500">Receive updates via email</p>
+                    <p className="text-sm text-gray-600">Receive updates via email</p>
                   </div>
                   <button
                     onClick={() => handleNotificationToggle('email')}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                       notificationSettings.email ? 'bg-primary-color' : 'bg-gray-200'
                     }`}
+                    aria-label={`${notificationSettings.email ? 'Disable' : 'Enable'} email notifications`}
                   >
                     <span
                       className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
@@ -350,13 +355,14 @@ export function Profile() {
                 <div className="flex items-center justify-between">
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Push Notifications</label>
-                    <p className="text-sm text-gray-500">Receive push notifications</p>
+                    <p className="text-sm text-gray-600">Receive push notifications</p>
                   </div>
                   <button
                     onClick={() => handleNotificationToggle('push')}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                       notificationSettings.push ? 'bg-primary-color' : 'bg-gray-200'
                     }`}
+                    aria-label={`${notificationSettings.push ? 'Disable' : 'Enable'} push notifications`}
                   >
                     <span
                       className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
@@ -368,13 +374,14 @@ export function Profile() {
                 <div className="flex items-center justify-between">
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Chat Notifications</label>
-                    <p className="text-sm text-gray-500">Receive chat message notifications</p>
+                    <p className="text-sm text-gray-600">Receive chat message notifications</p>
                   </div>
                   <button
                     onClick={() => handleNotificationToggle('chat')}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                       notificationSettings.chat ? 'bg-primary-color' : 'bg-gray-200'
                     }`}
+                    aria-label={`${notificationSettings.chat ? 'Disable' : 'Enable'} chat notifications`}
                   >
                     <span
                       className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
@@ -400,7 +407,7 @@ export function Profile() {
                 </div>
                 <div>
                   <p className="font-medium text-gray-900">First Report</p>
-                  <p className="text-sm text-gray-500">Submitted your first report</p>
+                  <p className="text-sm text-gray-600">Submitted your first report</p>
                 </div>
               </div>
               <div className="flex items-center space-x-3">
@@ -409,7 +416,7 @@ export function Profile() {
                 </div>
                 <div>
                   <p className="font-medium text-gray-900">Local Hero</p>
-                  <p className="text-sm text-gray-500">Submitted 10 reports in your area</p>
+                  <p className="text-sm text-gray-600">Submitted 10 reports in your area</p>
                 </div>
               </div>
             </div>
@@ -423,20 +430,20 @@ export function Profile() {
             </h3>
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-gray-50 rounded-lg p-4">
-                <p className="text-2xl font-bold text-primary-color">{user?.points || 0}</p>
-                <p className="text-sm text-gray-500">Total Points</p>
+                <p className="text-2xl font-bold text-primary-dark">{user?.points || 0}</p>
+                <p className="text-sm text-gray-600">Total Points</p>
               </div>
               <div className="bg-gray-50 rounded-lg p-4">
-                <p className="text-2xl font-bold text-primary-color">{userStats.reports_submitted}</p>
-                <p className="text-sm text-gray-500">Reports Submitted</p>
+                <p className="text-2xl font-bold text-primary-dark">{userStats.reports_submitted}</p>
+                <p className="text-sm text-gray-600">Reports Submitted</p>
               </div>
               <div className="bg-gray-50 rounded-lg p-4">
-                <p className="text-2xl font-bold text-primary-color">{userStats.reports_verified}</p>
-                <p className="text-sm text-gray-500">Reports Verified</p>
+                <p className="text-2xl font-bold text-primary-dark">{userStats.reports_verified}</p>
+                <p className="text-sm text-gray-600">Reports Verified</p>
               </div>
               <div className="bg-gray-50 rounded-lg p-4">
-                <p className="text-2xl font-bold text-primary-color">{userStats.reports_resolved}</p>
-                <p className="text-sm text-gray-500">Reports Resolved</p>
+                <p className="text-2xl font-bold text-primary-dark">{userStats.reports_resolved}</p>
+                <p className="text-sm text-gray-600">Reports Resolved</p>
               </div>
             </div>
           </div>

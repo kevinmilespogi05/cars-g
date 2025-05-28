@@ -207,11 +207,11 @@ export function Register() {
             <button
               onClick={handleGoogleSignUp}
               disabled={isSocialLoading === 'google'}
-              className="w-full inline-flex justify-center items-center py-2 px-4 border border-gray-300 rounded-lg shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full inline-flex justify-center items-center py-2 px-4 border border-gray-300 rounded-lg shadow-sm bg-white text-sm font-medium text-gray-800 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSocialLoading === 'google' ? (
                 <svg
-                  className="animate-spin h-5 w-5 text-gray-500"
+                  className="animate-spin h-5 w-5 text-gray-800"
                   xmlns="http://www.w3.org/2000/svg"
                   fill="none"
                   viewBox="0 0 24 24"
@@ -233,8 +233,20 @@ export function Register() {
               ) : (
                 <svg className="w-5 h-5" viewBox="0 0 24 24">
                   <path
-                    fill="currentColor"
-                    d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.748L12.545,10.239z"
+                    fill="#4285F4"
+                    d="M23.745 12.27c0-.79-.07-1.54-.19-2.27h-11.01v4.51h6.27c-.29 1.48-1.14 2.73-2.4 3.58v3h3.86c2.26-2.09 3.47-5.17 3.47-8.82z"
+                  />
+                  <path
+                    fill="#34A853"
+                    d="M12.545 24c3.24 0 5.95-1.08 7.93-2.91l-3.86-3c-1.08.72-2.45 1.16-4.07 1.16-3.13 0-5.78-2.11-6.73-4.96h-3.98v3.09C3.915 21.3 7.935 24 12.545 24z"
+                  />
+                  <path
+                    fill="#FBBC05"
+                    d="M5.815 14.29c-.25-.72-.38-1.49-.38-2.29s.14-1.57.38-2.29V6.62h-3.98a11.86 11.86 0 000 10.76l3.98-3.09z"
+                  />
+                  <path
+                    fill="#EA4335"
+                    d="M12.545 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C18.535 1.19 15.825 0 12.545 0c-4.61 0-8.63 2.7-10.63 6.62l3.98 3.09c.95-2.85 3.6-4.96 6.73-4.96z"
                   />
                 </svg>
               )}
@@ -244,11 +256,11 @@ export function Register() {
             <button
               onClick={handleFacebookSignUp}
               disabled={isSocialLoading === 'facebook'}
-              className="w-full inline-flex justify-center items-center py-2 px-4 border border-gray-300 rounded-lg shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full inline-flex justify-center items-center py-2 px-4 border border-gray-300 rounded-lg shadow-sm bg-[#1877F2] text-sm font-medium text-white hover:bg-[#1664d9] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSocialLoading === 'facebook' ? (
                 <svg
-                  className="animate-spin h-5 w-5 text-gray-500"
+                  className="animate-spin h-5 w-5 text-white"
                   xmlns="http://www.w3.org/2000/svg"
                   fill="none"
                   viewBox="0 0 24 24"

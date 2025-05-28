@@ -219,7 +219,7 @@ export const IssueReportForm: React.FC<IssueReportFormProps> = ({ onSubmit }) =>
         <div>
           <label className="label mb-2">
             Images
-            <span className="text-sm text-gray-500 ml-2">(Optional)</span>
+            <span className="text-sm text-gray-700 ml-2">(Optional)</span>
           </label>
           <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg hover:border-primary-color transition-colors">
             <div className="space-y-1 text-center">
@@ -238,7 +238,7 @@ export const IssueReportForm: React.FC<IssueReportFormProps> = ({ onSubmit }) =>
                 </label>
                 <p className="pl-1">or drag and drop</p>
               </div>
-              <p className="text-xs text-gray-500">PNG, JPG, GIF up to 10MB</p>
+              <p className="text-xs text-gray-700">PNG, JPG, GIF up to 10MB</p>
             </div>
           </div>
 

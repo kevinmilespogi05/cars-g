@@ -41,12 +41,50 @@ export function Reports() {
     priority: 'All',
   });
   const [selectedImage, setSelectedImage] = useState<{ url: string; index: number } | null>(null);
-  const [imageLoading, setImageLoading] = useState<{ [key: string]: boolean }>({});
+  const [imageErrors, setImageErrors] = useState<{ [key: string]: boolean }>({}); // Track image loading errors
   const [likeLoading, setLikeLoading] = useState<{ [key: string]: boolean }>({});
 
   useEffect(() => {
     fetchReports();
   }, [filters]);
+
+  // Create a fallback image data URL
+  const fallbackImageUrl = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiB2aWV3Qm94PSIwIDAgMjAwIDIwMCI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiNmMGYwZjAiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE2IiBmaWxsPSIjODg4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5JbWFnZSBub3QgYXZhaWxhYmxlPC90ZXh0Pjwvc3ZnPg==";
+  
+  // Function to get a public URL for an image
+  const getImageUrl = (imageUrl: string) => {
+    // If it's already a data URL or not a Supabase URL, return as is
+    if (imageUrl.startsWith('data:') || !imageUrl.includes('supabase.co')) {
+      return imageUrl;
+    }
+    
+    try {
+      // For Supabase URLs, ensure they're properly formatted
+      const url = new URL(imageUrl);
+      
+      // Clean up any double slashes in the path (except for http://)
+      const cleanPath = url.pathname
+        .replace(/([^:])\/+/g, '$1/')  // Replace multiple slashes with single slash
+        .replace(/\/$/, '');  // Remove trailing slash if present
+      
+      // Set the cleaned path back to the URL
+      url.pathname = cleanPath;
+      
+      // Add cache-busting parameter to force reload if needed
+      url.searchParams.set('t', Date.now().toString());
+      
+      return url.toString();
+    } catch (error) {
+      console.error('Error parsing image URL:', error);
+      return fallbackImageUrl;
+    }
+  };
+  
+  useEffect(() => {
+    // Pre-create the fallback image to ensure it's ready
+    const img = new Image();
+    img.src = fallbackImageUrl;
+  }, []);
 
   const fetchReports = async () => {
     try {
@@ -248,7 +286,10 @@ export function Reports() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           <div className="relative">
             <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+            <label htmlFor="category-filter" className="sr-only">Filter by category</label>
             <select
+              id="category-filter"
+              aria-label="Filter by category"
               className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-primary-color focus:border-primary-color text-base appearance-none bg-white text-gray-900"
               value={filters.category}
               onChange={(e) => setFilters({ ...filters, category: e.target.value })}
@@ -262,7 +303,10 @@ export function Reports() {
           </div>
           <div className="relative">
             <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+            <label htmlFor="status-filter" className="sr-only">Filter by status</label>
             <select
+              id="status-filter"
+              aria-label="Filter by status"
               className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-primary-color focus:border-primary-color text-base appearance-none bg-white text-gray-900"
               value={filters.status}
               onChange={(e) => setFilters({ ...filters, status: e.target.value })}
@@ -276,7 +320,10 @@ export function Reports() {
           </div>
           <div className="relative">
             <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+            <label htmlFor="priority-filter" className="sr-only">Filter by priority</label>
             <select
+              id="priority-filter"
+              aria-label="Filter by priority"
               className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-primary-color focus:border-primary-color text-base appearance-none bg-white text-gray-900"
               value={filters.priority}
               onChange={(e) => setFilters({ ...filters, priority: e.target.value })}
@@ -310,7 +357,7 @@ export function Reports() {
                 onClick={() => navigate(`/reports/${report.id}`)}
               >
                 <Link to={`/reports/${report.id}`} className="flex flex-col gap-2">
-                  <h3 className="text-lg font-semibold text-gray-900 break-words line-clamp-2">{report.title}</h3>
+                  <h2 className="text-lg font-semibold text-gray-900 break-words line-clamp-2">{report.title}</h2>
                   <p className="text-sm text-gray-600 break-words line-clamp-2">{report.description}</p>
                   <div className="flex flex-wrap gap-2">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(report.status)}`}>
@@ -320,8 +367,8 @@ export function Reports() {
                       {report.priority}
                     </span>
                   </div>
-                  <div className="flex items-center text-xs text-gray-500">
-                    <MapPin className="h-4 w-4 mr-1.5 flex-shrink-0" />
+                  <div className="flex items-center text-xs text-gray-700">
+                    <MapPin className="h-4 w-4 mr-1.5 flex-shrink-0 text-gray-700" />
                     <span className="truncate">{report.location_address}</span>
                   </div>
 
@@ -340,10 +387,32 @@ export function Reports() {
                             }}
                           >
                             <img
-                              src={image}
+                              src={getImageUrl(image)}
                               alt={`Report image ${index + 1}`}
                               className="h-full w-full object-cover rounded-lg"
                               loading="lazy"
+                              onError={(e) => {
+                                // Handle image loading error
+                                console.error(`Failed to load image: ${image}`);
+                                const imgElement = e.target as HTMLImageElement;
+                                setImageErrors(prev => ({ ...prev, [image]: true }));
+                                
+                                // Use our fallback image
+                                imgElement.src = fallbackImageUrl;
+                                
+                                // Add a class to indicate error
+                                imgElement.classList.add('image-load-error');
+                                
+                                // Add an overlay to indicate error
+                                const parent = imgElement.parentElement;
+                                if (parent && !parent.querySelector('.image-error-overlay')) {
+                                  const errorOverlay = document.createElement('div');
+                                  errorOverlay.className = 'absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-lg image-error-overlay';
+                                  errorOverlay.innerHTML = '<span class="text-white text-xs">Image unavailable</span>';
+                                  parent.appendChild(errorOverlay);
+                                }
+                              }}
+                              style={{ backgroundColor: '#f0f0f0' }} // Light background instead of black
                             />
                             <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-opacity rounded-lg" />
                           </div>
@@ -366,7 +435,7 @@ export function Reports() {
                       alt={report.user.username}
                       className="h-6 w-6 rounded-full"
                     />
-                    <span className="text-sm text-gray-600">{report.user.username}</span>
+                    <span className="text-sm text-gray-700">{report.user.username}</span>
                   </div>
                   <div className="flex items-center space-x-4">
                     <button
@@ -376,7 +445,7 @@ export function Reports() {
                         handleLike(report.id);
                       }}
                       disabled={likeLoading[report.id]}
-                      className="flex items-center text-gray-500 hover:text-red-500 transition-colors"
+                      className="flex items-center text-gray-700 hover:text-red-500 transition-colors"
                     >
                       <Heart
                         className={`h-5 w-5 ${report.is_liked ? 'fill-red-500 text-red-500' : ''}`}
@@ -386,7 +455,7 @@ export function Reports() {
                     <Link
                       to={`/reports/${report.id}`}
                       onClick={(e) => e.stopPropagation()}
-                      className="flex items-center text-gray-500 hover:text-primary-color transition-colors"
+                      className="flex items-center text-gray-700 hover:text-primary-color transition-colors"
                     >
                       <MessageCircle className="h-5 w-5" />
                       <span className="ml-1 text-sm">{report.comments_count}</span>
@@ -421,9 +490,27 @@ export function Reports() {
             <ChevronRight className="h-8 w-8" />
           </button>
           <img
-            src={selectedImage.url}
+            src={getImageUrl(selectedImage.url)}
             alt="Selected report image"
             className="max-h-[90vh] max-w-[90vw] object-contain"
+            onError={(e) => {
+              // Handle image loading error
+              console.error(`Failed to load modal image: ${selectedImage.url}`);
+              const imgElement = e.target as HTMLImageElement;
+              
+              // Use our fallback image
+              imgElement.src = fallbackImageUrl;
+              
+              // Show error message
+              const parent = imgElement.parentElement;
+              if (parent && !parent.querySelector('.modal-error-message')) {
+                const errorMsg = document.createElement('div');
+                errorMsg.className = 'absolute bottom-8 left-0 right-0 text-center modal-error-message';
+                errorMsg.innerHTML = '<span class="bg-black bg-opacity-75 text-white px-4 py-2 rounded">Image could not be loaded</span>';
+                parent.appendChild(errorMsg);
+              }
+            }}
+            style={{ backgroundColor: '#f0f0f0' }} // Light background instead of black
           />
         </div>
       )}

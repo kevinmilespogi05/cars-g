@@ -80,9 +80,11 @@ export async function uploadImage(file: File): Promise<string> {
     await validateFileContent(file);
 
     const fileExt = file.name.split('.').pop()?.toLowerCase();
-    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+    // Remove any special characters from filename
+    const cleanFileName = `${Date.now()}-${Math.random().toString(36).substring(2)}`.replace(/[^a-zA-Z0-9-]/g, '');
+    const fileName = `${cleanFileName}.${fileExt}`;
 
-    // Upload to Supabase storage
+    // Upload to Supabase storage with clean path
     const { error: uploadError, data } = await supabase.storage
       .from(STORAGE_BUCKET)
       .upload(fileName, file, {
@@ -114,6 +116,7 @@ export async function uploadImage(file: File): Promise<string> {
       );
     }
 
+    // Get public URL with clean path
     const { data: { publicUrl }, error: urlError } = supabase.storage
       .from(STORAGE_BUCKET)
       .getPublicUrl(data.path);
