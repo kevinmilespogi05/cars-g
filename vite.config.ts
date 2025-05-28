@@ -7,10 +7,12 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      strategies: 'generateSW',
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.js',
       registerType: 'autoUpdate',
-      injectRegister: 'auto',
-      includeAssets: ['**/*'],
+      injectRegister: 'inline',
+      includeAssets: ['favicon.ico', '*.png'],
       manifest: {
         name: 'Cars App',
         short_name: 'Cars',
@@ -22,17 +24,17 @@ export default defineConfig({
         scope: '/',
         icons: [
           {
-            src: 'pwa-192x192.png',
+            src: '/pwa-192x192.png',
             sizes: '192x192',
             type: 'image/png'
           },
           {
-            src: 'pwa-512x512.png',
+            src: '/pwa-512x512.png',
             sizes: '512x512',
             type: 'image/png'
           },
           {
-            src: 'pwa-512x512.png',
+            src: '/pwa-512x512.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any maskable'
@@ -42,21 +44,14 @@ export default defineConfig({
       devOptions: {
         enabled: true,
         type: 'module',
-        navigateFallback: 'index.html',
-        suppressWarnings: true
+        navigateFallback: 'index.html'
       },
       workbox: {
-        globDirectory: 'dist',
-        globPatterns: [
-          '**/*.{js,css,html,ico,png,svg,json,vue,txt,woff2}'
-        ],
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,json,vue,txt,woff2}'],
         cleanupOutdatedCaches: true,
         sourcemap: true,
         navigateFallback: '/index.html',
         navigateFallbackAllowlist: [/^(?!\/__).*/],
-        swDest: 'dist/sw.js',
-        clientsClaim: true,
-        skipWaiting: true,
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/[a-z0-9-]+\.supabase\.co\/storage\/v1\/object\/public/,
