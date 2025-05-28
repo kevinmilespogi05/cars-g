@@ -7,11 +7,8 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      strategies: 'injectManifest',
-      srcDir: 'src',
-      filename: 'sw.js',
       registerType: 'autoUpdate',
-      injectRegister: 'inline',
+      injectRegister: 'auto',
       includeAssets: ['favicon.ico', '*.png'],
       manifest: {
         name: 'Cars App',
@@ -43,15 +40,12 @@ export default defineConfig({
       },
       devOptions: {
         enabled: true,
-        type: 'module',
-        navigateFallback: 'index.html'
+        type: 'module'
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,json,vue,txt,woff2}'],
         cleanupOutdatedCaches: true,
         sourcemap: true,
-        navigateFallback: '/index.html',
-        navigateFallbackAllowlist: [/^(?!\/__).*/],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/[a-z0-9-]+\.supabase\.co\/storage\/v1\/object\/public/,

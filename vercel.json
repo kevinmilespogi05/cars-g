@@ -1,42 +1,18 @@
 {
   "routes": [
     {
-      "src": "/manifest.webmanifest",
-      "headers": {
-        "Content-Type": "application/manifest+json",
-        "Cache-Control": "public, max-age=0, must-revalidate"
-      }
-    },
-    {
       "src": "/sw.js",
       "headers": {
-        "Cache-Control": "public, max-age=0, must-revalidate",
-        "Service-Worker-Allowed": "/",
-        "Content-Type": "application/javascript; charset=utf-8"
+        "cache-control": "public, max-age=0, must-revalidate",
+        "content-type": "application/javascript; charset=utf-8"
       },
       "continue": true
     },
     {
-      "src": "/dev-sw.js",
+      "src": "/workbox-(.+)\\.js",
       "headers": {
-        "Cache-Control": "public, max-age=0, must-revalidate",
-        "Service-Worker-Allowed": "/",
-        "Content-Type": "application/javascript; charset=utf-8"
-      },
-      "continue": true
-    },
-    {
-      "src": "/registerSW.js",
-      "headers": {
-        "Cache-Control": "public, max-age=0, must-revalidate",
-        "Content-Type": "application/javascript; charset=utf-8"
-      },
-      "continue": true
-    },
-    {
-      "src": "/(.*)\\.js$",
-      "headers": {
-        "Content-Type": "application/javascript; charset=utf-8"
+        "cache-control": "public, max-age=31536000, immutable",
+        "content-type": "application/javascript; charset=utf-8"
       },
       "continue": true
     },
@@ -46,5 +22,12 @@
     }
   ],
   "buildCommand": "npm run build",
-  "outputDirectory": "dist"
+  "outputDirectory": "dist",
+  "framework": "vite",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
 } 
