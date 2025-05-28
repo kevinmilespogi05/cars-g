@@ -10,6 +10,7 @@ export default defineConfig({
       strategies: 'generateSW',
       registerType: 'autoUpdate',
       injectRegister: 'auto',
+      includeAssets: ['**/*'],
       manifest: {
         name: 'Cars App',
         short_name: 'Cars',
@@ -18,6 +19,7 @@ export default defineConfig({
         background_color: '#ffffff',
         display: 'standalone',
         start_url: '/',
+        scope: '/',
         icons: [
           {
             src: 'pwa-192x192.png',
@@ -53,6 +55,8 @@ export default defineConfig({
         navigateFallback: '/index.html',
         navigateFallbackAllowlist: [/^(?!\/__).*/],
         swDest: 'dist/sw.js',
+        clientsClaim: true,
+        skipWaiting: true,
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/[a-z0-9-]+\.supabase\.co\/storage\/v1\/object\/public/,
@@ -87,6 +91,16 @@ export default defineConfig({
       }
     })
   ],
+  build: {
+    sourcemap: true,
+    target: 'esnext',
+    assetsInlineLimit: 0,
+    rollupOptions: {
+      output: {
+        manualChunks: undefined
+      }
+    }
+  },
   server: {
     port: 5173,
     strictPort: true
@@ -102,9 +116,5 @@ export default defineConfig({
       'react': 'react',
       'react-dom': 'react-dom'
     }
-  },
-  build: {
-    sourcemap: true,
-    target: 'esnext'
   }
 });
