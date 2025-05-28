@@ -1,15 +1,43 @@
 import React from 'react'
-import ReactDOM from 'react-dom/client'
+import { createRoot } from 'react-dom/client'
 import App from './App'
 import './index.css'
-import { registerSW } from './pwa'
+import 'bootstrap/dist/js/bootstrap.bundle.min.js'
+import { Analytics } from '@vercel/analytics/react'
+import { BrowserRouter } from 'react-router-dom'
+import { AuthProvider } from './contexts/AuthContext'
 
-if (import.meta.env.PROD) {
-  registerSW()
+// Register service worker
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', async () => {
+    try {
+      const registration = await navigator.serviceWorker.register('/dev-sw.js?dev-sw', {
+        scope: '/'
+      });
+      console.log('Service Worker registered successfully:', registration.scope);
+      
+      registration.addEventListener('updatefound', () => {
+        const newWorker = registration.installing;
+        console.log('Service Worker update found!');
+        
+        newWorker?.addEventListener('statechange', () => {
+          console.log('Service Worker state changed:', newWorker.state);
+        });
+      });
+    } catch (error) {
+      console.error('Service Worker registration failed:', error);
+    }
+  });
 }
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
+const root = createRoot(document.getElementById('root')!)
+root.render(
   <React.StrictMode>
-    <App />
+    <BrowserRouter>
+      <AuthProvider>
+        <App />
+        <Analytics debug={false} />
+      </AuthProvider>
+    </BrowserRouter>
   </React.StrictMode>
 )
