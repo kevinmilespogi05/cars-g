@@ -1,8 +1,16 @@
 {
   "headers": [
     {
-      "source": "/(.*)\\.js$",
+      "source": "/sw.js",
       "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        },
+        {
+          "key": "Service-Worker-Allowed",
+          "value": "/"
+        },
         {
           "key": "Content-Type",
           "value": "application/javascript; charset=utf-8"
@@ -10,11 +18,15 @@
       ]
     },
     {
-      "source": "/manifest\\.webmanifest",
+      "source": "/workbox-:hash.js",
       "headers": [
         {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        },
+        {
           "key": "Content-Type",
-          "value": "application/manifest+json"
+          "value": "application/javascript; charset=utf-8"
         }
       ]
     },
@@ -22,8 +34,16 @@
       "source": "/(.*)",
       "headers": [
         {
-          "key": "Access-Control-Allow-Origin",
-          "value": "*"
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-XSS-Protection",
+          "value": "1; mode=block"
         }
       ]
     }
@@ -32,10 +52,6 @@
     {
       "source": "/sw.js",
       "destination": "/sw.js"
-    },
-    {
-      "source": "/dev-sw.js",
-      "destination": "/dev-sw.js"
     },
     {
       "source": "/(.*)",
