@@ -7,36 +7,8 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'prompt',
-      includeAssets: ['favicon.ico', '*.png'],
-      manifest: {
-        name: 'Cars App',
-        short_name: 'Cars',
-        description: 'Your car rental application',
-        theme_color: '#800000',
-        background_color: '#ffffff',
-        display: 'standalone',
-        start_url: '/',
-        scope: '/',
-        icons: [
-          {
-            src: '/pwa-192x192.png',
-            sizes: '192x192',
-            type: 'image/png'
-          },
-          {
-            src: '/pwa-512x512.png',
-            sizes: '512x512',
-            type: 'image/png'
-          },
-          {
-            src: '/pwa-512x512.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'any maskable'
-          }
-        ]
-      },
+      strategies: 'generateSW',
+      registerType: 'autoUpdate',
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,json,vue,txt,woff2}'],
         cleanupOutdatedCaches: true,
@@ -72,18 +44,41 @@ export default defineConfig({
             }
           }
         ]
+      },
+      manifest: {
+        name: 'Cars App',
+        short_name: 'Cars',
+        description: 'Your car rental application',
+        theme_color: '#800000',
+        background_color: '#ffffff',
+        display: 'standalone',
+        start_url: '/',
+        scope: '/',
+        icons: [
+          {
+            src: '/pwa-192x192.png',
+            sizes: '192x192',
+            type: 'image/png'
+          },
+          {
+            src: '/pwa-512x512.png',
+            sizes: '512x512',
+            type: 'image/png'
+          },
+          {
+            src: '/pwa-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'any maskable'
+          }
+        ]
       }
     })
   ],
   build: {
     sourcemap: true,
     target: 'esnext',
-    assetsInlineLimit: 0,
-    rollupOptions: {
-      output: {
-        manualChunks: undefined
-      }
-    }
+    assetsInlineLimit: 0
   },
   server: {
     port: 5173,
