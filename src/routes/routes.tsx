@@ -1,8 +1,30 @@
-import { lazy } from 'react';
+import { lazy, Suspense } from 'react';
 import { RouteObject } from 'react-router-dom';
 import { ProtectedRoute } from '../components/ProtectedRoute';
 
-// Lazy load components
+// Loading component
+const LoadingFallback = () => (
+  <div className="flex items-center justify-center min-h-screen">
+    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#800000]"></div>
+  </div>
+);
+
+// Error Boundary Component
+const ErrorBoundary = ({ children }: { children: React.ReactNode }) => {
+  try {
+    return <>{children}</>;
+  } catch (error) {
+    console.error('Route Error:', error);
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <h1 className="text-2xl font-bold text-red-800">Something went wrong</h1>
+        <p className="text-gray-600 mt-2">Please try refreshing the page</p>
+      </div>
+    );
+  }
+};
+
+// Lazy load components with Suspense
 const Login = lazy(() => import('../pages/Login').then(module => ({ default: module.Login })));
 const Register = lazy(() => import('../pages/Register').then(module => ({ default: module.Register })));
 const Reports = lazy(() => import('../pages/Reports').then(module => ({ default: module.Reports })));
@@ -15,63 +37,72 @@ const AdminDashboard = lazy(() => import('../pages/AdminDashboard').then(module 
 const PrivacyPolicy = lazy(() => import('../pages/PrivacyPolicy').then(module => ({ default: module.PrivacyPolicy })));
 const Chat = lazy(() => import('../pages/Chat').then(module => ({ default: module.Chat })));
 
+// Wrap component with Suspense and ErrorBoundary
+const withSuspense = (Component: React.ComponentType) => (
+  <ErrorBoundary>
+    <Suspense fallback={<LoadingFallback />}>
+      <Component />
+    </Suspense>
+  </ErrorBoundary>
+);
+
 export const publicRoutes: RouteObject[] = [
   {
     path: '/',
-    element: <Login />
+    element: withSuspense(Login)
   },
   {
     path: '/login',
-    element: <Login />
+    element: withSuspense(Login)
   },
   {
     path: '/register',
-    element: <Register />
+    element: withSuspense(Register)
   },
   {
     path: '/privacy-policy',
-    element: <PrivacyPolicy />
+    element: withSuspense(PrivacyPolicy)
   }
 ];
 
 export const protectedRoutes: RouteObject[] = [
   {
     path: '/reports',
-    element: <ProtectedRoute><Reports /></ProtectedRoute>
+    element: <ProtectedRoute>{withSuspense(Reports)}</ProtectedRoute>
   },
   {
     path: '/reports/create',
-    element: <ProtectedRoute><CreateReport /></ProtectedRoute>
+    element: <ProtectedRoute>{withSuspense(CreateReport)}</ProtectedRoute>
   },
   {
     path: '/reports/:id',
-    element: <ProtectedRoute><ReportDetail /></ProtectedRoute>
+    element: <ProtectedRoute>{withSuspense(ReportDetail)}</ProtectedRoute>
   },
   {
     path: '/leaderboard',
-    element: <ProtectedRoute><LeaderboardPage /></ProtectedRoute>
+    element: <ProtectedRoute>{withSuspense(LeaderboardPage)}</ProtectedRoute>
   },
   {
     path: '/profile',
-    element: <ProtectedRoute><Profile /></ProtectedRoute>
+    element: <ProtectedRoute>{withSuspense(Profile)}</ProtectedRoute>
   },
   {
     path: '/profile/:id',
-    element: <ProtectedRoute><Profile /></ProtectedRoute>
+    element: <ProtectedRoute>{withSuspense(Profile)}</ProtectedRoute>
   },
   {
     path: '/map-test',
-    element: <ProtectedRoute><MapTestPage /></ProtectedRoute>
+    element: <ProtectedRoute>{withSuspense(MapTestPage)}</ProtectedRoute>
   },
   {
     path: '/chat',
-    element: <ProtectedRoute><Chat /></ProtectedRoute>
+    element: <ProtectedRoute>{withSuspense(Chat)}</ProtectedRoute>
   }
 ];
 
 export const adminRoutes: RouteObject[] = [
   {
     path: '/admin',
-    element: <ProtectedRoute><AdminDashboard /></ProtectedRoute>
+    element: <ProtectedRoute>{withSuspense(AdminDashboard)}</ProtectedRoute>
   }
 ]; 

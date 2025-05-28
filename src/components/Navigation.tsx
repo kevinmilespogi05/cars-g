@@ -6,10 +6,11 @@ import { useAuthStore } from '../store/authStore';
 export function Navigation() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, signOut } = useAuthStore();
+  const { user, signOut, isAuthenticated } = useAuthStore();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const profileMenuRef = useRef<HTMLDivElement>(null);
 
   // Handle scroll effect
@@ -20,6 +21,23 @@ export function Navigation() {
 
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Check authentication state on mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        setIsLoading(true);
+        // Wait for auth state to be determined
+        await new Promise(resolve => setTimeout(resolve, 100));
+        setIsLoading(false);
+      } catch (error) {
+        console.error('Error checking auth state:', error);
+        setIsLoading(false);
+      }
+    };
+    
+    checkAuth();
   }, []);
 
   // Handle click outside profile menu
@@ -52,6 +70,26 @@ export function Navigation() {
       console.error('Error signing out:', error);
     }
   };
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <nav className="fixed w-full z-50 bg-[#800000] py-4">
+        <div className="container">
+          <div className="flex justify-between items-center">
+            <Link to="/" className="flex items-center space-x-2 text-white">
+              <img 
+                src="/images/logo.jpg" 
+                alt="CARS-G Logo" 
+                className="h-8 w-8 object-contain rounded-full"
+              />
+              <span className="text-2xl font-bold">CARS-G</span>
+            </Link>
+          </div>
+        </div>
+      </nav>
+    );
+  }
 
   return (
     <nav 
