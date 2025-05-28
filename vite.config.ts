@@ -8,12 +8,7 @@ export default defineConfig({
     react(),
     VitePWA({
       disable: process.env.NODE_ENV === 'development',
-      registerType: 'autoUpdate' as const,
-      strategies: 'generateSW',
-      injectRegister: 'auto',
-      devOptions: {
-        enabled: false
-      },
+      registerType: null,
       manifest: {
         name: 'Cars App',
         short_name: 'Cars',
@@ -43,8 +38,6 @@ export default defineConfig({
         ]
       },
       workbox: {
-        clientsClaim: true,
-        skipWaiting: true,
         cleanupOutdatedCaches: true,
         sourcemap: true,
         runtimeCaching: [

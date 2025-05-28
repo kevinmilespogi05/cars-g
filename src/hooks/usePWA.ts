@@ -34,6 +34,7 @@ export function usePWA(): UsePWAReturn {
 
           // Register the service worker
           const reg = await navigator.serviceWorker.register(swUrl, {
+            type: 'module',
             updateViaCache: 'none',
             scope: baseUrl
           });
