@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
-import { Loader2, Check, X, AlertTriangle, MapPin, Filter, Search, BarChart2, Users, Settings, User, RefreshCw, Image as ImageIcon } from 'lucide-react';
+import { Loader2, Check, X, AlertTriangle, MapPin, Filter, Search, BarChart2, Users, Settings, User, RefreshCw, Image as ImageIcon, Trash2 } from 'lucide-react';
 import { awardPoints } from '../lib/points';
 import { UserManagement } from '../components/UserManagement';
 import { AdminStatistics } from '../components/AdminStatistics';
@@ -103,6 +103,12 @@ export function AdminDashboard() {
   const updateReportStatus = async (reportId: string, newStatus: Report['status']) => {
     setActionLoading(true);
     try {
+      // Validate the status value
+      const validStatuses = ['pending', 'in_progress', 'resolved', 'rejected'] as const;
+      if (!validStatuses.includes(newStatus as any)) {
+        throw new Error(`Invalid status value: ${newStatus}`);
+      }
+
       // First update the report status
       const { error: updateError } = await supabase
         .from('reports')
@@ -139,6 +145,67 @@ export function AdminDashboard() {
     } catch (error) {
       console.error('Error updating report status:', error);
       showNotification('Failed to update report status', 'error');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const deleteReport = async (reportId: string) => {
+    if (!window.confirm('Are you sure you want to delete this report? This action cannot be undone.')) {
+      return;
+    }
+
+    setActionLoading(true);
+    try {
+      // First, delete any associated images from storage
+      const report = reports.find(r => r.id === reportId);
+      if (report?.images?.length) {
+        for (const imageUrl of report.images) {
+          const imagePath = imageUrl.split('/').pop(); // Get the filename from the URL
+          if (imagePath) {
+            const { error: storageError } = await supabase.storage
+              .from('reports')
+              .remove([imagePath]);
+            
+            if (storageError) {
+              console.error('Error deleting image:', storageError);
+              // Continue with deletion even if image deletion fails
+            }
+          }
+        }
+      }
+
+      // Then delete the report itself
+      const { data, error: deleteError } = await supabase
+        .from('reports')
+        .delete()
+        .eq('id', reportId)
+        .select();
+
+      console.log('Delete response:', { data, error: deleteError });
+
+      if (deleteError) {
+        console.error('Delete error:', deleteError);
+        throw deleteError;
+      }
+
+      if (!data || data.length === 0) {
+        throw new Error('Report not deleted - no rows affected');
+      }
+
+      showNotification('Report deleted successfully', 'success');
+      
+      // Close the modal if the deleted report was selected
+      if (selectedReport?.id === reportId) {
+        setSelectedReport(null);
+      }
+      
+      // Remove the deleted report from the local state and force a refresh
+      setReports(prevReports => prevReports.filter(r => r.id !== reportId));
+      await fetchReports(); // Add this back to ensure the state is in sync
+    } catch (error) {
+      console.error('Error deleting report:', error);
+      showNotification('Failed to delete report', 'error');
     } finally {
       setActionLoading(false);
     }
@@ -485,6 +552,18 @@ export function AdminDashboard() {
                 </div>
               )}
               <div className="mt-5 flex justify-end space-x-2">
+                <button
+                  onClick={() => deleteReport(selectedReport.id)}
+                  disabled={actionLoading}
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {actionLoading ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4 mr-2" />
+                  )}
+                  Delete Report
+                </button>
                 <button
                   onClick={() => setSelectedReport(null)}
                   className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"

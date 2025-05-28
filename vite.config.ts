@@ -7,15 +7,17 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
-      injectRegister: 'auto',
-      filename: 'sw.js',
       strategies: 'generateSW',
+      registerType: 'prompt',
+      injectRegister: 'script',
       manifest: {
         name: 'Cars App',
         short_name: 'Cars',
         description: 'Your car rental application',
-        theme_color: '#ffffff',
+        theme_color: '#800000',
+        background_color: '#ffffff',
+        display: 'standalone',
+        start_url: '/',
         icons: [
           {
             src: 'pwa-192x192.png',
@@ -35,80 +37,18 @@ export default defineConfig({
           }
         ]
       },
+      devOptions: {
+        enabled: true,
+        navigateFallback: 'index.html'
+      },
       workbox: {
-        cleanupOutdatedCaches: true,
-        clientsClaim: true,
-        skipWaiting: true,
-        sourcemap: true,
         globDirectory: 'dist',
         globPatterns: [
-          '**/*.{js,css,html,ico,png,svg,jpg,jpeg,gif,woff2}',
-          'assets/**/*'
+          '**/*.{js,css,html,ico,png,svg,json,vue,txt,woff2}'
         ],
-        navigateFallback: 'index.html',
-        navigateFallbackDenylist: [/^\/api/],
-        navigationPreload: false,
+        cleanupOutdatedCaches: true,
+        sourcemap: true,
         runtimeCaching: [
-          {
-            urlPattern: ({ request }) => request.mode === 'navigate',
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'pages-cache',
-              networkTimeoutSeconds: 3,
-              expiration: {
-                maxEntries: 32,
-                maxAgeSeconds: 24 * 60 * 60 // 24 hours
-              },
-              cacheableResponse: {
-                statuses: [0, 200]
-              },
-              matchOptions: {
-                ignoreSearch: true
-              }
-            }
-          },
-          {
-            urlPattern: /^https:\/\/api\.mapbox\.com/,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'mapbox-cache',
-              expiration: {
-                maxEntries: 50,
-                maxAgeSeconds: 60 * 60 * 24 * 30 // 30 days
-              },
-              cacheableResponse: {
-                statuses: [0, 200]
-              }
-            }
-          },
-          {
-            urlPattern: /^https:\/\/fonts\.googleapis\.com/,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'google-fonts-cache',
-              expiration: {
-                maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24 * 365 // 1 year
-              },
-              cacheableResponse: {
-                statuses: [0, 200]
-              }
-            }
-          },
-          {
-            urlPattern: /^https:\/\/fonts\.gstatic\.com/,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'google-fonts-webfonts',
-              expiration: {
-                maxEntries: 30,
-                maxAgeSeconds: 60 * 60 * 24 * 365 // 1 year
-              },
-              cacheableResponse: {
-                statuses: [0, 200]
-              }
-            }
-          },
           {
             urlPattern: /^https:\/\/[a-z0-9-]+\.supabase\.co\/storage\/v1\/object\/public/,
             handler: 'NetworkFirst',
@@ -118,24 +58,6 @@ export default defineConfig({
               expiration: {
                 maxEntries: 100,
                 maxAgeSeconds: 60 * 60 * 24 * 7 // 7 days
-              },
-              cacheableResponse: {
-                statuses: [0, 200]
-              },
-              matchOptions: {
-                ignoreSearch: true
-              }
-            }
-          },
-          {
-            urlPattern: /^https:\/\/api\.supabase\.co/,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'api-cache',
-              networkTimeoutSeconds: 5,
-              expiration: {
-                maxEntries: 200,
-                maxAgeSeconds: 60 * 60 * 24 // 24 hours
               },
               cacheableResponse: {
                 statuses: [0, 200]
@@ -157,15 +79,13 @@ export default defineConfig({
             }
           }
         ]
-      },
-      devOptions: {
-        enabled: true,
-        type: 'module',
-        navigateFallback: 'index.html',
-        suppressWarnings: true
       }
     })
   ],
+  server: {
+    port: 5173,
+    strictPort: true
+  },
   optimizeDeps: {
     include: ['react', 'react-dom', 'react-router-dom'],
     esbuildOptions: {
@@ -179,16 +99,7 @@ export default defineConfig({
     }
   },
   build: {
-    target: 'es2020',
     sourcemap: true,
-    assetsDir: 'assets',
-    chunkSizeWarningLimit: 800,
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          'react-vendor': ['react', 'react-dom'],
-        }
-      }
-    }
+    target: 'esnext'
   }
 });

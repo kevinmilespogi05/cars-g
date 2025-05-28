@@ -3,6 +3,7 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { ErrorBoundary } from 'react-error-boundary';
 import { Suspense, useCallback, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import React from 'react';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -113,8 +114,17 @@ export function Providers({ children }: { children: React.ReactNode }) {
     >
       <QueryClientProvider client={queryClient}>
         <Suspense fallback={<LoadingFallback />}>
-          <AnimatePresence mode="wait">
-            {children}
+          <AnimatePresence mode="sync" initial={false}>
+            {React.Children.map(children, (child, index) => (
+              <motion.div
+                key={`provider-child-${index}`}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+              >
+                {child}
+              </motion.div>
+            ))}
           </AnimatePresence>
         </Suspense>
         {process.env.NODE_ENV === 'development' && <ReactQueryDevtools initialIsOpen={false} />}

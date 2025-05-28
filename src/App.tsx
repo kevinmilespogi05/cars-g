@@ -90,35 +90,33 @@ function App() {
   return (
     <ErrorBoundary>
       <Providers>
-        <BrowserRouter>
-          <div className="min-h-screen bg-gray-100">
-            <Navigation />
-            <main className="pt-16 sm:pt-20">
-              <Suspense fallback={<LoadingSpinner />}>
-                <Routes>
-                  {publicRoutes.map((route) => (
+        <div className="min-h-screen bg-gray-100">
+          <Navigation />
+          <main className="pt-16 sm:pt-20">
+            <Suspense fallback={<LoadingSpinner />}>
+              <Routes>
+                {publicRoutes.map((route) => (
+                  <Route key={route.path} {...route} />
+                ))}
+                {isAuthenticated &&
+                  protectedRoutes.map((route) => (
                     <Route key={route.path} {...route} />
                   ))}
-                  {isAuthenticated &&
-                    protectedRoutes.map((route) => (
-                      <Route key={route.path} {...route} />
-                    ))}
-                  {isAuthenticated &&
-                    user?.role === 'admin' &&
-                    adminRoutes.map((route) => (
-                      <Route key={route.path} {...route} />
-                    ))}
-                  <Route
-                    path="*"
-                    element={<Navigate to={isAuthenticated ? "/reports" : "/login"} replace />}
-                  />
-                </Routes>
-              </Suspense>
-            </main>
-            <PWAPrompt />
-          </div>
-          <Analytics />
-        </BrowserRouter>
+                {isAuthenticated &&
+                  user?.role === 'admin' &&
+                  adminRoutes.map((route) => (
+                    <Route key={route.path} {...route} />
+                  ))}
+                <Route
+                  path="*"
+                  element={<Navigate to={isAuthenticated ? "/reports" : "/login"} replace />}
+                />
+              </Routes>
+            </Suspense>
+          </main>
+          <PWAPrompt />
+        </div>
+        <Analytics />
       </Providers>
     </ErrorBoundary>
   );
