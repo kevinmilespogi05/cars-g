@@ -6,12 +6,11 @@ import { useAuthStore } from '../store/authStore';
 export function Navigation() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, signOut, isAuthenticated, initialize } = useAuthStore();
+  const { user, signOut, isAuthenticated } = useAuthStore();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
   const profileMenuRef = useRef<HTMLDivElement>(null);
 
   // Handle scroll effect
@@ -26,34 +25,20 @@ export function Navigation() {
 
   // Check authentication state on mount
   useEffect(() => {
-    let mounted = true;
-
     const checkAuth = async () => {
       try {
         setIsLoading(true);
-        // Initialize auth state if needed
-        await initialize();
-        // Add a small delay to ensure state is updated
-        await new Promise(resolve => setTimeout(resolve, 200));
-        
-        if (mounted) {
-          setIsLoading(false);
-        }
-      } catch (err) {
-        console.error('Error checking auth state:', err);
-        if (mounted) {
-          setError(err instanceof Error ? err : new Error('Navigation error'));
-          setIsLoading(false);
-        }
+        // Wait for auth state to be determined
+        await new Promise(resolve => setTimeout(resolve, 100));
+        setIsLoading(false);
+      } catch (error) {
+        console.error('Error checking auth state:', error);
+        setIsLoading(false);
       }
     };
     
     checkAuth();
-
-    return () => {
-      mounted = false;
-    };
-  }, [initialize]);
+  }, []);
 
   // Handle click outside profile menu
   useEffect(() => {

@@ -1,4 +1,4 @@
-import { lazy, Suspense, Component } from 'react';
+import { lazy, Suspense } from 'react';
 import { RouteObject } from 'react-router-dom';
 import { ProtectedRoute } from '../components/ProtectedRoute';
 
@@ -10,33 +10,19 @@ const LoadingFallback = () => (
 );
 
 // Error Boundary Component
-class ErrorBoundary extends Component<{ children: React.ReactNode }, { hasError: boolean }> {
-  constructor(props: { children: React.ReactNode }) {
-    super(props);
-    this.state = { hasError: false };
+const ErrorBoundary = ({ children }: { children: React.ReactNode }) => {
+  try {
+    return <>{children}</>;
+  } catch (error) {
+    console.error('Route Error:', error);
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <h1 className="text-2xl font-bold text-red-800">Something went wrong</h1>
+        <p className="text-gray-600 mt-2">Please try refreshing the page</p>
+      </div>
+    );
   }
-
-  static getDerivedStateFromError(error: any) {
-    return { hasError: true };
-  }
-
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('Route Error:', error, errorInfo);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="flex flex-col items-center justify-center min-h-screen">
-          <h1 className="text-2xl font-bold text-red-800">Something went wrong</h1>
-          <p className="text-gray-600 mt-2">Please try refreshing the page</p>
-        </div>
-      );
-    }
-
-    return this.props.children;
-  }
-}
+};
 
 // Lazy load components with Suspense
 const Login = lazy(() => import('../pages/Login').then(module => ({ default: module.Login })));
