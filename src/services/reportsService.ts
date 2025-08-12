@@ -8,6 +8,66 @@ export class ReportsServiceError extends Error {
   }
 }
 
+// Private state variables (module-level)
+let _reportBatch: Array<Omit<Report, 'id' | 'created_at' | 'updated_at' | 'status'>> = [];
+let _batchTimer: NodeJS.Timeout | null = null;
+const BATCH_DELAY = 100; // 100ms batch delay
+
+// Profile caching for faster report loading
+const _profileCache = new Map<string, { username: string; avatar_url: string | null }>();
+const _cacheExpiry = new Map<string, number>();
+const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+
+function _getCachedProfile(userId: string) {
+  const expiry = _cacheExpiry.get(userId);
+  if (expiry && Date.now() < expiry) {
+    return _profileCache.get(userId);
+  }
+  // Clear expired cache
+  _profileCache.delete(userId);
+  _cacheExpiry.delete(userId);
+  return null;
+}
+
+function _cacheProfile(userId: string, profile: { username: string; avatar_url: string | null }) {
+  _profileCache.set(userId, profile);
+  _cacheExpiry.set(userId, Date.now() + CACHE_TTL);
+}
+
+async function _flushReportBatch() {
+  if (_reportBatch.length === 0) return;
+
+  const batch = [..._reportBatch];
+  _reportBatch = [];
+  _batchTimer = null;
+
+  try {
+    // Insert all reports in a single database call
+    const { data, error } = await supabase
+      .from('reports')
+      .insert(batch.map(report => ({
+        user_id: report.user_id,
+        title: report.title,
+        description: report.description,
+        category: report.category,
+        priority: report.priority,
+        location_lat: report.location_lat,
+        location_lng: report.location_lng,
+        location_address: report.location_address,
+        images: report.images || [],
+        status: 'pending'
+      })))
+      .select();
+
+    if (error) {
+      console.error('Batch report insert failed:', error);
+      // Could implement retry logic here
+    }
+  } catch (error) {
+    console.error('Error in batch report processing:', error);
+  }
+}
+
 export const reportsService = {
   // Create report with optimistic updates
   async createReport(reportData: Omit<Report, 'id' | 'created_at' | 'updated_at' | 'status'>): Promise<Report> {
@@ -351,86 +411,27 @@ export const reportsService = {
   },
 
   // Report batching for better performance
-  private _reportBatch: Array<Omit<Report, 'id' | 'created_at' | 'updated_at' | 'status'>> = [];
-  private _batchTimer: NodeJS.Timeout | null = null;
-  private readonly BATCH_DELAY = 100; // 100ms batch delay
-
   async createReportBatched(reportData: Omit<Report, 'id' | 'created_at' | 'updated_at' | 'status'>): Promise<void> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new ReportsServiceError('User not authenticated');
 
     // Add report to batch
-    this._reportBatch.push(reportData);
+    _reportBatch.push(reportData);
 
     // Start batch timer if not already running
-    if (!this._batchTimer) {
-      this._batchTimer = setTimeout(() => {
-        this._flushReportBatch();
-      }, this.BATCH_DELAY);
-    }
-  }
-
-  private async _flushReportBatch() {
-    if (this._reportBatch.length === 0) return;
-
-    const batch = [...this._reportBatch];
-    this._reportBatch = [];
-    this._batchTimer = null;
-
-    try {
-      // Insert all reports in a single database call
-      const { data, error } = await supabase
-        .from('reports')
-        .insert(batch.map(report => ({
-          user_id: report.user_id,
-          title: report.title,
-          description: report.description,
-          category: report.category,
-          priority: report.priority,
-          location_lat: report.location_lat,
-          location_lng: report.location_lng,
-          location_address: report.location_address,
-          images: report.images || [],
-          status: 'pending'
-        })))
-        .select();
-
-      if (error) {
-        console.error('Batch report insert failed:', error);
-        // Could implement retry logic here
-      }
-    } catch (error) {
-      console.error('Error in batch report processing:', error);
+    if (!_batchTimer) {
+      _batchTimer = setTimeout(() => {
+        _flushReportBatch();
+      }, BATCH_DELAY);
     }
   },
 
   // Force flush any remaining reports
   async flushReportBatch(): Promise<void> {
-    if (this._batchTimer) {
-      clearTimeout(this._batchTimer);
-      this._batchTimer = null;
+    if (_batchTimer) {
+      clearTimeout(_batchTimer);
+      _batchTimer = null;
     }
-    await this._flushReportBatch();
-  },
-
-  // Profile caching for faster report loading
-  private _profileCache = new Map<string, { username: string; avatar_url: string | null }>();
-  private _cacheExpiry = new Map<string, number>();
-  private readonly CACHE_TTL = 10 * 60 * 1000; // 10 minutes
-
-  private _getCachedProfile(userId: string) {
-    const expiry = this._cacheExpiry.get(userId);
-    if (expiry && Date.now() < expiry) {
-      return this._profileCache.get(userId);
-    }
-    // Clear expired cache
-    this._profileCache.delete(userId);
-    this._cacheExpiry.delete(userId);
-    return null;
-  }
-
-  private _cacheProfile(userId: string, profile: { username: string; avatar_url: string | null }) {
-    this._profileCache.set(userId, profile);
-    this._cacheExpiry.set(userId, Date.now() + this.CACHE_TTL);
+    await _flushReportBatch();
   }
 }; 

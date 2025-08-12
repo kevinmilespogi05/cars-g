@@ -8,6 +8,59 @@ export class ChatServiceError extends Error {
   }
 }
 
+// Private state variables (module-level)
+let _messageBatch: Array<{ roomId: string; content: string; userId: string }> = [];
+let _batchTimer: NodeJS.Timeout | null = null;
+const BATCH_DELAY = 50; // 50ms batch delay
+
+// Profile caching for faster message delivery
+const _profileCache = new Map<string, { username: string; avatar_url: string | null }>();
+const _cacheExpiry = new Map<string, number>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+function _getCachedProfile(userId: string) {
+  const expiry = _cacheExpiry.get(userId);
+  if (expiry && Date.now() < expiry) {
+    return _profileCache.get(userId);
+  }
+  // Clear expired cache
+  _profileCache.delete(userId);
+  _cacheExpiry.delete(userId);
+  return null;
+}
+
+function _cacheProfile(userId: string, profile: { username: string; avatar_url: string | null }) {
+  _profileCache.set(userId, profile);
+  _cacheExpiry.set(userId, Date.now() + CACHE_TTL);
+}
+
+async function _flushMessageBatch() {
+  if (_messageBatch.length === 0) return;
+
+  const batch = [..._messageBatch];
+  _messageBatch = [];
+  _batchTimer = null;
+
+  try {
+    // Insert all messages in a single database call
+    const { data, error } = await supabase
+      .from('chat_messages')
+      .insert(batch.map(msg => ({
+        room_id: msg.roomId,
+        content: msg.content,
+        sender_id: msg.userId,
+      })))
+      .select();
+
+    if (error) {
+      console.error('Batch message insert failed:', error);
+      // Could implement retry logic here
+    }
+  } catch (error) {
+    console.error('Error in batch message processing:', error);
+  }
+}
+
 export const chatService = {
   // Chat Rooms
   async createRoom(name: string): Promise<ChatRoom> {
@@ -476,7 +529,7 @@ export const chatService = {
             const blockedIds = await this.getBlockedUsers();
             if (!blockedIds.includes(payload.new.sender_id)) {
               // Use cached profile data if available, otherwise fetch
-              let profile = this._getCachedProfile(payload.new.sender_id);
+              let profile = _getCachedProfile(payload.new.sender_id);
               
               if (!profile) {
                 // Fetch profile only if not cached
@@ -488,7 +541,7 @@ export const chatService = {
 
                 if (!profileError && profileData) {
                   profile = profileData;
-                  this._cacheProfile(payload.new.sender_id, profile);
+                  _cacheProfile(payload.new.sender_id, profile);
                 }
               }
 
@@ -512,27 +565,6 @@ export const chatService = {
       subscription.unsubscribe();
     };
   },
-
-  // Profile caching for faster message delivery
-  private _profileCache = new Map<string, { username: string; avatar_url: string | null }>();
-  private _cacheExpiry = new Map<string, number>();
-  private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-
-  private _getCachedProfile(userId: string) {
-    const expiry = this._cacheExpiry.get(userId);
-    if (expiry && Date.now() < expiry) {
-      return this._profileCache.get(userId);
-    }
-    // Clear expired cache
-    this._profileCache.delete(userId);
-    this._cacheExpiry.delete(userId);
-    return null;
-  }
-
-  private _cacheProfile(userId: string, profile: { username: string; avatar_url: string | null }) {
-    this._profileCache.set(userId, profile);
-    this._cacheExpiry.set(userId, Date.now() + this.CACHE_TTL);
-  }
 
   // Typing indicators
   async sendTypingIndicator(roomId: string, userId: string, isTyping: boolean = true): Promise<void> {
@@ -724,58 +756,27 @@ export const chatService = {
   },
 
   // Message batching for better performance
-  private _messageBatch: Array<{ roomId: string; content: string; userId: string }> = [];
-  private _batchTimer: NodeJS.Timeout | null = null;
-  private readonly BATCH_DELAY = 50; // 50ms batch delay
-
   async sendMessageBatched(roomId: string, content: string): Promise<void> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new ChatServiceError('User not authenticated');
 
     // Add message to batch
-    this._messageBatch.push({ roomId, content, userId: user.id });
+    _messageBatch.push({ roomId, content, userId: user.id });
 
     // Start batch timer if not already running
-    if (!this._batchTimer) {
-      this._batchTimer = setTimeout(() => {
-        this._flushMessageBatch();
-      }, this.BATCH_DELAY);
-    }
-  }
-
-  private async _flushMessageBatch() {
-    if (this._messageBatch.length === 0) return;
-
-    const batch = [...this._messageBatch];
-    this._messageBatch = [];
-    this._batchTimer = null;
-
-    try {
-      // Insert all messages in a single database call
-      const { data, error } = await supabase
-        .from('chat_messages')
-        .insert(batch.map(msg => ({
-          room_id: msg.roomId,
-          content: msg.content,
-          sender_id: msg.userId,
-        })))
-        .select();
-
-      if (error) {
-        console.error('Batch message insert failed:', error);
-        // Could implement retry logic here
-      }
-    } catch (error) {
-      console.error('Error in batch message processing:', error);
+    if (!_batchTimer) {
+      _batchTimer = setTimeout(() => {
+        _flushMessageBatch();
+      }, BATCH_DELAY);
     }
   },
 
   // Force flush any remaining messages
   async flushMessageBatch(): Promise<void> {
-    if (this._batchTimer) {
-      clearTimeout(this._batchTimer);
-      this._batchTimer = null;
+    if (_batchTimer) {
+      clearTimeout(_batchTimer);
+      _batchTimer = null;
     }
-    await this._flushMessageBatch();
-  },
+    await _flushMessageBatch();
+  }
 }; 
