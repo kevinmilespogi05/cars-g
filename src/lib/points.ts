@@ -15,38 +15,15 @@ export async function awardPoints(
 ) {
   const points = POINTS_CONFIG[reason];
 
-  // First get current points
-  const { data: profile, error: fetchError } = await supabase
-    .from('profiles')
-    .select('points')
-    .eq('id', userId)
-    .single();
+  // Use a single RPC call to handle all operations atomically
+  const { data, error } = await supabase.rpc('award_points', {
+    user_id: userId,
+    points_to_award: points,
+    reason_text: reason,
+    report_id: reportId
+  });
 
-  if (fetchError) throw fetchError;
-
-  // Calculate new points total
-  const newPoints = (profile?.points || 0) + points;
-
-  // Update points in profile
-  const { error: profileError } = await supabase
-    .from('profiles')
-    .update({ points: newPoints })
-    .eq('id', userId);
-
-  if (profileError) throw profileError;
-
-  // Record points history
-  const { error: historyError } = await supabase
-    .from('points_history')
-    .insert({
-      user_id: userId,
-      points,
-      reason,
-      report_id: reportId,
-    });
-
-  if (historyError) throw historyError;
-
+  if (error) throw error;
   return points;
 }
 

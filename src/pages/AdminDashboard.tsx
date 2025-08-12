@@ -1,11 +1,27 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { useAuthStore } from '../store/authStore';
-import { Loader2, Check, X, AlertTriangle, MapPin, Filter, Search, BarChart2, Users, Settings, User, RefreshCw, Image as ImageIcon, Trash2 } from 'lucide-react';
+import { useAuthStore } from '../stores/authStore';
 import { awardPoints } from '../lib/points';
+import { 
+  Check, 
+  X, 
+  Trash2, 
+  Search, 
+  Filter, 
+  Users, 
+  BarChart3, 
+  Settings, 
+  Loader2,
+  Eye,
+  Calendar,
+  MapPin,
+  AlertTriangle
+} from 'lucide-react';
 import { UserManagement } from '../components/UserManagement';
 import { AdminStatistics } from '../components/AdminStatistics';
 import { AdminSettings } from '../components/AdminSettings';
+import { ConfirmationDialog } from '../components/ConfirmationDialog';
 import { Notification } from '../components/Notification';
 
 interface Report {
@@ -31,29 +47,43 @@ interface NotificationState {
 
 export function AdminDashboard() {
   const { user } = useAuthStore();
+  const navigate = useNavigate();
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
-  const [filter, setFilter] = useState<'all' | 'pending' | 'in_progress' | 'resolved' | 'rejected'>('all');
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedReport, setSelectedReport] = useState<Report | null>(null);
+  const [filter, setFilter] = useState<'all' | Report['status']>('all');
   const [activeTab, setActiveTab] = useState<'reports' | 'users' | 'stats' | 'settings'>('reports');
-  const [notification, setNotification] = useState<NotificationState>({
-    message: '',
-    type: 'success',
-    show: false
-  });
+  const [selectedReport, setSelectedReport] = useState<Report | null>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [reportToDelete, setReportToDelete] = useState<string | null>(null);
+  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   useEffect(() => {
     fetchReports();
   }, [filter]);
 
-  const showNotification = (message: string, type: NotificationState['type']) => {
-    setNotification({ message, type, show: true });
+  const showNotification = (message: string, type: 'success' | 'error') => {
+    setNotification({ message, type });
     setTimeout(() => {
-      setNotification(prev => ({ ...prev, show: false }));
+      setNotification(null);
     }, 3000);
   };
+
+  // Debounced version of updateReportStatus to prevent rapid clicking
+  const debouncedUpdateStatus = useCallback(
+    (() => {
+      let timeoutId: NodeJS.Timeout;
+      return (reportId: string, newStatus: Report['status']) => {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+          updateReportStatus(reportId, newStatus);
+        }, 100); // 100ms debounce
+      };
+    })(),
+    []
+  );
 
   const fetchReports = async () => {
     setLoading(true);
@@ -102,6 +132,7 @@ export function AdminDashboard() {
 
   const updateReportStatus = async (reportId: string, newStatus: Report['status']) => {
     setActionLoading(true);
+    setActionLoadingId(reportId); // Set the loading ID
     try {
       // Validate the status value
       const validStatuses = ['pending', 'in_progress', 'resolved', 'rejected'] as const;
@@ -123,42 +154,56 @@ export function AdminDashboard() {
         throw updateError;
       }
 
-      // Then award points if applicable
-      const report = reports.find(r => r.id === reportId);
-      if (report) {
-        try {
-          if (newStatus === 'in_progress') {
-            await awardPoints(report.user_id, 'REPORT_VERIFIED', reportId);
-          } else if (newStatus === 'resolved') {
-            await awardPoints(report.user_id, 'REPORT_RESOLVED', reportId);
-          }
-        } catch (pointsError) {
-          console.error('Error awarding points:', pointsError);
-          // Don't throw here, as the main update was successful
-        }
-      }
+      // Update local state immediately for better UX
+      setReports(prevReports => 
+        prevReports.map(report => 
+          report.id === reportId 
+            ? { ...report, status: newStatus, updated_at: new Date().toISOString() }
+            : report
+        )
+      );
 
       showNotification(`Report ${newStatus.replace('_', ' ')} successfully`, 'success');
       
-      // Refresh the reports list
-      await fetchReports();
+      // Award points in the background (non-blocking)
+      const report = reports.find(r => r.id === reportId);
+      if (report) {
+        // Use setTimeout to make this non-blocking
+        setTimeout(async () => {
+          try {
+            if (newStatus === 'in_progress') {
+              await awardPoints(report.user_id, 'REPORT_VERIFIED', reportId);
+            } else if (newStatus === 'resolved') {
+              await awardPoints(report.user_id, 'REPORT_RESOLVED', reportId);
+            }
+          } catch (pointsError) {
+            console.error('Error awarding points:', pointsError);
+            // Don't show error to user as the main action was successful
+          }
+        }, 0);
+      }
     } catch (error) {
       console.error('Error updating report status:', error);
       showNotification('Failed to update report status', 'error');
     } finally {
       setActionLoading(false);
+      setActionLoadingId(null); // Clear the loading ID
     }
   };
 
   const deleteReport = async (reportId: string) => {
-    if (!window.confirm('Are you sure you want to delete this report? This action cannot be undone.')) {
-      return;
-    }
+    setReportToDelete(reportId);
+    setShowDeleteDialog(true);
+  };
 
+  const confirmDelete = async () => {
+    if (!reportToDelete) return;
+    
     setActionLoading(true);
+    setActionLoadingId(reportToDelete);
     try {
       // First, delete any associated images from storage
-      const report = reports.find(r => r.id === reportId);
+      const report = reports.find(r => r.id === reportToDelete);
       if (report?.images?.length) {
         for (const imageUrl of report.images) {
           const imagePath = imageUrl.split('/').pop(); // Get the filename from the URL
@@ -179,7 +224,7 @@ export function AdminDashboard() {
       const { data, error: deleteError } = await supabase
         .from('reports')
         .delete()
-        .eq('id', reportId)
+        .eq('id', reportToDelete)
         .select();
 
       console.log('Delete response:', { data, error: deleteError });
@@ -196,18 +241,20 @@ export function AdminDashboard() {
       showNotification('Report deleted successfully', 'success');
       
       // Close the modal if the deleted report was selected
-      if (selectedReport?.id === reportId) {
+      if (selectedReport?.id === reportToDelete) {
         setSelectedReport(null);
       }
       
-      // Remove the deleted report from the local state and force a refresh
-      setReports(prevReports => prevReports.filter(r => r.id !== reportId));
-      await fetchReports(); // Add this back to ensure the state is in sync
+      // Remove the deleted report from the local state
+      setReports(prevReports => prevReports.filter(r => r.id !== reportToDelete));
     } catch (error) {
       console.error('Error deleting report:', error);
       showNotification('Failed to delete report', 'error');
     } finally {
       setActionLoading(false);
+      setActionLoadingId(null);
+      setShowDeleteDialog(false);
+      setReportToDelete(null);
     }
   };
 
@@ -289,7 +336,7 @@ export function AdminDashboard() {
                     : 'text-gray-700 bg-gray-100 hover:bg-gray-200'
                 }`}
               >
-                <BarChart2 className="h-4 w-4 mr-2" />
+                <BarChart3 className="h-4 w-4 mr-2" />
                 Statistics
               </button>
               <button
@@ -339,7 +386,7 @@ export function AdminDashboard() {
                   disabled={loading}
                   className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-gray-700 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                 >
-                  <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                  <Loader2 className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
                   Refresh
                 </button>
               </div>
@@ -405,12 +452,12 @@ export function AdminDashboard() {
                                       <button
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          updateReportStatus(report.id, 'in_progress');
+                                          debouncedUpdateStatus(report.id, 'in_progress');
                                         }}
-                                        disabled={actionLoading}
+                                        disabled={actionLoading && actionLoadingId === report.id}
                                         className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
                                       >
-                                        {actionLoading ? (
+                                        {actionLoading && actionLoadingId === report.id ? (
                                           <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                                         ) : (
                                           <Check className="h-4 w-4 mr-2" />
@@ -420,12 +467,12 @@ export function AdminDashboard() {
                                       <button
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          updateReportStatus(report.id, 'rejected');
+                                          debouncedUpdateStatus(report.id, 'rejected');
                                         }}
-                                        disabled={actionLoading}
+                                        disabled={actionLoading && actionLoadingId === report.id}
                                         className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
                                       >
-                                        {actionLoading ? (
+                                        {actionLoading && actionLoadingId === report.id ? (
                                           <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                                         ) : (
                                           <X className="h-4 w-4 mr-2" />
@@ -438,12 +485,12 @@ export function AdminDashboard() {
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        updateReportStatus(report.id, 'resolved');
+                                        debouncedUpdateStatus(report.id, 'resolved');
                                       }}
-                                      disabled={actionLoading}
+                                      disabled={actionLoading && actionLoadingId === report.id}
                                       className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
                                     >
-                                      {actionLoading ? (
+                                      {actionLoading && actionLoadingId === report.id ? (
                                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                                       ) : (
                                         <Check className="h-4 w-4 mr-2" />
@@ -554,10 +601,10 @@ export function AdminDashboard() {
               <div className="mt-5 flex justify-end space-x-2">
                 <button
                   onClick={() => deleteReport(selectedReport.id)}
-                  disabled={actionLoading}
+                  disabled={actionLoading && actionLoadingId === selectedReport.id}
                   className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {actionLoading ? (
+                  {actionLoading && actionLoadingId === selectedReport.id ? (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   ) : (
                     <Trash2 className="h-4 w-4 mr-2" />
@@ -577,11 +624,23 @@ export function AdminDashboard() {
       )}
 
       {/* Notification */}
-      {notification.show && (
+      {notification && (
         <Notification
           message={notification.message}
           type={notification.type}
-          onClose={() => setNotification(prev => ({ ...prev, show: false }))}
+          onClose={() => setNotification(null)}
+        />
+      )}
+
+      {/* Confirmation Dialog */}
+      {showDeleteDialog && reportToDelete && (
+        <ConfirmationDialog
+          title="Confirm Deletion"
+          message={`Are you sure you want to delete this report? This action cannot be undone.`}
+          onConfirm={confirmDelete}
+          onCancel={() => setShowDeleteDialog(false)}
+          confirmText="Delete"
+          cancelText="Cancel"
         />
       )}
     </div>
