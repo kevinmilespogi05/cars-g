@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { registerSW } from 'virtual:pwa-register';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -17,67 +18,23 @@ export function usePWA(): UsePWAReturn {
   const [isUpdateAvailable, setIsUpdateAvailable] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
-  const [registration, setRegistration] = useState<ServiceWorkerRegistration | null>(null);
 
   useEffect(() => {
-    if ('serviceWorker' in navigator && import.meta.env.PROD) {
-      // Register service worker
-      const registerSW = async () => {
-        try {
-          // First try to unregister any existing service workers
-          const registrations = await navigator.serviceWorker.getRegistrations();
-          await Promise.all(registrations.map(r => r.unregister()));
-
-          // Get the base URL for the app
-          const baseUrl = import.meta.env.BASE_URL || '/';
-          const swUrl = new URL('sw.js', window.location.origin + baseUrl).href;
-
-          // Register the service worker
-          const reg = await navigator.serviceWorker.register(swUrl, {
-            type: 'module',
-            updateViaCache: 'none',
-            scope: baseUrl
-          });
-          
-          setRegistration(reg);
-
-          // Enable navigation preload if supported
-          if (reg.navigationPreload) {
-            await reg.navigationPreload.enable();
-          }
-          
-          // Check for updates
-          reg.addEventListener('updatefound', () => {
-            const newWorker = reg.installing;
-            if (newWorker) {
-              newWorker.addEventListener('statechange', () => {
-                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                  setIsUpdateAvailable(true);
-                }
-              });
-            }
-          });
-
-          // Handle controller change
-          navigator.serviceWorker.addEventListener('controllerchange', () => {
-            if (registration && registration.waiting) {
-              window.location.reload();
-            }
-          });
-          
-          console.log('Service Worker registered successfully:', reg);
-        } catch (error) {
-          console.error('Service Worker registration failed:', error);
-          console.error('Registration error details:', {
-            error: error instanceof Error ? error.message : String(error),
-            location: window.location.href,
-            origin: window.location.origin
-          });
-        }
-      };
-
-      registerSW();
-    }
+    // Use vite-plugin-pwa's registerSW function
+    const updateSW = registerSW({
+      onNeedRefresh() {
+        setIsUpdateAvailable(true);
+      },
+      onOfflineReady() {
+        console.log('App is ready for offline use');
+      },
+      onRegistered(registration) {
+        console.log('Service Worker registered:', registration);
+      },
+      onRegisterError(error) {
+        console.error('Service Worker registration error:', error);
+      }
+    });
 
     // Handle PWA installation prompt
     const handleBeforeInstallPrompt = (e: Event) => {
@@ -121,9 +78,19 @@ export function usePWA(): UsePWAReturn {
   };
 
   const handleUpdate = () => {
-    if (!registration || !registration.waiting) return;
+    // Use the updateSW function from registerSW
+    const updateSW = registerSW({
+      onNeedRefresh() {
+        setIsUpdateAvailable(true);
+      },
+      onOfflineReady() {
+        console.log('App is ready for offline use');
+      }
+    });
     
-    registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+    // Trigger the update
+    updateSW();
+    setIsUpdateAvailable(false);
   };
 
   return {
