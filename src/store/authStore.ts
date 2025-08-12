@@ -21,12 +21,50 @@ export const useAuthStore = create<AuthState>((set) => ({
   isAuthenticated: false,
   setUser: (user) => set({ user, isAuthenticated: !!user }),
   
+  // Add session monitoring
+  _startSessionMonitoring: () => {
+    const checkSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session && useAuthStore.getState().isAuthenticated) {
+          console.log('Session lost during monitoring, updating state');
+          set({ user: null, isAuthenticated: false });
+        }
+      } catch (error) {
+        console.warn('Session monitoring error:', error);
+      }
+    };
+    
+    // Check every 5 minutes
+    const interval = setInterval(checkSession, 5 * 60 * 1000);
+    
+    // Return cleanup function
+    return () => clearInterval(interval);
+  },
+  
   initialize: async () => {
     try {
       // Get initial session
       const { data: { session }, error } = await supabase.auth.getSession();
       
-      if (error) throw error;
+      if (error) {
+        console.warn('Error getting session:', error);
+        set({ user: null, isAuthenticated: false });
+        return;
+      }
+      
+      if (!session) {
+        set({ user: null, isAuthenticated: false });
+        return;
+      }
+      
+      // Validate session is not expired
+      if (session.expires_at && new Date(session.expires_at * 1000) < new Date()) {
+        console.log('Session expired, cleaning up');
+        await supabase.auth.signOut();
+        set({ user: null, isAuthenticated: false });
+        return;
+      }
       
       if (session?.user) {
         // Fetch the user's profile
@@ -82,66 +120,93 @@ export const useAuthStore = create<AuthState>((set) => ({
         }
       }
 
-      // Set up auth state listener
+      // Set up auth state listener with improved error handling
       supabase.auth.onAuthStateChange(async (event, session) => {
-        if (event === 'SIGNED_IN' && session?.user) {
-          // Check if profile exists
-          const { data: existingProfile, error: profileError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-            
-          if (profileError && profileError.code !== 'PGRST116') {
-            throw profileError;
-          }
-          
-          if (!existingProfile) {
-            // Create profile for new user
-            const { error: createError } = await supabase
-              .from('profiles')
-              .insert({
-                id: session.user.id,
-                username: session.user.email?.split('@')[0] || 'user',
-                points: 0,
-                role: 'user',
-                created_at: new Date().toISOString(),
-                avatar_url: session.user.user_metadata.avatar_url || null
-              });
-              
-            if (createError) throw createError;
-
-            // Initialize user stats
-            await initializeUserStats(session.user.id);
-            
-            // Fetch the newly created profile
-            const { data: newProfile, error: fetchError } = await supabase
+        try {
+          if (event === 'SIGNED_IN' && session?.user) {
+            // Check if profile exists
+            const { data: existingProfile, error: profileError } = await supabase
               .from('profiles')
               .select('*')
               .eq('id', session.user.id)
               .single();
               
-            if (fetchError) throw fetchError;
+            if (profileError && profileError.code !== 'PGRST116') {
+              throw profileError;
+            }
             
-            set({ 
-              user: { ...newProfile, email: session.user.email },
-              isAuthenticated: true,
-            });
-          } else {
-            // Initialize user stats if they don't exist
-            await initializeUserStats(session.user.id);
-            
-            set({ 
-              user: { ...existingProfile, email: session.user.email },
-              isAuthenticated: true,
-            });
+            if (!existingProfile) {
+              // Create profile for new user
+              const { error: createError } = await supabase
+                .from('profiles')
+                .insert({
+                  id: session.user.id,
+                  username: session.user.email?.split('@')[0] || 'user',
+                  points: 0,
+                  role: 'user',
+                  created_at: new Date().toISOString(),
+                  avatar_url: session.user.user_metadata.avatar_url || null
+                });
+                
+              if (createError) throw createError;
+
+              // Initialize user stats
+              await initializeUserStats(session.user.id);
+              
+              // Fetch the newly created profile
+              const { data: newProfile, error: fetchError } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', session.user.id)
+                .single();
+                
+              if (fetchError) throw fetchError;
+              
+              set({ 
+                user: { ...newProfile, email: session.user.email },
+                isAuthenticated: true,
+              });
+            } else {
+              // Initialize user stats if they don't exist
+              await initializeUserStats(session.user.id);
+              
+              set({ 
+                user: { ...existingProfile, email: session.user.email },
+                isAuthenticated: true,
+              });
+            }
+          } else if (event === 'SIGNED_OUT') {
+            set({ user: null, isAuthenticated: false });
+          } else if (event === 'TOKEN_REFRESHED') {
+            // Handle token refresh
+            if (session?.user) {
+              // Update user data if needed
+              const { data: profile } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', session.user.id)
+                .single();
+                
+              if (profile) {
+                set({ user: { ...profile, email: session.user.email } });
+              }
+            }
           }
-        } else if (event === 'SIGNED_OUT') {
+        } catch (error) {
+          console.error('Auth state change error:', error);
+          // Fallback to signed out state on error
           set({ user: null, isAuthenticated: false });
         }
       });
+      
+      // Start session monitoring
+      const cleanupMonitoring = useAuthStore.getState()._startSessionMonitoring();
+      
+      // Return cleanup function for the monitoring
+      return cleanupMonitoring;
     } catch (error) {
       console.error('Error initializing auth:', error);
+      set({ user: null, isAuthenticated: false });
     }
   },
   
@@ -263,8 +328,28 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
   
   signOut: async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
-    set({ user: null, isAuthenticated: false });
+    try {
+      // First check if we have a valid session
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session) {
+        // Only attempt to sign out if we have a valid session
+        const { error } = await supabase.auth.signOut();
+        if (error) {
+          console.warn('Supabase signOut error:', error);
+          // Continue with local cleanup even if Supabase fails
+        }
+      }
+    } catch (error) {
+      console.warn('Error during signOut:', error);
+      // Continue with local cleanup even if there's an error
+    } finally {
+      // Always clean up local state
+      set({ user: null, isAuthenticated: false });
+      
+      // Clear any stored session data
+      localStorage.removeItem('supabase.auth.token');
+      sessionStorage.clear();
+    }
   },
 }));

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { FileText, Award, MessageSquare, User, LogOut, Shield, Menu, X, ChevronDown } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
+import { supabase } from '../lib/supabase';
 
 export function Navigation() {
   const location = useLocation();
@@ -46,10 +47,25 @@ export function Navigation() {
 
   const handleLogout = async () => {
     try {
+      // Check if session is still valid before logout
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        // Session is already invalid, just clean up local state
+        console.log('Session already expired, cleaning up local state');
+        // Force cleanup by calling signOut which will handle local state
+        await signOut();
+        navigate('/login');
+        return;
+      }
+      
       await signOut();
       navigate('/login');
     } catch (error) {
       console.error('Error signing out:', error);
+      // Force cleanup and redirect even if there's an error
+      await signOut();
+      navigate('/login');
     }
   };
 
