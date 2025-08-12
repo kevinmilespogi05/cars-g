@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { useAuthStore } from '../stores/authStore';
+import { useAuthStore } from '../store/authStore';
 import { awardPoints } from '../lib/points';
 import { 
   Check, 
@@ -37,12 +37,6 @@ interface Report {
   username: string;
   avatar_url: string | null;
   images: string[];
-}
-
-interface NotificationState {
-  message: string;
-  type: 'success' | 'error' | 'warning';
-  show: boolean;
 }
 
 export function AdminDashboard() {
