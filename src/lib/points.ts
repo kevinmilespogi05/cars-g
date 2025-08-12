@@ -20,7 +20,7 @@ export async function awardPoints(
     user_id: userId,
     points_to_award: points,
     reason_text: reason,
-    report_id: reportId
+    report_id: reportId || null
   });
 
   if (error) throw error;

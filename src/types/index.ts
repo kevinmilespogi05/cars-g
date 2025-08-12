@@ -14,16 +14,19 @@ export interface Report {
   title: string;
   description: string;
   category: string;
-  status: 'pending' | 'in_progress' | 'resolved';
-  location: {
-    lat: number;
-    lng: number;
-    address: string;
-  };
+  priority: 'low' | 'medium' | 'high';
+  status: 'pending' | 'in_progress' | 'resolved' | 'rejected';
+  location_lat: number;
+  location_lng: number;
+  location_address: string;
   images?: string[];
   user_id: string;
   created_at: string;
   updated_at: string;
+  likes?: { count: number };
+  comments?: { count: number };
+  user_profile?: { username: string; avatar_url: string | null };
+  is_liked?: boolean;
 }
 
 export interface LeaderboardEntry {

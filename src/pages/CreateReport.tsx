@@ -128,20 +128,16 @@ export function CreateReport() {
 
       console.log('Submitting report with data:', reportData);
 
-      // Use fast report creation for immediate response
-      await reportsService.createReportFast(reportData);
+      // Create the report and get the real ID
+      const createdReport = await reportsService.createReport(reportData);
 
-      // Award points in the background (non-blocking)
-      setTimeout(async () => {
-        try {
-          // Get the report ID from the optimistic report
-          const optimisticReport = await reportsService.createReport(reportData);
-          await awardPoints(user.id, 'REPORT_SUBMITTED', optimisticReport.id);
-        } catch (error) {
-          console.error('Error awarding points:', error);
-          // Don't throw here, as the report was still created successfully
-        }
-      }, 0);
+      // Award points with the real report ID
+      try {
+        await awardPoints(user.id, 'REPORT_SUBMITTED', createdReport.id);
+      } catch (error) {
+        console.error('Error awarding points:', error);
+        // Don't throw here, as the report was still created successfully
+      }
 
       // Clean up preview URLs
       imagePreviewUrls.forEach(url => URL.revokeObjectURL(url));

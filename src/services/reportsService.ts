@@ -74,74 +74,33 @@ export const reportsService = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new ReportsServiceError('User not authenticated');
 
-    // Create optimistic report object
-    const optimisticReport: Report = {
-      id: `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      ...reportData,
-      status: 'pending',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+    // Insert report and get the actual database response
+    const { data, error } = await supabase
+      .from('reports')
+      .insert([{
+        user_id: reportData.user_id,
+        title: reportData.title,
+        description: reportData.description,
+        category: reportData.category,
+        priority: reportData.priority,
+        location_lat: reportData.location_lat,
+        location_lng: reportData.location_lng,
+        location_address: reportData.location_address,
+        images: reportData.images || [],
+        status: 'pending'
+      }])
+      .select()
+      .single();
+
+    if (error) throw new ReportsServiceError(`Failed to create report: ${error.message}`);
+    if (!data) throw new ReportsServiceError('Failed to create report: No data returned');
+
+    // Return the actual database report with proper structure
+    return {
+      ...data,
       likes: { count: 0 },
       comments: { count: 0 }
     };
-
-    // Send report to database asynchronously (fire and forget for speed)
-    supabase
-      .from('reports')
-      .insert([{
-        user_id: reportData.user_id,
-        title: reportData.title,
-        description: reportData.description,
-        category: reportData.category,
-        priority: reportData.priority,
-        location_lat: reportData.location_lat,
-        location_lng: reportData.location_lng,
-        location_address: reportData.location_address,
-        images: reportData.images || [],
-        status: 'pending'
-      }])
-      .then(({ error }) => {
-        if (error) {
-          console.error('Failed to save report:', error);
-          // Could implement retry logic here
-        }
-      })
-      .catch(error => {
-        console.error('Error sending report:', error);
-      });
-
-    // Return optimistic report immediately
-    return optimisticReport;
-  },
-
-  // Fast report creation without waiting for database response
-  async createReportFast(reportData: Omit<Report, 'id' | 'created_at' | 'updated_at' | 'status'>): Promise<void> {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new ReportsServiceError('User not authenticated');
-
-    // Send report to database asynchronously
-    supabase
-      .from('reports')
-      .insert([{
-        user_id: reportData.user_id,
-        title: reportData.title,
-        description: reportData.description,
-        category: reportData.category,
-        priority: reportData.priority,
-        location_lat: reportData.location_lat,
-        location_lng: reportData.location_lng,
-        location_address: reportData.location_address,
-        images: reportData.images || [],
-        status: 'pending'
-      }])
-      .then(({ error }) => {
-        if (error) {
-          console.error('Failed to save report:', error);
-        }
-      })
-      .catch(error => {
-        console.error('Error sending report:', error);
-      });
   },
 
   // Get reports with optimized queries
