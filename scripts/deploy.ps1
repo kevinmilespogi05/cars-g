@@ -1,242 +1,131 @@
 # Cars-G Deployment Script for Windows
-# This script helps with the deployment process
+# This script helps deploy the Cars-G application
 
 param(
-    [string]$Command = ""
+    [switch]$SkipMigrations,
+    [switch]$SkipBuild,
+    [switch]$SkipDeploy
 )
 
-# Colors for output
-$Red = "Red"
-$Green = "Green"
-$Yellow = "Yellow"
-$Blue = "Blue"
-$White = "White"
+Write-Host "🚀 Starting Cars-G Deployment..." -ForegroundColor Cyan
 
 # Function to print colored output
 function Write-Status {
     param([string]$Message)
-    Write-Host "[INFO] $Message" -ForegroundColor $Blue
+    Write-Host "[INFO] $Message" -ForegroundColor Blue
 }
 
 function Write-Success {
     param([string]$Message)
-    Write-Host "[SUCCESS] $Message" -ForegroundColor $Green
+    Write-Host "[SUCCESS] $Message" -ForegroundColor Green
 }
 
 function Write-Warning {
     param([string]$Message)
-    Write-Host "[WARNING] $Message" -ForegroundColor $Yellow
+    Write-Host "[WARNING] $Message" -ForegroundColor Yellow
 }
 
 function Write-Error {
     param([string]$Message)
-    Write-Host "[ERROR] $Message" -ForegroundColor $Red
+    Write-Host "[ERROR] $Message" -ForegroundColor Red
 }
 
-Write-Host "🚀 Cars-G Deployment Helper" -ForegroundColor $White
-Write-Host "==========================" -ForegroundColor $White
+# Check if Supabase CLI is installed
+try {
+    $supabaseVersion = supabase --version
+    Write-Status "Supabase CLI version: $supabaseVersion"
+} catch {
+    Write-Error "Supabase CLI is not installed. Please install it first:"
+    Write-Host "npm install -g supabase" -ForegroundColor Yellow
+    exit 1
+}
 
-# Check if required tools are installed
-function Check-Dependencies {
-    Write-Status "Checking dependencies..."
-    
-    if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
-        Write-Error "Node.js is not installed. Please install Node.js 18+"
-        exit 1
+# Step 1: Apply database migrations
+if (-not $SkipMigrations) {
+    Write-Status "Step 1: Applying database migrations..."
+    Write-Warning "Make sure you're logged into Supabase CLI: supabase login"
+
+    # Check if project is linked
+    if (-not (Test-Path ".supabase/config.toml")) {
+        Write-Status "Linking to Supabase project..."
+        supabase link --project-ref mffuqdwqjdxbwpbhuxby
     }
-    
-    if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
-        Write-Error "npm is not installed. Please install npm"
-        exit 1
-    }
-    
-    if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
-        Write-Error "git is not installed. Please install git"
-        exit 1
-    }
-    
-    Write-Success "All dependencies are installed"
-}
 
-# Install dependencies
-function Install-Dependencies {
-    Write-Status "Installing frontend dependencies..."
-    npm install
-    
-    Write-Status "Installing backend dependencies..."
-    Push-Location server
-    npm install
-    Pop-Location
-    
-    Write-Success "Dependencies installed successfully"
-}
+    Write-Status "Pushing database migrations..."
+    supabase db push
 
-# Build the project
-function Build-Project {
-    Write-Status "Building frontend..."
-    npm run build
-    
-    Write-Success "Frontend built successfully"
-}
-
-# Check environment variables
-function Check-Environment {
-    Write-Status "Checking environment variables..."
-    
-    if (-not (Test-Path ".env")) {
-        Write-Warning ".env file not found. Please create one based on env.example"
-        Write-Status "Copying env.example to .env..."
-        Copy-Item "env.example" ".env"
-        Write-Warning "Please update .env with your actual values"
-    } else {
-        Write-Success ".env file found"
-    }
-}
-
-# Run tests
-function Run-Tests {
-    Write-Status "Running tests..."
-    
-    try {
-        npm test
-        Write-Success "Tests passed"
-    } catch {
-        Write-Error "Tests failed"
-        exit 1
-    }
-}
-
-# Show deployment checklist
-function Show-Checklist {
-    Write-Host ""
-    Write-Host "📋 Deployment Checklist" -ForegroundColor $White
-    Write-Host "======================" -ForegroundColor $White
-    Write-Host ""
-    Write-Host "1. Database (Supabase):"
-    Write-Host "   ☐ Create Supabase project"
-    Write-Host "   ☐ Get project URL and anon key"
-    Write-Host "   ☐ Run migrations: supabase db push"
-    Write-Host ""
-    Write-Host "2. Backend (Render):"
-    Write-Host "   ☐ Deploy to Render"
-    Write-Host "   ☐ Set environment variables"
-    Write-Host "   ☐ Test health endpoint: https://your-api.onrender.com/health"
-    Write-Host ""
-    Write-Host "3. Frontend (Vercel):"
-    Write-Host "   ☐ Deploy to Vercel"
-    Write-Host "   ☐ Set environment variables"
-    Write-Host "   ☐ Update API URLs"
-    Write-Host ""
-    Write-Host "4. Optional (Cloudinary):"
-    Write-Host "   ☐ Create Cloudinary account"
-    Write-Host "   ☐ Get credentials"
-    Write-Host "   ☐ Set environment variables"
-    Write-Host ""
-    Write-Host "5. Post-deployment:"
-    Write-Host "   ☐ Test WebSocket connections"
-    Write-Host "   ☐ Test file uploads"
-    Write-Host "   ☐ Verify CORS settings"
-    Write-Host "   ☐ Check all features work"
-    Write-Host ""
-}
-
-# Show useful commands
-function Show-Commands {
-    Write-Host ""
-    Write-Host "🔧 Useful Commands" -ForegroundColor $White
-    Write-Host "=================" -ForegroundColor $White
-    Write-Host ""
-    Write-Host "Local Development:"
-    Write-Host "  npm run dev          # Start frontend dev server"
-    Write-Host "  npm run server       # Start backend server"
-    Write-Host "  npm run start        # Start both frontend and backend"
-    Write-Host ""
-    Write-Host "Testing:"
-    Write-Host "  npm test             # Run tests"
-    Write-Host "  npm run test:watch   # Run tests in watch mode"
-    Write-Host "  npm run cypress:open # Open Cypress"
-    Write-Host ""
-    Write-Host "Building:"
-    Write-Host "  npm run build        # Build for production"
-    Write-Host "  npm run preview      # Preview production build"
-    Write-Host ""
-    Write-Host "Database:"
-    Write-Host "  supabase db push     # Push migrations to Supabase"
-    Write-Host "  supabase db reset    # Reset database (careful!)"
-    Write-Host ""
-    Write-Host "Deployment:"
-    Write-Host "  git add . && git commit -m 'Deploy to production'"
-    Write-Host "  git push origin main"
-    Write-Host ""
-}
-
-# Main menu
-function Show-Menu {
-    Write-Host ""
-    Write-Host "What would you like to do?" -ForegroundColor $White
-    Write-Host "1. Check dependencies"
-    Write-Host "2. Install dependencies"
-    Write-Host "3. Build project"
-    Write-Host "4. Check environment"
-    Write-Host "5. Run tests"
-    Write-Host "6. Show deployment checklist"
-    Write-Host "7. Show useful commands"
-    Write-Host "8. Full pre-deployment check"
-    Write-Host "9. Exit"
-    Write-Host ""
-    $choice = Read-Host "Enter your choice (1-9)"
-    
-    switch ($choice) {
-        "1" { Check-Dependencies }
-        "2" { Install-Dependencies }
-        "3" { Build-Project }
-        "4" { Check-Environment }
-        "5" { Run-Tests }
-        "6" { Show-Checklist }
-        "7" { Show-Commands }
-        "8" { 
-            Check-Dependencies
-            Install-Dependencies
-            Check-Environment
-            Run-Tests
-            Build-Project
-            Show-Checklist
-        }
-        "9" { 
-            Write-Success "Goodbye!"
-            exit 0
-        }
-        default { 
-            Write-Error "Invalid choice"
-            Show-Menu
-        }
-    }
-}
-
-# Main execution
-if ($Command -eq "") {
-    Show-Menu
+    Write-Success "Database migrations applied successfully!"
 } else {
-    switch ($Command.ToLower()) {
-        "check" { Check-Dependencies }
-        "install" { Install-Dependencies }
-        "build" { Build-Project }
-        "env" { Check-Environment }
-        "test" { Run-Tests }
-        "checklist" { Show-Checklist }
-        "commands" { Show-Commands }
-        "full" { 
-            Check-Dependencies
-            Install-Dependencies
-            Check-Environment
-            Run-Tests
-            Build-Project
-            Show-Checklist
+    Write-Warning "Skipping database migrations..."
+}
+
+# Step 2: Check environment variables
+Write-Status "Step 2: Checking environment variables..."
+
+# Check if .env file exists
+if (-not (Test-Path ".env")) {
+    Write-Warning ".env file not found. Creating from example..."
+    Copy-Item "env.example" ".env"
+    Write-Warning "Please update .env file with your actual values"
+}
+
+# Step 3: Build the application
+if (-not $SkipBuild) {
+    Write-Status "Step 3: Building the application..."
+    npm run build
+
+    Write-Success "Application built successfully!"
+} else {
+    Write-Warning "Skipping build..."
+}
+
+# Step 4: Deploy to Vercel (if vercel CLI is available)
+if (-not $SkipDeploy) {
+    try {
+        $vercelVersion = vercel --version
+        Write-Status "Step 4: Deploying to Vercel..."
+        Write-Warning "Make sure you're logged into Vercel CLI: vercel login"
+        
+        $response = Read-Host "Do you want to deploy to Vercel now? (y/n)"
+        if ($response -eq "y" -or $response -eq "Y") {
+            vercel --prod
+            Write-Success "Deployed to Vercel successfully!"
         }
-        default { 
-            Write-Error "Unknown command: $Command"
-            Write-Host "Usage: .\deploy.ps1 [check|install|build|env|test|checklist|commands|full]"
-            exit 1
-        }
+    } catch {
+        Write-Warning "Vercel CLI not found. Please deploy manually through Vercel dashboard."
     }
-} 
+} else {
+    Write-Warning "Skipping Vercel deployment..."
+}
+
+# Step 5: Deploy to Render (if render CLI is available)
+if (-not $SkipDeploy) {
+    try {
+        $renderVersion = render --version
+        Write-Status "Step 5: Deploying to Render..."
+        Write-Warning "Make sure you're logged into Render CLI: render login"
+        
+        $response = Read-Host "Do you want to deploy to Render now? (y/n)"
+        if ($response -eq "y" -or $response -eq "Y") {
+            render deploy
+            Write-Success "Deployed to Render successfully!"
+        }
+    } catch {
+        Write-Warning "Render CLI not found. Please deploy manually through Render dashboard."
+    }
+} else {
+    Write-Warning "Skipping Render deployment..."
+}
+
+Write-Success "Deployment process completed!"
+Write-Status "Next steps:"
+Write-Host "1. Check your Vercel deployment: https://your-project.vercel.app" -ForegroundColor White
+Write-Host "2. Check your Render deployment: https://cars-g-api.onrender.com" -ForegroundColor White
+Write-Host "3. Test the application functionality" -ForegroundColor White
+Write-Host "4. Verify report status updates work correctly" -ForegroundColor White
+
+Write-Warning "Remember to:"
+Write-Host "- Set up environment variables in Vercel and Render dashboards" -ForegroundColor White
+Write-Host "- Test WebSocket connections" -ForegroundColor White
+Write-Host "- Test file uploads (if using Cloudinary)" -ForegroundColor White
+Write-Host "- Test report status updates in admin dashboard" -ForegroundColor White 

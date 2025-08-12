@@ -1,12 +1,11 @@
 #!/bin/bash
 
 # Cars-G Deployment Script
-# This script helps with the deployment process
+# This script helps deploy the Cars-G application
 
 set -e
 
-echo "🚀 Cars-G Deployment Helper"
-echo "=========================="
+echo "🚀 Starting Cars-G Deployment..."
 
 # Colors for output
 RED='\033[0;31m'
@@ -32,213 +31,86 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# Check if required tools are installed
-check_dependencies() {
-    print_status "Checking dependencies..."
+# Check if Supabase CLI is installed
+if ! command -v supabase &> /dev/null; then
+    print_error "Supabase CLI is not installed. Please install it first:"
+    echo "npm install -g supabase"
+    exit 1
+fi
+
+print_status "Checking Supabase CLI version..."
+supabase --version
+
+# Step 1: Apply database migrations
+print_status "Step 1: Applying database migrations..."
+print_warning "Make sure you're logged into Supabase CLI: supabase login"
+
+# Check if project is linked
+if [ ! -f ".supabase/config.toml" ]; then
+    print_status "Linking to Supabase project..."
+    supabase link --project-ref mffuqdwqjdxbwpbhuxby
+fi
+
+print_status "Pushing database migrations..."
+supabase db push
+
+print_success "Database migrations applied successfully!"
+
+# Step 2: Check environment variables
+print_status "Step 2: Checking environment variables..."
+
+# Check if .env file exists
+if [ ! -f ".env" ]; then
+    print_warning ".env file not found. Creating from example..."
+    cp env.example .env
+    print_warning "Please update .env file with your actual values"
+fi
+
+# Step 3: Build the application
+print_status "Step 3: Building the application..."
+npm run build
+
+print_success "Application built successfully!"
+
+# Step 4: Deploy to Vercel (if vercel CLI is available)
+if command -v vercel &> /dev/null; then
+    print_status "Step 4: Deploying to Vercel..."
+    print_warning "Make sure you're logged into Vercel CLI: vercel login"
     
-    if ! command -v node &> /dev/null; then
-        print_error "Node.js is not installed. Please install Node.js 18+"
-        exit 1
+    read -p "Do you want to deploy to Vercel now? (y/n): " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        vercel --prod
+        print_success "Deployed to Vercel successfully!"
     fi
-    
-    if ! command -v npm &> /dev/null; then
-        print_error "npm is not installed. Please install npm"
-        exit 1
-    fi
-    
-    if ! command -v git &> /dev/null; then
-        print_error "git is not installed. Please install git"
-        exit 1
-    fi
-    
-    print_success "All dependencies are installed"
-}
-
-# Install dependencies
-install_dependencies() {
-    print_status "Installing frontend dependencies..."
-    npm install
-    
-    print_status "Installing backend dependencies..."
-    cd server && npm install && cd ..
-    
-    print_success "Dependencies installed successfully"
-}
-
-# Build the project
-build_project() {
-    print_status "Building frontend..."
-    npm run build
-    
-    print_success "Frontend built successfully"
-}
-
-# Check environment variables
-check_env() {
-    print_status "Checking environment variables..."
-    
-    if [ ! -f ".env" ]; then
-        print_warning ".env file not found. Please create one based on env.example"
-        print_status "Copying env.example to .env..."
-        cp env.example .env
-        print_warning "Please update .env with your actual values"
-    else
-        print_success ".env file found"
-    fi
-}
-
-# Run tests
-run_tests() {
-    print_status "Running tests..."
-    
-    if npm test; then
-        print_success "Tests passed"
-    else
-        print_error "Tests failed"
-        exit 1
-    fi
-}
-
-# Check Supabase connection
-check_supabase() {
-    print_status "Checking Supabase connection..."
-    
-    # This would require a more complex setup to actually test
-    print_warning "Please manually verify your Supabase connection"
-    print_status "You can test this by running your app locally"
-}
-
-# Show deployment checklist
-show_checklist() {
-    echo ""
-    echo "📋 Deployment Checklist"
-    echo "======================"
-    echo ""
-    echo "1. Database (Supabase):"
-    echo "   ☐ Create Supabase project"
-    echo "   ☐ Get project URL and anon key"
-    echo "   ☐ Run migrations: supabase db push"
-    echo ""
-    echo "2. Backend (Render):"
-    echo "   ☐ Deploy to Render"
-    echo "   ☐ Set environment variables"
-    echo "   ☐ Test health endpoint: https://your-api.onrender.com/health"
-    echo ""
-    echo "3. Frontend (Vercel):"
-    echo "   ☐ Deploy to Vercel"
-    echo "   ☐ Set environment variables"
-    echo "   ☐ Update API URLs"
-    echo ""
-    echo "4. Optional (Cloudinary):"
-    echo "   ☐ Create Cloudinary account"
-    echo "   ☐ Get credentials"
-    echo "   ☐ Set environment variables"
-    echo ""
-    echo "5. Post-deployment:"
-    echo "   ☐ Test WebSocket connections"
-    echo "   ☐ Test file uploads"
-    echo "   ☐ Verify CORS settings"
-    echo "   ☐ Check all features work"
-    echo ""
-}
-
-# Show useful commands
-show_commands() {
-    echo ""
-    echo "🔧 Useful Commands"
-    echo "================="
-    echo ""
-    echo "Local Development:"
-    echo "  npm run dev          # Start frontend dev server"
-    echo "  npm run server       # Start backend server"
-    echo "  npm run start        # Start both frontend and backend"
-    echo ""
-    echo "Testing:"
-    echo "  npm test             # Run tests"
-    echo "  npm run test:watch   # Run tests in watch mode"
-    echo "  npm run cypress:open # Open Cypress"
-    echo ""
-    echo "Building:"
-    echo "  npm run build        # Build for production"
-    echo "  npm run preview      # Preview production build"
-    echo ""
-    echo "Database:"
-    echo "  supabase db push     # Push migrations to Supabase"
-    echo "  supabase db reset    # Reset database (careful!)"
-    echo ""
-    echo "Deployment:"
-    echo "  git add . && git commit -m 'Deploy to production'"
-    echo "  git push origin main"
-    echo ""
-}
-
-# Main menu
-show_menu() {
-    echo ""
-    echo "What would you like to do?"
-    echo "1. Check dependencies"
-    echo "2. Install dependencies"
-    echo "3. Build project"
-    echo "4. Check environment"
-    echo "5. Run tests"
-    echo "6. Show deployment checklist"
-    echo "7. Show useful commands"
-    echo "8. Full pre-deployment check"
-    echo "9. Exit"
-    echo ""
-    read -p "Enter your choice (1-9): " choice
-    
-    case $choice in
-        1) check_dependencies ;;
-        2) install_dependencies ;;
-        3) build_project ;;
-        4) check_env ;;
-        5) run_tests ;;
-        6) show_checklist ;;
-        7) show_commands ;;
-        8) 
-            check_dependencies
-            install_dependencies
-            check_env
-            run_tests
-            build_project
-            show_checklist
-            ;;
-        9) 
-            print_success "Goodbye!"
-            exit 0
-            ;;
-        *) 
-            print_error "Invalid choice"
-            show_menu
-            ;;
-    esac
-}
-
-# Check if script is run with arguments
-if [ $# -eq 0 ]; then
-    show_menu
 else
-    case $1 in
-        "check") check_dependencies ;;
-        "install") install_dependencies ;;
-        "build") build_project ;;
-        "env") check_env ;;
-        "test") run_tests ;;
-        "checklist") show_checklist ;;
-        "commands") show_commands ;;
-        "full") 
-            check_dependencies
-            install_dependencies
-            check_env
-            run_tests
-            build_project
-            show_checklist
-            ;;
-        *) 
-            print_error "Unknown command: $1"
-            echo "Usage: $0 [check|install|build|env|test|checklist|commands|full]"
-            exit 1
-            ;;
-    esac
-fi 
+    print_warning "Vercel CLI not found. Please deploy manually through Vercel dashboard."
+fi
+
+# Step 5: Deploy to Render (if render CLI is available)
+if command -v render &> /dev/null; then
+    print_status "Step 5: Deploying to Render..."
+    print_warning "Make sure you're logged into Render CLI: render login"
+    
+    read -p "Do you want to deploy to Render now? (y/n): " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        render deploy
+        print_success "Deployed to Render successfully!"
+    fi
+else
+    print_warning "Render CLI not found. Please deploy manually through Render dashboard."
+fi
+
+print_success "Deployment process completed!"
+print_status "Next steps:"
+echo "1. Check your Vercel deployment: https://your-project.vercel.app"
+echo "2. Check your Render deployment: https://cars-g-api.onrender.com"
+echo "3. Test the application functionality"
+echo "4. Verify report status updates work correctly"
+
+print_warning "Remember to:"
+echo "- Set up environment variables in Vercel and Render dashboards"
+echo "- Test WebSocket connections"
+echo "- Test file uploads (if using Cloudinary)"
+echo "- Test report status updates in admin dashboard" 

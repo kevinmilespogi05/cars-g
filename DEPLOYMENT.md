@@ -45,10 +45,15 @@ This guide will help you deploy your Cars-G application to the following platfor
 
 3. Link your project:
    ```bash
-   supabase link --project-ref your-project-ref
+   supabase link --project-ref mffuqdwqjdxbwpbhuxby
    ```
 
 4. Run migrations:
+   ```bash
+   supabase db push
+   ```
+
+5. **IMPORTANT**: Apply the latest migration to fix the reports status constraint:
    ```bash
    supabase db push
    ```
@@ -77,7 +82,7 @@ In Render dashboard, go to **Environment** tab and add:
 NODE_ENV=production
 VITE_SUPABASE_URL=https://mffuqdwqjdxbwpbhuxby.supabase.co
 VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1mZnVxZHdxamR4YndwYmh1eGJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM5MTI4NzMsImV4cCI6MjA1OTQ4ODg3M30.3ALtkwlAO-V_98e-Y263l9pYSWjW1h1AY3qhqSTMkW0
-FRONTEND_URL=cars-g-git-main-kevinmilespogi05s-projects.vercel.app
+FRONTEND_URL=https://cars-g.vercel.app/
 ```
 
 ### Step 4: Deploy
@@ -105,14 +110,14 @@ FRONTEND_URL=cars-g-git-main-kevinmilespogi05s-projects.vercel.app
 ### Step 3: Set Environment Variables
 In Vercel dashboard, go to **Settings** → **Environment Variables** and add:
 ```
-VITE_SUPABASE_URL=your_supabase_project_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-VITE_API_URL=https://your-render-api-url.onrender.com
-VITE_WS_URL=wss://your-render-api-url.onrender.com
+VITE_SUPABASE_URL=https://mffuqdwqjdxbwpbhuxby.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1mZnVxZHdxamR4YndwYmh1eGJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM5MTI4NzMsImV4cCI6MjA1OTQ4ODg3M30.3ALtkwlAO-V_98e-Y263l9pYSWjW1h1AY3qhqSTMkW0
+VITE_API_URL=https://cars-g-api.onrender.com
+VITE_WS_URL=wss://cars-g-api.onrender.com
 VITE_GOOGLE_MAPS_API_KEY=your_google_maps_api_key
-VITE_CLOUDINARY_CLOUD_NAME=your_cloudinary_cloud_name
-VITE_CLOUDINARY_API_KEY=your_cloudinary_api_key
-VITE_CLOUDINARY_API_SECRET=your_cloudinary_api_secret
+VITE_CLOUDINARY_CLOUD_NAME=dzqtdl5aa
+VITE_CLOUDINARY_API_KEY=829735821883862
+VITE_CLOUDINARY_API_SECRET=jp8xklrseBVvN13Jba7zPJ7BXPc
 ```
 
 ### Step 4: Deploy
@@ -129,9 +134,9 @@ VITE_CLOUDINARY_API_SECRET=your_cloudinary_api_secret
 
 ### Step 2: Get Cloudinary Credentials
 From your Cloudinary dashboard, copy:
-- **Cloud Name**
-- **API Key**
-- **API Secret**
+- **Cloud Name**: `dzqtdl5aa`
+- **API Key**: `829735821883862`
+- **API Secret**: `jp8xklrseBVvN13Jba7zPJ7BXPc`
 
 ### Step 3: Configure Upload Preset
 1. Go to **Settings** → **Upload**
@@ -165,10 +170,15 @@ VITE_CLOUDINARY_API_SECRET=jp8xklrseBVvN13Jba7zPJ7BXPc
 2. Verify files are being stored correctly
 3. Check that optimized URLs are working
 
+### Step 4: Test Report Status Updates
+1. Create a test report
+2. Try updating the status through the admin dashboard
+3. Verify that all status values work: `pending`, `in_progress`, `resolved`, `rejected`
+
 ## 6. Monitoring and Maintenance
 
 ### Health Checks
-- **Backend**: `https://your-api.onrender.com/health`
+- **Backend**: `https://cars-g-api.onrender.com/health`
 - **Frontend**: Vercel provides automatic monitoring
 
 ### Logs
@@ -184,6 +194,12 @@ VITE_CLOUDINARY_API_SECRET=jp8xklrseBVvN13Jba7zPJ7BXPc
 ## 7. Troubleshooting
 
 ### Common Issues
+
+#### Database Constraint Errors
+If you see errors like `reports_status_check` constraint violation:
+1. Ensure you've run the latest migration: `supabase db push`
+2. Check that status values are: `pending`, `in_progress`, `resolved`, `rejected`
+3. Verify the database constraint is correct
 
 #### Backend Not Starting
 - Check environment variables in Render
@@ -250,10 +266,12 @@ VITE_CLOUDINARY_API_SECRET=jp8xklrseBVvN13Jba7zPJ7BXPc
 ## Quick Deploy Checklist
 
 - [ ] Supabase project created and migrations run
+- [ ] Latest migration applied (fixes reports status constraint)
 - [ ] Backend deployed to Render with environment variables
 - [ ] Frontend deployed to Vercel with environment variables
 - [ ] WebSocket connections tested
 - [ ] File uploads tested (if using Cloudinary)
+- [ ] Report status updates tested
 - [ ] CORS configured correctly
 - [ ] Health checks passing
 - [ ] Monitoring set up
