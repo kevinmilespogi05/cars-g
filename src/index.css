@@ -895,3 +895,50 @@ p {
     animation: slideInFromBottom 0.3s ease-out;
   }
 }
+
+/* Image Error Handling */
+.image-load-error {
+  opacity: 0.5;
+  filter: grayscale(100%);
+}
+
+.image-error-overlay {
+  pointer-events: none;
+  z-index: 10;
+}
+
+.modal-error-message {
+  pointer-events: none;
+  z-index: 20;
+}
+
+/* Ensure images are visible */
+img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+/* Force image visibility in reports */
+.reports-page img {
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: block !important;
+}
+
+/* Debug styles for image containers */
+.image-container {
+  position: relative;
+  min-height: 100px;
+  background-color: #f0f0f0;
+  border: 1px solid #ddd;
+}
+
+.image-container img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}

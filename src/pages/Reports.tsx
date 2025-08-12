@@ -48,36 +48,62 @@ export function Reports() {
     fetchReports();
   }, [filters]);
 
+  // Debug: Log reports data when it changes
+  useEffect(() => {
+    if (reports.length > 0) {
+      console.log('Reports loaded:', reports);
+      console.log('First report images:', reports[0]?.images);
+    }
+  }, [reports]);
+
   // Create a fallback image data URL
   const fallbackImageUrl = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiB2aWV3Qm94PSIwIDAgMjAwIDIwMCI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiNmMGYwZjAiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE2IiBmaWxsPSIjODg4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5JbWFnZSBub3QgYXZhaWxhYmxlPC90ZXh0Pjwvc3ZnPg==";
   
   // Function to get a public URL for an image
   const getImageUrl = (imageUrl: string) => {
-    // If it's already a data URL or not a Supabase URL, return as is
-    if (imageUrl.startsWith('data:') || !imageUrl.includes('supabase.co')) {
+    // If it's already a data URL, return as is
+    if (imageUrl.startsWith('data:')) {
       return imageUrl;
     }
     
-    try {
-      // For Supabase URLs, ensure they're properly formatted
-      const url = new URL(imageUrl);
-      
-      // Clean up any double slashes in the path (except for http://)
-      const cleanPath = url.pathname
-        .replace(/([^:])\/+/g, '$1/')  // Replace multiple slashes with single slash
-        .replace(/\/$/, '');  // Remove trailing slash if present
-      
-      // Set the cleaned path back to the URL
-      url.pathname = cleanPath;
-      
-      // Add cache-busting parameter to force reload if needed
-      url.searchParams.set('t', Date.now().toString());
-      
-      return url.toString();
-    } catch (error) {
-      console.error('Error parsing image URL:', error);
-      return fallbackImageUrl;
+    // If it's a Cloudinary URL, return as is (they're already public)
+    if (imageUrl.includes('cloudinary.com')) {
+      return imageUrl;
     }
+    
+    // If it's a relative URL or other valid URL, return as is
+    if (imageUrl.startsWith('/') || imageUrl.startsWith('http')) {
+      // Check if it's an old Supabase URL that might be invalid
+      if (imageUrl.includes('supabase.co') && imageUrl.includes('storage')) {
+        console.warn('Old Supabase storage URL detected:', imageUrl);
+        // For now, return the fallback image
+        // In the future, you could implement a migration to Cloudinary
+        return fallbackImageUrl;
+      }
+      return imageUrl;
+    }
+    
+    // If we can't determine the URL type, return the fallback
+    console.warn('Unknown image URL format:', imageUrl);
+    return fallbackImageUrl;
+  };
+  
+  // Function to check if an image URL is valid
+  const isImageUrlValid = (imageUrl: string): boolean => {
+    if (imageUrl.startsWith('data:')) return true;
+    if (imageUrl.includes('cloudinary.com')) return true;
+    if (imageUrl.startsWith('/')) return true;
+    if (imageUrl.startsWith('http') && !imageUrl.includes('supabase.co/storage')) return true;
+    return false;
+  };
+  
+  // Debug function to log image URLs
+  const debugImageUrl = (imageUrl: string) => {
+    console.log('Processing image URL:', imageUrl);
+    const processedUrl = getImageUrl(imageUrl);
+    console.log('Processed URL:', processedUrl);
+    console.log('URL valid:', isImageUrlValid(imageUrl));
+    return processedUrl;
   };
   
   useEffect(() => {
@@ -255,265 +281,292 @@ export function Reports() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 py-4 sm:py-6 bg-gray-50 min-h-screen">
-      {/* Header Section */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 sm:mb-6">
-        <h1 className="text-2xl sm:text-3xl font-bold text-[#800000]">Reports</h1>
-        <Link
-          to="/reports/create"
-          className="w-full sm:w-auto flex items-center justify-center gap-2 bg-primary-color text-white px-4 py-2.5 rounded-lg shadow hover:bg-primary-dark transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-color"
-        >
-          <Plus className="h-5 w-5" />
-          <span>Create New Report</span>
-        </Link>
-      </div>
-
-      {/* Search and Filters Section */}
-      <div className="space-y-4 mb-6">
-        {/* Search Bar */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-          <input
-            type="text"
-            placeholder="Search reports..."
-            className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-primary-color focus:border-primary-color text-base bg-white text-gray-900 placeholder-gray-400"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+    <div className="min-h-screen bg-gray-50 reports-page">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header Section */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 sm:mb-6">
+          <h1 className="text-2xl sm:text-3xl font-bold text-[#800000]">Reports</h1>
+          <Link
+            to="/reports/create"
+            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-primary-color text-white px-4 py-2.5 rounded-lg shadow hover:bg-primary-dark transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-color"
+          >
+            <Plus className="h-5 w-5" />
+            <span>Create New Report</span>
+          </Link>
         </div>
 
-        {/* Filters */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {/* Search and Filters Section */}
+        <div className="space-y-4 mb-6">
+          {/* Search Bar */}
           <div className="relative">
-            <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-            <label htmlFor="category-filter" className="sr-only">Filter by category</label>
-            <select
-              id="category-filter"
-              aria-label="Filter by category"
-              className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-primary-color focus:border-primary-color text-base appearance-none bg-white text-gray-900"
-              value={filters.category}
-              onChange={(e) => setFilters({ ...filters, category: e.target.value })}
-            >
-              {CATEGORIES.map((category) => (
-                <option key={category} value={category}>
-                  {category}
-                </option>
-              ))}
-            </select>
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+            <input
+              type="text"
+              placeholder="Search reports..."
+              className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-primary-color focus:border-primary-color text-base bg-white text-gray-900 placeholder-gray-400"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
-          <div className="relative">
-            <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-            <label htmlFor="status-filter" className="sr-only">Filter by status</label>
-            <select
-              id="status-filter"
-              aria-label="Filter by status"
-              className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-primary-color focus:border-primary-color text-base appearance-none bg-white text-gray-900"
-              value={filters.status}
-              onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-            >
-              {STATUSES.map((status) => (
-                <option key={status} value={status}>
-                  {status}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="relative">
-            <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-            <label htmlFor="priority-filter" className="sr-only">Filter by priority</label>
-            <select
-              id="priority-filter"
-              aria-label="Filter by priority"
-              className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-primary-color focus:border-primary-color text-base appearance-none bg-white text-gray-900"
-              value={filters.priority}
-              onChange={(e) => setFilters({ ...filters, priority: e.target.value })}
-            >
-              {PRIORITIES.map((priority) => (
-                <option key={priority} value={priority}>
-                  {priority}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-      </div>
 
-      {/* Reports List */}
-      <div>
-        {loading ? (
-          <div className="flex justify-center items-center h-64">
-            <Loader2 className="h-8 w-8 animate-spin text-primary-color" />
-          </div>
-        ) : filteredReports.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-gray-400 text-lg">No reports found</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
-            {filteredReports.map((report) => (
-              <div
-                key={report.id}
-                className="bg-white rounded-xl p-4 sm:p-6 flex flex-col gap-3 shadow-sm hover:shadow-md transition-shadow border border-gray-100 cursor-pointer"
-                onClick={() => navigate(`/reports/${report.id}`)}
+          {/* Filters */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="relative">
+              <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+              <label htmlFor="category-filter" className="sr-only">Filter by category</label>
+              <select
+                id="category-filter"
+                aria-label="Filter by category"
+                className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-primary-color focus:border-primary-color text-base appearance-none bg-white text-gray-900"
+                value={filters.category}
+                onChange={(e) => setFilters({ ...filters, category: e.target.value })}
               >
-                <Link to={`/reports/${report.id}`} className="flex flex-col gap-2">
-                  <h2 className="text-lg font-semibold text-gray-900 break-words line-clamp-2">{report.title}</h2>
-                  <p className="text-sm text-gray-600 break-words line-clamp-2">{report.description}</p>
-                  <div className="flex flex-wrap gap-2">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(report.status)}`}>
-                      {report.status.replace('_', ' ')}
-                    </span>
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPriorityColor(report.priority)}`}>
-                      {report.priority}
-                    </span>
-                  </div>
-                  <div className="flex items-center text-xs text-gray-700">
-                    <MapPin className="h-4 w-4 mr-1.5 flex-shrink-0 text-gray-700" />
-                    <span className="truncate">{report.location_address}</span>
-                  </div>
+                {CATEGORIES.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="relative">
+              <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+              <label htmlFor="status-filter" className="sr-only">Filter by status</label>
+              <select
+                id="status-filter"
+                aria-label="Filter by status"
+                className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-primary-color focus:border-primary-color text-base appearance-none bg-white text-gray-900"
+                value={filters.status}
+                onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+              >
+                {STATUSES.map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="relative">
+              <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+              <label htmlFor="priority-filter" className="sr-only">Filter by priority</label>
+              <select
+                id="priority-filter"
+                aria-label="Filter by priority"
+                className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-primary-color focus:border-primary-color text-base appearance-none bg-white text-gray-900"
+                value={filters.priority}
+                onChange={(e) => setFilters({ ...filters, priority: e.target.value })}
+              >
+                {PRIORITIES.map((priority) => (
+                  <option key={priority} value={priority}>
+                    {priority}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
 
-                  {/* Images Grid */}
-                  {report.images && report.images.length > 0 && (
-                    <div className="relative mt-2">
-                      <div className="grid grid-cols-3 gap-2">
-                        {report.images.slice(0, 3).map((image, index) => (
-                          <div
-                            key={index}
-                            className="relative aspect-square cursor-pointer group"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              handleImageClick(image, index);
-                            }}
-                          >
-                            <img
-                              src={getImageUrl(image)}
-                              alt={`Report image ${index + 1}`}
-                              className="h-full w-full object-cover rounded-lg"
-                              loading="lazy"
-                              onError={(e) => {
-                                // Handle image loading error
-                                console.error(`Failed to load image: ${image}`);
-                                const imgElement = e.target as HTMLImageElement;
-                                setImageErrors(prev => ({ ...prev, [image]: true }));
-                                
-                                // Use our fallback image
-                                imgElement.src = fallbackImageUrl;
-                                
-                                // Add a class to indicate error
-                                imgElement.classList.add('image-load-error');
-                                
-                                // Add an overlay to indicate error
-                                const parent = imgElement.parentElement;
-                                if (parent && !parent.querySelector('.image-error-overlay')) {
-                                  const errorOverlay = document.createElement('div');
-                                  errorOverlay.className = 'absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-lg image-error-overlay';
-                                  errorOverlay.innerHTML = '<span class="text-white text-xs">Image unavailable</span>';
-                                  parent.appendChild(errorOverlay);
-                                }
-                              }}
-                              style={{ backgroundColor: '#f0f0f0' }} // Light background instead of black
-                            />
-                            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-opacity rounded-lg" />
-                          </div>
-                        ))}
-                      </div>
-                      {report.images.length > 3 && (
-                        <div className="absolute bottom-2 right-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded-full">
-                          +{report.images.length - 3}
-                        </div>
-                      )}
+        {/* Image Migration Notice */}
+        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-start">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-blue-800">Image Storage Update</h3>
+              <div className="mt-2 text-sm text-blue-700">
+                <p>We've recently updated our image storage system. Some older images may not display properly. New reports will use the improved system.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Reports List */}
+        <div>
+          {loading ? (
+            <div className="flex justify-center items-center h-64">
+              <Loader2 className="h-8 w-8 animate-spin text-primary-color" />
+            </div>
+          ) : filteredReports.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-gray-400 text-lg">No reports found</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
+              {filteredReports.map((report) => (
+                <div
+                  key={report.id}
+                  className="bg-white rounded-xl p-4 sm:p-6 flex flex-col gap-3 shadow-sm hover:shadow-md transition-shadow border border-gray-100 cursor-pointer"
+                  onClick={() => navigate(`/reports/${report.id}`)}
+                >
+                  <Link to={`/reports/${report.id}`} className="flex flex-col gap-2">
+                    <h2 className="text-lg font-semibold text-gray-900 break-words line-clamp-2">{report.title}</h2>
+                    <p className="text-sm text-gray-600 break-words line-clamp-2">{report.description}</p>
+                    <div className="flex flex-wrap gap-2">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(report.status)}`}>
+                        {report.status.replace('_', ' ')}
+                      </span>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPriorityColor(report.priority)}`}>
+                        {report.priority}
+                      </span>
                     </div>
-                  )}
-                </Link>
+                    <div className="flex items-center text-xs text-gray-700">
+                      <MapPin className="h-4 w-4 mr-1.5 flex-shrink-0 text-gray-700" />
+                      <span className="truncate">{report.location_address}</span>
+                    </div>
 
-                {/* User Info and Interactions */}
-                <div className="flex items-center justify-between mt-2 pt-3 border-t border-gray-100">
-                  <div className="flex items-center space-x-2">
-                    <img
-                      src={report.user.avatar_url || '/default-avatar.png'}
-                      alt={report.user.username}
-                      className="h-6 w-6 rounded-full"
-                    />
-                    <span className="text-sm text-gray-700">{report.user.username}</span>
-                  </div>
-                  <div className="flex items-center space-x-4">
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        handleLike(report.id);
-                      }}
-                      disabled={likeLoading[report.id]}
-                      className="flex items-center text-gray-700 hover:text-red-500 transition-colors"
-                    >
-                      <Heart
-                        className={`h-5 w-5 ${report.is_liked ? 'fill-red-500 text-red-500' : ''}`}
-                      />
-                      <span className="ml-1 text-sm">{report.likes_count}</span>
-                    </button>
-                    <Link
-                      to={`/reports/${report.id}`}
-                      onClick={(e) => e.stopPropagation()}
-                      className="flex items-center text-gray-700 hover:text-primary-color transition-colors"
-                    >
-                      <MessageCircle className="h-5 w-5" />
-                      <span className="ml-1 text-sm">{report.comments_count}</span>
-                    </Link>
+                    {/* Images Grid */}
+                    {report.images && report.images.length > 0 && (
+                      <div className="relative mt-2">
+                        <div className="grid grid-cols-3 gap-2">
+                          {report.images.slice(0, 3).map((image, index) => (
+                            <div
+                              key={index}
+                              className="relative aspect-square cursor-pointer group overflow-hidden bg-gray-100"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                handleImageClick(image, index);
+                              }}
+                            >
+                              {/* Show warning for old Supabase URLs */}
+                              {image.includes('supabase.co/storage') && (
+                                <div className="absolute top-1 left-1 z-10 bg-yellow-500 text-white text-xs px-1 py-0.5 rounded">
+                                  Old
+                                </div>
+                              )}
+                              
+                              <img
+                                src={debugImageUrl(image)}
+                                alt={`Report image ${index + 1}`}
+                                className="absolute inset-0 h-full w-full object-cover rounded-lg"
+                                loading="eager"
+                                decoding="sync"
+                                fetchpriority="high"
+                                referrerPolicy="no-referrer"
+                                crossOrigin="anonymous"
+                                onError={(e) => {
+                                  console.error(`Failed to load image: ${image}`);
+                                  const imgElement = e.target as HTMLImageElement;
+                                  setImageErrors(prev => ({ ...prev, [image]: true }));
+                                  imgElement.src = fallbackImageUrl;
+                                }}
+                                onLoad={() => {
+                                  console.log(`Successfully loaded image: ${image}`);
+                                }}
+                                style={{ backgroundColor: '#f0f0f0' }}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                        {report.images.length > 3 && (
+                          <div className="absolute bottom-2 right-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded-full">
+                            +{report.images.length - 3}
+                          </div>
+                        )}
+                        
+                        {/* Show warning if any images are old Supabase URLs */}
+                        {report.images.some(img => img.includes('supabase.co/storage')) && (
+                          <div className="mt-2 text-xs text-yellow-600 bg-yellow-50 px-2 py-1 rounded">
+                            ⚠️ Some images may not display due to storage migration
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </Link>
+
+                  {/* User Info and Interactions */}
+                  <div className="flex items-center justify-between mt-2 pt-3 border-t border-gray-100">
+                    <div className="flex items-center space-x-2">
+                      <img
+                         src={report.user.avatar_url || '/default-avatar.png'}
+                         alt={report.user.username}
+                         className="h-6 w-6 rounded-full object-cover bg-gray-100"
+                       />
+                      <span className="text-sm text-gray-700">{report.user.username}</span>
+                    </div>
+                    <div className="flex items-center space-x-4">
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleLike(report.id);
+                        }}
+                        disabled={likeLoading[report.id]}
+                        className="flex items-center text-gray-700 hover:text-red-500 transition-colors"
+                      >
+                        <Heart
+                          className={`h-5 w-5 ${report.is_liked ? 'fill-red-500 text-red-500' : ''}`}
+                        />
+                        <span className="ml-1 text-sm">{report.likes_count}</span>
+                      </button>
+                      <Link
+                        to={`/reports/${report.id}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex items-center text-gray-700 hover:text-primary-color transition-colors"
+                      >
+                        <MessageCircle className="h-5 w-5" />
+                        <span className="ml-1 text-sm">{report.comments_count}</span>
+                      </Link>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Image Modal */}
+        {selectedImage && (
+          <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4">
+            <button
+              onClick={() => setSelectedImage(null)}
+              className="absolute top-4 right-4 text-white hover:text-gray-300 focus:outline-none"
+            >
+              <X className="h-8 w-8" />
+            </button>
+            <button
+              onClick={() => handlePrevImage(reports.find(r => r.images.includes(selectedImage.url))?.images || [])}
+              className="absolute left-4 text-white hover:text-gray-300 focus:outline-none"
+            >
+              <ChevronLeft className="h-8 w-8" />
+            </button>
+            <button
+              onClick={() => handleNextImage(reports.find(r => r.images.includes(selectedImage.url))?.images || [])}
+              className="absolute right-4 text-white hover:text-gray-300 focus:outline-none"
+            >
+              <ChevronRight className="h-8 w-8" />
+            </button>
+            <img
+              src={debugImageUrl(selectedImage.url)}
+              alt="Selected report image"
+              className="max-h-[90vh] max-w-[90vw] object-contain"
+              onError={(e) => {
+                // Handle image loading error
+                console.error(`Failed to load modal image: ${selectedImage.url}`);
+                const imgElement = e.target as HTMLImageElement;
+                
+                // Use our fallback image
+                imgElement.src = fallbackImageUrl;
+                
+                // Show error message
+                const parent = imgElement.parentElement;
+                if (parent && !parent.querySelector('.modal-error-message')) {
+                  const errorMsg = document.createElement('div');
+                  errorMsg.className = 'absolute bottom-8 left-0 right-0 text-center modal-error-message';
+                  errorMsg.innerHTML = '<span class="bg-black bg-opacity-75 text-white px-4 py-2 rounded">Image could not be loaded</span>';
+                  parent.appendChild(errorMsg);
+                }
+              }}
+              onLoad={() => {
+                console.log(`Successfully loaded modal image: ${selectedImage.url}`);
+              }}
+              style={{ backgroundColor: '#f0f0f0' }} // Light background instead of black
+            />
           </div>
         )}
       </div>
-
-      {/* Image Modal */}
-      {selectedImage && (
-        <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4">
-          <button
-            onClick={() => setSelectedImage(null)}
-            className="absolute top-4 right-4 text-white hover:text-gray-300 focus:outline-none"
-          >
-            <X className="h-8 w-8" />
-          </button>
-          <button
-            onClick={() => handlePrevImage(reports.find(r => r.images.includes(selectedImage.url))?.images || [])}
-            className="absolute left-4 text-white hover:text-gray-300 focus:outline-none"
-          >
-            <ChevronLeft className="h-8 w-8" />
-          </button>
-          <button
-            onClick={() => handleNextImage(reports.find(r => r.images.includes(selectedImage.url))?.images || [])}
-            className="absolute right-4 text-white hover:text-gray-300 focus:outline-none"
-          >
-            <ChevronRight className="h-8 w-8" />
-          </button>
-          <img
-            src={getImageUrl(selectedImage.url)}
-            alt="Selected report image"
-            className="max-h-[90vh] max-w-[90vw] object-contain"
-            onError={(e) => {
-              // Handle image loading error
-              console.error(`Failed to load modal image: ${selectedImage.url}`);
-              const imgElement = e.target as HTMLImageElement;
-              
-              // Use our fallback image
-              imgElement.src = fallbackImageUrl;
-              
-              // Show error message
-              const parent = imgElement.parentElement;
-              if (parent && !parent.querySelector('.modal-error-message')) {
-                const errorMsg = document.createElement('div');
-                errorMsg.className = 'absolute bottom-8 left-0 right-0 text-center modal-error-message';
-                errorMsg.innerHTML = '<span class="bg-black bg-opacity-75 text-white px-4 py-2 rounded">Image could not be loaded</span>';
-                parent.appendChild(errorMsg);
-              }
-            }}
-            style={{ backgroundColor: '#f0f0f0' }} // Light background instead of black
-          />
-        </div>
-      )}
     </div>
   );
 }

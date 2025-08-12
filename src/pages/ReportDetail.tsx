@@ -38,12 +38,44 @@ export function ReportDetail() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const [report, setReport] = useState<Report | null>(null);
-  const [comments, setComments] = useState<Comment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [comments, setComments] = useState<Comment[]>([]);
   const [commentContent, setCommentContent] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
   const [likeLoading, setLikeLoading] = useState(false);
   const [selectedImage, setSelectedImage] = useState<{ url: string; index: number } | null>(null);
+
+  // Create a fallback image data URL
+  const fallbackImageUrl = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiB2aWV3Qm94PSIwIDAgMjAwIDIwMCI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiNmMGYwZjAiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE2IiBmaWxsPSIjODg4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5JbWFnZSBub3QgYXZhaWxhYmxlPC90ZXh0Pjwvc3ZnPg==";
+  
+  // Function to get a public URL for an image
+  const getImageUrl = (imageUrl: string) => {
+    // If it's already a data URL, return as is
+    if (imageUrl.startsWith('data:')) {
+      return imageUrl;
+    }
+    
+    // If it's a Cloudinary URL, return as is (they're already public)
+    if (imageUrl.includes('cloudinary.com')) {
+      return imageUrl;
+    }
+    
+    // If it's a relative URL or other valid URL, return as is
+    if (imageUrl.startsWith('/') || imageUrl.startsWith('http')) {
+      // Check if it's an old Supabase URL that might be invalid
+      if (imageUrl.includes('supabase.co') && imageUrl.includes('storage')) {
+        console.warn('Old Supabase storage URL detected:', imageUrl);
+        // For now, return the fallback image
+        return fallbackImageUrl;
+      }
+      return imageUrl;
+    }
+    
+    // If we can't determine the URL type, return the fallback
+    console.warn('Unknown image URL format:', imageUrl);
+    return fallbackImageUrl;
+  };
 
   useEffect(() => {
     if (id) {
@@ -295,15 +327,25 @@ export function ReportDetail() {
               {report.images.map((image, index) => (
                 <div
                   key={index}
-                  className="relative aspect-square cursor-pointer group"
+                  className="relative aspect-square cursor-pointer overflow-hidden bg-gray-100 rounded-lg"
                   onClick={() => setSelectedImage({ url: image, index })}
                 >
                   <img
-                    src={image}
+                    src={getImageUrl(image)}
                     alt={`Report image ${index + 1}`}
-                    className="h-full w-full object-cover rounded-lg border border-gray-200 transition-transform group-hover:scale-105"
+                    className="absolute inset-0 h-full w-full object-cover rounded-lg border border-gray-200"
+                    loading="eager"
+                    decoding="sync"
+                    fetchpriority="high"
+                    referrerPolicy="no-referrer"
+                    crossOrigin="anonymous"
+                    onError={(e) => {
+                      console.error(`Failed to load image: ${image}`);
+                      const imgElement = e.target as HTMLImageElement;
+                      imgElement.src = fallbackImageUrl;
+                    }}
+                    style={{ backgroundColor: '#f0f0f0' }}
                   />
-                  <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-opacity rounded-lg" />
                 </div>
               ))}
             </div>
@@ -409,9 +451,19 @@ export function ReportDetail() {
               <X className="h-6 w-6" />
             </button>
             <img
-              src={selectedImage.url}
+              src={getImageUrl(selectedImage.url)}
               alt={`Report image ${selectedImage.index + 1}`}
-              className="w-full h-auto rounded-lg"
+              className="max-h-[85vh] max-w-full object-contain rounded-lg bg-gray-100"
+              loading="eager"
+              decoding="sync"
+              fetchpriority="high"
+              referrerPolicy="no-referrer"
+              crossOrigin="anonymous"
+              onError={(e) => {
+                console.error(`Failed to load modal image: ${selectedImage.url}`);
+                const imgElement = e.target as HTMLImageElement;
+                imgElement.src = fallbackImageUrl;
+              }}
             />
             {report.images.length > 1 && (
               <>

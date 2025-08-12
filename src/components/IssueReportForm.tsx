@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
-import { MapPicker } from './MapPicker';
-import { uploadMultipleImages } from '../lib/storage';
+import React, { useState, useRef } from 'react';
+import { uploadMultipleImages } from '../lib/cloudinaryStorage';
 import { awardPoints } from '../lib/points';
 import { useAuthStore } from '../store/authStore';
 import { Loader2, Upload, X, MapPin, Image as ImageIcon } from 'lucide-react';

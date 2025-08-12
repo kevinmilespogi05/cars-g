@@ -4,7 +4,7 @@ import { Camera, MapPin, Loader2, AlertCircle, X } from 'lucide-react';
 import { MapPicker } from '../components/MapPicker';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
-import { uploadMultipleImages } from '../lib/storage';
+import { uploadMultipleImages } from '../lib/cloudinaryStorage';
 import { awardPoints } from '../lib/points';
 
 const CATEGORIES = [

@@ -37,7 +37,7 @@ export function Navigation() {
   const navItems = [
     { path: '/reports', icon: FileText, label: 'Reports' },
     { path: '/leaderboard', icon: Award, label: 'Leaderboard' },
-    { path: '/chat', icon: MessageSquare, label: 'Chat' },
+    { path: '/chat', icon: MessageSquare, label: 'Chat' }
   ];
 
   const isActive = (path: string) => {

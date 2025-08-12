@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
 import { awardPoints } from '../lib/points';
+import { deleteMultipleImages } from '../lib/cloudinaryStorage';
 import { 
   Check, 
   X, 
@@ -199,18 +200,11 @@ export function AdminDashboard() {
       // First, delete any associated images from storage
       const report = reports.find(r => r.id === reportToDelete);
       if (report?.images?.length) {
-        for (const imageUrl of report.images) {
-          const imagePath = imageUrl.split('/').pop(); // Get the filename from the URL
-          if (imagePath) {
-            const { error: storageError } = await supabase.storage
-              .from('reports')
-              .remove([imagePath]);
-            
-            if (storageError) {
-              console.error('Error deleting image:', storageError);
-              // Continue with deletion even if image deletion fails
-            }
-          }
+        try {
+          await deleteMultipleImages(report.images);
+        } catch (error) {
+          console.error('Error deleting images from Cloudinary:', error);
+          // Continue with deletion even if image deletion fails
         }
       }
 
