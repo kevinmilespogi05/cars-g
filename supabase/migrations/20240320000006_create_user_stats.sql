@@ -15,6 +15,12 @@ CREATE TABLE IF NOT EXISTS public.user_stats (
 -- Add RLS policies for user_stats
 ALTER TABLE public.user_stats ENABLE ROW LEVEL SECURITY;
 
+-- Drop policies that might already exist
+DROP POLICY IF EXISTS "Users can view their own stats" ON public.user_stats;
+DROP POLICY IF EXISTS "Users can view all user stats" ON public.user_stats;
+DROP POLICY IF EXISTS "Users can update their own stats" ON public.user_stats;
+DROP POLICY IF EXISTS "Users can insert their own stats" ON public.user_stats;
+
 -- Allow users to view their own stats
 CREATE POLICY "Users can view their own stats"
     ON public.user_stats FOR SELECT
@@ -37,6 +43,7 @@ CREATE POLICY "Users can insert their own stats"
     WITH CHECK (auth.uid() = user_id);
 
 -- Create trigger to update updated_at timestamp
+DROP TRIGGER IF EXISTS update_user_stats_updated_at ON public.user_stats;
 CREATE TRIGGER update_user_stats_updated_at
     BEFORE UPDATE ON public.user_stats
     FOR EACH ROW

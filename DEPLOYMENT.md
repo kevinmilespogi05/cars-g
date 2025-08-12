@@ -29,8 +29,8 @@ This guide will help you deploy your Cars-G application to the following platfor
 ### Step 2: Get Project Credentials
 1. Go to **Settings** → **API**
 2. Copy the following values:
-   - **Project URL** (e.g., `https://your-project.supabase.co`)
-   - **Anon Public Key** (starts with `eyJ...`)
+   - **Project URL** (`https://mffuqdwqjdxbwpbhuxby.supabase.co`)
+   - **Anon Public Key** (`eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1mZnVxZHdxamR4YndwYmh1eGJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM5MTI4NzMsImV4cCI6MjA1OTQ4ODg3M30.3ALtkwlAO-V_98e-Y263l9pYSWjW1h1AY3qhqSTMkW0`)
 
 ### Step 3: Run Database Migrations
 1. Install Supabase CLI:
@@ -75,15 +75,15 @@ This guide will help you deploy your Cars-G application to the following platfor
 In Render dashboard, go to **Environment** tab and add:
 ```
 NODE_ENV=production
-VITE_SUPABASE_URL=your_supabase_project_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-FRONTEND_URL=https://your-frontend-domain.vercel.app
+VITE_SUPABASE_URL=https://mffuqdwqjdxbwpbhuxby.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1mZnVxZHdxamR4YndwYmh1eGJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM5MTI4NzMsImV4cCI6MjA1OTQ4ODg3M30.3ALtkwlAO-V_98e-Y263l9pYSWjW1h1AY3qhqSTMkW0
+FRONTEND_URL=cars-g-git-main-kevinmilespogi05s-projects.vercel.app
 ```
 
 ### Step 4: Deploy
 1. Click "Create Web Service"
 2. Wait for deployment to complete
-3. Copy the service URL (e.g., `https://cars-g-api.onrender.com`)
+3. Copy the service URL (`https://cars-g-api.onrender.com`)
 
 ## 3. Frontend Deployment (Vercel)
 
@@ -144,9 +144,9 @@ From your Cloudinary dashboard, copy:
 ### Step 4: Add Environment Variables
 Add these to both Vercel and Render:
 ```
-VITE_CLOUDINARY_CLOUD_NAME=your_cloudinary_cloud_name
-VITE_CLOUDINARY_API_KEY=your_cloudinary_api_key
-VITE_CLOUDINARY_API_SECRET=your_cloudinary_api_secret
+VITE_CLOUDINARY_CLOUD_NAME=dzqtdl5aa
+VITE_CLOUDINARY_API_KEY=829735821883862
+VITE_CLOUDINARY_API_SECRET=jp8xklrseBVvN13Jba7zPJ7BXPc
 ```
 
 ## 5. Post-Deployment Configuration

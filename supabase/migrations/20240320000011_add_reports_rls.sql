@@ -1,6 +1,14 @@
 -- Enable RLS on reports table
 ALTER TABLE public.reports ENABLE ROW LEVEL SECURITY;
 
+-- Drop policies that might already exist
+DROP POLICY IF EXISTS "Users can view all reports" ON public.reports;
+DROP POLICY IF EXISTS "Users can create their own reports" ON public.reports;
+DROP POLICY IF EXISTS "Users can update their own reports" ON public.reports;
+DROP POLICY IF EXISTS "Admins can update any report" ON public.reports;
+DROP POLICY IF EXISTS "Admins can delete any report" ON public.reports;
+DROP POLICY IF EXISTS "Users can delete their own reports" ON public.reports;
+
 -- Allow all authenticated users to view reports
 CREATE POLICY "Users can view all reports"
     ON public.reports FOR SELECT

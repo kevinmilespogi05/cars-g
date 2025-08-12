@@ -2,6 +2,9 @@
 ALTER TABLE public.profiles
 ADD COLUMN IF NOT EXISTS is_banned BOOLEAN DEFAULT false;
 
+-- Drop policy that might already exist
+DROP POLICY IF EXISTS "Admins can update user ban status" ON public.profiles;
+
 -- Add policy to allow admins to update is_banned status
 CREATE POLICY "Admins can update user ban status"
     ON public.profiles

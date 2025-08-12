@@ -20,14 +20,17 @@ CREATE TABLE IF NOT EXISTS comments (
 -- Add RLS policies for likes
 ALTER TABLE likes ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view all likes" ON likes;
 CREATE POLICY "Users can view all likes"
   ON likes FOR SELECT
   USING (true);
 
+DROP POLICY IF EXISTS "Authenticated users can like reports" ON likes;
 CREATE POLICY "Authenticated users can like reports"
   ON likes FOR INSERT
   WITH CHECK (auth.role() = 'authenticated');
 
+DROP POLICY IF EXISTS "Users can unlike their own likes" ON likes;
 CREATE POLICY "Users can unlike their own likes"
   ON likes FOR DELETE
   USING (auth.uid() = user_id);
@@ -35,19 +38,23 @@ CREATE POLICY "Users can unlike their own likes"
 -- Add RLS policies for comments
 ALTER TABLE comments ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can view all comments" ON comments;
 CREATE POLICY "Users can view all comments"
   ON comments FOR SELECT
   USING (true);
 
+DROP POLICY IF EXISTS "Authenticated users can create comments" ON comments;
 CREATE POLICY "Authenticated users can create comments"
   ON comments FOR INSERT
   WITH CHECK (auth.role() = 'authenticated');
 
+DROP POLICY IF EXISTS "Users can update their own comments" ON comments;
 CREATE POLICY "Users can update their own comments"
   ON comments FOR UPDATE
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can delete their own comments" ON comments;
 CREATE POLICY "Users can delete their own comments"
   ON comments FOR DELETE
   USING (auth.uid() = user_id);
@@ -62,6 +69,7 @@ END;
 $$ language 'plpgsql';
 
 -- Create trigger for comments updated_at
+DROP TRIGGER IF EXISTS update_comments_updated_at ON comments;
 CREATE TRIGGER update_comments_updated_at
   BEFORE UPDATE ON comments
   FOR EACH ROW

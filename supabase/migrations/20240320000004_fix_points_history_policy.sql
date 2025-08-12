@@ -1,6 +1,10 @@
 -- Drop existing insert policy
 DROP POLICY IF EXISTS "Authenticated users can insert points history" ON public.points_history;
 
+-- Drop policies that might already exist
+DROP POLICY IF EXISTS "Admins can insert points history" ON public.points_history;
+DROP POLICY IF EXISTS "Users can insert their own points history" ON public.points_history;
+
 -- Create new policy that allows admins to insert points for any user
 CREATE POLICY "Admins can insert points history"
     ON public.points_history FOR INSERT

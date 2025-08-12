@@ -3,6 +3,12 @@ DROP POLICY IF EXISTS "Report images are publicly accessible" ON storage.objects
 DROP POLICY IF EXISTS "Users can upload report images" ON storage.objects;
 DROP POLICY IF EXISTS "Users can delete their own report images" ON storage.objects;
 
+-- Drop policies that might already exist
+DROP POLICY IF EXISTS "Reports public access" ON storage.objects;
+DROP POLICY IF EXISTS "Reports authenticated uploads" ON storage.objects;
+DROP POLICY IF EXISTS "Reports authenticated updates" ON storage.objects;
+DROP POLICY IF EXISTS "Reports authenticated deletes" ON storage.objects;
+
 -- Recreate the reports bucket if it doesn't exist
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('reports', 'reports', true)
