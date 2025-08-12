@@ -162,19 +162,43 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, roomName, onDelete }
     e.preventDefault();
     if (!newMessage.trim() || !user) return;
 
+    const messageContent = newMessage.trim();
+    setNewMessage(''); // Clear input immediately for better UX
+
     try {
-      setIsLoading(true);
-      setError(null);
-      const sentMessage = await chatService.sendMessage(roomId, newMessage);
-      console.log('Message sent:', sentMessage);
-      setNewMessage('');
+      // Create optimistic message for immediate display
+      const optimisticMessage: ChatMessage = {
+        id: `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        room_id: roomId,
+        content: messageContent,
+        sender_id: user.id,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        profiles: {
+          username: user.username || user.email?.split('@')[0] || 'User',
+          avatar_url: user.avatar_url || null
+        }
+      };
+
+      // Add optimistic message immediately
+      setMessages(prev => [...prev, optimisticMessage]);
+      
+      // Scroll to bottom immediately
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+
+      // Send message asynchronously (don't wait for response)
+      chatService.sendMessageFast(roomId, messageContent);
+      
     } catch (err) {
       const errorMessage = err instanceof ChatServiceError 
         ? err.message 
         : 'Failed to send message';
       setError(errorMessage);
-    } finally {
-      setIsLoading(false);
+      
+      // Remove optimistic message on error
+      setMessages(prev => prev.filter(msg => msg.id !== `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`));
     }
   };
 

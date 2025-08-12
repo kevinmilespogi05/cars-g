@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Camera, MapPin, Loader2, AlertCircle, X } from 'lucide-react';
+import { Camera, MapPin, Loader2, AlertCircle, X, CheckCircle } from 'lucide-react';
 import { MapPicker } from '../components/MapPicker';
-import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
 import { uploadMultipleImages } from '../lib/cloudinaryStorage';
 import { awardPoints } from '../lib/points';
+import { reportsService } from '../services/reportsService';
 
 const CATEGORIES = [
   'Infrastructure',
@@ -22,6 +22,7 @@ export function CreateReport() {
   const { user } = useAuthStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -97,9 +98,10 @@ export function CreateReport() {
 
     setIsSubmitting(true);
     setUploadError(null);
+    setSubmitSuccess(false);
 
     try {
-      // Upload images if any
+      // Upload images if any (in parallel for speed)
       let imageUrls: string[] = [];
       if (uploadedImages.length > 0) {
         try {
@@ -122,36 +124,36 @@ export function CreateReport() {
         location_lng: location.lng,
         location_address: location.address,
         images: imageUrls,
-        status: 'pending'
       };
 
       console.log('Submitting report with data:', reportData);
 
-      // Create the report
-      const { data: report, error } = await supabase
-        .from('reports')
-        .insert([reportData])
-        .select()
-        .single();
+      // Use fast report creation for immediate response
+      await reportsService.createReportFast(reportData);
 
-      if (error) throw error;
-
-      // Award points for submitting the report
-      try {
-        await awardPoints(user.id, 'REPORT_SUBMITTED', report.id);
-      } catch (error) {
-        console.error('Error awarding points:', error);
-        // Don't throw here, as the report was still created successfully
-      }
+      // Award points in the background (non-blocking)
+      setTimeout(async () => {
+        try {
+          // Get the report ID from the optimistic report
+          const optimisticReport = await reportsService.createReport(reportData);
+          await awardPoints(user.id, 'REPORT_SUBMITTED', optimisticReport.id);
+        } catch (error) {
+          console.error('Error awarding points:', error);
+          // Don't throw here, as the report was still created successfully
+        }
+      }, 0);
 
       // Clean up preview URLs
       imagePreviewUrls.forEach(url => URL.revokeObjectURL(url));
 
-      // Show success message
-      alert('Report submitted successfully! Your report will be reviewed by authorities.');
+      // Show success state
+      setSubmitSuccess(true);
       
-      // Navigate to reports page
-      navigate('/reports');
+      // Auto-navigate after 2 seconds
+      setTimeout(() => {
+        navigate('/reports');
+      }, 2000);
+      
     } catch (error) {
       console.error('Error creating report:', error);
       if (error instanceof Error) {
@@ -170,6 +172,22 @@ export function CreateReport() {
       imagePreviewUrls.forEach(url => URL.revokeObjectURL(url));
     };
   }, []);
+
+  if (submitSuccess) {
+    return (
+      <div className="max-w-2xl mx-auto p-6 text-center">
+        <div className="bg-green-50 border border-green-200 rounded-lg p-8">
+          <CheckCircle className="mx-auto h-16 w-16 text-green-500 mb-4" />
+          <h2 className="text-2xl font-bold text-green-800 mb-2">Report Submitted Successfully!</h2>
+          <p className="text-green-600 mb-4">
+            Your report has been submitted and will be reviewed by authorities. 
+            You'll be redirected to the reports page shortly.
+          </p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500 mx-auto"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-2xl mx-auto p-6">

@@ -41,6 +41,11 @@ const connections = new Map();
 const connectionLimiter = new Map();
 const messageLimiter = new Map();
 
+// Connection pooling and optimization
+const connectionPool = new Map();
+const messageQueue = new Map(); // Per-room message queue
+const BATCH_INTERVAL = 16; // ~60fps for smooth real-time updates
+
 // Create HTTP server
 const server = createServer();
 const wss = new WebSocket.Server({ server });
@@ -68,8 +73,8 @@ function isRateLimited(limiter, ip, limit) {
   return false;
 }
 
-function heartbeat() {
-  this.isAlive = true;
+function heartbeat(ws) {
+  ws.isAlive = true;
 }
 
 function noop() {}
@@ -93,7 +98,7 @@ wss.on('close', function close() {
   clearInterval(healthCheckInterval);
 });
 
-// Handle new connections
+// Optimize connection handling
 wss.on('connection', (ws, req) => {
   const ip = req.socket.remoteAddress;
   
@@ -112,19 +117,25 @@ wss.on('connection', (ws, req) => {
 
   console.log('New client connected from:', ip);
   
-  // Setup connection tracking
+  // Setup connection tracking with optimized metadata
   ws.isAlive = true;
   ws.ip = ip;
-  ws.connectionTime = new Date();
+  ws.connectionTime = Date.now(); // Use timestamp instead of Date object
   ws.messageCount = 0;
+  ws.lastPing = Date.now();
   
-  ws.on('pong', heartbeat);
+  // Optimize heartbeat handling
+  ws.on('pong', () => {
+    ws.lastPing = Date.now();
+    heartbeat(ws);
+  });
   
   ws.on('ping', () => {
+    ws.lastPing = Date.now();
     ws.pong();
   });
 
-  // Handle incoming messages
+  // Handle incoming messages with reduced overhead
   ws.on('message', async (message) => {
     try {
       // Check message rate limit
@@ -132,13 +143,19 @@ wss.on('connection', (ws, req) => {
         throw new Error('Message rate limit exceeded');
       }
 
-      // Handle heartbeat messages
+      // Handle heartbeat messages efficiently
       if (message.toString() === 'ping') {
+        ws.lastPing = Date.now();
         ws.send('pong');
         return;
       }
 
-      // Parse and validate message
+      // Parse and validate message with size check first
+      const messageSize = message.length;
+      if (messageSize > 1024 * 1024) { // 1MB limit
+        throw new Error('Message size exceeds limit');
+      }
+
       let parsedMessage;
       try {
         parsedMessage = JSON.parse(message);
@@ -152,15 +169,7 @@ wss.on('connection', (ws, req) => {
         throw new Error('Invalid message format: missing type or data');
       }
 
-      // Validate message size
-      const messageSize = message.length;
-      if (messageSize > 1024 * 1024) { // 1MB limit
-        throw new Error('Message size exceeds limit');
-      }
-
-      console.log('Received message:', type, data);
-
-      // Handle different message types
+      // Process message immediately without extra logging
       switch (type) {
         case 'message':
           await handleMessage(ws, data);
@@ -177,6 +186,12 @@ wss.on('connection', (ws, req) => {
         case 'message_delete':
           await handleMessageDelete(ws, data);
           break;
+        case 'REPORT_CREATED':
+          await handleReportCreated(ws, data);
+          break;
+        case 'REPORT_UPDATED':
+          await handleReportUpdated(ws, data);
+          break;
         default:
           throw new Error(`Unsupported message type: ${type}`);
       }
@@ -185,31 +200,13 @@ wss.on('connection', (ws, req) => {
       ws.messageCount++;
 
     } catch (error) {
-      console.error('Error handling message:', error);
-      
-      // Send appropriate error response
-      const errorResponse = {
-        type: 'error',
-        data: {
-          code: error.code || 'INTERNAL_ERROR',
-          message: error.message || 'An unexpected error occurred',
-        },
-      };
-
-      // Don't send error details in production
-      if (process.env.NODE_ENV !== 'production') {
-        errorResponse.data.details = error.stack;
-      }
-
-      try {
-        ws.send(JSON.stringify(errorResponse));
-      } catch (e) {
-        console.error('Failed to send error message to client:', e);
-      }
-
-      // Close connection for severe errors
-      if (error.message.includes('rate limit') || error.message.includes('size exceeds')) {
-        ws.close(1008, error.message);
+      console.error('Error processing message:', error);
+      // Send error response only for critical errors
+      if (error.message.includes('rate limit') || error.message.includes('size')) {
+        ws.send(JSON.stringify({
+          type: 'error',
+          data: { message: error.message }
+        }));
       }
     }
   });
@@ -277,14 +274,18 @@ async function handleMessage(ws, data) {
       connections.get(roomId).push(ws);
     }
 
-    // Broadcast to all clients in the room
-    broadcastToRoom(roomId, ws, {
+    // Broadcast to all clients in the room immediately
+    const messageData = {
       type: 'message',
       data: {
         ...data,
         timestamp: new Date().toISOString(),
       },
-    });
+    };
+
+    // Use more efficient broadcasting
+    broadcastToRoomOptimized(roomId, ws, messageData);
+    
   } catch (error) {
     console.error('Error in handleMessage:', error);
     throw error;
@@ -397,6 +398,66 @@ async function handleMessageDelete(ws, data) {
   }
 }
 
+// Report handlers for faster real-time updates
+async function handleReportCreated(ws, data) {
+  try {
+    const { reportId, reportData } = data;
+    
+    // Validate required fields
+    if (!reportId || !reportData) {
+      throw new Error('Invalid report data: reportId and reportData are required');
+    }
+
+    console.log('Handling report creation:', reportId);
+    
+    // Broadcast to all clients immediately
+    const messageData = {
+      type: 'REPORT_CREATED',
+      data: {
+        ...reportData,
+        timestamp: new Date().toISOString(),
+      },
+    };
+
+    // Use optimized broadcasting for reports
+    broadcastToAllOptimized(messageData);
+    
+  } catch (error) {
+    console.error('Error in handleReportCreated:', error);
+    throw error;
+  }
+}
+
+async function handleReportUpdated(ws, data) {
+  try {
+    const { reportId, updates } = data;
+    
+    // Validate required fields
+    if (!reportId || !updates) {
+      throw new Error('Invalid report update data: reportId and updates are required');
+    }
+
+    console.log('Handling report update:', reportId);
+    
+    // Broadcast to all clients immediately
+    const messageData = {
+      type: 'REPORT_UPDATED',
+      data: {
+        reportId,
+        updates,
+        timestamp: new Date().toISOString(),
+      },
+    };
+
+    // Use optimized broadcasting for reports
+    broadcastToAllOptimized(messageData);
+    
+  } catch (error) {
+    console.error('Error in handleReportUpdated:', error);
+    throw error;
+  }
+}
+
 function broadcastToRoom(roomId, sender, message) {
   const clients = connections.get(roomId) || [];
   const messageStr = JSON.stringify(message);
@@ -410,6 +471,65 @@ function broadcastToRoom(roomId, sender, message) {
       }
     }
   });
+}
+
+// Optimized broadcasting function
+function broadcastToRoomOptimized(roomId, sender, message) {
+  const roomConnections = connections.get(roomId);
+  if (!roomConnections) return;
+
+  const messageStr = JSON.stringify(message);
+  const deadConnections = [];
+
+  // Send to all connections in parallel
+  roomConnections.forEach((connection) => {
+    try {
+      if (connection.readyState === WebSocket.OPEN) {
+        connection.send(messageStr);
+      } else {
+        deadConnections.push(connection);
+      }
+    } catch (error) {
+      console.error('Error broadcasting message:', error);
+      deadConnections.push(connection);
+    }
+  });
+
+  // Clean up dead connections
+  if (deadConnections.length > 0) {
+    connections.set(roomId, roomConnections.filter(conn => !deadConnections.includes(conn)));
+  }
+}
+
+// Optimized broadcasting to all clients
+function broadcastToAllOptimized(message) {
+  const messageStr = JSON.stringify(message);
+  const deadConnections = [];
+
+  // Send to all connections in parallel
+  wss.clients.forEach((client) => {
+    try {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(messageStr);
+      } else {
+        deadConnections.push(client);
+      }
+    } catch (error) {
+      console.error('Error broadcasting to client:', error);
+      deadConnections.push(client);
+    }
+  });
+
+  // Clean up dead connections
+  if (deadConnections.length > 0) {
+    deadConnections.forEach(client => {
+      try {
+        client.terminate();
+      } catch (error) {
+        console.error('Error terminating dead connection:', error);
+      }
+    });
+  }
 }
 
 // Start the server

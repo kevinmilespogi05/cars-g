@@ -57,6 +57,7 @@ class WebSocketService {
       this.reconnectAttempts = 0;
       this.startHeartbeat();
       this.emit('connection', { status: 'connected' });
+      this._processQueue(); // Process queued messages after successful connection
     };
 
     this.socket.onmessage = (event) => {
@@ -183,11 +184,64 @@ class WebSocketService {
   private send<T>(type: WebSocketEvent, data: T): boolean {
     if (this.socket?.readyState === WebSocket.OPEN) {
       const message: WebSocketMessage<T> = { type, data };
-      this.socket.send(JSON.stringify(message));
-      return true;
+      
+      // Use more efficient JSON stringification
+      try {
+        const messageStr = JSON.stringify(message);
+        
+        // Check message size before sending
+        if (messageStr.length > this.config.maxMessageSize) {
+          console.warn('Message size exceeds limit:', messageStr.length);
+          return false;
+        }
+        
+        this.socket.send(messageStr);
+        return true;
+      } catch (error) {
+        console.error('Error serializing message:', error);
+        return false;
+      }
     } else {
-      console.warn('WebSocket is not connected. Message not sent:', { type, data });
+      // Queue message for later if not connected
+      this._queueMessage(type, data);
       return false;
+    }
+  }
+
+  // Message queuing for offline scenarios
+  private _messageQueue: Array<{ type: WebSocketEvent; data: any; timestamp: number }> = [];
+  private readonly MAX_QUEUE_SIZE = 100;
+  private readonly MAX_QUEUE_AGE = 5 * 60 * 1000; // 5 minutes
+
+  private _queueMessage<T>(type: WebSocketEvent, data: T) {
+    // Clean up old messages
+    this._cleanupQueue();
+    
+    // Add new message to queue
+    if (this._messageQueue.length < this.MAX_QUEUE_SIZE) {
+      this._messageQueue.push({
+        type,
+        data,
+        timestamp: Date.now()
+      });
+    }
+  }
+
+  private _cleanupQueue() {
+    const now = Date.now();
+    this._messageQueue = this._messageQueue.filter(
+      msg => now - msg.timestamp < this.MAX_QUEUE_AGE
+    );
+  }
+
+  private _processQueue() {
+    if (this.socket?.readyState === WebSocket.OPEN && this._messageQueue.length > 0) {
+      const messages = [...this._messageQueue];
+      this._messageQueue = [];
+      
+      messages.forEach(({ type, data }) => {
+        this.send(type, data);
+      });
     }
   }
 
