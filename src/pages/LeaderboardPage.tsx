@@ -135,12 +135,14 @@ export function LeaderboardPage() {
   };
 
   const getRankChange = (entry: LeaderboardEntry) => {
-    if (!entry.rank) return null;
-    
+    const currentRank = entries.findIndex(e => e.id === entry.id) + 1;
     const previousEntry = previousEntries.find(e => e.id === entry.id);
-    if (!previousEntry || !previousEntry.rank) return null;
+    if (!previousEntry) return null;
     
-    const change = previousEntry.rank - entry.rank;
+    const previousRank = previousEntries.findIndex(e => e.id === entry.id) + 1;
+    if (previousRank === 0) return null;
+    
+    const change = previousRank - currentRank;
     if (change === 0) return null;
     
     return change > 0 ? 'up' : 'down';
@@ -391,7 +393,7 @@ export function LeaderboardPage() {
                         >
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center justify-center">
-                              {getRankIcon(entry.rank || 0)}
+                              {getRankIcon(entries.findIndex(e => e.id === entry.id) + 1)}
                               {getRankChange(entry) && (
                                 <motion.div
                                   initial={{ opacity: 0, scale: 0.5 }}
@@ -501,8 +503,8 @@ export function LeaderboardPage() {
                             </div>
                             <div className="flex items-center mt-1">
                               <div className="flex items-center">
-                                {getRankIcon(entry.rank || 0)}
-                                <span className="ml-1 text-sm text-gray-500">#{entry.rank}</span>
+                                {getRankIcon(entries.findIndex(e => e.id === entry.id) + 1)}
+                                <span className="ml-1 text-sm text-gray-500">#{entries.findIndex(e => e.id === entry.id) + 1}</span>
                               </div>
                             </div>
                           </div>
@@ -653,7 +655,7 @@ export function LeaderboardPage() {
                 
                 <div className="ml-4">
                   <h4 className="text-xl font-medium text-gray-900">{selectedUser.username}</h4>
-                  <p className="text-sm text-gray-700">Rank #{selectedUser.rank}</p>
+                  <p className="text-sm text-gray-700">Rank #{entries.findIndex(e => e.id === selectedUser.id) + 1}</p>
                   {getRankChange(selectedUser) && (
                     <p className="text-sm text-gray-700">
                       {getRankChange(selectedUser) === 'up' ? '↑ Moved up' : '↓ Moved down'} in rankings

@@ -11,10 +11,52 @@ const PORT = process.env.PORT || 3001;
 
 // Middleware
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'https://cars-g.vercel.app',
-  credentials: true
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    // Allow local development
+    if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
+      return callback(null, true);
+    }
+    
+    // Allow production frontend
+    if (origin === 'https://cars-g.vercel.app' || origin === 'https://cars-g.vercel.app/') {
+      return callback(null, true);
+    }
+    
+    // Allow other origins if specified in environment
+    const allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : [];
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    
+    // Log blocked origins for debugging
+    console.log(`Blocked origin: ${origin}`);
+    callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  optionsSuccessStatus: 200
 }));
 app.use(express.json());
+
+// Handle CORS preflight requests
+app.use((req, res, next) => {
+  // Set CORS headers for all responses
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  
+  next();
+});
 
 // Supabase client
 const supabase = createClient(
@@ -241,6 +283,278 @@ app.get('/api/reports/:id', async (req, res) => {
     res.status(500).json({ 
       error: 'Internal server error',
       message: error.message 
+    });
+  }
+});
+
+// Cloudinary deletion endpoint
+app.delete('/api/cloudinary/:resourceType/:publicId', async (req, res) => {
+  try {
+    const { resourceType, publicId } = req.params;
+    const { authorization } = req.headers;
+
+    // Validate resource type
+    if (!['image', 'video'].includes(resourceType)) {
+      return res.status(400).json({
+        error: 'Invalid resource type',
+        message: 'Resource type must be "image" or "video"'
+      });
+    }
+
+    // Validate public ID
+    if (!publicId) {
+      return res.status(400).json({
+        error: 'Missing public ID',
+        message: 'Public ID is required'
+      });
+    }
+
+    // Check authorization
+    if (!authorization || !authorization.startsWith('Bearer ')) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'Valid Bearer token required'
+      });
+    }
+
+    const token = authorization.replace('Bearer ', '');
+    
+    try {
+      // Verify the JWT token with Supabase
+      const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+      
+      if (authError || !user) {
+        console.error('Token validation failed:', authError);
+        return res.status(401).json({
+          error: 'Unauthorized',
+          message: 'Invalid or expired token'
+        });
+      }
+      
+      console.log(`User ${user.id} authorized for Cloudinary deletion`);
+    } catch (authError) {
+      console.error('Auth error:', authError);
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'Token validation failed'
+      });
+    }
+
+    // Cloudinary configuration
+    const cloudName = process.env.VITE_CLOUDINARY_CLOUD_NAME;
+    const apiKey = process.env.VITE_CLOUDINARY_API_KEY;
+    const apiSecret = process.env.VITE_CLOUDINARY_API_SECRET;
+
+    if (!cloudName || !apiKey || !apiSecret) {
+      console.error('Cloudinary configuration missing');
+      return res.status(500).json({
+        error: 'Server configuration error',
+        message: 'Cloudinary is not properly configured'
+      });
+    }
+
+    // Generate timestamp and signature for Cloudinary
+    const timestamp = Math.floor(Date.now() / 1000);
+    const params = `public_id=${publicId}&timestamp=${timestamp}`;
+    
+    // In production, you should use proper crypto for signature generation
+    // This is a simplified version - consider using crypto.createHmac
+    const signature = require('crypto')
+      .createHmac('sha1', apiSecret)
+      .update(params)
+      .digest('hex');
+
+    // Delete from Cloudinary
+    const response = await fetch(
+      `https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/destroy`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          public_id: publicId,
+          api_key: apiKey,
+          signature: signature,
+          timestamp: timestamp,
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Cloudinary deletion failed:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorData
+      });
+      
+      return res.status(response.status).json({
+        error: 'Cloudinary deletion failed',
+        message: errorData.error?.message || response.statusText,
+        details: errorData
+      });
+    }
+
+    const result = await response.json();
+    console.log('Cloudinary deletion successful:', result);
+
+    res.json({
+      success: true,
+      message: 'Resource deleted successfully',
+      data: result,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Cloudinary deletion error:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: error.message
+    });
+  }
+});
+
+// Batch Cloudinary deletion endpoint
+app.post('/api/cloudinary/batch-delete', async (req, res) => {
+  try {
+    const { resources } = req.body;
+    const { authorization } = req.headers;
+
+    // Validate request body
+    if (!resources || !Array.isArray(resources) || resources.length === 0) {
+      return res.status(400).json({
+        error: 'Invalid request body',
+        message: 'Resources array is required and must not be empty'
+      });
+    }
+
+    // Check authorization
+    if (!authorization || !authorization.startsWith('Bearer ')) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'Valid Bearer token required'
+      });
+    }
+
+    const token = authorization.replace('Bearer ', '');
+    
+    try {
+      // Verify the JWT token with Supabase
+      const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+      
+      if (authError || !user) {
+        console.error('Token validation failed:', authError);
+        return res.status(401).json({
+          error: 'Unauthorized',
+          message: 'Invalid or expired token'
+        });
+      }
+      
+      console.log(`User ${user.id} authorized for batch Cloudinary deletion`);
+    } catch (authError) {
+      console.error('Auth error:', authError);
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'Token validation failed'
+      });
+    }
+
+    // Cloudinary configuration
+    const cloudName = process.env.VITE_CLOUDINARY_CLOUD_NAME;
+    const apiKey = process.env.VITE_CLOUDINARY_API_KEY;
+    const apiSecret = process.env.VITE_CLOUDINARY_API_SECRET;
+
+    if (!cloudName || !apiKey || !apiSecret) {
+      console.error('Cloudinary configuration missing');
+      return res.status(500).json({
+        error: 'Server configuration error',
+        message: 'Cloudinary is not properly configured'
+      });
+    }
+
+    const results = [];
+    const errors = [];
+
+    // Process each resource deletion
+    for (const resource of resources) {
+      try {
+        const { publicId, resourceType = 'image' } = resource;
+        
+        if (!publicId) {
+          errors.push({ publicId: 'unknown', error: 'Missing public ID' });
+          continue;
+        }
+
+        // Generate timestamp and signature
+        const timestamp = Math.floor(Date.now() / 1000);
+        const params = `public_id=${publicId}&timestamp=${timestamp}`;
+        const signature = require('crypto')
+          .createHmac('sha1', apiSecret)
+          .update(params)
+          .digest('hex');
+
+        // Delete from Cloudinary
+        const response = await fetch(
+          `https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/destroy`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              public_id: publicId,
+              api_key: apiKey,
+              signature: signature,
+              timestamp: timestamp,
+            }),
+          }
+        );
+
+        if (response.ok) {
+          const result = await response.json();
+          results.push({ publicId, success: true, data: result });
+          console.log(`Successfully deleted: ${publicId}`);
+        } else {
+          const errorData = await response.json().catch(() => ({}));
+          const error = {
+            publicId,
+            error: errorData.error?.message || response.statusText,
+            status: response.status
+          };
+          errors.push(error);
+          console.error(`Failed to delete ${publicId}:`, error);
+        }
+      } catch (error) {
+        const errorInfo = {
+          publicId: resource.publicId || 'unknown',
+          error: error.message,
+          status: 'EXCEPTION'
+        };
+        errors.push(errorInfo);
+        console.error(`Exception deleting resource:`, errorInfo);
+      }
+    }
+
+    // Return results
+    res.json({
+      success: true,
+      message: `Batch deletion completed: ${results.length} successful, ${errors.length} failed`,
+      results,
+      errors,
+      summary: {
+        total: resources.length,
+        successful: results.length,
+        failed: errors.length
+      },
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Batch deletion error:', error);
+    res.status(500).json({
+      error: 'Internal server error',
+      message: error.message
     });
   }
 });

@@ -32,74 +32,92 @@ export interface Database {
       profiles: {
         Row: {
           id: string
-          created_at: string
           username: string
+          email: string
+          full_name: string | null
           avatar_url: string | null
+          bio: string | null
+          role: 'user' | 'admin' | 'moderator'
           points: number
-          role: 'user' | 'admin'
+          is_banned: boolean
+          created_at: string
+          updated_at: string
+          notification_settings: any
         }
         Insert: {
           id: string
-          created_at?: string
           username: string
+          email: string
+          full_name?: string | null
           avatar_url?: string | null
+          bio?: string | null
+          role?: 'user' | 'admin' | 'moderator'
           points?: number
-          role?: 'user' | 'admin'
+          is_banned?: boolean
+          created_at?: string
+          updated_at?: string
+          notification_settings?: any
         }
         Update: {
           id?: string
-          created_at?: string
           username?: string
+          email?: string
+          full_name?: string | null
           avatar_url?: string | null
+          bio?: string | null
+          role?: 'user' | 'admin' | 'moderator'
           points?: number
-          role?: 'user' | 'admin'
+          is_banned?: boolean
+          created_at?: string
+          updated_at?: string
+          notification_settings?: any
         }
       }
       reports: {
         Row: {
           id: string
-          created_at: string
           user_id: string
           title: string
           description: string
           category: string
-          location_lat: number
-          location_lng: number
-          location_address: string
+          location: string | null
+          latitude: number | null
+          longitude: number | null
           status: 'pending' | 'in_progress' | 'resolved' | 'rejected'
-          priority: 'low' | 'medium' | 'high'
-          images: string[]
-          points_awarded: number | null
+          image_url: string | null
+          video_url: string | null
+          created_at: string
+          updated_at: string
         }
         Insert: {
           id?: string
-          created_at?: string
           user_id: string
           title: string
           description: string
           category: string
-          location_lat: number
-          location_lng: number
-          location_address: string
+          location?: string | null
+          latitude?: number | null
+          longitude?: number | null
           status?: 'pending' | 'in_progress' | 'resolved' | 'rejected'
-          priority: 'low' | 'medium' | 'high'
-          images?: string[]
-          points_awarded?: number | null
+          image_url?: string | null
+          video_url?: string | null
+          created_at?: string
+          updated_at?: string
         }
         Update: {
           id?: string
-          created_at?: string
           user_id?: string
           title?: string
           description?: string
           category?: string
-          location_lat?: number
-          location_lng?: number
-          location_address?: string
+          location?: string | null
+          latitude?: number | null
+          longitude?: number | null
           status?: 'pending' | 'in_progress' | 'resolved' | 'rejected'
-          priority?: 'low' | 'medium' | 'high'
-          images?: string[]
-          points_awarded?: number | null
+          image_url?: string | null
+          video_url?: string | null
+          created_at?: string
+          updated_at?: string
         }
       }
       activities: {
@@ -133,31 +151,31 @@ export interface Database {
           id: string
           name: string
           description: string
-          icon: string
-          points: number
-          criteria: string
-          requirement_type: 'reports_submitted' | 'reports_verified' | 'reports_resolved' | 'days_active' | 'points_earned'
-          requirement_count: number
+          icon_url: string | null
+          requirement_type: string
+          requirement_value: number
+          points_reward: number
+          created_at: string
         }
         Insert: {
           id?: string
           name: string
           description: string
-          icon: string
-          points: number
-          criteria: string
-          requirement_type: 'reports_submitted' | 'reports_verified' | 'reports_resolved' | 'days_active' | 'points_earned'
-          requirement_count: number
+          icon_url?: string | null
+          requirement_type: string
+          requirement_value: number
+          points_reward?: number
+          created_at?: string
         }
         Update: {
           id?: string
           name?: string
           description?: string
-          icon?: string
-          points?: number
-          criteria?: string
-          requirement_type?: 'reports_submitted' | 'reports_verified' | 'reports_resolved' | 'days_active' | 'points_earned'
-          requirement_count?: number
+          icon_url?: string | null
+          requirement_type?: string
+          requirement_value?: number
+          points_reward?: number
+          created_at?: string
         }
       }
       user_achievements: {
@@ -190,6 +208,12 @@ export interface Database {
           days_active: number
           total_points: number
           last_active: string
+          total_reports: number
+          resolved_reports: number
+          current_streak: number
+          longest_streak: number
+          created_at: string
+          updated_at: string
         }
         Insert: {
           id?: string
@@ -200,6 +224,12 @@ export interface Database {
           days_active?: number
           total_points?: number
           last_active?: string
+          total_reports?: number
+          resolved_reports?: number
+          current_streak?: number
+          longest_streak?: number
+          created_at?: string
+          updated_at?: string
         }
         Update: {
           id?: string
@@ -210,6 +240,12 @@ export interface Database {
           days_active?: number
           total_points?: number
           last_active?: string
+          total_reports?: number
+          resolved_reports?: number
+          current_streak?: number
+          longest_streak?: number
+          created_at?: string
+          updated_at?: string
         }
       }
     }

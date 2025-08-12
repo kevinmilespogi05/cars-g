@@ -41,7 +41,6 @@ export function Dashboard() {
           <h2 className="text-xl font-semibold mb-4">Your Stats</h2>
           <div className="space-y-2">
             <p className="text-gray-600">Points: <span className="font-medium text-gray-900">{user?.points || 0}</span></p>
-            <p className="text-gray-600">Rank: <span className="font-medium text-gray-900">{user?.rank || 'Newcomer'}</span></p>
           </div>
         </div>
 

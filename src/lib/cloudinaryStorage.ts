@@ -1,4 +1,5 @@
 import { cloudinary } from './cloudinary';
+import { supabase } from './supabase';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_TOTAL_SIZE = MAX_FILE_SIZE * 5; // 50MB for multiple uploads
@@ -234,8 +235,39 @@ export async function deleteImage(imageUrl: string): Promise<void> {
       );
     }
 
-    // Delete from Cloudinary
-    await cloudinary.deleteResource(publicId, 'image');
+    // Use the server API endpoint for secure deletion
+    const serverUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+    
+    // Get the current Supabase session for authorization
+    const { data: { session } } = await supabase.auth.getSession();
+    const accessToken = session?.access_token;
+    
+    if (!accessToken) {
+      throw new FileUploadError(
+        'No valid authentication token found',
+        'AUTH_TOKEN_MISSING',
+        'Please log in again to delete images'
+      );
+    }
+    
+    const response = await fetch(`${serverUrl}/api/cloudinary/image/${encodeURIComponent(publicId)}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new FileUploadError(
+        `Failed to delete image from Cloudinary: ${errorData.message || response.statusText}`,
+        'DELETE_API_ERROR',
+        `Status: ${response.status}, Details: ${JSON.stringify(errorData)}`
+      );
+    }
+
+    console.log(`Successfully deleted image: ${publicId}`);
   } catch (error) {
     console.error('Error in deleteImage:', error);
     
@@ -253,20 +285,99 @@ export async function deleteImage(imageUrl: string): Promise<void> {
 
 export async function deleteMultipleImages(imageUrls: string[]): Promise<void> {
   try {
-    // Delete each image
-    const deletePromises = imageUrls.map(async (url, index) => {
-      try {
-        return await deleteImage(url);
-      } catch (error) {
-        console.warn(`Failed to delete image ${index + 1}:`, error);
-        // Continue with other deletions even if one fails
-        return null;
+    console.log(`Attempting to delete ${imageUrls.length} images from Cloudinary...`);
+    
+    if (imageUrls.length === 0) {
+      console.log('No images to delete');
+      return;
+    }
+
+    // Extract public IDs from URLs
+    const resources = imageUrls.map(url => {
+      const urlParts = url.split('/');
+      const uploadIndex = urlParts.findIndex(part => part === 'upload');
+      
+      if (uploadIndex === -1 || uploadIndex + 1 >= urlParts.length) {
+        throw new FileUploadError(
+          'Invalid Cloudinary URL format',
+          'INVALID_URL_FORMAT'
+        );
       }
+
+      const publicIdParts = urlParts.slice(uploadIndex + 2);
+      const publicId = publicIdParts.join('/').split('.')[0];
+      
+      if (!publicId) {
+        throw new FileUploadError(
+          'Could not extract public_id from URL',
+          'PUBLIC_ID_EXTRACTION_FAILED'
+        );
+      }
+
+      return { publicId, resourceType: 'image' };
     });
 
-    await Promise.allSettled(deletePromises);
+    // Use the batch deletion API endpoint
+    const serverUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+    
+    // Get the current Supabase session for authorization
+    const { data: { session } } = await supabase.auth.getSession();
+    const accessToken = session?.access_token;
+    
+    if (!accessToken) {
+      throw new FileUploadError(
+        'No valid authentication token found',
+        'AUTH_TOKEN_MISSING',
+        'Please log in again to delete images'
+      );
+    }
+    
+    const response = await fetch(`${serverUrl}/api/cloudinary/batch-delete`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ resources }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new FileUploadError(
+        `Batch deletion failed: ${errorData.message || response.statusText}`,
+        'BATCH_DELETE_API_ERROR',
+        `Status: ${response.status}, Details: ${JSON.stringify(errorData)}`
+      );
+    }
+
+    const result = await response.json();
+    console.log('Batch deletion completed:', result);
+
+    // Check if there were any failures
+    if (result.errors && result.errors.length > 0) {
+      console.warn(`Batch deletion completed with ${result.errors.length} errors:`, result.errors);
+      
+      // If all deletions failed, throw an error
+      if (result.summary.successful === 0) {
+        throw new FileUploadError(
+          'All image deletions failed',
+          'ALL_DELETIONS_FAILED',
+          `Failed to delete ${result.summary.total} images`
+        );
+      }
+      
+      // If some deletions failed, show a warning but don't throw
+      console.warn(`${result.errors.length} images could not be deleted from Cloudinary`);
+    } else {
+      console.log(`Successfully deleted all ${result.summary.successful} images from Cloudinary`);
+    }
   } catch (error) {
     console.error('Error in deleteMultipleImages:', error);
+    
+    if (error instanceof FileUploadError) {
+      throw error;
+    }
+    
     throw new FileUploadError(
       'Failed to delete some images',
       'BATCH_DELETE_ERROR',

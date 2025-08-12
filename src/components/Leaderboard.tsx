@@ -97,11 +97,11 @@ export function Leaderboard({ limit = 10 }: { limit?: number }) {
       </div>
       
       <ul className="divide-y divide-gray-200">
-        {entries.map((entry) => (
+        {entries.map((entry, index) => (
           <li key={entry.id} className="px-6 py-4 hover:bg-gray-50">
             <div className="flex items-center">
               <div className="flex-shrink-0 w-10 h-10 flex items-center justify-center">
-                {getRankIcon(entry.rank || 0)}
+                {getRankIcon(index + 1)}
               </div>
               
               <div className="ml-4 flex-shrink-0">
@@ -132,7 +132,7 @@ export function Leaderboard({ limit = 10 }: { limit?: number }) {
               
               <div className="ml-4">
                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                  #{entry.rank}
+                  #{index + 1}
                 </span>
               </div>
             </div>

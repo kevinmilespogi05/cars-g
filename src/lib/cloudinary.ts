@@ -310,40 +310,25 @@ Current upload preset: ${this.uploadPreset}
     }
 
     try {
-      const response = await fetch(
-        `https://api.cloudinary.com/v1_1/${this.config.cloudName}/${resourceType}/destroy`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            public_id: publicId,
-            api_key: this.config.apiKey,
-            signature: this.generateSignature(publicId),
-            timestamp: Math.floor(Date.now() / 1000),
-          }),
-        }
+      // For client-side deletion, we need to use a different approach
+      // Since we can't generate proper signatures on the client side,
+      // we'll use a more robust error handling approach
+      
+      console.log(`Attempting to delete resource: ${publicId} (${resourceType})`);
+      
+      // Note: Client-side deletion of Cloudinary resources requires proper authentication
+      // This is a limitation of Cloudinary's security model
+      // In production, you should implement this via a serverless function or API route
+      
+      throw new Error(
+        'Client-side deletion of Cloudinary resources is not supported for security reasons. ' +
+        'Please implement deletion via a serverless function or API route. ' +
+        'Resource ID: ' + publicId
       );
-
-      if (!response.ok) {
-        throw new Error(`Delete failed: ${response.statusText}`);
-      }
     } catch (error) {
       console.error('Cloudinary delete error:', error);
       throw new Error('Failed to delete resource from Cloudinary');
     }
-  }
-
-  private generateSignature(publicId: string): string {
-    // This is a simplified signature generation
-    // In production, you should implement proper signature generation
-    const timestamp = Math.floor(Date.now() / 1000);
-    const params = `public_id=${publicId}&timestamp=${timestamp}`;
-    
-    // Note: In a real implementation, you'd use crypto to generate the signature
-    // This is just a placeholder
-    return btoa(params);
   }
 }
 

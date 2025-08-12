@@ -2,7 +2,7 @@ import React from 'react';
 import { create } from 'zustand';
 import { User } from '../types';
 import { supabase } from '../lib/supabase';
-import { initializeUserStats } from '../lib/initAchievements';
+import { initializeUserStats, verifyDatabaseSchema, debugDatabaseIssue } from '../lib/initAchievements';
 
 interface AuthState {
   user: User | null;
@@ -85,15 +85,20 @@ export const useAuthStore = create<AuthState>((set) => ({
             .insert({
               id: session.user.id,
               username: session.user.email?.split('@')[0] || 'user',
+              email: session.user.email || '',
               points: 0,
               role: 'user',
               created_at: new Date().toISOString(),
-              avatar_url: session.user.user_metadata.avatar_url || null
+              updated_at: new Date().toISOString(),
+              avatar_url: session.user.user_metadata.avatar_url || null,
+              notification_settings: { chat: true, push: true, email: true }
             });
             
           if (createError) throw createError;
 
           // Initialize user stats
+          await debugDatabaseIssue();
+          await verifyDatabaseSchema();
           await initializeUserStats(session.user.id);
           
           // Fetch the newly created profile
@@ -111,6 +116,9 @@ export const useAuthStore = create<AuthState>((set) => ({
           });
         } else {
           // Initialize user stats if they don't exist
+          // First debug the database issue and verify the schema
+          await debugDatabaseIssue();
+          await verifyDatabaseSchema();
           await initializeUserStats(session.user.id);
           
           set({ 
@@ -142,15 +150,20 @@ export const useAuthStore = create<AuthState>((set) => ({
                 .insert({
                   id: session.user.id,
                   username: session.user.email?.split('@')[0] || 'user',
+                  email: session.user.email || '',
                   points: 0,
                   role: 'user',
                   created_at: new Date().toISOString(),
-                  avatar_url: session.user.user_metadata.avatar_url || null
+                  updated_at: new Date().toISOString(),
+                  avatar_url: session.user.user_metadata.avatar_url || null,
+                  notification_settings: { chat: true, push: true, email: true }
                 });
                 
               if (createError) throw createError;
 
               // Initialize user stats
+              await debugDatabaseIssue();
+              await verifyDatabaseSchema();
               await initializeUserStats(session.user.id);
               
               // Fetch the newly created profile
@@ -301,9 +314,12 @@ export const useAuthStore = create<AuthState>((set) => ({
             .insert({
               id: data.user.id,
               username: username,
+              email: data.user.email || '',
               points: 0,
               role: 'user',
-              created_at: new Date().toISOString()
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+              notification_settings: { chat: true, push: true, email: true }
             });
             
           if (profileError) {

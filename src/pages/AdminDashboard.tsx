@@ -197,14 +197,19 @@ export function AdminDashboard() {
     setActionLoading(true);
     setActionLoadingId(reportToDelete);
     try {
-      // First, delete any associated images from storage
+      // First, try to delete any associated images from storage
       const report = reports.find(r => r.id === reportToDelete);
       if (report?.images?.length) {
         try {
           await deleteMultipleImages(report.images);
+          console.log('Images deleted successfully from Cloudinary');
         } catch (error) {
-          console.error('Error deleting images from Cloudinary:', error);
-          // Continue with deletion even if image deletion fails
+          console.warn('Warning: Could not delete images from Cloudinary:', error);
+          // Show a warning but continue with report deletion
+          showNotification(
+            'Warning: Images could not be deleted from storage, but the report will still be removed from the database.',
+            'warning'
+          );
         }
       }
 

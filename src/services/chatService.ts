@@ -73,112 +73,289 @@ export const chatService = {
     return data;
   },
 
+  // Get all rooms for the current user
   async getRooms(): Promise<ChatRoom[]> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new ChatServiceError('User not authenticated');
 
-    // First get the list of deleted room IDs
-    const { data: deletedRooms, error: deletedError } = await supabase
-      .from('chat_deletions')
-      .select('room_id')
-      .eq('user_id', user.id);
+    console.log('Getting rooms for user:', user.id);
 
-    if (deletedError) throw new ChatServiceError(`Failed to get deleted rooms: ${deletedError.message}`);
+    try {
+      // Step 1: Get room IDs where user is participant (simple query)
+      const { data: participantRooms, error: participantError } = await supabase
+        .from('chat_participants')
+        .select('room_id')
+        .eq('user_id', user.id);
 
-    const deletedRoomIds = deletedRooms?.map(dr => dr.room_id) || [];
+      if (participantError) throw new ChatServiceError(`Failed to get participant rooms: ${participantError.message}`);
 
-    // First get the rooms with basic participant info
-    let query = supabase
-      .from('chat_rooms')
-      .select(`
-        *,
-        chat_participants (
-          user_id
-        )
-      `)
-      .eq('chat_participants.user_id', user.id);
+      if (!participantRooms || participantRooms.length === 0) {
+        console.log('No rooms found for user');
+        return [];
+      }
 
-    // Only add the not.in filter if there are deleted rooms
-    if (deletedRoomIds.length > 0) {
-      query = query.not('id', 'in', `(${deletedRoomIds.join(',')})`);
-    }
+      const roomIds = participantRooms.map(p => p.room_id);
+      console.log('Room IDs found:', roomIds);
 
-    const { data: rooms, error } = await query;
+      // Step 2: Get room details (simple query)
+      const { data: rooms, error: roomsError } = await supabase
+        .from('chat_rooms')
+        .select('*')
+        .in('id', roomIds)
+        .order('updated_at', { ascending: false });
 
-    if (error) throw new ChatServiceError(`Failed to get rooms: ${error.message}`);
-    if (!rooms) return [];
+      if (roomsError) throw new ChatServiceError(`Failed to get rooms: ${roomsError.message}`);
 
-    // For each room, get the full participant details with profiles
-    const roomsWithParticipants = await Promise.all(
-      rooms.map(async (room) => {
-        // First get the participant user IDs
-        const { data: participants } = await supabase
-          .from('chat_participants')
-          .select('user_id')
-          .eq('room_id', room.id);
+      if (!rooms || rooms.length === 0) {
+        console.log('No room details found');
+        return [];
+      }
 
-        if (!participants) return { ...room, chat_participants: [] };
+      console.log('Rooms found:', rooms.length);
 
-        // Then get the profiles for these users
-        const userIds = participants.map(p => p.user_id);
-        const { data: profiles } = await supabase
+      // Step 3: Get participants for each room (simple query without join)
+      const { data: allParticipants, error: participantsError } = await supabase
+        .from('chat_participants')
+        .select('room_id, user_id')
+        .in('room_id', roomIds);
+
+      if (participantsError) throw new ChatServiceError(`Failed to get participants: ${participantsError.message}`);
+
+      // Step 4: Get all unique user IDs to fetch profiles separately
+      const allUserIds = new Set<string>();
+      allParticipants?.forEach(p => allUserIds.add(p.user_id));
+
+      // Step 5: Get profiles for all participants (separate query)
+      let profilesMap = new Map<string, { username: string; avatar_url: string | null }>();
+      if (allUserIds.size > 0) {
+        const { data: profiles, error: profilesError } = await supabase
           .from('profiles')
-          .select('id, username, avatar_url, role')
-          .in('id', userIds);
+          .select('id, username, avatar_url')
+          .in('id', Array.from(allUserIds));
 
-        // Combine the data
-        const chatParticipants = participants.map(participant => ({
-          user_id: participant.user_id,
-          profiles: profiles?.find(p => p.id === participant.user_id) || null
-        }));
+        if (profilesError) {
+          console.warn('Failed to get profiles:', profilesError);
+          // Continue without profiles, use fallback values
+        } else {
+          profiles?.forEach(profile => {
+            profilesMap.set(profile.id, {
+              username: profile.username,
+              avatar_url: profile.avatar_url
+            });
+          });
+        }
+      }
+
+      // Group participants by room
+      const participantsByRoom = new Map<string, any[]>();
+      allParticipants?.forEach(p => {
+        if (!participantsByRoom.has(p.room_id)) {
+          participantsByRoom.set(p.room_id, []);
+        }
+        participantsByRoom.get(p.room_id)!.push(p);
+      });
+
+      // Step 6: Build the final room objects
+      const roomsWithParticipants = rooms.map(room => {
+        const chatParticipants = participantsByRoom.get(room.id) || [];
+        
+        // Convert to the expected format
+        const participants = chatParticipants.map(p => {
+          const profile = profilesMap.get(p.user_id);
+          return {
+            id: p.user_id,
+            user_id: p.user_id,
+            room_id: p.room_id,
+            username: profile?.username || 'Unknown',
+            avatar_url: profile?.avatar_url || null,
+            role: 'member' // Default role
+          };
+        });
 
         return {
           ...room,
-          chat_participants: chatParticipants
+          chat_participants: chatParticipants,
+          participants: participants,
+          isGroup: !room.is_direct_message
         };
-      })
-    );
-
-    // For direct message rooms, get the usernames of other participants
-    const directMessageRooms = roomsWithParticipants.filter(room => room.is_direct_message);
-    if (directMessageRooms.length > 0) {
-      // Get all unique user IDs from direct message rooms
-      const otherUserIds = new Set<string>();
-      directMessageRooms.forEach(room => {
-        const otherParticipants = room.chat_participants.filter(p => p.user_id !== user.id);
-        otherParticipants.forEach(p => otherUserIds.add(p.user_id));
       });
 
-      // Fetch usernames for all other participants
-      const { data: profiles, error: profilesError } = await supabase
-        .from('profiles')
-        .select('id, username')
-        .in('id', Array.from(otherUserIds));
+      // Step 7: For direct message rooms, update names with usernames
+      const directMessageRooms = roomsWithParticipants.filter(room => room.is_direct_message);
+      if (directMessageRooms.length > 0) {
+        console.log('Processing direct message rooms:', directMessageRooms.length);
+        
+        // Get all unique user IDs from direct message rooms
+        const otherUserIds = new Set<string>();
+        directMessageRooms.forEach(room => {
+          const otherParticipants = room.chat_participants?.filter((p: any) => p.user_id !== user.id) || [];
+          otherParticipants.forEach((p: any) => otherUserIds.add(p.user_id));
+        });
 
-      if (profilesError) throw new ChatServiceError(`Failed to get profiles: ${profilesError.message}`);
+        console.log('Other user IDs found:', Array.from(otherUserIds));
 
-      // Create a map of user ID to username
-      const usernameMap = new Map(profiles?.map(p => [p.id, p.username]) || []);
-
-      // Update room names with usernames
-      return roomsWithParticipants.map(room => {
-        if (room.is_direct_message) {
-          const otherParticipants = room.chat_participants.filter(p => p.user_id !== user.id);
-          if (otherParticipants.length > 0) {
-            const username = usernameMap.get(otherParticipants[0].user_id);
-            if (username) {
-              return {
-                ...room,
-                name: username
-              };
+        if (otherUserIds.size > 0) {
+          // Update room names with usernames using the profiles we already fetched
+          const updatedRooms = roomsWithParticipants.map(room => {
+            if (room.is_direct_message) {
+              // Get all participants for this room
+              const allParticipants = room.chat_participants || [];
+              console.log(`Room ${room.id} has ${allParticipants.length} total participants:`, allParticipants.map((p: any) => p.user_id));
+              console.log(`Current user ID: ${user.id}`);
+              
+              // Find the other participant (not the current user)
+              const otherParticipant = allParticipants.find((p: any) => p.user_id !== user.id);
+              
+              if (otherParticipant) {
+                // Get the username for the other participant from our profiles map
+                const otherProfile = profilesMap.get(otherParticipant.user_id);
+                console.log(`Other participant ID: ${otherParticipant.user_id}, Username: ${otherProfile?.username}`);
+                
+                if (otherProfile?.username) {
+                  // Update the room name to show the other participant's username
+                  const updatedRoom = {
+                    ...room,
+                    name: otherProfile.username
+                  };
+                  console.log(`Updated room ${room.id} name from "${room.name}" to "${otherProfile.username}"`);
+                  return updatedRoom;
+                } else {
+                  console.warn(`No username found for other participant ${otherParticipant.user_id} in room ${room.id}`);
+                  // Keep the room but with a fallback name
+                  return {
+                    ...room,
+                    name: room.name || 'Direct Message'
+                  };
+                }
+              } else {
+                console.warn(`No other participant found for direct message room ${room.id}`);
+                // This might be a room where the current user is the only participant
+                // Try to get the room creator's username as fallback
+                const roomCreator = room.created_by;
+                if (roomCreator && roomCreator !== user.id) {
+                  const creatorProfile = profilesMap.get(roomCreator);
+                  if (creatorProfile?.username) {
+                    console.log(`Using room creator username for room ${room.id}: ${creatorProfile.username}`);
+                    return {
+                      ...room,
+                      name: creatorProfile.username
+                    };
+                  }
+                }
+                // Keep the room but with a fallback name
+                return {
+                  ...room,
+                  name: room.name || 'Direct Message'
+                };
+              }
             }
-          }
-        }
-        return room;
-      });
-    }
+            return room;
+          });
 
-    return roomsWithParticipants;
+          return updatedRooms;
+        }
+      }
+
+      return roomsWithParticipants;
+    } catch (error) {
+      console.error('Error getting rooms:', error);
+      throw new ChatServiceError(`Failed to get rooms: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  },
+
+  // Force update direct message room names to show correct usernames
+  async updateDirectMessageRoomNames(): Promise<void> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new ChatServiceError('User not authenticated');
+
+    console.log('Updating direct message room names...');
+
+    try {
+      // Use the optimized database function instead of complex joins
+      const { data, error } = await supabase.rpc('update_direct_message_room_names', {
+        user_uuid: user.id
+      });
+
+      if (error) {
+        console.error('Error updating room names:', error);
+        throw new ChatServiceError(`Failed to update room names: ${error.message}`);
+      }
+
+      console.log('Direct message room names updated successfully');
+    } catch (error) {
+      console.error('Error updating room names:', error);
+      throw new ChatServiceError(`Failed to update room names: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  },
+
+  // Cleanup function to fix orphaned direct message rooms
+  async cleanupOrphanedRooms(): Promise<void> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new ChatServiceError('User not authenticated');
+
+    console.log('Starting cleanup of orphaned direct message rooms...');
+
+    try {
+      // Find direct message rooms with insufficient participants
+      const { data: orphanedRooms, error: orphanedError } = await supabase
+        .from('chat_rooms')
+        .select(`
+          id,
+          name,
+          is_direct_message,
+          chat_participants!inner(user_id)
+        `)
+        .eq('is_direct_message', true);
+
+      if (orphanedError) {
+        console.error('Error finding orphaned rooms:', orphanedError);
+        return;
+      }
+
+      if (!orphanedRooms) {
+        console.log('No orphaned rooms found');
+        return;
+      }
+
+      // Group participants by room
+      const roomParticipants = new Map<string, string[]>();
+      orphanedRooms.forEach(room => {
+        const participants = room.chat_participants?.map((p: any) => p.user_id) || [];
+        roomParticipants.set(room.id, participants);
+      });
+
+      // Find rooms with less than 2 participants
+      const roomsToDelete: string[] = [];
+      roomParticipants.forEach((participants, roomId) => {
+        if (participants.length < 2) {
+          console.log(`Found orphaned room ${roomId} with ${participants.length} participants`);
+          roomsToDelete.push(roomId);
+        }
+      });
+
+      if (roomsToDelete.length === 0) {
+        console.log('No orphaned rooms to clean up');
+        return;
+      }
+
+      console.log(`Found ${roomsToDelete.length} orphaned rooms to delete`);
+
+      // Delete the orphaned rooms
+      const { error: deleteError } = await supabase
+        .from('chat_rooms')
+        .delete()
+        .in('id', roomsToDelete);
+
+      if (deleteError) {
+        console.error('Error deleting orphaned rooms:', deleteError);
+        return;
+      }
+
+      console.log(`Successfully cleaned up ${roomsToDelete.length} orphaned direct message rooms`);
+    } catch (error) {
+      console.error('Error during cleanup:', error);
+      throw new ChatServiceError(`Cleanup failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   },
 
   async deleteRoom(roomId: string): Promise<boolean> {
@@ -211,72 +388,177 @@ export const chatService = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new ChatServiceError('User not authenticated');
 
-    // First check if a direct message room already exists between these users
+    console.log('Creating direct message room with user:', otherUserId);
+
+    // Step 1: Check if a direct message room already exists between these users
     const { data: existingRooms, error: existingError } = await supabase
       .from('chat_rooms')
       .select(`
-        *,
-        chat_participants (
-          user_id
-        )
+        id,
+        name,
+        created_at,
+        chat_participants!inner(user_id)
       `)
       .eq('is_direct_message', true)
-      .or(`user_id.eq.${user.id},user_id.eq.${otherUserId}`, { foreignTable: 'chat_participants' });
+      .eq('chat_participants.user_id', user.id);
 
     if (existingError) throw new ChatServiceError(`Failed to check existing rooms: ${existingError.message}`);
 
-    // Find a room where both users are participants
-    const existingRoom = existingRooms?.find(room => {
-      const participantIds = room.chat_participants?.map(p => p.user_id) || [];
-      return participantIds.includes(user.id) && participantIds.includes(otherUserId);
-    });
+    // Step 2: Check if any of these rooms also have the other user as a participant
+    if (existingRooms && existingRooms.length > 0) {
+      for (const room of existingRooms) {
+        const { data: otherParticipant, error: participantError } = await supabase
+          .from('chat_participants')
+          .select('user_id')
+          .eq('room_id', room.id)
+          .eq('user_id', otherUserId)
+          .single();
 
-    if (existingRoom) {
-      // Get the full room data with profiles
-      const { data: fullRoom, error: roomError } = await supabase
-        .from('chat_rooms')
-        .select(`
-          *,
-          chat_participants (
-            user_id
-          )
-        `)
-        .eq('id', existingRoom.id)
-        .single();
+        if (!participantError && otherParticipant) {
+          // Found an existing room with both users - return it
+          console.log('Found existing direct message room:', room.id);
+          
+          // Get the room with full details
+          const { data: fullRoom, error: fullRoomError } = await supabase
+            .from('chat_rooms')
+            .select('*')
+            .eq('id', room.id)
+            .single();
 
-      if (roomError) throw new ChatServiceError(`Failed to get room data: ${roomError.message}`);
-      if (!fullRoom) throw new ChatServiceError('Room not found');
+          if (fullRoomError) throw new ChatServiceError(`Failed to get room details: ${fullRoomError.message}`);
 
-      // Get profiles for all participants
-      const participantIds = fullRoom.chat_participants?.map(p => p.user_id) || [];
-      const { data: profiles, error: profilesError } = await supabase
-        .from('profiles')
-        .select('id, username, avatar_url, role')
-        .in('id', participantIds);
+          // Get participants for this room
+          const { data: participants } = await supabase
+            .from('chat_participants')
+            .select('user_id')
+            .eq('room_id', room.id);
 
-      if (profilesError) throw new ChatServiceError(`Failed to get profiles: ${profilesError.message}`);
+          if (!participants) return { ...fullRoom, chat_participants: [], participants: [], isGroup: false };
 
-      // Combine the data
-      return {
-        ...fullRoom,
-        chat_participants: fullRoom.chat_participants?.map(participant => ({
-          ...participant,
-          profiles: profiles?.find(p => p.id === participant.user_id) || null
-        })) || []
-      };
+          // Get profiles for all participants
+          const participantIds = participants.map(p => p.user_id);
+          const { data: profiles, error: profilesError } = await supabase
+            .from('profiles')
+            .select('id, username, avatar_url, role')
+            .in('id', participantIds);
+
+          if (profilesError) throw new ChatServiceError(`Failed to get profiles: ${profilesError.message}`);
+
+          // Combine the data
+          const chatParticipants = participants.map(participant => ({
+            user_id: participant.user_id,
+            room_id: room.id,
+            joined_at: new Date().toISOString(),
+            id: participant.user_id,
+            profiles: profiles?.find(p => p.id === participant.user_id) || null
+          }));
+
+          return {
+            ...fullRoom,
+            chat_participants: chatParticipants,
+            participants: chatParticipants,
+            isGroup: false
+          };
+        }
+      }
     }
 
-    // If no existing room, create a new one using a stored procedure
+    // Step 3: If no existing room found, create a new one
+    console.log('Creating new direct message room with user:', otherUserId);
+    
+    // Get the other user's username for the room name
+    const { data: otherUserProfile, error: profileError } = await supabase
+      .from('profiles')
+      .select('username')
+      .eq('id', otherUserId)
+      .single();
+
+    if (profileError) throw new ChatServiceError(`Failed to get user profile: ${profileError.message}`);
+    if (!otherUserProfile) throw new ChatServiceError('User not found');
+
+    console.log('Other user profile:', otherUserProfile);
+
+    // Create the new room using the stored procedure - always use the other user's username
     const { data: newRoom, error: createError } = await supabase
       .rpc('create_direct_message_room', {
         other_user_id: otherUserId,
-        room_name: 'Direct Message'
+        room_name: otherUserProfile.username // Always use the other user's username
       });
 
     if (createError) throw new ChatServiceError(`Failed to create room: ${createError.message}`);
     if (!newRoom) throw new ChatServiceError('No room created');
 
-    return newRoom;
+    console.log('New room created:', newRoom);
+    console.log('Room name should be:', otherUserProfile.username);
+
+    // Verify that both participants were added correctly
+    const { data: participants, error: participantsError } = await supabase
+      .from('chat_participants')
+      .select('user_id')
+      .eq('room_id', newRoom.id);
+
+    if (participantsError) throw new ChatServiceError(`Failed to verify participants: ${participantsError.message}`);
+
+    console.log('Room participants:', participants);
+
+    // Check if both users are participants
+    const participantIds = participants?.map(p => p.user_id) || [];
+    const hasCurrentUser = participantIds.includes(user.id);
+    const hasOtherUser = participantIds.includes(otherUserId);
+
+    if (!hasCurrentUser || !hasOtherUser) {
+      console.warn('Room created but missing participants. Attempting to fix...');
+      
+      // Add missing participants
+      if (!hasCurrentUser) {
+        await this.addParticipant(newRoom.id, user.id);
+        console.log('Added current user as participant');
+      }
+      
+      if (!hasOtherUser) {
+        await this.addParticipant(newRoom.id, otherUserId);
+        console.log('Added other user as participant');
+      }
+    }
+
+    // Get the final room with participants
+    const { data: finalParticipants } = await supabase
+      .from('chat_participants')
+      .select('user_id')
+      .eq('room_id', newRoom.id);
+
+    if (!finalParticipants) return { ...newRoom, chat_participants: [], participants: [], isGroup: false };
+
+    // Get profiles for all participants
+    const finalParticipantIds = finalParticipants.map(p => p.user_id);
+    const { data: finalProfiles, error: finalProfilesError } = await supabase
+      .from('profiles')
+      .select('id, username, avatar_url, role')
+      .in('id', finalParticipantIds);
+
+    if (finalProfilesError) throw new ChatServiceError(`Failed to get final profiles: ${finalProfilesError.message}`);
+
+    // Combine the data
+    const finalChatParticipants = finalParticipants.map(participant => ({
+      user_id: participant.user_id,
+      room_id: newRoom.id,
+      joined_at: new Date().toISOString(),
+      id: participant.user_id,
+      profiles: finalProfiles?.find(p => p.id === participant.user_id) || null
+    }));
+
+    console.log('Final room with participants:', {
+      roomId: newRoom.id,
+      roomName: newRoom.name,
+      participants: finalChatParticipants.map(p => p.profiles?.username)
+    });
+
+    return {
+      ...newRoom,
+      chat_participants: finalChatParticipants,
+      participants: finalChatParticipants,
+      isGroup: false
+    };
   },
 
   // Messages
@@ -317,30 +599,96 @@ export const chatService = {
     return optimisticMessage;
   },
 
-  // Fast message sending without waiting for database response
-  async sendMessageFast(roomId: string, content: string): Promise<void> {
+  // Debug function to test message sending
+  async testMessageSending(roomId: string): Promise<void> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new ChatServiceError('User not authenticated');
 
-    // Send message to database asynchronously
-    supabase
-      .from('chat_messages')
-      .insert([
-        {
-          room_id: roomId,
-          content,
-          sender_id: user.id,
-        },
-      ])
-      .then(({ error }) => {
-        if (error) {
-          console.error('Failed to save message:', error);
-          // Could implement retry logic here
-        }
-      })
-      .catch(error => {
-        console.error('Error sending message:', error);
-      });
+    console.log('🧪 Testing message sending...');
+    console.log('User:', user.id);
+    console.log('Room:', roomId);
+
+    try {
+      // Test 1: Check if user is participant in the room
+      const { data: participant, error: participantError } = await supabase
+        .from('chat_participants')
+        .select('user_id')
+        .eq('room_id', roomId)
+        .eq('user_id', user.id)
+        .single();
+
+      console.log('Participant check:', { participant, error: participantError });
+
+      // Test 2: Try to insert a test message
+      const { data: message, error: messageError } = await supabase
+        .from('chat_messages')
+        .insert([
+          {
+            room_id: roomId,
+            content: 'Test message ' + new Date().toISOString(),
+            sender_id: user.id,
+          },
+        ])
+        .select()
+        .single();
+
+      console.log('Message insert test:', { message, error: messageError });
+
+      if (messageError) {
+        console.error('❌ Message sending failed:', messageError);
+        throw new ChatServiceError(`Message sending failed: ${messageError.message}`);
+      } else {
+        console.log('✅ Message sending test successful:', message);
+      }
+
+    } catch (error) {
+      console.error('❌ Test failed:', error);
+      throw error;
+    }
+  },
+
+  // Fast message sending without waiting for database response
+  async sendMessageFast(roomId: string, content: string): Promise<void> {
+    console.log('sendMessageFast called with:', { roomId, content });
+    
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      console.error('User not authenticated in sendMessageFast');
+      throw new ChatServiceError('User not authenticated');
+    }
+
+    console.log('User authenticated:', { userId: user.id, email: user.email });
+
+    try {
+      // Send message to database
+      const { data, error } = await supabase
+        .from('chat_messages')
+        .insert([
+          {
+            room_id: roomId,
+            content,
+            sender_id: user.id,
+          },
+        ])
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Failed to save message:', error);
+        console.error('Error details:', {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint
+        });
+        throw new ChatServiceError(`Failed to save message: ${error.message}`);
+      } else {
+        console.log('Message saved successfully:', data);
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+      throw new ChatServiceError(`Failed to send message: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   },
 
   async deleteMessage(messageId: string): Promise<boolean> {
@@ -353,6 +701,33 @@ export const chatService = {
 
   async getMessages(roomId: string): Promise<ChatMessage[]> {
     try {
+      // First, ensure the user is a participant in this room
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new ChatServiceError('User not authenticated');
+
+      // Check if user is a participant in this room
+      const { data: participant, error: participantError } = await supabase
+        .from('chat_participants')
+        .select('user_id')
+        .eq('room_id', roomId)
+        .eq('user_id', user.id)
+        .single();
+
+      if (participantError && participantError.code !== 'PGRST116') {
+        console.error('Error checking participant status:', participantError);
+      }
+
+      // If user is not a participant, add them (this might be needed for direct messages)
+      if (!participant) {
+        console.log('User not a participant in room, attempting to add them...');
+        try {
+          await this.addParticipant(roomId, user.id);
+        } catch (addError) {
+          console.error('Failed to add user as participant:', addError);
+          // Continue anyway, the RLS policy might still allow access
+        }
+      }
+
       // Get blocked users
       const { data: blockedUsers, error: blockError } = await supabase
         .from('blocked_users')
@@ -363,21 +738,51 @@ export const chatService = {
       
       const blockedIds = blockedUsers?.map(bu => bu.blocked_id) || [];
 
-      // Get messages with reactions
+      // Get messages with reactions - use a different approach to avoid foreign key issues
+      console.log('Fetching messages for room:', roomId);
+      
+      // First, get the messages
       const { data: messages, error: messagesError } = await supabase
         .from('chat_messages')
-        .select(`
-          *,
-          profiles:sender_id (
-            username,
-            avatar_url
-          )
-        `)
+        .select('*')
         .eq('room_id', roomId)
         .order('created_at', { ascending: true })
         .returns<ChatMessage[]>();
 
-      if (messagesError) throw messagesError;
+      if (messagesError) {
+        console.error('Messages query error:', messagesError);
+        console.error('Error details:', {
+          code: messagesError.code,
+          message: messagesError.message,
+          details: messagesError.details,
+          hint: messagesError.hint
+        });
+        throw messagesError;
+      }
+
+      // Then, get the profiles for all sender IDs
+      const senderIds = messages?.map(m => m.sender_id) || [];
+      let profiles: { [key: string]: { username: string; avatar_url: string | null } } = {};
+      
+      if (senderIds.length > 0) {
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('id, username, avatar_url')
+          .in('id', senderIds);
+
+        if (profileError) {
+          console.error('Profile query error:', profileError);
+        } else {
+          // Create a map of user ID to profile data
+          profiles = profileData?.reduce((acc, profile) => {
+            acc[profile.id] = {
+              username: profile.username,
+              avatar_url: profile.avatar_url
+            };
+            return acc;
+          }, {} as { [key: string]: { username: string; avatar_url: string | null } }) || {};
+        }
+      }
 
       // Get reactions for all messages
       const { data: reactions, error: reactionsError } = await supabase
@@ -395,7 +800,7 @@ export const chatService = {
         return acc;
       }, {} as Record<string, number>) || {};
 
-      // Combine messages with their reactions
+      // Combine messages with their profiles and reactions
       const messagesWithReactions = messages?.map(message => {
         const messageReactions = Object.entries(reactionCounts)
           .filter(([key]) => key.startsWith(message.id))
@@ -406,6 +811,10 @@ export const chatService = {
 
         return {
           ...message,
+          profiles: profiles[message.sender_id] || {
+            username: 'Unknown User',
+            avatar_url: null
+          },
           reactions: messageReactions
         };
       }) || [];

@@ -6,7 +6,6 @@ export interface User {
   points?: number;
   role?: string;
   created_at?: string;
-  rank?: string;
 }
 
 export interface Report {
@@ -33,7 +32,6 @@ export interface LeaderboardEntry {
   user_id: string;
   username: string;
   points: number;
-  rank: string;
 }
 
 export interface Activity {
@@ -49,9 +47,10 @@ export interface Achievement {
   id: string;
   name: string;
   description: string;
-  icon: string;
-  points: number;
-  criteria: string;
+  icon_url: string | null;
+  requirement_type: string;
+  requirement_value: number;
+  points_reward: number;
   user_id: string;
   earned_at: string;
   progress?: number;
