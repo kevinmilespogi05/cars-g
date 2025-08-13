@@ -169,11 +169,24 @@ export function ReportDetail() {
   };
 
   const handleLike = async () => {
-    if (!user || !report) return;
+    console.log('handleLike called, user:', user?.id, 'report:', report?.id);
+    if (!user || !report) {
+      console.log('User or report not available, returning');
+      if (!user) {
+        alert('Please sign in to like reports');
+        return;
+      }
+      if (!report) {
+        alert('Report not found');
+        return;
+      }
+      return;
+    }
     
     setLikeLoading(true);
     try {
       if (report.is_liked) {
+        console.log('Unliking report:', report.id);
         // Unlike
         const { error } = await supabase
           .from('likes')
@@ -189,6 +202,7 @@ export function ReportDetail() {
           likes_count: prev.likes_count - 1
         } : null);
       } else {
+        console.log('Liking report:', report.id);
         // Like
         const { error } = await supabase
           .from('likes')
@@ -204,6 +218,7 @@ export function ReportDetail() {
       }
     } catch (error) {
       console.error('Error toggling like:', error);
+      alert('Failed to like/unlike report. Please try again.');
     } finally {
       setLikeLoading(false);
     }
@@ -211,10 +226,27 @@ export function ReportDetail() {
 
   const handleSubmitComment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !report || !commentContent.trim()) return;
+    console.log('handleSubmitComment called, user:', user?.id, 'report:', report?.id, 'content:', commentContent);
+    if (!user || !report || !commentContent.trim()) {
+      console.log('User, report, or content not available, returning');
+      if (!user) {
+        alert('Please sign in to comment');
+        return;
+      }
+      if (!report) {
+        alert('Report not found');
+        return;
+      }
+      if (!commentContent.trim()) {
+        alert('Please enter a comment');
+        return;
+      }
+      return;
+    }
 
     setSubmittingComment(true);
     try {
+      console.log('Submitting comment for report:', report.id);
       const { error } = await supabase
         .from('comments')
         .insert({
@@ -223,13 +255,25 @@ export function ReportDetail() {
           content: commentContent.trim()
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
 
-      // Refresh comments
+      console.log('Comment submitted successfully');
+      // Refresh comments and update comment count
       await fetchComments();
+      
+      // Update the report's comment count
+      setReport(prev => prev ? {
+        ...prev,
+        comments_count: prev.comments_count + 1
+      } : null);
+      
       setCommentContent('');
     } catch (error) {
       console.error('Error submitting comment:', error);
+      alert('Failed to submit comment. Please try again.');
     } finally {
       setSubmittingComment(false);
     }

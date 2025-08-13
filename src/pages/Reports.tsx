@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Plus, Search, Filter, MapPin, Calendar, User, ThumbsUp, MessageCircle, Eye, Clock, CheckCircle, XCircle, AlertTriangle, Loader2 } from 'lucide-react';
+import { Plus, Search, Filter, MapPin, Calendar, User, Heart, MessageCircle, Eye, Clock, CheckCircle, XCircle, AlertTriangle, Loader2, X } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { Report } from '../types';
 import { reportsService } from '../services/reportsService';
+import { supabase } from '../lib/supabase';
 
 const CATEGORIES = ['All', 'Infrastructure', 'Safety', 'Environmental', 'Public Services', 'Other'];
 const STATUSES = ['All', 'Pending', 'In Progress', 'Resolved', 'Rejected'];
@@ -25,13 +26,23 @@ export function Reports() {
   const [likeLoading, setLikeLoading] = useState<{ [key: string]: boolean }>({});
 
   useEffect(() => {
-    fetchReports();
-  }, [filters]);
+    // Wait for auth to be initialized before fetching reports
+    const initializeAndFetch = async () => {
+      // Wait for auth to be established
+      await new Promise(resolve => setTimeout(resolve, 500));
+      await fetchReports();
+    };
+    
+    initializeAndFetch();
+  }, [filters, user]); // Add user as dependency
 
   // Real-time subscriptions for live updates
   useEffect(() => {
+    console.log('Setting up real-time subscriptions');
+    
     // Subscribe to new reports
     const reportsSubscription = reportsService.subscribeToReports((newReport) => {
+      console.log('New report received:', newReport);
       setReports(prev => {
         // Check if report already exists
         if (prev.some(r => r.id === newReport.id)) {
@@ -44,6 +55,7 @@ export function Reports() {
 
     // Subscribe to report status changes
     const statusSubscription = reportsService.subscribeToReportStatusChanges((reportId, newStatus) => {
+      console.log('Status change received for report:', reportId, 'new status:', newStatus);
       setReports(prev => 
         prev.map(report => 
           report.id === reportId 
@@ -53,31 +65,50 @@ export function Reports() {
       );
     });
 
-    // Subscribe to likes changes
-    const likesSubscription = reportsService.subscribeToLikesChanges((reportId, likeCount) => {
+    // Subscribe to likes changes with better error handling
+    const likesSubscription = reportsService.subscribeToLikesChanges(async (reportId, likeCount) => {
+      console.log('Likes callback triggered for report:', reportId, 'count:', likeCount);
+      console.log('Current reports state before update:', reports);
+      
+      // Only update the like count, preserve the current user's like status
+      setReports(prev => {
+        const updated = prev.map(report => 
+          report.id === reportId 
+            ? { 
+                ...report, 
+                likes: { count: likeCount }
+                // Don't update is_liked here - it should be updated by the handleLike function
+                // or by the initial fetchReports call
+              }
+            : report
+        );
+        console.log('Updated reports state:', updated);
+        return updated;
+      });
+    });
+
+    // Subscribe to comments changes
+    const commentsSubscription = reportsService.subscribeToCommentsChanges((reportId, commentCount) => {
+      console.log('Comments callback triggered for report:', reportId, 'count:', commentCount);
       setReports(prev => 
         prev.map(report => 
           report.id === reportId 
-            ? { ...report, likes: { count: likeCount } }
+            ? { ...report, comments: { count: commentCount } }
             : report
         )
       );
     });
 
-    return () => {
-      reportsSubscription();
-      statusSubscription();
-      likesSubscription();
-    };
-  }, []);
+    console.log('All subscriptions set up successfully');
 
-  // Debug: Log reports data when it changes
-  useEffect(() => {
-    if (reports.length > 0) {
-      console.log('Reports loaded:', reports);
-      console.log('First report images:', reports[0]?.images);
-    }
-  }, [reports]);
+    return () => {
+      console.log('Cleaning up subscriptions');
+      if (reportsSubscription) reportsSubscription();
+      if (statusSubscription) statusSubscription();
+      if (likesSubscription) likesSubscription();
+      if (commentsSubscription) commentsSubscription();
+    };
+  }, [user]); // Add user as dependency so subscription updates when user changes
 
   // Create a fallback image data URL
   const fallbackImageUrl = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiB2aWV3Qm94PSIwIDAgMjAwIDIwMCI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiNmMGYwZjAiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE2IiBmaWxsPSIjODg4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5JbWFnZSBub3QgYXZhaWxhYmxlPC90ZXh0Pjwvc3ZnPg==";
@@ -104,16 +135,23 @@ export function Reports() {
   };
 
   const handleLike = async (reportId: string) => {
-    if (!user) return;
+    console.log('handleLike called, user:', user?.id, 'reportId:', reportId);
+    if (!user) {
+      console.log('User not authenticated, returning');
+      alert('Please sign in to like reports');
+      return;
+    }
 
     setLikeLoading(prev => ({ ...prev, [reportId]: true }));
 
     try {
+      console.log('Calling reportsService.toggleLike for report:', reportId);
       const isLiked = await reportsService.toggleLike(reportId);
+      console.log('Toggle like result:', isLiked);
       
-      // Optimistically update the UI
-      setReports(prev => 
-        prev.map(report => 
+      // Update both is_liked status and like count immediately for better UX
+      setReports(prev => {
+        const updated = prev.map(report => 
           report.id === reportId 
             ? { 
                 ...report, 
@@ -125,12 +163,13 @@ export function Reports() {
                 }
               }
             : report
-        )
-      );
+        );
+        console.log('Updated reports after like toggle:', updated);
+        return updated;
+      });
     } catch (error) {
       console.error('Error toggling like:', error);
-      // Revert optimistic update on error
-      // Could show error toast here
+      alert('Failed to like/unlike report. Please try again.');
     } finally {
       setLikeLoading(prev => ({ ...prev, [reportId]: false }));
     }
@@ -360,14 +399,22 @@ export function Reports() {
                           handleLike(report.id);
                         }}
                         disabled={likeLoading[report.id]}
-                        className={`flex items-center gap-1 text-sm transition-colors ${
-                          report.is_liked 
-                            ? 'text-blue-600' 
-                            : 'text-gray-500 hover:text-blue-600'
-                        }`}
+                        className="flex items-center gap-1 text-sm transition-colors"
                       >
-                        <ThumbsUp className={`h-4 w-4 ${report.is_liked ? 'fill-current' : ''}`} />
-                        <span>{report.likes?.count || 0}</span>
+                        {likeLoading[report.id] ? (
+                          <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
+                        ) : (
+                          <Heart 
+                            className={`h-4 w-4 transition-all duration-200 ${
+                              report.is_liked 
+                                ? 'fill-red-500 text-red-500' 
+                                : 'fill-none text-gray-500 hover:text-red-500'
+                            }`} 
+                          />
+                        )}
+                        <span className={report.is_liked ? 'text-red-500' : 'text-gray-500'}>
+                          {report.likes?.count || 0}
+                        </span>
                       </button>
                       <div className="flex items-center gap-1 text-sm text-gray-500">
                         <MessageCircle className="h-4 w-4" />

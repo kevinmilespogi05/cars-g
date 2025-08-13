@@ -143,7 +143,14 @@ export const reportsService = {
 
       // Batch fetch user profiles and user likes in parallel
       const userIds = [...new Set(reportsData.map(report => report.user_id))];
-      const { user } = await supabase.auth.getUser();
+      
+      // Get current user with better error handling
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError) {
+        console.error('Error getting user:', userError);
+        // Continue without user likes if there's an auth error
+      }
       
       const [profilesData, userLikes] = await Promise.all([
         supabase
@@ -157,17 +164,22 @@ export const reportsService = {
       ]);
 
       if (profilesData.error) throw profilesData.error;
-      if (userLikes.error) throw userLikes.error;
+      if (userLikes.error) {
+        console.error('Error fetching user likes:', userLikes.error);
+        // Continue with empty likes if there's an error
+      }
 
       // Create lookup maps
       const profilesMap = new Map(profilesData.data?.map(profile => [profile.id, profile]));
-      const likedReportIds = new Set(userLikes.data?.map(like => like.report_id));
+      const likedReportIds = new Set(userLikes.data?.map(like => like.report_id) || []);
 
-      // Combine data efficiently
+      // Combine data efficiently and ensure likes count is properly formatted
       return reportsData.map(report => ({
         ...report,
         user_profile: profilesMap.get(report.user_id),
-        is_liked: likedReportIds.has(report.id)
+        is_liked: likedReportIds.has(report.id),
+        likes: { count: report.likes?.[0]?.count || 0 },
+        comments: { count: report.comments?.[0]?.count || 0 }
       }));
     } catch (error) {
       throw new ReportsServiceError(`Failed to get reports: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -204,20 +216,26 @@ export const reportsService = {
 
   // Like/unlike report with optimistic updates
   async toggleLike(reportId: string): Promise<boolean> {
+    console.log('reportsService.toggleLike called for report:', reportId);
     const { data: { user } } = await supabase.auth.getUser();
+    console.log('Current user from auth:', user?.id);
     if (!user) throw new ReportsServiceError('User not authenticated');
 
     // Check if already liked
-    const { data: existingLike, error: checkError } = await supabase
+    console.log('Checking if user already liked report:', reportId);
+    const { data: existingLikes, error: checkError } = await supabase
       .from('likes')
       .select('id')
       .eq('report_id', reportId)
-      .eq('user_id', user.id)
-      .single();
+      .eq('user_id', user.id);
 
-    if (checkError && checkError.code !== 'PGRST116') throw checkError;
+    console.log('Existing like check result:', existingLikes, 'error:', checkError);
+    if (checkError) throw checkError;
+
+    const existingLike = existingLikes && existingLikes.length > 0 ? existingLikes[0] : null;
 
     if (existingLike) {
+      console.log('User already liked, removing like');
       // Unlike
       const { error: deleteError } = await supabase
         .from('likes')
@@ -225,8 +243,10 @@ export const reportsService = {
         .eq('id', existingLike.id);
 
       if (deleteError) throw new ReportsServiceError(`Failed to unlike report: ${deleteError.message}`);
+      console.log('Like removed successfully');
       return false;
     } else {
+      console.log('User has not liked, adding like');
       // Like
       const { error: insertError } = await supabase
         .from('likes')
@@ -236,6 +256,7 @@ export const reportsService = {
         }]);
 
       if (insertError) throw new ReportsServiceError(`Failed to like report: ${insertError.message}`);
+      console.log('Like added successfully');
       return true;
     }
   },
@@ -329,6 +350,7 @@ export const reportsService = {
 
   // Subscribe to likes changes
   subscribeToLikesChanges(callback: (reportId: string, likeCount: number) => void) {
+    console.log('Setting up likes subscription');
     const subscription = supabase
       .channel('likes_changes')
       .on(
@@ -339,22 +361,39 @@ export const reportsService = {
           table: 'likes',
         },
         async (payload) => {
+          console.log('Likes subscription triggered:', payload);
+          console.log('Event type:', payload.eventType);
+          console.log('New data:', payload.new);
+          console.log('Old data:', payload.old);
+          
           try {
             if (payload.eventType === 'INSERT') {
               // Get updated like count
-              const { count } = await supabase
+              const { count, error } = await supabase
                 .from('likes')
                 .select('*', { count: 'exact', head: true })
                 .eq('report_id', payload.new.report_id);
 
+              if (error) {
+                console.error('Error getting like count after INSERT:', error);
+                return;
+              }
+
+              console.log('Updated like count for report:', payload.new.report_id, 'count:', count);
               callback(payload.new.report_id, count || 0);
             } else if (payload.eventType === 'DELETE') {
               // Get updated like count
-              const { count } = await supabase
+              const { count, error } = await supabase
                 .from('likes')
                 .select('*', { count: 'exact', head: true })
                 .eq('report_id', payload.old.report_id);
 
+              if (error) {
+                console.error('Error getting like count after DELETE:', error);
+                return;
+              }
+
+              console.log('Updated like count for report:', payload.old.report_id, 'count:', count);
               callback(payload.old.report_id, count || 0);
             }
           } catch (error) {
@@ -365,6 +404,54 @@ export const reportsService = {
       .subscribe();
 
     return () => {
+      console.log('Cleaning up likes subscription');
+      subscription.unsubscribe();
+    };
+  },
+
+  // Subscribe to comments changes
+  subscribeToCommentsChanges(callback: (reportId: string, commentCount: number) => void) {
+    console.log('Setting up comments subscription');
+    const subscription = supabase
+      .channel('comments_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'comments',
+        },
+        async (payload) => {
+          console.log('Comments subscription triggered:', payload);
+          try {
+            if (payload.eventType === 'INSERT') {
+              // Get updated comment count
+              const { count } = await supabase
+                .from('comments')
+                .select('*', { count: 'exact', head: true })
+                .eq('report_id', payload.new.report_id);
+
+              console.log('Updated comment count for report:', payload.new.report_id, 'count:', count);
+              callback(payload.new.report_id, count || 0);
+            } else if (payload.eventType === 'DELETE') {
+              // Get updated comment count
+              const { count } = await supabase
+                .from('comments')
+                .select('*', { count: 'exact', head: true })
+                .eq('report_id', payload.old.report_id);
+
+              console.log('Updated comment count for report:', payload.old.report_id, 'count:', count);
+              callback(payload.old.report_id, count || 0);
+            }
+          } catch (error) {
+            console.error('Error in comments subscription:', error);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      console.log('Cleaning up comments subscription');
       subscription.unsubscribe();
     };
   },
