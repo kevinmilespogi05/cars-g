@@ -15,6 +15,7 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,json,vue,txt,woff2}'],
+        // Remove globDirectory to let Workbox auto-detect the correct directory
         cleanupOutdatedCaches: true,
         sourcemap: true,
         runtimeCaching: [

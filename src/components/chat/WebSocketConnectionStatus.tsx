@@ -1,77 +1,77 @@
 import React from 'react';
-import { Wifi, WifiOff, AlertCircle, CheckCircle } from 'lucide-react';
-import { useWebSocketChat } from '../../hooks/useWebSocketChat';
+import { Wifi, WifiOff, AlertCircle, Loader2 } from 'lucide-react';
 
 interface WebSocketConnectionStatusProps {
-  showText?: boolean;
-  className?: string;
+  status: 'connected' | 'connecting' | 'disconnected';
+  error?: string | null;
+  showError?: boolean;
 }
 
-export const WebSocketConnectionStatus: React.FC<WebSocketConnectionStatusProps> = ({ 
-  showText = true, 
-  className = '' 
+export const WebSocketConnectionStatus: React.FC<WebSocketConnectionStatusProps> = ({
+  status,
+  error,
+  showError = false
 }) => {
-  const { connectionStatus, error, showConnectionError } = useWebSocketChat();
+  // Debug logging
+  React.useEffect(() => {
+    const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:3001';
+    console.log('🔍 WebSocket URL being used:', wsUrl);
+    console.log('🔍 Environment variables:', {
+      VITE_WS_URL: import.meta.env.VITE_WS_URL,
+      NODE_ENV: import.meta.env.NODE_ENV,
+      MODE: import.meta.env.MODE
+    });
+  }, []);
 
-  const getStatusConfig = () => {
-    switch (connectionStatus) {
+  const getStatusIcon = () => {
+    switch (status) {
       case 'connected':
-        return {
-          icon: <CheckCircle className="w-4 h-4 text-green-500" />,
-          text: 'Connected',
-          color: 'text-green-500',
-          bgColor: 'bg-green-50 dark:bg-green-900/20',
-          borderColor: 'border-green-200 dark:border-green-800'
-        };
+        return <Wifi className="w-4 h-4 text-green-500" />;
       case 'connecting':
-        return {
-          icon: <Wifi className="w-4 h-4 text-yellow-500 animate-pulse" />,
-          text: 'Connecting...',
-          color: 'text-yellow-500',
-          bgColor: 'bg-yellow-50 dark:bg-yellow-900/20',
-          borderColor: 'border-yellow-200 dark:border-yellow-800'
-        };
+        return <Loader2 className="w-4 h-4 text-yellow-500 animate-spin" />;
       case 'disconnected':
-        return {
-          icon: <WifiOff className="w-4 h-4 text-red-500" />,
-          text: 'Disconnected',
-          color: 'text-red-500',
-          bgColor: 'bg-red-50 dark:bg-red-900/20',
-          borderColor: 'border-red-200 dark:border-red-800'
-        };
+        return <WifiOff className="w-4 h-4 text-red-500" />;
       default:
-        return {
-          icon: <WifiOff className="w-4 h-4 text-gray-500" />,
-          text: 'Unknown',
-          color: 'text-gray-500',
-          bgColor: 'bg-gray-50 dark:bg-gray-900/20',
-          borderColor: 'border-gray-200 dark:border-gray-800'
-        };
+        return <AlertCircle className="w-4 h-4 text-gray-500" />;
     }
   };
 
-  const statusConfig = getStatusConfig();
+  const getStatusText = () => {
+    switch (status) {
+      case 'connected':
+        return 'Connected';
+      case 'connecting':
+        return 'Connecting...';
+      case 'disconnected':
+        return 'Disconnected';
+      default:
+        return 'Unknown';
+    }
+  };
 
-  if (showConnectionError && error) {
-    return (
-      <div className={`flex items-center space-x-2 px-3 py-2 rounded-lg border ${statusConfig.bgColor} ${statusConfig.borderColor} ${className}`}>
-        <AlertCircle className="w-4 h-4 text-red-500" />
-        {showText && (
-          <span className="text-sm text-red-600 dark:text-red-400">
-            Connection Error: {error}
-          </span>
-        )}
-      </div>
-    );
-  }
+  const getStatusColor = () => {
+    switch (status) {
+      case 'connected':
+        return 'text-green-600';
+      case 'connecting':
+        return 'text-yellow-600';
+      case 'disconnected':
+        return 'text-red-600';
+      default:
+        return 'text-gray-600';
+    }
+  };
 
   return (
-    <div className={`flex items-center space-x-2 ${className}`}>
-      {statusConfig.icon}
-      {showText && (
-        <span className={`text-sm font-medium ${statusConfig.color}`}>
-          {statusConfig.text}
-        </span>
+    <div className="flex items-center space-x-2 text-sm">
+      {getStatusIcon()}
+      <span className={getStatusColor()}>{getStatusText()}</span>
+      
+      {showError && error && (
+        <div className="flex items-center space-x-1 text-red-600">
+          <AlertCircle className="w-3 h-3" />
+          <span className="text-xs">{error}</span>
+        </div>
       )}
     </div>
   );

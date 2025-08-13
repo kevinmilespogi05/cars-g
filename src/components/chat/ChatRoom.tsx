@@ -523,7 +523,7 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, roomName, onDelete }
       )}
 
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-4">
+      <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-6 chat-messages-container">
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center">
             <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mb-4">
@@ -538,105 +538,112 @@ export const ChatRoom: React.FC<ChatRoomProps> = ({ roomId, roomName, onDelete }
           messages.map((message) => (
             <div
               key={message.id}
-              className={`flex ${message.sender_id === user?.id ? 'justify-end' : 'justify-start'}`}
+              className={`flex ${message.sender_id === user?.id ? 'justify-end' : 'justify-start'} chat-message-enter chat-message`}
             >
-              <div
-                className={`relative max-w-[85%] sm:max-w-[70%] lg:max-w-[60%] ${
-                  message.sender_id === user?.id ? 'ml-auto' : 'mr-auto'
-                }`}
-              >
-                <div
-                  className={`px-4 py-3 rounded-2xl shadow-sm ${
-                    message.sender_id === user?.id
-                      ? 'bg-primary-color text-white rounded-br-md'
-                      : 'bg-white text-gray-900 rounded-bl-md border border-gray-100'
-                  }`}
-                >
-                  {/* Message Header */}
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center space-x-2">
-                      <span className={`font-semibold text-sm ${
-                        message.sender_id === user?.id ? 'text-white' : 'text-gray-900'
-                      }`}>
-                        {message.sender_id === user?.id ? 'You' : message.profiles?.username}
-                      </span>
-                      {/* Online indicator */}
-                      {message.sender_id !== user?.id && onlineUsers.has(message.sender_id) && (
-                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                      )}
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <span className={`text-xs ${
-                        message.sender_id === user?.id ? 'text-white/80' : 'text-gray-500'
-                      }`}>
-                        {formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}
-                      </span>
-                      {message.sender_id === user?.id && (
-                        <span className="flex items-center">
-                          {message.status === 'delivered' ? (
-                            <CheckCheck className="w-3 h-3 text-white/80" />
-                          ) : (
-                            <Check className="w-3 h-3 text-white/80" />
-                          )}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  
-                  {/* Message Content */}
-                  <p className="leading-relaxed break-words text-sm sm:text-base">
-                    {message.content}
-                  </p>
-                  
-                  {/* Message Reactions */}
-                  {(messageReactions[message.id] || []).length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-3">
-                      {messageReactions[message.id].map((reaction, index) => {
-                        const isUserReaction = message.sender_id === user?.id;
-                        return (
-                          <button
-                            key={index}
-                            onClick={() => isUserReaction && handleRemoveReaction(message.id, reaction.reaction)}
-                            className={`text-xs px-2 py-1 rounded-full transition-colors ${
-                              message.sender_id === user?.id 
-                                ? 'bg-white/20 text-white hover:bg-white/30' 
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                            }`}
-                          >
-                            {reaction.reaction} {reaction.count}
-                          </button>
-                        );
-                      })}
-                    </div>
+              <div className={`flex items-end space-x-3 max-w-xs lg:max-w-md ${message.sender_id === user?.id ? 'flex-row-reverse space-x-reverse' : ''}`}>
+                {/* Avatar */}
+                <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-medium shadow-md chat-avatar ${
+                  message.sender_id === user?.id 
+                    ? 'bg-gradient-to-br from-blue-500 to-blue-600' 
+                    : 'bg-gradient-to-br from-purple-500 to-purple-600'
+                }`}>
+                  {message.profiles?.avatar_url ? (
+                    <img 
+                      src={message.profiles.avatar_url} 
+                      alt={message.profiles.username}
+                      className="w-full h-full rounded-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-xs">
+                      {message.profiles?.username?.charAt(0).toUpperCase() || 'U'}
+                    </span>
                   )}
                 </div>
-                
-                {/* Message Actions */}
-                <div className={`flex items-center justify-end mt-2 space-x-1 ${
-                  message.sender_id === user?.id ? 'justify-end' : 'justify-start'
-                }`}>
-                  <button
-                    onClick={() => setReactionMenuOpen(reactionMenuOpen === message.id ? null : message.id)}
-                    className={`p-2 rounded-full transition-colors ${
-                      message.sender_id === user?.id 
-                        ? 'hover:bg-white/20 text-white/80 hover:text-white' 
-                        : 'hover:bg-gray-100 text-gray-400 hover:text-gray-600'
+
+                {/* Message Content */}
+                <div className={`flex flex-col ${message.sender_id === user?.id ? 'items-end' : 'items-start'}`}>
+                  {/* Username and timestamp */}
+                  <div className={`flex items-center space-x-2 mb-1 ${message.sender_id === user?.id ? 'flex-row-reverse space-x-reverse' : ''}`}>
+                    <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                      {message.sender_id === user?.id ? 'You' : message.profiles?.username || 'Unknown User'}
+                    </span>
+                    <span className="text-xs text-gray-400 dark:text-gray-500 chat-timestamp">
+                      {formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}
+                    </span>
+                    {/* Online indicator */}
+                    {message.sender_id !== user?.id && onlineUsers.has(message.sender_id) && (
+                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    )}
+                    {/* Message status for own messages */}
+                    {message.sender_id === user?.id && (
+                      <span className="flex items-center">
+                        {message.status === 'delivered' ? (
+                          <CheckCheck className="w-3 h-3 text-blue-400" />
+                        ) : (
+                          <Check className="w-3 h-3 text-blue-400" />
+                        )}
+                      </span>
+                    )}
+                  </div>
+                  
+                  {/* Message bubble */}
+                  <div
+                    className={`px-4 py-3 rounded-2xl shadow-sm transition-all duration-200 chat-message-bubble ${
+                      message.sender_id === user?.id
+                        ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-br-md own'
+                        : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 rounded-bl-md other'
                     }`}
-                    aria-label="Add reaction"
                   >
-                    <Smile className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => setSelectedMessage(selectedMessage === message.id ? null : message.id)}
-                    className={`p-2 rounded-full transition-colors ${
-                      message.sender_id === user?.id 
-                        ? 'hover:bg-white/20 text-white/80 hover:text-white' 
-                        : 'hover:bg-gray-100 text-gray-400 hover:text-gray-600'
-                    }`}
-                    aria-label="Message options"
-                  >
-                    <MoreVertical className="w-4 h-4" />
-                  </button>
+                    <p className="text-sm leading-relaxed break-words">{message.content}</p>
+                    
+                    {/* Message reactions */}
+                    {(messageReactions[message.id] || []).length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {messageReactions[message.id].map((reaction, index) => {
+                          const isUserReaction = message.sender_id === user?.id;
+                          return (
+                            <button
+                              key={index}
+                              onClick={() => isUserReaction && handleRemoveReaction(message.id, reaction.reaction)}
+                              className={`px-2 py-1 rounded-full text-xs border chat-reaction transition-colors ${
+                                message.sender_id === user?.id 
+                                  ? 'bg-blue-400/20 text-blue-100 border-blue-300/30 hover:bg-blue-400/30' 
+                                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600'
+                              }`}
+                            >
+                              {reaction.reaction} {reaction.count}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Message Actions */}
+                  <div className={`flex items-center mt-2 space-x-1 ${message.sender_id === user?.id ? 'justify-end' : 'justify-start'}`}>
+                    <button
+                      onClick={() => setReactionMenuOpen(reactionMenuOpen === message.id ? null : message.id)}
+                      className={`p-2 rounded-full transition-colors chat-reaction ${
+                        message.sender_id === user?.id 
+                          ? 'hover:bg-blue-400/20 text-blue-300 hover:text-blue-200' 
+                          : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600'
+                      }`}
+                      aria-label="Add reaction"
+                    >
+                      <Smile className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => setSelectedMessage(selectedMessage === message.id ? null : message.id)}
+                      className={`p-2 rounded-full transition-colors chat-reaction ${
+                        message.sender_id === user?.id 
+                          ? 'hover:bg-blue-400/20 text-blue-300 hover:text-blue-200' 
+                          : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600'
+                      }`}
+                      aria-label="Message options"
+                    >
+                      <MoreVertical className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

@@ -51,6 +51,25 @@ const messageLimiter = new Map();
 const server = createServer();
 const wss = new WebSocket.Server({ server });
 
+// Add health endpoint
+server.on('request', (req, res) => {
+  if (req.url === '/health' && req.method === 'GET') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      websocket: {
+        connections: wss.clients.size,
+        rooms: rooms.size,
+        users: userConnections.size
+      }
+    }));
+  } else {
+    res.writeHead(404, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Not found' }));
+  }
+});
+
 // Utility functions
 function getRateLimitKey(ip) {
   return `${ip}-${Math.floor(Date.now() / RATE_LIMIT.messages.windowMs)}`;
@@ -174,7 +193,7 @@ async function handleLeaveRoom(ws, message) {
 
 async function handleChatMessage(ws, message) {
   const { roomId, data } = message;
-  const { content, senderId, attachments } = data;
+  const { content, senderId } = data;
   
   if (!roomId || !content || !senderId) {
     sendError(ws, 'Missing required message data');
@@ -189,7 +208,6 @@ async function handleChatMessage(ws, message) {
         room_id: roomId,
         sender_id: senderId,
         content,
-        attachments: attachments || [],
         created_at: new Date().toISOString()
       })
       .select(`
@@ -435,7 +453,7 @@ function cleanupConnection(ws) {
 
 // WebSocket connection handling
 wss.on('connection', async (ws, req) => {
-  console.log('🔌 New WebSocket connection');
+  console.log('🔌 New WebSocket connection from:', req.socket.remoteAddress);
 
   // Rate limiting
   const ip = req.socket.remoteAddress;
@@ -449,10 +467,23 @@ wss.on('connection', async (ws, req) => {
   ws.isAlive = true;
   ws.on('pong', heartbeat);
 
+  // Send initial connection confirmation
+  try {
+    const confirmationMessage = {
+      type: 'connected',
+      timestamp: Date.now()
+    };
+    console.log('📤 Sending connection confirmation');
+    ws.send(JSON.stringify(confirmationMessage));
+  } catch (error) {
+    console.error('Error sending connection confirmation:', error);
+  }
+
   // Handle incoming messages
   ws.on('message', async (data) => {
     try {
       const message = JSON.parse(data);
+      console.log('📥 Received message:', message.type);
       
       // Rate limiting for messages
       if (isRateLimited(messageLimiter, ip, RATE_LIMIT.messages)) {
@@ -462,6 +493,7 @@ wss.on('connection', async (ws, req) => {
 
       switch (message.type) {
         case 'ping':
+          console.log('🏓 Received ping, sending pong');
           sendPong(ws);
           break;
 
@@ -502,7 +534,10 @@ wss.on('connection', async (ws, req) => {
 
   // Handle connection close
   ws.on('close', (code, reason) => {
-    console.log(`🔌 WebSocket connection closed: ${code} - ${reason}`);
+    console.log(`🔌 WebSocket connection closed: ${code} - ${reason || 'No reason provided'}`);
+    if (code === 1001) {
+      console.log('⚠️ Connection closed with code 1001 (going away) - this might indicate a client-side issue');
+    }
     cleanupConnection(ws);
   });
 

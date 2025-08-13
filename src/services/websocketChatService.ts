@@ -2,7 +2,7 @@ import { ChatMessage, ChatRoom, ChatParticipant } from '../types/chat';
 import { useAuthStore } from '../store/authStore';
 
 export interface WebSocketMessage {
-  type: 'message' | 'typing' | 'reaction' | 'presence' | 'join' | 'leave' | 'error' | 'ping' | 'pong';
+  type: 'message' | 'typing' | 'reaction' | 'presence' | 'join' | 'leave' | 'error' | 'ping' | 'pong' | 'connected';
   roomId?: string;
   data?: any;
   timestamp: number;
@@ -68,13 +68,20 @@ export class WebSocketChatService {
     const authStore = useAuthStore.getState();
     this.user = authStore.user;
     
+    console.log('🔍 Initializing user:', this.user?.id || 'No user');
+    
     // Listen for auth changes
     useAuthStore.subscribe((state) => {
+      console.log('🔍 Auth state changed:', state.user?.id || 'No user');
+      
       if (state.user !== this.user) {
         this.user = state.user;
+        
         if (this.user && this.connectionStatus === 'disconnected') {
+          console.log('🔍 User authenticated, attempting to connect...');
           this.connect();
         } else if (!this.user) {
+          console.log('🔍 User logged out, disconnecting...');
           this.disconnect();
         }
       }
@@ -83,6 +90,7 @@ export class WebSocketChatService {
 
   public async connect(): Promise<void> {
     if (this.connectionStatus === 'connected' || this.connectionStatus === 'connecting') {
+      console.log('🔍 Already connected or connecting, skipping connection attempt');
       return;
     }
 
@@ -91,16 +99,22 @@ export class WebSocketChatService {
       return;
     }
 
+    console.log('🔍 Starting WebSocket connection...');
+    console.log('🔍 User:', this.user.id);
+    
     this.connectionStatus = 'connecting';
     this.notifyConnectionStatus('connecting');
 
     try {
       // Connect to WebSocket server
       const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:3001';
+      console.log('🔍 Attempting to connect to WebSocket URL:', wsUrl);
+      console.log('🔍 Environment VITE_WS_URL:', import.meta.env.VITE_WS_URL);
+      
       this.ws = new WebSocket(wsUrl);
 
       this.ws.onopen = () => {
-        console.log('🔌 WebSocket connected');
+        console.log('🔌 WebSocket connected successfully');
         this.connectionStatus = 'connected';
         this.reconnectAttempts = 0;
         this.notifyConnectionStatus('connected');
@@ -116,6 +130,14 @@ export class WebSocketChatService {
       this.ws.onmessage = (event) => {
         try {
           const message: WebSocketMessage = JSON.parse(event.data);
+          console.log('📥 Received WebSocket message:', message.type);
+          
+          // Handle initial connection confirmation
+          if (message.type === 'connected') {
+            console.log('✅ Server confirmed connection');
+            return;
+          }
+          
           this.handleIncomingMessage(message);
         } catch (error) {
           console.error('Error parsing WebSocket message:', error);
@@ -128,18 +150,23 @@ export class WebSocketChatService {
         this.notifyConnectionStatus('disconnected');
         this.stopHeartbeat();
         
-        if (event.code !== 1000) { // Not a normal closure
+        // Only attempt reconnect for unexpected closures
+        if (event.code !== 1000 && event.code !== 1001) { // Not a normal closure or going away
+          console.log('🔍 Connection closed abnormally, attempting reconnect...');
           this.attemptReconnect();
+        } else {
+          console.log('🔍 Connection closed normally, not attempting reconnect');
         }
       };
 
       this.ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
+        console.error('❌ WebSocket error:', error);
+        console.error('❌ WebSocket readyState:', this.ws?.readyState);
         this.notifyError('WebSocket connection error');
       };
 
     } catch (error) {
-      console.error('Failed to connect to WebSocket:', error);
+      console.error('❌ Failed to connect to WebSocket:', error);
       this.connectionStatus = 'disconnected';
       this.notifyConnectionStatus('disconnected');
       this.attemptReconnect();
@@ -175,7 +202,7 @@ export class WebSocketChatService {
   private startHeartbeat(): void {
     this.heartbeatInterval = setInterval(() => {
       if (this.connectionStatus === 'connected' && this.ws) {
-        this.sendMessage({
+        this.sendWebSocketMessage({
           type: 'ping',
           timestamp: Date.now()
         });
@@ -190,7 +217,7 @@ export class WebSocketChatService {
     }
   }
 
-  private sendMessage(message: WebSocketMessage): void {
+  private sendWebSocketMessage(message: WebSocketMessage): void {
     if (this.connectionStatus === 'connected' && this.ws) {
       try {
         this.ws.send(JSON.stringify(message));
@@ -375,7 +402,7 @@ export class WebSocketChatService {
     this.subscribedRooms.add(roomId);
     
     if (this.connectionStatus === 'connected') {
-      this.sendMessage({
+      this.sendWebSocketMessage({
         type: 'join',
         roomId,
         timestamp: Date.now(),
@@ -388,7 +415,7 @@ export class WebSocketChatService {
     this.subscribedRooms.delete(roomId);
     
     if (this.connectionStatus === 'connected') {
-      this.sendMessage({
+      this.sendWebSocketMessage({
         type: 'leave',
         roomId,
         timestamp: Date.now(),
@@ -403,17 +430,16 @@ export class WebSocketChatService {
     this.presenceCallbacks.delete(roomId);
   }
 
-  public async sendMessage(roomId: string, content: string, attachments?: string[]): Promise<void> {
+  public async sendMessage(roomId: string, content: string): Promise<void> {
     if (!this.user) {
       throw new Error('User not authenticated');
     }
 
-    this.sendMessage({
+    this.sendWebSocketMessage({
       type: 'message',
       roomId,
       data: {
         content,
-        attachments,
         senderId: this.user.id,
         timestamp: Date.now()
       },
@@ -425,7 +451,7 @@ export class WebSocketChatService {
   public async sendTypingIndicator(roomId: string, isTyping: boolean): Promise<void> {
     if (!this.user) return;
 
-    this.sendMessage({
+    this.sendWebSocketMessage({
       type: 'typing',
       roomId,
       data: {
@@ -442,7 +468,7 @@ export class WebSocketChatService {
   public async sendReaction(messageId: string, roomId: string, reaction: string): Promise<void> {
     if (!this.user) return;
 
-    this.sendMessage({
+    this.sendWebSocketMessage({
       type: 'reaction',
       roomId,
       data: {
@@ -459,7 +485,7 @@ export class WebSocketChatService {
   public async updatePresence(roomId: string, status: 'online' | 'away' | 'busy'): Promise<void> {
     if (!this.user) return;
 
-    this.sendMessage({
+    this.sendWebSocketMessage({
       type: 'presence',
       roomId,
       data: {
