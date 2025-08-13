@@ -2,8 +2,7 @@
 export const config = {
   // API Configuration
   api: {
-    baseUrl: import.meta.env.VITE_API_URL || 'http://localhost:3001',
-    wsUrl: import.meta.env.VITE_WS_URL || 'ws://localhost:3001',
+    baseUrl: import.meta.env.VITE_API_URL || 'http://localhost:3001'
   },
   
   // Supabase Configuration
@@ -26,18 +25,6 @@ export const config = {
     enableAnalytics: import.meta.env.VITE_ENABLE_ANALYTICS === 'true',
     enablePWA: import.meta.env.VITE_ENABLE_PWA !== 'false',
   }
-};
-
-// Helper function to get WebSocket URL
-export const getWebSocketUrl = (): string => {
-  if (config.isDevelopment) {
-    return config.api.wsUrl;
-  }
-  
-  // In production, use the same domain as the API but with ws:// or wss://
-  const apiUrl = new URL(config.api.baseUrl);
-  const protocol = apiUrl.protocol === 'https:' ? 'wss:' : 'ws:';
-  return `${protocol}//${apiUrl.host}`;
 };
 
 // Helper function to get API URL

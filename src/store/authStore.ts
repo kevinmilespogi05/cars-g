@@ -91,7 +91,7 @@ export const useAuthStore = create<AuthState>((set) => ({
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
               avatar_url: session.user.user_metadata.avatar_url || null,
-              notification_settings: { chat: true, push: true, email: true }
+              notification_settings: { push: true, email: true }
             });
             
           if (createError) throw createError;
@@ -156,7 +156,7 @@ export const useAuthStore = create<AuthState>((set) => ({
                   created_at: new Date().toISOString(),
                   updated_at: new Date().toISOString(),
                   avatar_url: session.user.user_metadata.avatar_url || null,
-                  notification_settings: { chat: true, push: true, email: true }
+                  notification_settings: { push: true, email: true }
                 });
                 
               if (createError) throw createError;
@@ -319,7 +319,7 @@ export const useAuthStore = create<AuthState>((set) => ({
               role: 'user',
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
-              notification_settings: { chat: true, push: true, email: true }
+              notification_settings: { push: true, email: true }
             });
             
           if (profileError) {

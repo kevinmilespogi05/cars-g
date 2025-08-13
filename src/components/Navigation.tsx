@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { FileText, Award, MessageSquare, User, LogOut, Shield, Menu, X, ChevronDown } from 'lucide-react';
+import { FileText, Award, User, LogOut, Shield, Menu, X, ChevronDown, MessageCircle } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { supabase } from '../lib/supabase';
 
@@ -38,7 +38,7 @@ export function Navigation() {
   const navItems = [
     { path: '/reports', icon: FileText, label: 'Reports' },
     { path: '/leaderboard', icon: Award, label: 'Leaderboard' },
-    { path: '/chat', icon: MessageSquare, label: 'Chat' }
+    { path: '/chat', icon: MessageCircle, label: 'Chat' }
   ];
 
   const isActive = (path: string) => {
@@ -112,6 +112,8 @@ export function Navigation() {
                   {label}
                 </Link>
               ))}
+              
+          
               
               {/* Desktop Profile Menu */}
               <div className="relative ml-4" ref={profileMenuRef}>
@@ -240,6 +242,8 @@ export function Navigation() {
                   {label}
                 </Link>
               ))}
+              
+          
               
               {user?.role === 'admin' && (
                 <Link

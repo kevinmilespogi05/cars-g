@@ -55,3 +55,53 @@ export interface Achievement {
   earned_at: string;
   progress?: number;
 }
+
+// Chat Types
+export interface ChatConversation {
+  id: string;
+  participant1_id: string;
+  participant2_id: string;
+  created_at: string;
+  updated_at: string;
+  last_message_at: string;
+  participants?: ChatParticipant[];
+  last_message?: ChatMessage;
+  unread_count?: number;
+}
+
+export interface ChatMessage {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  content: string;
+  message_type: 'text' | 'image' | 'file' | 'location';
+  metadata?: Record<string, any>;
+  created_at: string;
+  updated_at: string;
+  sender?: {
+    id: string;
+    username: string;
+    avatar_url: string | null;
+  };
+}
+
+export interface ChatParticipant {
+  id: string;
+  conversation_id: string;
+  user_id: string;
+  joined_at: string;
+  last_read_at: string;
+  user?: {
+    id: string;
+    username: string;
+    avatar_url: string | null;
+  };
+}
+
+export interface ChatUser {
+  id: string;
+  username: string;
+  avatar_url: string | null;
+  is_online?: boolean;
+  last_seen?: string;
+}

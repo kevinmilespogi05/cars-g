@@ -3,11 +3,11 @@
 
 -- Add the notification_settings column as JSONB with a default value
 ALTER TABLE public.profiles 
-ADD COLUMN IF NOT EXISTS notification_settings JSONB DEFAULT '{"chat": true, "push": true, "email": true}'::jsonb;
+ADD COLUMN IF NOT EXISTS notification_settings JSONB DEFAULT '{"push": true, "email": true}'::jsonb;
 
 -- Update existing profiles to have the default notification settings if they don't have any
 UPDATE public.profiles 
-SET notification_settings = '{"chat": true, "push": true, "email": true}'::jsonb 
+SET notification_settings = '{"push": true, "email": true}'::jsonb 
 WHERE notification_settings IS NULL;
 
 -- Verify the column was added

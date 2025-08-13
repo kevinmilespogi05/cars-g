@@ -168,19 +168,6 @@ describe('Cars-G Deployment Tests', () => {
     })
   })
 
-  describe('Real-time Features Tests', () => {
-    it('should handle WebSocket connections', () => {
-      // Check if WebSocket connection is established
-      cy.window().then((win) => {
-        // Look for WebSocket-related errors
-        cy.spy(win.console, 'error').as('wsError')
-      })
-      
-      cy.wait(2000)
-      cy.get('@wsError').should('not.have.been.called')
-    })
-  })
-
   describe('Performance Tests', () => {
     it('should load within acceptable time', () => {
       // Measure page load time

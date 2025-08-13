@@ -10,7 +10,6 @@ import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { LeaderboardPage } from './pages/LeaderboardPage';
-import { Chat } from './pages/Chat';
 import { PrivateRoute } from './components/PrivateRoute';
 import { AdminRoute } from './components/AdminRoute';
 
@@ -42,7 +41,6 @@ export function App() {
             <Route path="/register" element={<Register />} />
             <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
             <Route path="/leaderboard" element={<LeaderboardPage />} />
-            <Route path="/chat" element={<PrivateRoute><Chat /></PrivateRoute>} />
           </Routes>
         </div>
       </div>

@@ -159,11 +159,11 @@ export interface Database {
         }
         Insert: {
           id?: string
-          name: string
-          description: string
+          name?: string
+          description?: string
           icon_url?: string | null
-          requirement_type: string
-          requirement_value: number
+          requirement_type?: string
+          requirement_value?: number
           points_reward?: number
           created_at?: string
         }
@@ -246,6 +246,88 @@ export interface Database {
           longest_streak?: number
           created_at?: string
           updated_at?: string
+        }
+      }
+      // Chat Tables
+      chat_conversations: {
+        Row: {
+          id: string
+          participant1_id: string
+          participant2_id: string
+          created_at: string
+          updated_at: string
+          last_message_at: string
+        }
+        Insert: {
+          id?: string
+          participant1_id: string
+          participant2_id: string
+          created_at?: string
+          updated_at?: string
+          last_message_at?: string
+        }
+        Update: {
+          id?: string
+          participant1_id?: string
+          participant2_id?: string
+          created_at?: string
+          updated_at?: string
+          last_message_at?: string
+        }
+      }
+      chat_messages: {
+        Row: {
+          id: string
+          conversation_id: string
+          sender_id: string
+          content: string
+          message_type: 'text' | 'image' | 'file' | 'location'
+          metadata: Record<string, any> | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          conversation_id: string
+          sender_id: string
+          content: string
+          message_type?: 'text' | 'image' | 'file' | 'location'
+          metadata?: Record<string, any> | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          conversation_id?: string
+          sender_id?: string
+          content?: string
+          message_type?: 'text' | 'image' | 'file' | 'location'
+          metadata?: Record<string, any> | null
+          created_at?: string
+          updated_at?: string
+        }
+      }
+      chat_participants: {
+        Row: {
+          id: string
+          conversation_id: string
+          user_id: string
+          joined_at: string
+          last_read_at: string
+        }
+        Insert: {
+          id?: string
+          conversation_id: string
+          user_id: string
+          joined_at?: string
+          last_read_at?: string
+        }
+        Update: {
+          id?: string
+          conversation_id?: string
+          user_id?: string
+          joined_at?: string
+          last_read_at?: string
         }
       }
     }

@@ -126,6 +126,7 @@ Write-Host "4. Verify report status updates work correctly" -ForegroundColor Whi
 
 Write-Warning "Remember to:"
 Write-Host "- Set up environment variables in Vercel and Render dashboards" -ForegroundColor White
-Write-Host "- Test WebSocket connections" -ForegroundColor White
+Write-Host "- Test frontend" -ForegroundColor White
+Write-Host "- Test backend" -ForegroundColor White
 Write-Host "- Test file uploads (if using Cloudinary)" -ForegroundColor White
 Write-Host "- Test report status updates in admin dashboard" -ForegroundColor White 

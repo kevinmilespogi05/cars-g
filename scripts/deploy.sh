@@ -111,6 +111,7 @@ echo "4. Verify report status updates work correctly"
 
 print_warning "Remember to:"
 echo "- Set up environment variables in Vercel and Render dashboards"
-echo "- Test WebSocket connections"
+echo "- Test frontend"
+echo "- Test backend"
 echo "- Test file uploads (if using Cloudinary)"
 echo "- Test report status updates in admin dashboard" 

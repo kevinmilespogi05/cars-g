@@ -16,7 +16,6 @@ import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { PrivacyPolicy } from './pages/PrivacyPolicy';
-import { Chat } from './pages/Chat';
 import { Analytics } from "@vercel/analytics/react";
 import { initializeAchievements } from './lib/initAchievements';
 import { Providers } from './components/Providers';
@@ -114,6 +113,8 @@ function App() {
               </Routes>
             </Suspense>
           </main>
+          
+      
           <PWAPrompt />
         </div>
         <Analytics />

@@ -1,1 +1,0 @@
-INSERT INTO "public"."typing_indicators" ("id", "room_id", "user_id", "is_typing", "updated_at") VALUES ('83cc48db-ecba-4a8e-b547-a858d20927b6', '6ebb355f-0677-49cd-9e28-749fb6d825d0', 'be4a7592-b416-4ed9-aab5-8fb849705471', 'false', '2025-04-21 07:18:57.354+00');

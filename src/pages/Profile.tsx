@@ -36,8 +36,7 @@ export function Profile() {
   });
   const [notificationSettings, setNotificationSettings] = useState({
     email: true,
-    push: true,
-    chat: true
+    push: true
   });
 
   const isOwnProfile = !id || (currentUser && id === currentUser.id);
@@ -367,25 +366,6 @@ export function Profile() {
                     <span
                       className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
                         notificationSettings.push ? 'translate-x-6' : 'translate-x-1'
-                      }`}
-                    />
-                  </button>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Chat Notifications</label>
-                    <p className="text-sm text-gray-600">Receive chat message notifications</p>
-                  </div>
-                  <button
-                    onClick={() => handleNotificationToggle('chat')}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      notificationSettings.chat ? 'bg-primary-color' : 'bg-gray-200'
-                    }`}
-                    aria-label={`${notificationSettings.chat ? 'Disable' : 'Enable'} chat notifications`}
-                  >
-                    <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                        notificationSettings.chat ? 'translate-x-6' : 'translate-x-1'
                       }`}
                     />
                   </button>
