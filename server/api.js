@@ -1,64 +1,21 @@
-const express = require('express');
-const cors = require('cors');
 const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
-const WebSocket = require('ws');
+const express = require('express');
+const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
+const WebSocket = require('ws');
 const { createServer } = require('http');
 
+// Add debug logging
+console.log('🚀 Initializing API and WebSocket Server...');
+
 const app = express();
-const PORT = process.env.PORT || 3001;
+const server = createServer(app);
 
-// Middleware
-app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    
-    // Allow local development
-    if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
-      return callback(null, true);
-    }
-    
-    // Allow production frontend
-    if (origin === 'https://cars-g.vercel.app' || origin === 'https://cars-g.vercel.app/') {
-      return callback(null, true);
-    }
-    
-    // Allow other origins if specified in environment
-    const allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : [];
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-    
-    // Log blocked origins for debugging
-    console.log(`Blocked origin: ${origin}`);
-    callback(new Error('Not allowed by CORS'));
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  optionsSuccessStatus: 200
-}));
-app.use(express.json());
+// Create WebSocket server attached to the same HTTP server
+const wss = new WebSocket.Server({ server });
 
-// Handle CORS preflight requests
-app.use((req, res, next) => {
-  // Set CORS headers for all responses
-  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  
-  // Handle preflight requests
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-  
-  next();
-});
-
-// Supabase client
+// Supabase configuration
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL,
   process.env.VITE_SUPABASE_ANON_KEY,
@@ -76,492 +33,21 @@ const supabase = createClient(
   }
 );
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development',
-    version: '1.0.0'
-  });
-});
+// CORS configuration
+const corsOptions = {
+  origin: [
+    process.env.FRONTEND_URL || 'https://cars-g.vercel.app',
+    'http://localhost:3000',
+    'http://localhost:5173'
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+};
 
-// API status endpoint
-app.get('/api/status', (req, res) => {
-  res.json({ 
-    message: 'Cars-G API is running',
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development',
-    version: '1.0.0'
-  });
-});
-
-// Reports API endpoints
-app.get('/api/reports', async (req, res) => {
-  try {
-    // Get reports from Supabase
-    const { data: reports, error } = await supabase
-      .from('reports')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(100);
-
-    if (error) {
-      console.error('Database error:', error);
-      return res.status(500).json({ 
-        error: 'Failed to fetch reports',
-        message: error.message 
-      });
-    }
-
-    res.json({
-      success: true,
-      data: reports,
-      count: reports.length,
-      timestamp: new Date().toISOString()
-    });
-  } catch (error) {
-    console.error('API error:', error);
-    res.status(500).json({ 
-      error: 'Internal server error',
-      message: error.message 
-    });
-  }
-});
-
-// Create report endpoint
-app.post('/api/reports', async (req, res) => {
-  try {
-    const { title, description, location, image_url, user_id } = req.body;
-
-    // Validate required fields
-    if (!title || !description) {
-      return res.status(400).json({
-        error: 'Missing required fields',
-        required: ['title', 'description']
-      });
-    }
-
-    // Insert report into Supabase
-    const { data: report, error } = await supabase
-      .from('reports')
-      .insert([{
-        title,
-        description,
-        location: location || null,
-        image_url: image_url || null,
-        user_id: user_id || null,
-        status: 'pending'
-      }])
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Database error:', error);
-      return res.status(500).json({ 
-        error: 'Failed to create report',
-        message: error.message 
-      });
-    }
-
-    // Broadcast to WebSocket clients
-    wss.clients.forEach(client => {
-      if (client.readyState === WebSocket.OPEN) {
-        client.send(JSON.stringify({
-          type: 'REPORT_CREATED',
-          data: report
-        }));
-      }
-    });
-
-    res.status(201).json({
-      success: true,
-      data: report,
-      message: 'Report created successfully'
-    });
-  } catch (error) {
-    console.error('API error:', error);
-    res.status(500).json({ 
-      error: 'Internal server error',
-      message: error.message 
-    });
-  }
-});
-
-// Update report status endpoint
-app.patch('/api/reports/:id/status', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status } = req.body;
-
-    // Validate status
-    const validStatuses = ['pending', 'in_progress', 'resolved', 'rejected'];
-    if (!validStatuses.includes(status)) {
-      return res.status(400).json({
-        error: 'Invalid status',
-        validStatuses
-      });
-    }
-
-    // Update report status
-    const { data: report, error } = await supabase
-      .from('reports')
-      .update({ status, updated_at: new Date().toISOString() })
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Database error:', error);
-      return res.status(500).json({ 
-        error: 'Failed to update report',
-        message: error.message 
-      });
-    }
-
-    if (!report) {
-      return res.status(404).json({
-        error: 'Report not found'
-      });
-    }
-
-    // Broadcast to WebSocket clients
-    wss.clients.forEach(client => {
-      if (client.readyState === WebSocket.OPEN) {
-        client.send(JSON.stringify({
-          type: 'REPORT_UPDATED',
-          data: report
-        }));
-      }
-    });
-
-    res.json({
-      success: true,
-      data: report,
-      message: 'Report status updated successfully'
-    });
-  } catch (error) {
-    console.error('API error:', error);
-    res.status(500).json({ 
-      error: 'Internal server error',
-      message: error.message 
-    });
-  }
-});
-
-// Get single report endpoint
-app.get('/api/reports/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const { data: report, error } = await supabase
-      .from('reports')
-      .select('*')
-      .eq('id', id)
-      .single();
-
-    if (error) {
-      console.error('Database error:', error);
-      return res.status(500).json({ 
-        error: 'Failed to fetch report',
-        message: error.message 
-      });
-    }
-
-    if (!report) {
-      return res.status(404).json({
-        error: 'Report not found'
-      });
-    }
-
-    res.json({
-      success: true,
-      data: report
-    });
-  } catch (error) {
-    console.error('API error:', error);
-    res.status(500).json({ 
-      error: 'Internal server error',
-      message: error.message 
-    });
-  }
-});
-
-// Cloudinary deletion endpoint
-app.delete('/api/cloudinary/:resourceType/:publicId', async (req, res) => {
-  try {
-    const { resourceType, publicId } = req.params;
-    const { authorization } = req.headers;
-
-    // Validate resource type
-    if (!['image', 'video'].includes(resourceType)) {
-      return res.status(400).json({
-        error: 'Invalid resource type',
-        message: 'Resource type must be "image" or "video"'
-      });
-    }
-
-    // Validate public ID
-    if (!publicId) {
-      return res.status(400).json({
-        error: 'Missing public ID',
-        message: 'Public ID is required'
-      });
-    }
-
-    // Check authorization
-    if (!authorization || !authorization.startsWith('Bearer ')) {
-      return res.status(401).json({
-        error: 'Unauthorized',
-        message: 'Valid Bearer token required'
-      });
-    }
-
-    const token = authorization.replace('Bearer ', '');
-    
-    try {
-      // Verify the JWT token with Supabase
-      const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-      
-      if (authError || !user) {
-        console.error('Token validation failed:', authError);
-        return res.status(401).json({
-          error: 'Unauthorized',
-          message: 'Invalid or expired token'
-        });
-      }
-      
-      console.log(`User ${user.id} authorized for Cloudinary deletion`);
-    } catch (authError) {
-      console.error('Auth error:', authError);
-      return res.status(401).json({
-        error: 'Unauthorized',
-        message: 'Token validation failed'
-      });
-    }
-
-    // Cloudinary configuration
-    const cloudName = process.env.VITE_CLOUDINARY_CLOUD_NAME;
-    const apiKey = process.env.VITE_CLOUDINARY_API_KEY;
-    const apiSecret = process.env.VITE_CLOUDINARY_API_SECRET;
-
-    if (!cloudName || !apiKey || !apiSecret) {
-      console.error('Cloudinary configuration missing');
-      return res.status(500).json({
-        error: 'Server configuration error',
-        message: 'Cloudinary is not properly configured'
-      });
-    }
-
-    // Generate timestamp and signature for Cloudinary
-    const timestamp = Math.floor(Date.now() / 1000);
-    const params = `public_id=${publicId}&timestamp=${timestamp}`;
-    
-    // In production, you should use proper crypto for signature generation
-    // This is a simplified version - consider using crypto.createHmac
-    const signature = require('crypto')
-      .createHmac('sha1', apiSecret)
-      .update(params)
-      .digest('hex');
-
-    // Delete from Cloudinary
-    const response = await fetch(
-      `https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/destroy`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          public_id: publicId,
-          api_key: apiKey,
-          signature: signature,
-          timestamp: timestamp,
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error('Cloudinary deletion failed:', {
-        status: response.status,
-        statusText: response.statusText,
-        error: errorData
-      });
-      
-      return res.status(response.status).json({
-        error: 'Cloudinary deletion failed',
-        message: errorData.error?.message || response.statusText,
-        details: errorData
-      });
-    }
-
-    const result = await response.json();
-    console.log('Cloudinary deletion successful:', result);
-
-    res.json({
-      success: true,
-      message: 'Resource deleted successfully',
-      data: result,
-      timestamp: new Date().toISOString()
-    });
-
-  } catch (error) {
-    console.error('Cloudinary deletion error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: error.message
-    });
-  }
-});
-
-// Batch Cloudinary deletion endpoint
-app.post('/api/cloudinary/batch-delete', async (req, res) => {
-  try {
-    const { resources } = req.body;
-    const { authorization } = req.headers;
-
-    // Validate request body
-    if (!resources || !Array.isArray(resources) || resources.length === 0) {
-      return res.status(400).json({
-        error: 'Invalid request body',
-        message: 'Resources array is required and must not be empty'
-      });
-    }
-
-    // Check authorization
-    if (!authorization || !authorization.startsWith('Bearer ')) {
-      return res.status(401).json({
-        error: 'Unauthorized',
-        message: 'Valid Bearer token required'
-      });
-    }
-
-    const token = authorization.replace('Bearer ', '');
-    
-    try {
-      // Verify the JWT token with Supabase
-      const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-      
-      if (authError || !user) {
-        console.error('Token validation failed:', authError);
-        return res.status(401).json({
-          error: 'Unauthorized',
-          message: 'Invalid or expired token'
-        });
-      }
-      
-      console.log(`User ${user.id} authorized for batch Cloudinary deletion`);
-    } catch (authError) {
-      console.error('Auth error:', authError);
-      return res.status(401).json({
-        error: 'Unauthorized',
-        message: 'Token validation failed'
-      });
-    }
-
-    // Cloudinary configuration
-    const cloudName = process.env.VITE_CLOUDINARY_CLOUD_NAME;
-    const apiKey = process.env.VITE_CLOUDINARY_API_KEY;
-    const apiSecret = process.env.VITE_CLOUDINARY_API_SECRET;
-
-    if (!cloudName || !apiKey || !apiSecret) {
-      console.error('Cloudinary configuration missing');
-      return res.status(500).json({
-        error: 'Server configuration error',
-        message: 'Cloudinary is not properly configured'
-      });
-    }
-
-    const results = [];
-    const errors = [];
-
-    // Process each resource deletion
-    for (const resource of resources) {
-      try {
-        const { publicId, resourceType = 'image' } = resource;
-        
-        if (!publicId) {
-          errors.push({ publicId: 'unknown', error: 'Missing public ID' });
-          continue;
-        }
-
-        // Generate timestamp and signature
-        const timestamp = Math.floor(Date.now() / 1000);
-        const params = `public_id=${publicId}&timestamp=${timestamp}`;
-        const signature = require('crypto')
-          .createHmac('sha1', apiSecret)
-          .update(params)
-          .digest('hex');
-
-        // Delete from Cloudinary
-        const response = await fetch(
-          `https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/destroy`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              public_id: publicId,
-              api_key: apiKey,
-              signature: signature,
-              timestamp: timestamp,
-            }),
-          }
-        );
-
-        if (response.ok) {
-          const result = await response.json();
-          results.push({ publicId, success: true, data: result });
-          console.log(`Successfully deleted: ${publicId}`);
-        } else {
-          const errorData = await response.json().catch(() => ({}));
-          const error = {
-            publicId,
-            error: errorData.error?.message || response.statusText,
-            status: response.status
-          };
-          errors.push(error);
-          console.error(`Failed to delete ${publicId}:`, error);
-        }
-      } catch (error) {
-        const errorInfo = {
-          publicId: resource.publicId || 'unknown',
-          error: error.message,
-          status: 'EXCEPTION'
-        };
-        errors.push(errorInfo);
-        console.error(`Exception deleting resource:`, errorInfo);
-      }
-    }
-
-    // Return results
-    res.json({
-      success: true,
-      message: `Batch deletion completed: ${results.length} successful, ${errors.length} failed`,
-      results,
-      errors,
-      summary: {
-        total: resources.length,
-        successful: results.length,
-        failed: errors.length
-      },
-      timestamp: new Date().toISOString()
-    });
-
-  } catch (error) {
-    console.error('Batch deletion error:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: error.message
-    });
-  }
-});
-
-// WebSocket server setup
-const server = createServer(app);
-const wss = new WebSocket.Server({ server });
+app.use(cors(corsOptions));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Rate limiting configuration
 const RATE_LIMIT = {
@@ -575,8 +61,14 @@ const RATE_LIMIT = {
   },
 };
 
-// Store active connections with metadata
-const connections = new Map();
+// Store active connections and room data
+const connections = new Map(); // ws -> { userId, rooms, lastSeen }
+const rooms = new Map(); // roomId -> Set of ws connections
+const userConnections = new Map(); // userId -> Set of ws connections
+const typingUsers = new Map(); // roomId -> Map of userId -> typing data
+const messageReactions = new Map(); // messageId -> Map of reaction -> count
+
+// Rate limiting
 const connectionLimiter = new Map();
 const messageLimiter = new Map();
 
@@ -603,8 +95,11 @@ function isRateLimited(limiter, ip, limit) {
   return false;
 }
 
-function heartbeat() {
-  this.isAlive = true;
+function heartbeat(ws) {
+  ws.isAlive = true;
+  if (connections.has(ws)) {
+    connections.get(ws).lastSeen = Date.now();
+  }
 }
 
 function noop() {}
@@ -628,124 +123,475 @@ wss.on('close', function close() {
   clearInterval(healthCheckInterval);
 });
 
-// Handle new connections
-wss.on('connection', (ws, req) => {
-  const ip = req.socket.remoteAddress;
+// Message handling functions
+async function handleJoinRoom(ws, message) {
+  const { roomId, userId } = message;
   
-  // Check connection rate limit
-  if (isRateLimited(connectionLimiter, ip, RATE_LIMIT.connections)) {
-    console.log(`Connection rate limited for IP: ${ip}`);
-    ws.close(1008, 'Rate limit exceeded');
+  if (!roomId || !userId) {
+    sendError(ws, 'Missing roomId or userId');
     return;
   }
 
-  console.log(`New WebSocket connection from ${ip}`);
+  // Add user to room
+  if (!rooms.has(roomId)) {
+    rooms.set(roomId, new Set());
+  }
+  rooms.get(roomId).add(ws);
+
+  // Update connection info
+  if (!connections.has(ws)) {
+    connections.set(ws, { userId, rooms: new Set(), lastSeen: Date.now() });
+  }
+  connections.get(ws).rooms.add(roomId);
+
+  // Track user connections
+  if (!userConnections.has(userId)) {
+    userConnections.set(userId, new Set());
+  }
+  userConnections.get(userId).add(ws);
+
+  // Notify other users in the room
+  broadcastToRoom(roomId, {
+    type: 'join',
+    roomId,
+    data: { userId },
+    timestamp: Date.now()
+  }, ws);
+
+  console.log(`👤 User ${userId} joined room ${roomId}`);
+}
+
+async function handleLeaveRoom(ws, message) {
+  const { roomId, userId } = message;
+  
+  if (!roomId || !userId) {
+    sendError(ws, 'Missing roomId or userId');
+    return;
+  }
+
+  // Remove user from room
+  if (rooms.has(roomId)) {
+    rooms.get(roomId).delete(ws);
+    if (rooms.get(roomId).size === 0) {
+      rooms.delete(roomId);
+    }
+  }
+
+  // Update connection info
+  if (connections.has(ws)) {
+    connections.get(ws).rooms.delete(roomId);
+  }
+
+  // Notify other users in the room
+  broadcastToRoom(roomId, {
+    type: 'leave',
+    roomId,
+    data: { userId },
+    timestamp: Date.now()
+  }, ws);
+
+  console.log(`👤 User ${userId} left room ${roomId}`);
+}
+
+async function handleChatMessage(ws, message) {
+  const { roomId, data } = message;
+  const { content, senderId, attachments } = data;
+  
+  if (!roomId || !content || !senderId) {
+    sendError(ws, 'Missing required message data');
+    return;
+  }
+
+  try {
+    // Save message to database
+    const { data: savedMessage, error } = await supabase
+      .from('chat_messages')
+      .insert({
+        room_id: roomId,
+        sender_id: senderId,
+        content,
+        attachments: attachments || [],
+        created_at: new Date().toISOString()
+      })
+      .select(`
+        *,
+        profiles:profiles(username, avatar_url)
+      `)
+      .single();
+
+    if (error) {
+      console.error('Error saving message:', error);
+      sendError(ws, 'Failed to save message');
+      return;
+    }
+
+    // Broadcast message to all users in the room
+    const chatMessage = {
+      type: 'message',
+      roomId,
+      data: savedMessage,
+      timestamp: Date.now()
+    };
+
+    broadcastToRoom(roomId, chatMessage);
+
+    console.log(`💬 Message sent in room ${roomId} by user ${senderId}`);
+    
+  } catch (error) {
+    console.error('Error handling chat message:', error);
+    sendError(ws, 'Internal server error');
+  }
+}
+
+async function handleTypingIndicator(ws, message) {
+  const { roomId, data } = message;
+  const { userId, isTyping } = data;
+  
+  if (!roomId || !userId) {
+    sendError(ws, 'Missing roomId or userId');
+    return;
+  }
+
+  // Update typing status
+  if (!typingUsers.has(roomId)) {
+    typingUsers.set(roomId, new Map());
+  }
+
+  if (isTyping) {
+    typingUsers.get(roomId).set(userId, {
+      timestamp: Date.now(),
+      isTyping: true
+    });
+  } else {
+    typingUsers.get(roomId).delete(userId);
+  }
+
+  // Broadcast typing indicator to other users in the room
+  broadcastToRoom(roomId, {
+    type: 'typing',
+    roomId,
+    data: { userId, isTyping },
+    timestamp: Date.now()
+  }, ws);
+
+  // Clean up typing indicator after 5 seconds
+  if (isTyping) {
+    setTimeout(() => {
+      if (typingUsers.has(roomId) && typingUsers.get(roomId).has(userId)) {
+        typingUsers.get(roomId).delete(userId);
+        broadcastToRoom(roomId, {
+          type: 'typing',
+          roomId,
+          data: { userId, isTyping: false },
+          timestamp: Date.now()
+        });
+      }
+    }, 5000);
+  }
+}
+
+async function handleMessageReaction(ws, message) {
+  const { roomId, data } = message;
+  const { messageId, userId, reaction } = data;
+  
+  if (!roomId || !messageId || !userId || !reaction) {
+    sendError(ws, 'Missing reaction data');
+    return;
+  }
+
+  try {
+    // Save reaction to database
+    const { error } = await supabase
+      .from('message_reactions')
+      .upsert({
+        message_id: messageId,
+        user_id: userId,
+        reaction,
+        created_at: new Date().toISOString()
+      }, {
+        onConflict: 'message_id,user_id,reaction'
+      });
+
+    if (error) {
+      console.error('Error saving reaction:', error);
+      sendError(ws, 'Failed to save reaction');
+      return;
+    }
+
+    // Get reaction count
+    const { count } = await supabase
+      .from('message_reactions')
+      .select('*', { count: 'exact' })
+      .eq('message_id', messageId)
+      .eq('reaction', reaction);
+
+    // Broadcast reaction to all users in the room
+    broadcastToRoom(roomId, {
+      type: 'reaction',
+      roomId,
+      data: { messageId, reaction, count: count || 0 },
+      timestamp: Date.now()
+    });
+
+    console.log(`👍 Reaction ${reaction} added to message ${messageId} by user ${userId}`);
+    
+  } catch (error) {
+    console.error('Error handling message reaction:', error);
+    sendError(ws, 'Internal server error');
+  }
+}
+
+async function handlePresenceUpdate(ws, message) {
+  const { roomId, data } = message;
+  const { userId, status } = data;
+  
+  if (!roomId || !userId || !status) {
+    sendError(ws, 'Missing presence data');
+    return;
+  }
+
+  // Broadcast presence update to other users in the room
+  broadcastToRoom(roomId, {
+    type: 'presence',
+    roomId,
+    data: { userId, status, lastSeen: Date.now() },
+    timestamp: Date.now()
+  }, ws);
+
+  console.log(`👤 User ${userId} presence updated to ${status} in room ${roomId}`);
+}
+
+// Broadcasting functions
+function broadcastToRoom(roomId, message, excludeWs = null) {
+  if (!rooms.has(roomId)) return;
+
+  const roomConnections = rooms.get(roomId);
+  roomConnections.forEach(ws => {
+    if (ws !== excludeWs && ws.readyState === WebSocket.OPEN) {
+      try {
+        ws.send(JSON.stringify(message));
+      } catch (error) {
+        console.error('Error broadcasting message:', error);
+      }
+    }
+  });
+}
+
+function sendError(ws, error) {
+  if (ws.readyState === WebSocket.OPEN) {
+    try {
+      ws.send(JSON.stringify({
+        type: 'error',
+        data: { error },
+        timestamp: Date.now()
+      }));
+    } catch (err) {
+      console.error('Error sending error message:', err);
+    }
+  }
+}
+
+function sendPong(ws) {
+  if (ws.readyState === WebSocket.OPEN) {
+    try {
+      ws.send(JSON.stringify({
+        type: 'pong',
+        timestamp: Date.now()
+      }));
+    } catch (error) {
+      console.error('Error sending pong:', error);
+    }
+  }
+}
+
+// Cleanup functions
+function cleanupConnection(ws) {
+  const connection = connections.get(ws);
+  if (!connection) return;
+
+  const { userId, rooms: userRooms } = connection;
+
+  // Remove from all rooms
+  userRooms.forEach(roomId => {
+    if (rooms.has(roomId)) {
+      rooms.get(roomId).delete(ws);
+      if (rooms.get(roomId).size === 0) {
+        rooms.delete(roomId);
+      }
+    }
+
+    // Notify other users
+    broadcastToRoom(roomId, {
+      type: 'leave',
+      roomId,
+      data: { userId },
+      timestamp: Date.now()
+    });
+  });
+
+  // Remove from user connections
+  if (userConnections.has(userId)) {
+    userConnections.get(userId).delete(ws);
+    if (userConnections.get(userId).size === 0) {
+      userConnections.delete(userId);
+    }
+  }
+
+  // Clean up typing indicators
+  typingUsers.forEach((userMap, roomId) => {
+    if (userMap.has(userId)) {
+      userMap.delete(userId);
+      broadcastToRoom(roomId, {
+        type: 'typing',
+        roomId,
+        data: { userId, isTyping: false },
+        timestamp: Date.now()
+      });
+    }
+  });
+
+  connections.delete(ws);
+  console.log(`🔌 Connection cleaned up for user ${userId}`);
+}
+
+// WebSocket connection handling
+wss.on('connection', async (ws, req) => {
+  console.log('🔌 New WebSocket connection');
+
+  // Rate limiting
+  const ip = req.socket.remoteAddress;
+  if (isRateLimited(connectionLimiter, ip, RATE_LIMIT.connections)) {
+    console.log('Rate limit exceeded for connection');
+    ws.close(1008, 'Rate limit exceeded');
+    return;
+  }
   
   // Set up connection
   ws.isAlive = true;
   ws.on('pong', heartbeat);
   
-  // Store connection metadata
-  const connectionId = Date.now().toString() + Math.random().toString(36).substr(2, 9);
-  connections.set(connectionId, {
-    ws,
-    ip,
-    connectedAt: new Date(),
-    userId: null
-  });
-  
-  ws.connectionId = connectionId;
-
-  // Handle authentication
+  // Handle incoming messages
   ws.on('message', async (data) => {
     try {
       const message = JSON.parse(data);
       
-      if (message.type === 'auth') {
-        const { accessToken } = message;
-        
-        if (!accessToken) {
-          ws.send(JSON.stringify({ type: 'error', message: 'Access token required' }));
+      // Rate limiting for messages
+      if (isRateLimited(messageLimiter, ip, RATE_LIMIT.messages)) {
+        sendError(ws, 'Rate limit exceeded');
           return;
         }
 
-        try {
-          const { data: { user }, error } = await supabase.auth.getUser(accessToken);
-          
-          if (error || !user) {
-            ws.send(JSON.stringify({ type: 'error', message: 'Invalid access token' }));
-            return;
-          }
+      switch (message.type) {
+        case 'ping':
+          sendPong(ws);
+          break;
 
-          // Update connection with user info
-          const connection = connections.get(connectionId);
-          if (connection) {
-            connection.userId = user.id;
-            connection.user = user;
-          }
+        case 'join':
+          await handleJoinRoom(ws, message);
+          break;
 
-          ws.send(JSON.stringify({ 
-            type: 'auth_success', 
-            user: { id: user.id, email: user.email }
-          }));
-          
-          console.log(`User ${user.id} authenticated on connection ${connectionId}`);
-        } catch (authError) {
-          console.error('Authentication error:', authError);
-          ws.send(JSON.stringify({ type: 'error', message: 'Authentication failed' }));
-        }
+        case 'leave':
+          await handleLeaveRoom(ws, message);
+          break;
+
+        case 'message':
+          await handleChatMessage(ws, message);
+          break;
+
+        case 'typing':
+          await handleTypingIndicator(ws, message);
+          break;
+
+        case 'reaction':
+          await handleMessageReaction(ws, message);
+          break;
+
+        case 'presence':
+          await handlePresenceUpdate(ws, message);
+          break;
+
+        default:
+          console.warn('Unknown message type:', message.type);
+          sendError(ws, 'Unknown message type');
       }
-      
-      // Handle other message types here...
-      
+
     } catch (error) {
-      console.error('Message parsing error:', error);
-      ws.send(JSON.stringify({ type: 'error', message: 'Invalid message format' }));
+      console.error('Error handling message:', error);
+      sendError(ws, 'Invalid message format');
     }
   });
 
   // Handle connection close
-  ws.on('close', () => {
-    console.log(`Connection ${connectionId} closed`);
-    connections.delete(connectionId);
+  ws.on('close', (code, reason) => {
+    console.log(`🔌 WebSocket connection closed: ${code} - ${reason}`);
+    cleanupConnection(ws);
   });
 
   // Handle errors
   ws.on('error', (error) => {
-    console.error(`WebSocket error on connection ${connectionId}:`, error);
-    connections.delete(connectionId);
+    console.error('WebSocket error:', error);
+    cleanupConnection(ws);
   });
-
-  // Send welcome message
-  ws.send(JSON.stringify({ 
-    type: 'connected', 
-    message: 'Connected to Cars-G WebSocket server',
-    connectionId 
-  }));
 });
 
-// Start server
-server.listen(PORT, () => {
-  console.log(`🚀 Cars-G API server running on port ${PORT}`);
-  console.log(`📡 WebSocket server ready for connections`);
-  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🔗 Health check: http://localhost:${PORT}/health`);
-  console.log(`📊 API status: http://localhost:${PORT}/api/status`);
+// API Routes
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    websocket: {
+      connections: wss.clients.size,
+      rooms: rooms.size,
+      users: userConnections.size
+    }
+  });
+});
+
+app.get('/', (req, res) => {
+  res.json({
+    message: 'Cars-G API Server',
+    version: '1.0.0',
+    websocket: {
+      connections: wss.clients.size,
+      rooms: rooms.size,
+      users: userConnections.size
+    }
+  });
 });
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
-  console.log('SIGTERM received, shutting down gracefully');
+  console.log('🛑 Shutting down API and WebSocket server...');
+  wss.close(() => {
+    console.log('✅ WebSocket server closed');
   server.close(() => {
-    console.log('Server closed');
+      console.log('✅ HTTP server closed');
     process.exit(0);
+    });
   });
 });
 
 process.on('SIGINT', () => {
-  console.log('SIGINT received, shutting down gracefully');
+  console.log('🛑 Shutting down API and WebSocket server...');
+  wss.close(() => {
+    console.log('✅ WebSocket server closed');
   server.close(() => {
-    console.log('Server closed');
+      console.log('✅ HTTP server closed');
     process.exit(0);
   });
 }); 
+});
+
+// Start server
+const PORT = process.env.PORT || process.env.WS_PORT || 3001;
+server.listen(PORT, () => {
+  console.log(`🚀 API and WebSocket Server running on port ${PORT}`);
+  console.log(`📊 Active WebSocket connections: ${wss.clients.size}`);
+  console.log(`🏠 Active rooms: ${rooms.size}`);
+  console.log(`👥 Connected users: ${userConnections.size}`);
+});
+
+// Log server stats periodically
+setInterval(() => {
+  console.log(`📊 Server Stats - HTTP: ${PORT}, WS Connections: ${wss.clients.size}, Rooms: ${rooms.size}, Users: ${userConnections.size}`);
+}, 60000); // Every minute 

@@ -5,7 +5,8 @@
   "main": "api.js",
   "scripts": {
     "start": "node api.js",
-    "dev": "nodemon api.js"
+    "dev": "nodemon api.js",
+    "websocket": "node websocket.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.4",

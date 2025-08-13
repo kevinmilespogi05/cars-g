@@ -2,17 +2,21 @@ services:
   - type: web
     name: cars-g-api
     env: node
-    plan: starter
-    buildCommand: cd server && npm install
-    startCommand: cd server && npm start
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
     envVars:
       - key: NODE_ENV
         value: production
+      - key: PORT
+        value: 3001
+      - key: WS_PORT
+        value: 3001
       - key: VITE_SUPABASE_URL
         sync: false
       - key: VITE_SUPABASE_ANON_KEY
         sync: false
       - key: FRONTEND_URL
-        sync: false
+        value: https://cars-g.vercel.app
     healthCheckPath: /health
     autoDeploy: true 

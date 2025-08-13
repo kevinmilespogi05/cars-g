@@ -5,7 +5,7 @@ const { createClient } = require('@supabase/supabase-js');
 const { createServer } = require('http');
 
 // Add debug logging
-console.log('Initializing WebSocket server...');
+console.log('🚀 Initializing WebSocket Chat Server...');
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL,
@@ -36,15 +36,16 @@ const RATE_LIMIT = {
   },
 };
 
-// Store active connections with metadata
-const connections = new Map();
+// Store active connections and room data
+const connections = new Map(); // ws -> { userId, rooms, lastSeen }
+const rooms = new Map(); // roomId -> Set of ws connections
+const userConnections = new Map(); // userId -> Set of ws connections
+const typingUsers = new Map(); // roomId -> Map of userId -> typing data
+const messageReactions = new Map(); // messageId -> Map of reaction -> count
+
+// Rate limiting
 const connectionLimiter = new Map();
 const messageLimiter = new Map();
-
-// Connection pooling and optimization
-const connectionPool = new Map();
-const messageQueue = new Map(); // Per-room message queue
-const BATCH_INTERVAL = 16; // ~60fps for smooth real-time updates
 
 // Create HTTP server
 const server = createServer();
@@ -75,6 +76,9 @@ function isRateLimited(limiter, ip, limit) {
 
 function heartbeat(ws) {
   ws.isAlive = true;
+  if (connections.has(ws)) {
+    connections.get(ws).lastSeen = Date.now();
+  }
 }
 
 function noop() {}
@@ -98,450 +102,444 @@ wss.on('close', function close() {
   clearInterval(healthCheckInterval);
 });
 
-// Optimize connection handling
-wss.on('connection', (ws, req) => {
-  const ip = req.socket.remoteAddress;
+// Message handling functions
+async function handleJoinRoom(ws, message) {
+  const { roomId, userId } = message;
   
-  // Check connection rate limit
-  if (isRateLimited(connectionLimiter, ip, RATE_LIMIT.connections)) {
-    console.warn(`Connection rate limit exceeded for IP: ${ip}`);
-    ws.send(JSON.stringify({
-      type: 'error',
-      data: {
-        code: 'RATE_LIMIT_EXCEEDED',
-        message: 'Too many connection attempts. Please try again later.',
-      },
-    }));
-    return ws.close(1008, 'Rate limit exceeded');
+  if (!roomId || !userId) {
+    sendError(ws, 'Missing roomId or userId');
+    return;
   }
 
-  console.log('New client connected from:', ip);
-  
-  // Setup connection tracking with optimized metadata
-  ws.isAlive = true;
-  ws.ip = ip;
-  ws.connectionTime = Date.now(); // Use timestamp instead of Date object
-  ws.messageCount = 0;
-  ws.lastPing = Date.now();
-  
-  // Optimize heartbeat handling
-  ws.on('pong', () => {
-    ws.lastPing = Date.now();
-    heartbeat(ws);
-  });
-  
-  ws.on('ping', () => {
-    ws.lastPing = Date.now();
-    ws.pong();
-  });
+  // Add user to room
+  if (!rooms.has(roomId)) {
+    rooms.set(roomId, new Set());
+  }
+  rooms.get(roomId).add(ws);
 
-  // Handle incoming messages with reduced overhead
-  ws.on('message', async (message) => {
-    try {
-      // Check message rate limit
-      if (isRateLimited(messageLimiter, ip, RATE_LIMIT.messages)) {
-        throw new Error('Message rate limit exceeded');
-      }
+  // Update connection info
+  if (!connections.has(ws)) {
+    connections.set(ws, { userId, rooms: new Set(), lastSeen: Date.now() });
+  }
+  connections.get(ws).rooms.add(roomId);
 
-      // Handle heartbeat messages efficiently
-      if (message.toString() === 'ping') {
-        ws.lastPing = Date.now();
-        ws.send('pong');
+  // Track user connections
+  if (!userConnections.has(userId)) {
+    userConnections.set(userId, new Set());
+  }
+  userConnections.get(userId).add(ws);
+
+  // Notify other users in the room
+  broadcastToRoom(roomId, {
+    type: 'join',
+    roomId,
+    data: { userId },
+    timestamp: Date.now()
+  }, ws);
+
+  console.log(`👤 User ${userId} joined room ${roomId}`);
+}
+
+async function handleLeaveRoom(ws, message) {
+  const { roomId, userId } = message;
+  
+  if (!roomId || !userId) {
+    sendError(ws, 'Missing roomId or userId');
         return;
       }
 
-      // Parse and validate message with size check first
-      const messageSize = message.length;
-      if (messageSize > 1024 * 1024) { // 1MB limit
-        throw new Error('Message size exceeds limit');
-      }
+  // Remove user from room
+  if (rooms.has(roomId)) {
+    rooms.get(roomId).delete(ws);
+    if (rooms.get(roomId).size === 0) {
+      rooms.delete(roomId);
+    }
+  }
 
-      let parsedMessage;
+  // Update connection info
+  if (connections.has(ws)) {
+    connections.get(ws).rooms.delete(roomId);
+  }
+
+  // Notify other users in the room
+  broadcastToRoom(roomId, {
+    type: 'leave',
+    roomId,
+    data: { userId },
+    timestamp: Date.now()
+  }, ws);
+
+  console.log(`👤 User ${userId} left room ${roomId}`);
+}
+
+async function handleChatMessage(ws, message) {
+  const { roomId, data } = message;
+  const { content, senderId, attachments } = data;
+  
+  if (!roomId || !content || !senderId) {
+    sendError(ws, 'Missing required message data');
+    return;
+  }
+
+  try {
+    // Save message to database
+    const { data: savedMessage, error } = await supabase
+      .from('chat_messages')
+      .insert({
+        room_id: roomId,
+        sender_id: senderId,
+        content,
+        attachments: attachments || [],
+        created_at: new Date().toISOString()
+      })
+      .select(`
+        *,
+        profiles:profiles(username, avatar_url)
+      `)
+      .single();
+
+    if (error) {
+      console.error('Error saving message:', error);
+      sendError(ws, 'Failed to save message');
+      return;
+    }
+
+    // Broadcast message to all users in the room
+    const chatMessage = {
+      type: 'message',
+      roomId,
+      data: savedMessage,
+      timestamp: Date.now()
+    };
+
+    broadcastToRoom(roomId, chatMessage);
+
+    console.log(`💬 Message sent in room ${roomId} by user ${senderId}`);
+    
+  } catch (error) {
+    console.error('Error handling chat message:', error);
+    sendError(ws, 'Internal server error');
+  }
+}
+
+async function handleTypingIndicator(ws, message) {
+  const { roomId, data } = message;
+  const { userId, isTyping } = data;
+  
+    if (!roomId || !userId) {
+    sendError(ws, 'Missing roomId or userId');
+    return;
+  }
+
+  // Update typing status
+  if (!typingUsers.has(roomId)) {
+    typingUsers.set(roomId, new Map());
+  }
+
+  if (isTyping) {
+    typingUsers.get(roomId).set(userId, {
+      timestamp: Date.now(),
+      isTyping: true
+    });
+  } else {
+    typingUsers.get(roomId).delete(userId);
+  }
+
+  // Broadcast typing indicator to other users in the room
+  broadcastToRoom(roomId, {
+    type: 'typing',
+    roomId,
+    data: { userId, isTyping },
+    timestamp: Date.now()
+  }, ws);
+
+  // Clean up typing indicator after 5 seconds
+  if (isTyping) {
+    setTimeout(() => {
+      if (typingUsers.has(roomId) && typingUsers.get(roomId).has(userId)) {
+        typingUsers.get(roomId).delete(userId);
+        broadcastToRoom(roomId, {
+          type: 'typing',
+          roomId,
+          data: { userId, isTyping: false },
+          timestamp: Date.now()
+        });
+      }
+    }, 5000);
+  }
+}
+
+async function handleMessageReaction(ws, message) {
+  const { roomId, data } = message;
+  const { messageId, userId, reaction } = data;
+  
+  if (!roomId || !messageId || !userId || !reaction) {
+    sendError(ws, 'Missing reaction data');
+    return;
+  }
+
+  try {
+    // Save reaction to database
+    const { error } = await supabase
+      .from('message_reactions')
+      .upsert({
+        message_id: messageId,
+        user_id: userId,
+        reaction,
+        created_at: new Date().toISOString()
+      }, {
+        onConflict: 'message_id,user_id,reaction'
+      });
+
+    if (error) {
+      console.error('Error saving reaction:', error);
+      sendError(ws, 'Failed to save reaction');
+      return;
+    }
+
+    // Get reaction count
+    const { count } = await supabase
+      .from('message_reactions')
+      .select('*', { count: 'exact' })
+      .eq('message_id', messageId)
+      .eq('reaction', reaction);
+
+    // Broadcast reaction to all users in the room
+    broadcastToRoom(roomId, {
+      type: 'reaction',
+      roomId,
+      data: { messageId, reaction, count: count || 0 },
+      timestamp: Date.now()
+    });
+
+    console.log(`👍 Reaction ${reaction} added to message ${messageId} by user ${userId}`);
+    
+  } catch (error) {
+    console.error('Error handling message reaction:', error);
+    sendError(ws, 'Internal server error');
+  }
+}
+
+async function handlePresenceUpdate(ws, message) {
+  const { roomId, data } = message;
+  const { userId, status } = data;
+  
+  if (!roomId || !userId || !status) {
+    sendError(ws, 'Missing presence data');
+    return;
+  }
+
+  // Broadcast presence update to other users in the room
+  broadcastToRoom(roomId, {
+    type: 'presence',
+    roomId,
+    data: { userId, status, lastSeen: Date.now() },
+    timestamp: Date.now()
+  }, ws);
+
+  console.log(`👤 User ${userId} presence updated to ${status} in room ${roomId}`);
+}
+
+// Broadcasting functions
+function broadcastToRoom(roomId, message, excludeWs = null) {
+  if (!rooms.has(roomId)) return;
+
+  const roomConnections = rooms.get(roomId);
+  roomConnections.forEach(ws => {
+    if (ws !== excludeWs && ws.readyState === WebSocket.OPEN) {
       try {
-        parsedMessage = JSON.parse(message);
-      } catch (e) {
-        throw new Error('Invalid message format: not valid JSON');
-      }
-
-      const { type, data } = parsedMessage;
-
-      if (!type || !data) {
-        throw new Error('Invalid message format: missing type or data');
-      }
-
-      // Process message immediately without extra logging
-      switch (type) {
-        case 'message':
-          await handleMessage(ws, data);
-          break;
-        case 'typing':
-          handleTyping(ws, data);
-          break;
-        case 'reaction':
-          await handleReaction(ws, data);
-          break;
-        case 'message_update':
-          await handleMessageUpdate(ws, data);
-          break;
-        case 'message_delete':
-          await handleMessageDelete(ws, data);
-          break;
-        case 'REPORT_CREATED':
-          await handleReportCreated(ws, data);
-          break;
-        case 'REPORT_UPDATED':
-          await handleReportUpdated(ws, data);
-          break;
-        default:
-          throw new Error(`Unsupported message type: ${type}`);
-      }
-
-      // Update message count
-      ws.messageCount++;
-
-    } catch (error) {
-      console.error('Error processing message:', error);
-      // Send error response only for critical errors
-      if (error.message.includes('rate limit') || error.message.includes('size')) {
-        ws.send(JSON.stringify({
-          type: 'error',
-          data: { message: error.message }
-        }));
+        ws.send(JSON.stringify(message));
+      } catch (error) {
+        console.error('Error broadcasting message:', error);
       }
     }
   });
+}
 
-  // Handle connection errors
-  ws.on('error', (error) => {
-    console.error('WebSocket error:', error);
+function sendError(ws, error) {
+  if (ws.readyState === WebSocket.OPEN) {
     try {
-      const errorResponse = {
+      ws.send(JSON.stringify({
         type: 'error',
-        data: {
-          code: 'CONNECTION_ERROR',
-          message: 'A connection error occurred',
-        },
-      };
+        data: { error },
+        timestamp: Date.now()
+      }));
+    } catch (err) {
+      console.error('Error sending error message:', err);
+    }
+  }
+}
 
-      if (process.env.NODE_ENV !== 'production') {
-        errorResponse.data.details = error.message;
+function sendPong(ws) {
+  if (ws.readyState === WebSocket.OPEN) {
+    try {
+      ws.send(JSON.stringify({
+        type: 'pong',
+        timestamp: Date.now()
+      }));
+    } catch (error) {
+      console.error('Error sending pong:', error);
+    }
+  }
+}
+
+// Cleanup functions
+function cleanupConnection(ws) {
+  const connection = connections.get(ws);
+  if (!connection) return;
+
+  const { userId, rooms: userRooms } = connection;
+
+  // Remove from all rooms
+  userRooms.forEach(roomId => {
+    if (rooms.has(roomId)) {
+      rooms.get(roomId).delete(ws);
+      if (rooms.get(roomId).size === 0) {
+        rooms.delete(roomId);
+      }
+    }
+
+    // Notify other users
+    broadcastToRoom(roomId, {
+      type: 'leave',
+      roomId,
+      data: { userId },
+      timestamp: Date.now()
+    });
+  });
+
+  // Remove from user connections
+  if (userConnections.has(userId)) {
+    userConnections.get(userId).delete(ws);
+    if (userConnections.get(userId).size === 0) {
+      userConnections.delete(userId);
+    }
+  }
+
+  // Clean up typing indicators
+  typingUsers.forEach((userMap, roomId) => {
+    if (userMap.has(userId)) {
+      userMap.delete(userId);
+      broadcastToRoom(roomId, {
+        type: 'typing',
+        roomId,
+        data: { userId, isTyping: false },
+        timestamp: Date.now()
+      });
+    }
+  });
+
+  connections.delete(ws);
+  console.log(`🔌 Connection cleaned up for user ${userId}`);
+}
+
+// WebSocket connection handling
+wss.on('connection', async (ws, req) => {
+  console.log('🔌 New WebSocket connection');
+
+  // Rate limiting
+  const ip = req.socket.remoteAddress;
+  if (isRateLimited(connectionLimiter, ip, RATE_LIMIT.connections)) {
+    console.log('Rate limit exceeded for connection');
+    ws.close(1008, 'Rate limit exceeded');
+    return;
+  }
+
+  // Set up connection
+  ws.isAlive = true;
+  ws.on('pong', heartbeat);
+
+  // Handle incoming messages
+  ws.on('message', async (data) => {
+    try {
+      const message = JSON.parse(data);
+      
+      // Rate limiting for messages
+      if (isRateLimited(messageLimiter, ip, RATE_LIMIT.messages)) {
+        sendError(ws, 'Rate limit exceeded');
+        return;
       }
 
-      ws.send(JSON.stringify(errorResponse));
-    } catch (e) {
-      console.error('Failed to send error message to client:', e);
+      switch (message.type) {
+        case 'ping':
+          sendPong(ws);
+          break;
+
+        case 'join':
+          await handleJoinRoom(ws, message);
+          break;
+
+        case 'leave':
+          await handleLeaveRoom(ws, message);
+          break;
+
+        case 'message':
+          await handleChatMessage(ws, message);
+          break;
+
+        case 'typing':
+          await handleTypingIndicator(ws, message);
+          break;
+
+        case 'reaction':
+          await handleMessageReaction(ws, message);
+          break;
+
+        case 'presence':
+          await handlePresenceUpdate(ws, message);
+          break;
+
+        default:
+          console.warn('Unknown message type:', message.type);
+          sendError(ws, 'Unknown message type');
+      }
+
+    } catch (error) {
+      console.error('Error handling message:', error);
+      sendError(ws, 'Invalid message format');
     }
   });
 
   // Handle connection close
-  ws.on('close', () => {
-    console.log('Client disconnected:', ip);
-    // Clean up any resources
-    for (const [roomId, clients] of connections.entries()) {
-      const index = clients.indexOf(ws);
-      if (index !== -1) {
-        clients.splice(index, 1);
-        if (clients.length === 0) {
-          connections.delete(roomId);
-        }
-      }
-    }
+  ws.on('close', (code, reason) => {
+    console.log(`🔌 WebSocket connection closed: ${code} - ${reason}`);
+    cleanupConnection(ws);
+  });
+
+  // Handle errors
+  ws.on('error', (error) => {
+    console.error('WebSocket error:', error);
+    cleanupConnection(ws);
   });
 });
 
-// Message handlers
-async function handleMessage(ws, data) {
-  try {
-    const { roomId, content, userId } = data;
-    
-    // Validate required fields
-    if (!roomId || !content || !userId) {
-      throw new Error('Invalid message data: roomId, content, and userId are required');
-    }
-
-    // Validate content length
-    if (content.length > 5000) { // 5000 character limit
-      throw new Error('Message content exceeds maximum length');
-    }
-
-    console.log('Handling message for room:', roomId);
-    
-    // Store the connection
-    if (!connections.has(roomId)) {
-      connections.set(roomId, []);
-    }
-    if (!connections.get(roomId).includes(ws)) {
-      connections.get(roomId).push(ws);
-    }
-
-    // Broadcast to all clients in the room immediately
-    const messageData = {
-      type: 'message',
-      data: {
-        ...data,
-        timestamp: new Date().toISOString(),
-      },
-    };
-
-    // Use more efficient broadcasting
-    broadcastToRoomOptimized(roomId, ws, messageData);
-    
-  } catch (error) {
-    console.error('Error in handleMessage:', error);
-    throw error;
-  }
-}
-
-function handleTyping(ws, data) {
-  try {
-    const { roomId, userId, isTyping } = data;
-    
-    // Validate required fields
-    if (!roomId || !userId) {
-      throw new Error('Invalid typing data: roomId and userId are required');
-    }
-
-    console.log('Handling typing indicator for room:', roomId);
-    
-    broadcastToRoom(roomId, ws, {
-      type: 'typing',
-      data: {
-        ...data,
-        timestamp: new Date().toISOString(),
-      },
-    });
-  } catch (error) {
-    console.error('Error in handleTyping:', error);
-    throw error;
-  }
-}
-
-async function handleReaction(ws, data) {
-  try {
-    const { messageId, reaction } = data;
-    if (!messageId || !reaction) {
-      throw new Error('Invalid reaction data: messageId and reaction are required');
-    }
-
-    console.log('Handling reaction for message:', messageId);
-    
-    // Get the room ID from the message
-    const { data: message, error } = await supabase
-      .from('chat_messages')
-      .select('room_id')
-      .eq('id', messageId)
-      .single();
-
-    if (error) throw error;
-    if (!message) throw new Error('Message not found');
-
-    broadcastToRoom(message.room_id, null, {
-      type: 'reaction',
-      data
-    });
-  } catch (error) {
-    console.error('Error in handleReaction:', error);
-    throw error;
-  }
-}
-
-async function handleMessageUpdate(ws, data) {
-  try {
-    const { messageId, content, roomId, userId } = data;
-    
-    // Validate required fields
-    if (!messageId || !content || !roomId || !userId) {
-      throw new Error('Invalid message update data: messageId, content, roomId, and userId are required');
-    }
-
-    // Validate content length
-    if (content.length > 5000) {
-      throw new Error('Updated message content exceeds maximum length');
-    }
-
-    console.log('Handling message update for message:', messageId);
-    
-    broadcastToRoom(roomId, null, {
-      type: 'message_update',
-      data: {
-        ...data,
-        timestamp: new Date().toISOString(),
-      },
-    });
-  } catch (error) {
-    console.error('Error in handleMessageUpdate:', error);
-    throw error;
-  }
-}
-
-async function handleMessageDelete(ws, data) {
-  try {
-    const { messageId, roomId, userId } = data;
-    
-    // Validate required fields
-    if (!messageId || !roomId || !userId) {
-      throw new Error('Invalid message delete data: messageId, roomId, and userId are required');
-    }
-
-    console.log('Handling message delete for message:', messageId);
-    
-    broadcastToRoom(roomId, null, {
-      type: 'message_delete',
-      data: {
-        ...data,
-        timestamp: new Date().toISOString(),
-      },
-    });
-  } catch (error) {
-    console.error('Error in handleMessageDelete:', error);
-    throw error;
-  }
-}
-
-// Report handlers for faster real-time updates
-async function handleReportCreated(ws, data) {
-  try {
-    const { reportId, reportData } = data;
-    
-    // Validate required fields
-    if (!reportId || !reportData) {
-      throw new Error('Invalid report data: reportId and reportData are required');
-    }
-
-    console.log('Handling report creation:', reportId);
-    
-    // Broadcast to all clients immediately
-    const messageData = {
-      type: 'REPORT_CREATED',
-      data: {
-        ...reportData,
-        timestamp: new Date().toISOString(),
-      },
-    };
-
-    // Use optimized broadcasting for reports
-    broadcastToAllOptimized(messageData);
-    
-  } catch (error) {
-    console.error('Error in handleReportCreated:', error);
-    throw error;
-  }
-}
-
-async function handleReportUpdated(ws, data) {
-  try {
-    const { reportId, updates } = data;
-    
-    // Validate required fields
-    if (!reportId || !updates) {
-      throw new Error('Invalid report update data: reportId and updates are required');
-    }
-
-    console.log('Handling report update:', reportId);
-    
-    // Broadcast to all clients immediately
-    const messageData = {
-      type: 'REPORT_UPDATED',
-      data: {
-        reportId,
-        updates,
-        timestamp: new Date().toISOString(),
-      },
-    };
-
-    // Use optimized broadcasting for reports
-    broadcastToAllOptimized(messageData);
-    
-  } catch (error) {
-    console.error('Error in handleReportUpdated:', error);
-    throw error;
-  }
-}
-
-function broadcastToRoom(roomId, sender, message) {
-  const clients = connections.get(roomId) || [];
-  const messageStr = JSON.stringify(message);
-
-  clients.forEach((client) => {
-    if (client !== sender && client.readyState === WebSocket.OPEN) {
-      try {
-        client.send(messageStr);
-      } catch (error) {
-        console.error('Error broadcasting to client:', error);
-      }
-    }
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('🛑 Shutting down WebSocket server...');
+  wss.close(() => {
+    console.log('✅ WebSocket server closed');
+    process.exit(0);
   });
-}
-
-// Optimized broadcasting function
-function broadcastToRoomOptimized(roomId, sender, message) {
-  const roomConnections = connections.get(roomId);
-  if (!roomConnections) return;
-
-  const messageStr = JSON.stringify(message);
-  const deadConnections = [];
-
-  // Send to all connections in parallel
-  roomConnections.forEach((connection) => {
-    try {
-      if (connection.readyState === WebSocket.OPEN) {
-        connection.send(messageStr);
-      } else {
-        deadConnections.push(connection);
-      }
-    } catch (error) {
-      console.error('Error broadcasting message:', error);
-      deadConnections.push(connection);
-    }
-  });
-
-  // Clean up dead connections
-  if (deadConnections.length > 0) {
-    connections.set(roomId, roomConnections.filter(conn => !deadConnections.includes(conn)));
-  }
-}
-
-// Optimized broadcasting to all clients
-function broadcastToAllOptimized(message) {
-  const messageStr = JSON.stringify(message);
-  const deadConnections = [];
-
-  // Send to all connections in parallel
-  wss.clients.forEach((client) => {
-    try {
-      if (client.readyState === WebSocket.OPEN) {
-        client.send(messageStr);
-      } else {
-        deadConnections.push(client);
-      }
-    } catch (error) {
-      console.error('Error broadcasting to client:', error);
-      deadConnections.push(client);
-    }
-  });
-
-  // Clean up dead connections
-  if (deadConnections.length > 0) {
-    deadConnections.forEach(client => {
-      try {
-        client.terminate();
-      } catch (error) {
-        console.error('Error terminating dead connection:', error);
-      }
-    });
-  }
-}
-
-// Start the server
-const PORT = process.env.WS_PORT || 3001;
-server.listen(PORT, () => {
-  console.log(`WebSocket server is running on port ${PORT}`);
 });
 
 process.on('SIGINT', () => {
-  console.log('Shutting down WebSocket server...');
+  console.log('🛑 Shutting down WebSocket server...');
   wss.close(() => {
-    console.log('WebSocket server closed');
+    console.log('✅ WebSocket server closed');
     process.exit(0);
   });
 }); 
+
+// Start server
+const PORT = process.env.WS_PORT || 3001;
+server.listen(PORT, () => {
+  console.log(`🚀 WebSocket Chat Server running on port ${PORT}`);
+  console.log(`📊 Active connections: ${wss.clients.size}`);
+  console.log(`🏠 Active rooms: ${rooms.size}`);
+  console.log(`👥 Connected users: ${userConnections.size}`);
+});
+
+// Log server stats periodically
+setInterval(() => {
+  console.log(`📊 Server Stats - Connections: ${wss.clients.size}, Rooms: ${rooms.size}, Users: ${userConnections.size}`);
+}, 60000); // Every minute 
