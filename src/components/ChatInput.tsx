@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { PaperPlaneIcon, PaperclipIcon, ImageIcon, MapPinIcon } from 'lucide-react';
+import { SendIcon, PaperclipIcon, ImageIcon, MapPinIcon } from 'lucide-react';
 
 interface ChatInputProps {
   onSendMessage: (content: string, messageType: string) => void;
@@ -208,7 +208,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           }`}
           title="Send message"
         >
-          <PaperPlaneIcon size={20} />
+          <SendIcon size={20} />
         </button>
       </div>
 
