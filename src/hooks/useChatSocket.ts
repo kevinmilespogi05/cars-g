@@ -102,6 +102,11 @@ export const useChatSocket = ({
       onMessage?.(message);
     });
 
+    socket.on('message_deleted', (data: { messageId: string; conversationId: string }) => {
+      console.log('Message deleted:', data);
+      // This will be handled by the Chat component to remove the message from the UI
+    });
+
     socket.on('user_typing', (data) => {
       onTyping?.(data.userId, data.username);
     });
@@ -130,11 +135,17 @@ export const useChatSocket = ({
     socket.off('user_stopped_typing');
     socket.off('authenticated');
     socket.off('auth_error');
+    socket.off('message_deleted');
 
     // Add new listeners
     socket.on('new_message', (message: ChatMessage) => {
       console.log('New message received:', message);
       onMessage?.(message);
+    });
+
+    socket.on('message_deleted', (data: { messageId: string; conversationId: string }) => {
+      console.log('Message deleted:', data);
+      // This will be handled by the Chat component to remove the message from the UI
     });
 
     socket.on('user_typing', (data) => {

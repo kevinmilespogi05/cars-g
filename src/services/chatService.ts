@@ -104,4 +104,18 @@ export class ChatService {
       return 0;
     }
   }
+
+  // Delete a message
+  static async deleteMessage(messageId: string, userId: string): Promise<boolean> {
+    try {
+      const response = await this.request<{ success: boolean; messageId: string }>(`/api/chat/messages/${messageId}`, {
+        method: 'DELETE',
+        body: JSON.stringify({ userId })
+      });
+      return response.success;
+    } catch (error) {
+      console.error('Failed to delete message:', error);
+      return false;
+    }
+  }
 } 

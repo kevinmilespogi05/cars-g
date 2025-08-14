@@ -1,19 +1,42 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { ChatMessage as ChatMessageType } from '../types';
 import { useAuthStore } from '../store/authStore';
 import { formatDistanceToNow } from 'date-fns';
+import { Trash2Icon, MoreVerticalIcon } from 'lucide-react';
 
 interface ChatMessageProps {
   message: ChatMessageType;
   profiles?: any[];
+  onDeleteMessage?: (messageId: string) => void;
+  canDelete?: boolean;
 }
 
-export const ChatMessage: React.FC<ChatMessageProps> = ({ message, profiles = [] }) => {
+export const ChatMessage: React.FC<ChatMessageProps> = ({ 
+  message, 
+  profiles = [], 
+  onDeleteMessage,
+  canDelete = false 
+}) => {
   const { user } = useAuthStore();
   const isOwnMessage = message.sender_id === user?.id;
+  const [showDeleteMenu, setShowDeleteMenu] = useState(false);
 
   // Get sender details from profiles
   const sender = profiles.find(p => p.id === message.sender_id);
+
+  // Close delete menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showDeleteMenu && !event.target) {
+        setShowDeleteMenu(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showDeleteMenu]);
 
   const formatMessageTime = (timestamp: string) => {
     try {
@@ -21,6 +44,18 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message, profiles = []
     } catch {
       return 'Unknown time';
     }
+  };
+
+  const handleDeleteMessage = () => {
+    if (onDeleteMessage && canDelete) {
+      onDeleteMessage(message.id);
+      setShowDeleteMenu(false);
+    }
+  };
+
+  const handleDeleteClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowDeleteMenu(!showDeleteMenu);
   };
 
   const renderMessageContent = () => {
@@ -218,11 +253,37 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message, profiles = []
         >
           {renderMessageContent()}
           
-          {/* Message Time */}
-          <div className={`text-xs mt-2 ${
+          {/* Message Time and Delete Button */}
+          <div className={`flex items-center justify-between mt-2 ${
             isOwnMessage ? 'text-white/80' : 'text-gray-500'
           }`}>
-            {formatMessageTime(message.created_at)}
+            <span className="text-xs">{formatMessageTime(message.created_at)}</span>
+            
+            {/* Delete Button for Own Messages */}
+            {isOwnMessage && canDelete && onDeleteMessage && (
+              <div className="relative">
+                <button
+                  onClick={handleDeleteClick}
+                  className="p-1 hover:bg-white/20 rounded transition-colors"
+                  title="Delete message"
+                >
+                  <MoreVerticalIcon size={12} />
+                </button>
+                
+                {/* Delete Menu */}
+                {showDeleteMenu && (
+                  <div className="absolute bottom-full right-0 mb-2 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+                    <button
+                      onClick={handleDeleteMessage}
+                      className="flex items-center space-x-2 w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-t-lg transition-colors"
+                    >
+                      <Trash2Icon size={14} />
+                      <span>Delete for everyone</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

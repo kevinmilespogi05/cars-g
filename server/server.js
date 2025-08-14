@@ -172,6 +172,49 @@ app.post('/api/chat/conversations', async (req, res) => {
   }
 });
 
+// Delete message endpoint
+app.delete('/api/chat/messages/:messageId', async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const { userId } = req.body; // The user requesting the deletion
+    
+    // First, get the message to verify ownership
+    const { data: message, error: fetchError } = await supabase
+      .from('chat_messages')
+      .select('*')
+      .eq('id', messageId)
+      .single();
+
+    if (fetchError || !message) {
+      return res.status(404).json({ error: 'Message not found' });
+    }
+
+    // Check if the user is the sender of the message
+    if (message.sender_id !== userId) {
+      return res.status(403).json({ error: 'You can only delete your own messages' });
+    }
+
+    // Delete the message
+    const { error: deleteError } = await supabase
+      .from('chat_messages')
+      .delete()
+      .eq('id', messageId);
+
+    if (deleteError) throw deleteError;
+
+    // Broadcast deletion to all users in the conversation
+    io.to(`conversation_${message.conversation_id}`).emit('message_deleted', {
+      messageId,
+      conversationId: message.conversation_id
+    });
+
+    res.json({ success: true, messageId });
+  } catch (error) {
+    console.error('Error deleting message:', error);
+    res.status(500).json({ error: 'Failed to delete message' });
+  }
+});
+
 // Socket.IO connection handling
 const connectedUsers = new Map();
 

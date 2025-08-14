@@ -157,6 +157,31 @@ export const Chat: React.FC = () => {
     }
   };
 
+  const handleDeleteMessage = async (messageId: string) => {
+    if (!selectedConversation || !user) return;
+
+    try {
+      // Remove message from local state immediately for better UX
+      setMessages(prev => prev.filter(msg => msg.id !== messageId));
+      
+      // Send delete request to server
+      const success = await ChatService.deleteMessage(messageId, user.id);
+      
+      if (!success) {
+        // If deletion failed, restore the message
+        console.error('Failed to delete message from server');
+        // You could show an error toast here
+        // For now, we'll just log the error
+      } else {
+        console.log('Message deleted successfully:', messageId);
+      }
+      
+    } catch (error) {
+      console.error('Failed to delete message:', error);
+      // Could show an error toast here
+    }
+  };
+
   const handleTypingStart = () => {
     if (selectedConversation) {
       startTyping(selectedConversation.id);
@@ -334,9 +359,15 @@ export const Chat: React.FC = () => {
                 </div>
               ) : (
                                  <>
-                   {messages.map((message) => (
-                     <ChatMessage key={message.id} message={message} profiles={profiles} />
-                   ))}
+                                       {messages.map((message) => (
+                      <ChatMessage 
+                        key={message.id} 
+                        message={message} 
+                        profiles={profiles}
+                        onDeleteMessage={handleDeleteMessage}
+                        canDelete={true}
+                      />
+                    ))}
                   
                   {/* Typing indicator */}
                   {typingUsers.size > 0 && (
