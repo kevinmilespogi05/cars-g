@@ -87,7 +87,21 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    strictPort: true
+    strictPort: true,
+    proxy: {
+      '/api': {
+        target: 'https://cars-g-api.onrender.com',
+        changeOrigin: true,
+        secure: true,
+        rewrite: (path) => path
+      },
+      '/socket.io': {
+        target: 'https://cars-g-api.onrender.com',
+        changeOrigin: true,
+        secure: true,
+        ws: true
+      }
+    }
   },
   optimizeDeps: {
     include: ['react', 'react-dom', 'react-router-dom'],

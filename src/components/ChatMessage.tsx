@@ -5,11 +5,15 @@ import { formatDistanceToNow } from 'date-fns';
 
 interface ChatMessageProps {
   message: ChatMessageType;
+  profiles?: any[];
 }
 
-export const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
+export const ChatMessage: React.FC<ChatMessageProps> = ({ message, profiles = [] }) => {
   const { user } = useAuthStore();
   const isOwnMessage = message.sender_id === user?.id;
+
+  // Get sender details from profiles
+  const sender = profiles.find(p => p.id === message.sender_id);
 
   const formatMessageTime = (timestamp: string) => {
     try {
@@ -29,6 +33,38 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
         );
       
       case 'image':
+        console.log('Rendering image message:', {
+          content: message.content,
+          messageType: message.message_type,
+          messageId: message.id
+        });
+        
+        // Handle legacy image messages (old format: "Image: filename.jpg")
+        if (message.content && message.content.startsWith('Image: ')) {
+          return (
+            <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
+              <div className="flex items-center space-x-2">
+                <div className="text-gray-400 text-xl">🖼️</div>
+                <div>
+                  <p className="text-sm text-gray-600">Legacy image message</p>
+                  <p className="text-xs text-gray-500 mt-1">{message.content}</p>
+                </div>
+              </div>
+            </div>
+          );
+        }
+        
+        // Validate that content is a valid URL
+        if (!message.content || !message.content.startsWith('http')) {
+          console.error('Invalid image URL:', message.content);
+          return (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-sm text-red-600">Invalid image URL</p>
+              <p className="text-xs text-red-500 mt-1">{message.content}</p>
+            </div>
+          );
+        }
+        
         return (
           <div className="max-w-xs">
             <img
@@ -36,11 +72,34 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
               alt="Shared image"
               className="rounded-lg max-w-full h-auto cursor-pointer hover:opacity-90 transition-opacity border border-gray-200"
               onClick={() => window.open(message.content, '_blank')}
+              onError={(e) => {
+                console.error('Image failed to load:', message.content);
+                e.currentTarget.style.display = 'none';
+                e.currentTarget.nextElementSibling?.classList.remove('hidden');
+              }}
             />
+            <div className="hidden p-2 bg-gray-100 border border-gray-200 rounded text-xs text-gray-500">
+              Image failed to load: {message.content}
+            </div>
           </div>
         );
       
       case 'file':
+        // Handle legacy file messages (old format: "File: filename.ext")
+        if (message.content && message.content.startsWith('File: ')) {
+          return (
+            <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
+              <div className="flex items-center space-x-2">
+                <div className="text-gray-400 text-xl">📎</div>
+                <div>
+                  <p className="text-sm text-gray-600">Legacy file message</p>
+                  <p className="text-xs text-gray-500 mt-1">{message.content}</p>
+                </div>
+              </div>
+            </div>
+          );
+        }
+        
         return (
           <div className="flex items-center space-x-2 p-3 bg-gray-100 rounded-lg border border-gray-200">
             <div className="text-blue-500 text-xl">
@@ -64,6 +123,30 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
         );
       
       case 'location':
+        // Handle legacy location messages (old format: "Location: lat, lng")
+        if (message.content && message.content.startsWith('Location: ')) {
+          const coords = message.content.replace('Location: ', '').split(', ');
+          const [lat, lng] = coords;
+          
+          return (
+            <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
+              <div className="flex items-center space-x-2">
+                <div className="text-gray-400 text-xl">📍</div>
+                <div>
+                  <p className="text-sm text-gray-600">Legacy location message</p>
+                  <p className="text-xs text-gray-500 mt-1">Coordinates: {lat}, {lng}</p>
+                  <button
+                    onClick={() => window.open(`https://maps.google.com/?q=${lat},${lng}`, '_blank')}
+                    className="mt-2 px-2 py-1 text-xs bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
+                  >
+                    View on Map
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        }
+        
         return (
           <div className="p-3 bg-gray-100 rounded-lg border border-gray-200">
             <div className="flex items-center space-x-2">
@@ -81,7 +164,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
                   const [lat, lng] = message.metadata.coordinates;
                   window.open(`https://maps.google.com/?q=${lat},${lng}`, '_blank');
                 }}
-                className="mt-2 px-3 py-1 text-xs bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
+                className="mt-2 px-2 py-1 text-xs bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
               >
                 View on Map
               </button>
@@ -104,21 +187,21 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
         {/* Avatar and Username */}
         {!isOwnMessage && (
           <div className="flex items-center space-x-2 mb-2">
-            {message.sender?.avatar_url ? (
+            {sender?.avatar_url ? (
               <img
-                src={message.sender.avatar_url}
-                alt={message.sender.username}
+                src={sender.avatar_url}
+                alt={sender.username}
                 className="w-6 h-6 rounded-full object-cover border border-gray-200"
               />
             ) : (
               <div className="w-6 h-6 rounded-full bg-gray-300 flex items-center justify-center border border-gray-200">
                 <span className="text-gray-600 text-xs font-semibold">
-                  {message.sender?.username?.charAt(0).toUpperCase() || 'U'}
+                  {sender?.username?.charAt(0).toUpperCase() || message.sender_id.charAt(0).toUpperCase()}
                 </span>
               </div>
             )}
             <span className="text-xs text-gray-500 font-medium">
-              {message.sender?.username || 'Unknown User'}
+              {sender?.username || `User ${message.sender_id.slice(0, 8)}`}
             </span>
           </div>
         )}

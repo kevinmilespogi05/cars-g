@@ -2,7 +2,7 @@
 // This file contains end-to-end tests for the deployed application
 
 describe('Cars-G Deployment Tests', () => {
-  const FRONTEND_URL = 'https://cars-g.vercel.app/'
+  const FRONTEND_URL = 'https://cars-g.vercel.app'
   const BACKEND_URL = 'https://cars-g-api.onrender.com'
   
   beforeEach(() => {

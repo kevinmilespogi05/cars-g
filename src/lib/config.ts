@@ -2,7 +2,7 @@
 export const config = {
   // API Configuration
   api: {
-    baseUrl: import.meta.env.VITE_API_URL || 'http://localhost:3001'
+    baseUrl: import.meta.env.DEV ? 'http://localhost:3001' : (import.meta.env.VITE_API_URL || 'https://cars-g-api.onrender.com')
   },
   
   // Supabase Configuration

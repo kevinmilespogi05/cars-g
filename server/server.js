@@ -36,9 +36,12 @@ const server = createServer(app);
 const io = new Server(server, {
   cors: {
     origin: process.env.FRONTEND_URL || "http://localhost:5173",
-    methods: ["GET", "POST"],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true
-  }
+  },
+  transports: ['websocket', 'polling'],
+  allowEIO3: true
 });
 
 // Initialize Supabase client
@@ -91,36 +94,51 @@ app.get('/health', (req, res) => {
 app.get('/api/chat/conversations/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
-    const { data, error } = await supabase
+    console.log('Fetching conversations for user:', userId);
+    
+    // First, get the conversations
+    const { data: conversations, error: convError } = await supabase
       .from('chat_conversations')
-      .select(`
-        *,
-        participants:chat_participants(user_id, profiles(username, avatar_url))
-      `)
+      .select('*')
       .or(`participant1_id.eq.${userId},participant2_id.eq.${userId}`);
 
-    if (error) throw error;
-    res.json(data);
+    if (convError) {
+      console.error('Error fetching conversations:', convError);
+      throw convError;
+    }
+
+    console.log('Found conversations:', conversations);
+
+    // For now, return basic conversation data without complex joins
+    // We can add participant details later if needed
+    res.json(conversations || []);
   } catch (error) {
     console.error('Error fetching conversations:', error);
-    res.status(500).json({ error: 'Failed to fetch conversations' });
+    res.status(500).json({ error: 'Failed to fetch conversations', details: error.message });
   }
 });
 
 app.get('/api/chat/messages/:conversationId', async (req, res) => {
   try {
     const { conversationId } = req.params;
+    console.log('Fetching messages for conversation:', conversationId);
+    
     const { data, error } = await supabase
       .from('chat_messages')
       .select('*')
       .eq('conversation_id', conversationId)
       .order('created_at', { ascending: true });
 
-    if (error) throw error;
-    res.json(data);
+    if (error) {
+      console.error('Error fetching messages:', error);
+      throw error;
+    }
+
+    console.log('Found messages:', data?.length || 0);
+    res.json(data || []);
   } catch (error) {
     console.error('Error fetching messages:', error);
-    res.status(500).json({ error: 'Failed to fetch messages' });
+    res.status(500).json({ error: 'Failed to fetch messages', details: error.message });
   }
 });
 
@@ -208,6 +226,14 @@ io.on('connection', (socket) => {
   socket.on('send_message', async (messageData) => {
     try {
       const { conversation_id, sender_id, content, message_type = 'text' } = messageData;
+      
+      console.log('Received message from socket:', {
+        conversation_id,
+        sender_id,
+        content: content.substring(0, 100) + (content.length > 100 ? '...' : ''),
+        message_type,
+        socketId: socket.id
+      });
 
       // Save message to Supabase
       const { data: message, error } = await supabase
@@ -222,6 +248,12 @@ io.on('connection', (socket) => {
         .single();
 
       if (error) throw error;
+      
+      console.log('Message saved to database:', {
+        messageId: message.id,
+        messageType: message.message_type,
+        contentLength: message.content?.length || 0
+      });
 
       // Get conversation participants
       const { data: conversation, error: convError } = await supabase
@@ -237,6 +269,13 @@ io.on('connection', (socket) => {
         ...message,
         sender: connectedUsers.get(sender_id)?.user
       };
+
+      console.log('Broadcasting message to clients:', {
+        messageId: messageWithUser.id,
+        messageType: messageWithUser.message_type,
+        contentLength: messageWithUser.content?.length || 0,
+        conversationId: conversation_id
+      });
 
       io.to(`conversation_${conversation_id}`).emit('new_message', messageWithUser);
 

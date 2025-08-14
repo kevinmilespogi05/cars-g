@@ -3,11 +3,13 @@ import { ChatConversationList } from '../components/ChatConversationList';
 import { ChatMessage } from '../components/ChatMessage';
 import { ChatInput } from '../components/ChatInput';
 import { ChatDemo } from '../components/ChatDemo';
+import { NewConversationModal } from '../components/NewConversationModal';
 import { ChatConversation, ChatMessage as ChatMessageType } from '../types';
 import { ChatService } from '../services/chatService';
 import { useChatSocket } from '../hooks/useChatSocket';
 import { useAuthStore } from '../store/authStore';
 import { ArrowLeftIcon, MessageCircleIcon, PlusIcon } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 export const Chat: React.FC = () => {
   const { user } = useAuthStore();
@@ -19,6 +21,7 @@ export const Chat: React.FC = () => {
   const [typingUsers, setTypingUsers] = useState<Set<string>>(new Set());
   const [showNewConversation, setShowNewConversation] = useState(false);
   const [showDemo, setShowDemo] = useState(false);
+  const [profiles, setProfiles] = useState<any[]>([]);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [showMobileConversationList, setShowMobileConversationList] = useState(true);
@@ -67,10 +70,11 @@ export const Chat: React.FC = () => {
     onAuthError: (error) => console.error('Chat auth error:', error),
   });
 
-  // Load conversations on mount
+  // Load conversations and profiles on mount
   useEffect(() => {
     if (user?.id) {
       loadConversations();
+      loadProfiles();
     }
   }, [user?.id]);
 
@@ -114,6 +118,20 @@ export const Chat: React.FC = () => {
     }
   };
 
+  const loadProfiles = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, username, email, avatar_url')
+        .eq('is_banned', false);
+
+      if (error) throw error;
+      setProfiles(data || []);
+    } catch (err) {
+      console.error('Error loading profiles:', err);
+    }
+  };
+
   const loadMessages = async (conversationId: string) => {
     try {
       setLoading(true);
@@ -127,10 +145,16 @@ export const Chat: React.FC = () => {
     }
   };
 
-  const handleSendMessage = (content: string, messageType: string) => {
-    if (!selectedConversation) return;
+  const handleSendMessage = async (content: string, messageType: string): Promise<boolean> => {
+    if (!selectedConversation) return false;
 
-    sendMessage(selectedConversation.id, content, messageType);
+    try {
+      sendMessage(selectedConversation.id, content, messageType);
+      return true; // Assume success for now, could be enhanced with actual confirmation
+    } catch (error) {
+      console.error('Failed to send message:', error);
+      return false;
+    }
   };
 
   const handleTypingStart = () => {
@@ -156,14 +180,22 @@ export const Chat: React.FC = () => {
       ? conversation.participant2_id 
       : conversation.participant1_id;
     
-    // For now, return a placeholder. In a real app, you'd fetch user details
-    return `User ${otherId.slice(0, 8)}`;
+    // Try to find the user in the profiles data
+    const otherUser = profiles.find(p => p.id === otherId);
+    return otherUser ? otherUser.username : `User ${otherId.slice(0, 8)}`;
   };
 
   const handleNewConversation = () => {
     setShowNewConversation(true);
-    // In a real app, you'd show a user selection modal
-    alert('New conversation feature coming soon! Select a user to start chatting.');
+  };
+
+  const handleConversationCreated = (conversation: ChatConversation) => {
+    // Add the new conversation to the list
+    setConversations(prev => [conversation, ...prev]);
+    // Select the new conversation
+    setSelectedConversation(conversation);
+    // Close the modal
+    setShowNewConversation(false);
   };
 
   const handleStartChat = () => {
@@ -218,6 +250,7 @@ export const Chat: React.FC = () => {
               conversations={conversations}
               onSelectConversation={setSelectedConversation}
               selectedConversationId={selectedConversation?.id}
+              profiles={profiles}
             />
           </div>
         </div>
@@ -246,6 +279,7 @@ export const Chat: React.FC = () => {
                   setShowMobileConversationList(false);
                 }}
                 selectedConversationId={selectedConversation?.id}
+                profiles={profiles}
               />
             </div>
           </div>
@@ -299,10 +333,10 @@ export const Chat: React.FC = () => {
                   <p className="text-sm">Start the conversation by sending a message!</p>
                 </div>
               ) : (
-                <>
-                  {messages.map((message) => (
-                    <ChatMessage key={message.id} message={message} />
-                  ))}
+                                 <>
+                   {messages.map((message) => (
+                     <ChatMessage key={message.id} message={message} profiles={profiles} />
+                   ))}
                   
                   {/* Typing indicator */}
                   {typingUsers.size > 0 && (
@@ -347,6 +381,13 @@ export const Chat: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* New Conversation Modal */}
+      <NewConversationModal
+        isOpen={showNewConversation}
+        onClose={() => setShowNewConversation(false)}
+        onConversationCreated={handleConversationCreated}
+      />
     </div>
   );
 }; 

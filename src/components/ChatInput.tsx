@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { SendIcon, PaperclipIcon, ImageIcon, MapPinIcon } from 'lucide-react';
+import { SendIcon, PaperclipIcon, ImageIcon, MapPinIcon, Loader2, AlertCircleIcon, RefreshCwIcon } from 'lucide-react';
+import { cloudinary } from '../lib/cloudinary';
 
 interface ChatInputProps {
-  onSendMessage: (content: string, messageType: string) => void;
+  onSendMessage: (content: string, messageType: string) => Promise<boolean>;
   onTypingStart: () => void;
   onTypingStop: () => void;
   disabled?: boolean;
@@ -19,6 +20,16 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const [message, setMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [showAttachments, setShowAttachments] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [unsentMessages, setUnsentMessages] = useState<Array<{
+    id: string;
+    content: string;
+    messageType: string;
+    timestamp: Date;
+    error?: string;
+    isRetrying?: boolean;
+  }>>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout>();
@@ -51,16 +62,55 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     }, 1000);
   };
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (!message.trim() || disabled) return;
 
-    onSendMessage(message.trim(), 'text');
+    const messageContent = message.trim();
+    const messageId = `unsent_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Add message to unsent list immediately
+    const unsentMessage = {
+      id: messageId,
+      content: messageContent,
+      messageType: 'text' as const,
+      timestamp: new Date(),
+    };
+    
+    setUnsentMessages(prev => [...prev, unsentMessage]);
     setMessage('');
     setIsTyping(false);
     onTypingStop();
     
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
+    }
+
+    try {
+      // Try to send the message
+      const success = await onSendMessage(messageContent, 'text');
+      
+      if (success) {
+        // Remove from unsent list if successful
+        setUnsentMessages(prev => prev.filter(msg => msg.id !== messageId));
+      } else {
+        // Mark as failed if not successful
+        setUnsentMessages(prev => 
+          prev.map(msg => 
+            msg.id === messageId 
+              ? { ...msg, error: 'Failed to send message' }
+              : msg
+          )
+        );
+      }
+    } catch (error) {
+      // Mark as failed if error occurs
+      setUnsentMessages(prev => 
+        prev.map(msg => 
+          msg.id === messageId 
+            ? { ...msg, error: error instanceof Error ? error.message : 'Failed to send message' }
+            : msg
+        )
+      );
     }
   };
 
@@ -69,47 +119,225 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       e.preventDefault();
       handleSendMessage();
     }
+    
+    // Keyboard shortcuts for unsent messages
+    if (e.ctrlKey || e.metaKey) {
+      if (e.key === 'r' && unsentMessages.length > 0) {
+        e.preventDefault();
+        // Retry the first failed message
+        const failedMessage = unsentMessages.find(msg => msg.error && !msg.isRetrying);
+        if (failedMessage) {
+          retryMessage(failedMessage);
+        }
+      }
+    }
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // For now, we'll just send the file name as text
-    // In a real app, you'd upload the file to storage and send the URL
-    onSendMessage(`File: ${file.name}`, 'file');
+    const messageContent = `File: ${file.name}`;
+    const messageId = `unsent_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Add message to unsent list immediately
+    const unsentMessage = {
+      id: messageId,
+      content: messageContent,
+      messageType: 'file' as const,
+      timestamp: new Date(),
+    };
+    
+    setUnsentMessages(prev => [...prev, unsentMessage]);
     
     // Reset input
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
+
+    try {
+      const success = await onSendMessage(messageContent, 'file');
+      
+      if (success) {
+        // Remove from unsent list if successful
+        setUnsentMessages(prev => prev.filter(msg => msg.id !== messageId));
+      } else {
+        // Mark as failed if not successful
+        setUnsentMessages(prev => 
+          prev.map(msg => 
+            msg.id === messageId 
+              ? { ...msg, error: 'Failed to send file' }
+              : msg
+          )
+        );
+      }
+    } catch (error) {
+      // Mark as failed if error occurs
+      setUnsentMessages(prev => 
+        prev.map(msg => 
+          msg.id === messageId 
+            ? { ...msg, error: error instanceof Error ? error.message : 'Failed to send file' }
+            : msg
+        )
+      );
+    }
   };
 
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
       alert('Please select an image file');
+      // Reset input even for invalid files
+      if (imageInputRef.current) {
+        imageInputRef.current.value = '';
+      }
       return;
     }
 
-    // For now, we'll just send the image name as text
-    // In a real app, you'd upload the image to storage and send the URL
-    onSendMessage(`Image: ${file.name}`, 'image');
-    
-    // Reset input
-    if (imageInputRef.current) {
-      imageInputRef.current.value = '';
+    // Check file size (limit to 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      alert('Image file size must be less than 10MB');
+      // Reset input for oversized files
+      if (imageInputRef.current) {
+        imageInputRef.current.value = '';
+      }
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadProgress(0);
+
+    try {
+      console.log('Starting image upload to Cloudinary...', {
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type
+      });
+
+      // Check if Cloudinary is configured
+      if (!cloudinary.isConfigured()) {
+        throw new Error('Cloudinary is not configured. Please check your environment variables.');
+      }
+
+      // Upload image to Cloudinary
+      const result = await cloudinary.uploadImage(file, 'cars-g/chat');
+      
+      console.log('Image uploaded successfully to Cloudinary:', result);
+      
+      // Send the image URL as a message
+      const messageId = `unsent_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      // Add message to unsent list immediately
+      const unsentMessage = {
+        id: messageId,
+        content: result.secureUrl,
+        messageType: 'image' as const,
+        timestamp: new Date(),
+      };
+      
+      setUnsentMessages(prev => [...prev, unsentMessage]);
+      
+      try {
+        const success = await onSendMessage(result.secureUrl, 'image');
+        
+        if (success) {
+          // Remove from unsent list if successful
+          setUnsentMessages(prev => prev.filter(msg => msg.id !== messageId));
+        } else {
+          // Mark as failed if not successful
+          setUnsentMessages(prev => 
+            prev.map(msg => 
+              msg.id === messageId 
+                ? { ...msg, error: 'Failed to send image' }
+                : msg
+            )
+          );
+        }
+      } catch (error) {
+        // Mark as failed if error occurs
+        setUnsentMessages(prev => 
+          prev.map(msg => 
+            msg.id === messageId 
+              ? { ...msg, error: error instanceof Error ? error.message : 'Failed to send image' }
+              : msg
+          )
+        );
+      }
+      
+      console.log('Image message sent with URL:', result.secureUrl);
+    } catch (error) {
+      console.error('Failed to upload image:', error);
+      
+      // Provide more detailed error information
+      let errorMessage = 'Failed to upload image';
+      if (error instanceof Error) {
+        if (error.message.includes('Cloudinary is not configured')) {
+          errorMessage = 'Cloudinary is not configured. Please check your .env file.';
+        } else if (error.message.includes('upload preset')) {
+          errorMessage = 'Upload preset issue. Please check your Cloudinary dashboard.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      alert(errorMessage);
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(0);
+      
+      // Always reset input
+      if (imageInputRef.current) {
+        imageInputRef.current.value = '';
+      }
     }
   };
 
-  const handleLocationShare = () => {
+  const handleLocationShare = async () => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        (position) => {
+        async (position) => {
           const { latitude, longitude } = position.coords;
-          onSendMessage(`Location: ${latitude}, ${longitude}`, 'location');
+          const messageContent = `Location: ${latitude}, ${longitude}`;
+          const messageId = `unsent_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+          
+          // Add message to unsent list immediately
+          const unsentMessage = {
+            id: messageId,
+            content: messageContent,
+            messageType: 'location' as const,
+            timestamp: new Date(),
+          };
+          
+          setUnsentMessages(prev => [...prev, unsentMessage]);
+
+          try {
+            const success = await onSendMessage(messageContent, 'location');
+            
+            if (success) {
+              // Remove from unsent list if successful
+              setUnsentMessages(prev => prev.filter(msg => msg.id !== messageId));
+            } else {
+              // Mark as failed if not successful
+              setUnsentMessages(prev => 
+                prev.map(msg => 
+                  msg.id === messageId 
+                    ? { ...msg, error: 'Failed to send location' }
+                    : msg
+                )
+              );
+            }
+          } catch (error) {
+            // Mark as failed if error occurs
+            setUnsentMessages(prev => 
+              prev.map(msg => 
+                msg.id === messageId 
+                  ? { ...msg, error: error instanceof Error ? error.message : 'Failed to send location' }
+                  : msg
+              )
+            );
+          }
         },
         (error) => {
           console.error('Error getting location:', error);
@@ -121,18 +349,173 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     }
   };
 
+  const retryMessage = async (unsentMessage: typeof unsentMessages[0]) => {
+    try {
+      // Mark as retrying
+      setUnsentMessages(prev => 
+        prev.map(msg => 
+          msg.id === unsentMessage.id 
+            ? { ...msg, error: undefined, isRetrying: true }
+            : msg
+        )
+      );
+
+      const success = await onSendMessage(unsentMessage.content, unsentMessage.messageType);
+      
+      if (success) {
+        // Remove from unsent list if successful
+        setUnsentMessages(prev => prev.filter(msg => msg.id !== unsentMessage.id));
+      } else {
+        // Mark as failed again
+        setUnsentMessages(prev => 
+          prev.map(msg => 
+            msg.id === unsentMessage.id 
+              ? { ...msg, error: 'Retry failed', isRetrying: false }
+              : msg
+          )
+        );
+      }
+    } catch (error) {
+      // Mark as failed if error occurs
+      setUnsentMessages(prev => 
+        prev.map(msg => 
+          msg.id === unsentMessage.id 
+            ? { ...msg, error: error instanceof Error ? error.message : 'Retry failed', isRetrying: false }
+            : msg
+        )
+      );
+    }
+  };
+
+  const removeUnsentMessage = (messageId: string) => {
+    setUnsentMessages(prev => prev.filter(msg => msg.id !== messageId));
+  };
+
   return (
     <div className="border-t border-gray-200 bg-white p-4">
+      {/* Unsent Messages */}
+      {unsentMessages.length > 0 && (
+        <div className="mb-4 space-y-2">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center space-x-2">
+              <div className="text-xs font-medium text-gray-600">
+                Unsent Messages ({unsentMessages.length})
+              </div>
+              <div className="text-xs text-gray-400">
+                Ctrl+R to retry failed messages
+              </div>
+            </div>
+            <button
+              onClick={() => setUnsentMessages([])}
+              className="text-xs text-gray-500 hover:text-red-600 hover:bg-red-50 px-2 py-1 rounded transition-colors"
+              title="Clear all unsent messages"
+            >
+              Clear All
+            </button>
+          </div>
+          {unsentMessages.map((unsentMessage) => (
+            <div
+              key={unsentMessage.id}
+              className={`p-3 rounded-lg border ${
+                unsentMessage.isRetrying
+                  ? 'bg-blue-50 border-blue-200'
+                  : unsentMessage.error
+                  ? 'bg-red-50 border-red-200'
+                  : 'bg-yellow-50 border-yellow-200'
+              }`}
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex-1 min-w-0">
+                  {unsentMessage.messageType === 'image' ? (
+                    <div className="flex items-center space-x-2">
+                      <div className="text-gray-400">🖼️</div>
+                      <span className="text-sm text-gray-600">Image message</span>
+                    </div>
+                  ) : unsentMessage.messageType === 'file' ? (
+                    <div className="flex items-center space-x-2">
+                      <div className="text-gray-400">📎</div>
+                      <span className="text-sm text-gray-600">File message</span>
+                    </div>
+                  ) : unsentMessage.messageType === 'location' ? (
+                    <div className="flex items-center space-x-2">
+                      <div className="text-gray-400">📍</div>
+                      <span className="text-sm text-gray-600">Location message</span>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-700 break-words">
+                      {unsentMessage.content}
+                    </p>
+                  )}
+                  
+                  {unsentMessage.isRetrying && (
+                    <p className="text-xs text-blue-600 mt-1 flex items-center space-x-1">
+                      <Loader2 size={12} className="animate-spin" />
+                      <span>Retrying...</span>
+                    </p>
+                  )}
+                  
+                  {unsentMessage.error && !unsentMessage.isRetrying && (
+                    <p className="text-xs text-red-600 mt-1 flex items-center space-x-1">
+                      <AlertCircleIcon size={12} />
+                      <span>{unsentMessage.error}</span>
+                    </p>
+                  )}
+                  
+                  <p className="text-xs text-gray-500 mt-1">
+                    {unsentMessage.timestamp.toLocaleTimeString()}
+                  </p>
+                </div>
+                
+                <div className="flex items-center space-x-2 ml-3">
+                  <button
+                    onClick={() => retryMessage(unsentMessage)}
+                    disabled={unsentMessage.isRetrying}
+                    className={`p-1.5 rounded transition-colors ${
+                      unsentMessage.isRetrying
+                        ? 'text-gray-400 cursor-not-allowed'
+                        : 'text-blue-600 hover:text-blue-700 hover:bg-blue-50'
+                    }`}
+                    title={unsentMessage.isRetrying ? 'Retrying...' : 'Retry sending'}
+                  >
+                    {unsentMessage.isRetrying ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <RefreshCwIcon size={16} />
+                    )}
+                  </button>
+                  <button
+                    onClick={() => removeUnsentMessage(unsentMessage.id)}
+                    className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                    title="Remove message"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Attachment Menu */}
       {showAttachments && (
         <div className="mb-3 p-3 bg-gray-50 rounded-lg border border-gray-200 shadow-sm">
           <div className="flex items-center space-x-3">
             <button
               onClick={() => imageInputRef.current?.click()}
-              className="flex items-center space-x-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-200 rounded transition-colors"
+              disabled={isUploading}
+              className={`flex items-center space-x-2 px-3 py-2 text-sm rounded transition-colors ${
+                isUploading 
+                  ? 'text-gray-400 bg-gray-100 cursor-not-allowed' 
+                  : 'text-gray-700 hover:bg-gray-200'
+              }`}
             >
-              <ImageIcon size={16} />
-              <span>Image</span>
+              {isUploading ? (
+                <Loader2 size={16} className="animate-spin" />
+              ) : (
+                <ImageIcon size={16} />
+              )}
+              <span>{isUploading ? 'Uploading...' : 'Image'}</span>
             </button>
             
             <button

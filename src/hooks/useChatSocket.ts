@@ -40,10 +40,25 @@ export const useChatSocket = ({
   useEffect(() => {
     if (!userId) return;
 
-    const chatServerUrl = import.meta.env.VITE_CHAT_SERVER_URL || config.api.baseUrl;
+    // Prevent multiple connections
+    if (socketRef.current) {
+      console.log('Socket already exists, skipping new connection');
+      return;
+    }
+
+    const chatServerUrl = import.meta.env.DEV ? 'http://localhost:3001' : (import.meta.env.VITE_CHAT_SERVER_URL || config.api.baseUrl);
+    console.log('Creating new socket connection to:', chatServerUrl);
+    
     socketRef.current = io(chatServerUrl, {
       transports: ['websocket', 'polling'],
       autoConnect: true,
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+      timeout: 20000,
+      forceNew: false,
+      upgrade: true,
+      rememberUpgrade: true,
     });
 
     const socket = socketRef.current;
@@ -97,10 +112,51 @@ export const useChatSocket = ({
 
     return () => {
       if (socket) {
+        console.log('Cleaning up socket connection');
         socket.disconnect();
+        socketRef.current = null;
       }
     };
-  }, [userId, onMessage, onTyping, onTypingStop, onAuthenticated, onAuthError]);
+  }, [userId]); // Only depend on userId, not the callback functions
+
+  // Update event listeners when callbacks change (without recreating socket)
+  useEffect(() => {
+    const socket = socketRef.current;
+    if (!socket || !isConnected) return;
+
+    // Remove existing listeners
+    socket.off('new_message');
+    socket.off('user_typing');
+    socket.off('user_stopped_typing');
+    socket.off('authenticated');
+    socket.off('auth_error');
+
+    // Add new listeners
+    socket.on('new_message', (message: ChatMessage) => {
+      console.log('New message received:', message);
+      onMessage?.(message);
+    });
+
+    socket.on('user_typing', (data) => {
+      onTyping?.(data.userId, data.username);
+    });
+
+    socket.on('user_stopped_typing', (data) => {
+      onTypingStop?.(data.userId);
+    });
+
+    socket.on('authenticated', (data) => {
+      console.log('Authenticated with chat server:', data);
+      setIsAuthenticated(true);
+      onAuthenticated?.(data);
+    });
+
+    socket.on('auth_error', (error) => {
+      console.error('Authentication error:', error);
+      setIsAuthenticated(false);
+      onAuthError?.(error);
+    });
+  }, [onMessage, onTyping, onTypingStop, onAuthenticated, onAuthError, isConnected]);
 
   // Send message
   const sendMessage = useCallback((
@@ -112,6 +168,13 @@ export const useChatSocket = ({
       console.error('Socket not connected or not authenticated');
       return;
     }
+
+    console.log('Sending message via socket:', {
+      conversationId,
+      content: content.substring(0, 100) + (content.length > 100 ? '...' : ''),
+      messageType,
+      userId
+    });
 
     socketRef.current.emit('send_message', {
       conversation_id: conversationId,

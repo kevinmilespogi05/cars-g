@@ -1,42 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { ChatConversation, ChatUser } from '../types';
-import { ChatService } from '../services/chatService';
 import { useAuthStore } from '../store/authStore';
 import { formatDistanceToNow } from 'date-fns';
-import { MessageCircleIcon, PlusIcon } from 'lucide-react';
+import { MessageCircleIcon } from 'lucide-react';
 
 interface ChatConversationListProps {
+  conversations: ChatConversation[];
   onSelectConversation: (conversation: ChatConversation) => void;
   selectedConversationId?: string;
+  profiles?: any[];
 }
 
 export const ChatConversationList: React.FC<ChatConversationListProps> = ({
+  conversations,
   onSelectConversation,
   selectedConversationId,
+  profiles = [],
 }) => {
   const { user } = useAuthStore();
-  const [conversations, setConversations] = useState<ChatConversation[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!user?.id) return;
-
-    const fetchConversations = async () => {
-      try {
-        setLoading(true);
-        const data = await ChatService.getConversations(user.id);
-        setConversations(data);
-      } catch (err) {
-        setError('Failed to load conversations');
-        console.error('Error fetching conversations:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchConversations();
-  }, [user?.id]);
 
   const getOtherParticipant = (conversation: ChatConversation): ChatUser | null => {
     if (!user) return null;
@@ -45,11 +26,13 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = ({
       ? conversation.participant2_id 
       : conversation.participant1_id;
     
-    // For now, we'll use a placeholder. In a real app, you'd fetch user details
+    // Find the user in profiles data
+    const otherUser = profiles.find(p => p.id === otherId);
+    
     return {
       id: otherId,
-      username: `User ${otherId.slice(0, 8)}`,
-      avatar_url: null,
+      username: otherUser ? otherUser.username : `User ${otherId.slice(0, 8)}`,
+      avatar_url: otherUser ? otherUser.avatar_url : null,
     };
   };
 
@@ -61,34 +44,9 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = ({
     }
   };
 
-  const handleNewConversation = () => {
-    // In a real app, you'd show a user selection modal
-    alert('New conversation feature coming soon! Select a user to start chatting.');
-  };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
-      </div>
-    );
-  }
 
-  if (error) {
-    return (
-      <div className="text-center p-4">
-        <div className="text-red-600 mb-3">
-          <p className="font-medium">{error}</p>
-        </div>
-        <button 
-          onClick={() => window.location.reload()}
-          className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
-        >
-          Retry
-        </button>
-      </div>
-    );
-  }
+
 
   if (conversations.length === 0) {
     return (
@@ -96,13 +54,6 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = ({
         <div className="text-6xl mb-4">💬</div>
         <h3 className="text-lg font-semibold mb-2 text-gray-700">No conversations yet</h3>
         <p className="text-sm mb-4">Start chatting with other users to see conversations here.</p>
-        <button
-          onClick={handleNewConversation}
-          className="inline-flex items-center px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-        >
-          <PlusIcon size={16} className="mr-2" />
-          Start New Chat
-        </button>
       </div>
     );
   }
