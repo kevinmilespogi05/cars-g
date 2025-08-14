@@ -53,18 +53,21 @@ const io = new Server(server, {
 // Initialize Supabase client
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-if (!supabaseUrl || !supabaseAnonKey) {
+if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceKey) {
   console.error('❌ Supabase configuration is incomplete');
   process.exit(1);
 }
 
+// Create two Supabase clients: one with anon key for auth, one with service key for admin operations
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
+const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
 // Test Supabase connection
 const testSupabaseConnection = async () => {
   try {
-    const { data, error } = await supabase.from('profiles').select('count').limit(1);
+    const { data, error } = await supabaseAdmin.from('profiles').select('count').limit(1);
     if (error) {
       console.error('❌ Failed to connect to Supabase:', error.message);
       console.error('   Please check your VITE_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY');
@@ -107,8 +110,8 @@ app.get('/api/chat/conversations/:userId', async (req, res) => {
     const { userId } = req.params;
     console.log('Fetching conversations for user:', userId);
     
-    // First, get the conversations
-    const { data: conversations, error: convError } = await supabase
+    // First, get the conversations using admin client to bypass RLS
+    const { data: conversations, error: convError } = await supabaseAdmin
       .from('chat_conversations')
       .select('*')
       .or(`participant1_id.eq.${userId},participant2_id.eq.${userId}`);
@@ -134,7 +137,7 @@ app.get('/api/chat/messages/:conversationId', async (req, res) => {
     const { conversationId } = req.params;
     console.log('Fetching messages for conversation:', conversationId);
     
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('chat_messages')
       .select('*')
       .eq('conversation_id', conversationId)
@@ -157,8 +160,8 @@ app.post('/api/chat/conversations', async (req, res) => {
   try {
     const { participant1_id, participant2_id } = req.body;
     
-    // Check if conversation already exists
-    const { data: existing } = await supabase
+    // Check if conversation already exists using admin client to bypass RLS
+    const { data: existing } = await supabaseAdmin
       .from('chat_conversations')
       .select('*')
       .or(`and(participant1_id.eq.${participant1_id},participant2_id.eq.${participant2_id}),and(participant1_id.eq.${participant2_id},participant2_id.eq.${participant1_id})`)
@@ -168,8 +171,8 @@ app.post('/api/chat/conversations', async (req, res) => {
       return res.json(existing);
     }
 
-    // Create new conversation
-    const { data, error } = await supabase
+    // Create new conversation using admin client to bypass RLS
+    const { data, error } = await supabaseAdmin
       .from('chat_conversations')
       .insert([{ participant1_id, participant2_id }])
       .select()
@@ -189,8 +192,8 @@ app.delete('/api/chat/messages/:messageId', async (req, res) => {
     const { messageId } = req.params;
     const { userId } = req.body; // The user requesting the deletion
     
-    // First, get the message to verify ownership
-    const { data: message, error: fetchError } = await supabase
+    // First, get the message to verify ownership using admin client
+    const { data: message, error: fetchError } = await supabaseAdmin
       .from('chat_messages')
       .select('*')
       .eq('id', messageId)
@@ -205,8 +208,8 @@ app.delete('/api/chat/messages/:messageId', async (req, res) => {
       return res.status(403).json({ error: 'You can only delete your own messages' });
     }
 
-    // Delete the message
-    const { error: deleteError } = await supabase
+    // Delete the message using admin client
+    const { error: deleteError } = await supabaseAdmin
       .from('chat_messages')
       .delete()
       .eq('id', messageId);
