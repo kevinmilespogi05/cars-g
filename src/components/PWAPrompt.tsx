@@ -49,17 +49,17 @@ export function PWAPrompt() {
             <div className="flex items-start">
               <div className="flex-1">
                 <div className="flex items-center space-x-2 mb-2">
-                  <RefreshCw className="h-5 w-5 text-green-600" />
+                  <RefreshCw className="h-5 w-5 text-blue-500" />
                   <h3 className="text-lg font-semibold text-gray-900">Update Available</h3>
                 </div>
                 <p className="text-sm text-gray-600 leading-relaxed">
-                  A new version of Cars-G is available with bug fixes and new features.
+                  A new version of Cars-G is available. Update now to get the latest features and improvements.
                 </p>
               </div>
               <div className="ml-3 flex-shrink-0 flex flex-col space-y-2">
                 <button
                   onClick={handleUpdate}
-                  className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                  className="bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-600 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                 >
                   Update
                 </button>
@@ -76,4 +76,4 @@ export function PWAPrompt() {
       )}
     </AnimatePresence>
   );
-} 
+}

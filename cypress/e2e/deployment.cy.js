@@ -189,7 +189,7 @@ describe('Cars-G Deployment Tests', () => {
 
   describe('Error Handling Tests', () => {
     it('should handle network errors gracefully', () => {
-      // Test offline functionality
+      // Test network error handling
       cy.window().then((win) => {
         cy.spy(win.console, 'error').as('networkError')
       })

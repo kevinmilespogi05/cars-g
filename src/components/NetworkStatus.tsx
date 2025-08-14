@@ -43,46 +43,29 @@ export function NetworkStatus() {
   return (
     <AnimatePresence>
       <motion.div
-        initial={{ opacity: 0, y: 100 }}
+        initial={{ opacity: 0, y: -100 }}
         animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 100 }}
-        className="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-80 bg-red-50 border border-red-200 rounded-lg shadow-lg p-4 z-50"
+        exit={{ opacity: 0, y: -100 }}
+        className="fixed top-0 left-0 right-0 bg-red-500 text-white px-4 py-3 z-50 shadow-lg"
       >
-        <div className="flex items-start space-x-3">
-          <div className="flex-shrink-0">
-            <WifiOff className="h-5 w-5 text-red-600" />
+        <div className="flex items-center justify-between max-w-7xl mx-auto">
+          <div className="flex items-center space-x-3">
+            <WifiOff className="h-5 w-5" />
+            <span className="font-medium">You're offline</span>
+            <span className="text-sm opacity-90">Some features may be limited</span>
           </div>
-          
-          <div className="flex-1 min-w-0">
-            <h3 className="text-sm font-medium text-red-800">
-              You're offline
-            </h3>
-            <p className="mt-1 text-sm text-red-700">
-              Some features may not work without an internet connection.
-            </p>
-            
-            <div className="mt-3 flex space-x-2">
-              <button
-                onClick={checkConnection}
-                disabled={isChecking}
-                className="inline-flex items-center px-3 py-1.5 border border-red-300 text-xs font-medium rounded text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {isChecking ? (
-                  <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
-                ) : (
-                  <Wifi className="h-3 w-3 mr-1" />
-                )}
-                {isChecking ? 'Checking...' : 'Check Connection'}
-              </button>
-              
-              <button
-                onClick={() => window.location.reload()}
-                className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
-              >
-                Reload
-              </button>
-            </div>
-          </div>
+          <button
+            onClick={checkConnection}
+            disabled={isChecking}
+            className="flex items-center space-x-2 bg-white bg-opacity-20 hover:bg-opacity-30 px-3 py-1.5 rounded-lg text-sm font-medium transition-all focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 disabled:opacity-50"
+          >
+            {isChecking ? (
+              <RefreshCw className="h-4 w-4 animate-spin" />
+            ) : (
+              <Wifi className="h-4 w-4" />
+            )}
+            <span>{isChecking ? 'Checking...' : 'Check Connection'}</span>
+          </button>
         </div>
       </motion.div>
     </AnimatePresence>

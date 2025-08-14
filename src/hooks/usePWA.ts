@@ -2,8 +2,12 @@ import { useState, useEffect } from 'react';
 import { registerSW } from 'virtual:pwa-register';
 
 interface BeforeInstallPromptEvent extends Event {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+  readonly platforms: string[];
+  readonly userChoice: Promise<{
+    outcome: 'accepted' | 'dismissed';
+    platform: string;
+  }>;
+  prompt(): Promise<void>;
 }
 
 interface UsePWAReturn {
@@ -107,78 +111,37 @@ export function usePWA(): UsePWAReturn {
 
   const handleInstall = async () => {
     if (!installPrompt) return;
-
+    
     try {
       await installPrompt.prompt();
-      const { outcome } = await installPrompt.userChoice;
+      const choiceResult = await installPrompt.userChoice;
       
-      if (outcome === 'accepted') {
+      if (choiceResult.outcome === 'accepted') {
+        console.log('PWA installation accepted');
         setIsInstalled(true);
         setInstallPrompt(null);
-        
-        // Track successful installation
-        if (typeof gtag !== 'undefined') {
-          gtag('event', 'pwa_install_accept', {
-            event_category: 'engagement',
-            event_label: 'pwa_install_accept'
-          });
-        }
+      } else {
+        console.log('PWA installation dismissed');
       }
     } catch (error) {
-      console.error('Error installing PWA:', error);
-      
-      // Track installation error
-      if (typeof gtag !== 'undefined') {
-        gtag('event', 'pwa_install_error', {
-          event_category: 'error',
-          event_label: 'pwa_install_error'
-        });
-      }
+      console.error('Error during PWA installation:', error);
     }
   };
 
   const handleUpdate = () => {
-    // Use the updateSW function from registerSW
-    const updateSW = registerSW({
-      onNeedRefresh() {
-        setIsUpdateAvailable(true);
-      },
-      onOfflineReady() {
-        console.log('App is ready for offline use');
-      }
-    });
-    
-    // Trigger the update
-    updateSW();
-    setIsUpdateAvailable(false);
-    
-    // Track update action
-    if (typeof gtag !== 'undefined') {
-      gtag('event', 'pwa_update', {
-        event_category: 'engagement',
-        event_label: 'pwa_update_triggered'
-      });
+    if (isUpdateAvailable) {
+      window.location.reload();
     }
   };
 
   const checkConnection = async (): Promise<boolean> => {
     try {
-      // Try to fetch a small resource to test connection
-      const response = await fetch('/manifest.webmanifest', { 
+      await fetch('/manifest.webmanifest', { 
         method: 'HEAD',
-        cache: 'no-cache',
-        signal: AbortSignal.timeout(5000) // 5 second timeout
+        cache: 'no-cache'
       });
-      
-      if (response.ok) {
-        setIsOnline(true);
-        return true;
-      } else {
-        setIsOnline(false);
-        return false;
-      }
-    } catch (error) {
-      setIsOnline(false);
+      return true;
+    } catch {
       return false;
     }
   };
@@ -192,4 +155,4 @@ export function usePWA(): UsePWAReturn {
     handleUpdate,
     checkConnection
   };
-} 
+}

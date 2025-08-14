@@ -9,122 +9,15 @@ export default [
   { ignores: ['dist', 'dev-dist'] },
   js.configs.recommended,
   {
-    files: ['**/*.{js,jsx}'],
     languageOptions: {
       ecmaVersion: 2020,
       sourceType: 'module',
       globals: {
         ...globals.browser,
-        ...globals.node,
         ...globals.es2020,
-        console: 'readonly',
-        process: 'readonly',
-        require: 'readonly',
-        module: 'readonly',
-        __dirname: 'readonly',
-        __filename: 'readonly',
-        setTimeout: 'readonly',
-        setInterval: 'readonly',
-        clearTimeout: 'readonly',
-        clearInterval: 'readonly',
-        Buffer: 'readonly',
-        global: 'readonly',
-      },
-      parserOptions: {
-        ecmaVersion: 2020,
-        sourceType: 'module',
-        ecmaFeatures: {
-          jsx: true,
-        },
-      },
-    },
-    plugins: {
-      'react-hooks': reactHooks,
-      'react-refresh': reactRefresh,
-    },
-    rules: {
-      ...reactHooks.configs.recommended.rules,
-      'react-refresh/only-export-components': [
-        'warn',
-        { allowConstantExport: true },
-      ],
-      'no-unused-vars': ['error', { 
-        argsIgnorePattern: '^_',
-        varsIgnorePattern: '^_',
-        caughtErrorsIgnorePattern: '^_'
-      }],
-      'no-console': 'off',
-    },
-  },
-  {
-    files: ['**/*.{ts,tsx}'],
-    languageOptions: {
-      ecmaVersion: 2020,
-      sourceType: 'module',
-      globals: {
-        ...globals.browser,
         ...globals.node,
-        ...globals.es2020,
-        console: 'readonly',
-        process: 'readonly',
-        require: 'readonly',
-        module: 'readonly',
-        __dirname: 'readonly',
-        __filename: 'readonly',
-        setTimeout: 'readonly',
-        setInterval: 'readonly',
-        clearTimeout: 'readonly',
-        clearInterval: 'readonly',
-        Buffer: 'readonly',
-        global: 'readonly',
-      },
-      parser: tsparser,
-      parserOptions: {
-        ecmaVersion: 2020,
-        sourceType: 'module',
-        ecmaFeatures: {
-          jsx: true,
-        },
-      },
-    },
-    plugins: {
-      '@typescript-eslint': tseslint,
-      'react-hooks': reactHooks,
-      'react-refresh': reactRefresh,
-    },
-    rules: {
-      ...tseslint.configs.recommended.rules,
-      ...reactHooks.configs.recommended.rules,
-      'react-refresh/only-export-components': [
-        'warn',
-        { allowConstantExport: true },
-      ],
-      'no-unused-vars': 'off',
-      '@typescript-eslint/no-unused-vars': ['error', { 
-        argsIgnorePattern: '^_',
-        varsIgnorePattern: '^_',
-        caughtErrorsIgnorePattern: '^_'
-      }],
-      'no-console': 'off',
-    },
-  },
-  // Special configuration for Node.js files
-  {
-    files: ['**/*.js', 'server/**/*', 'scripts/**/*'],
-    languageOptions: {
-      globals: {
-        ...globals.node,
-        console: 'readonly',
-        process: 'readonly',
-        require: 'readonly',
-        module: 'readonly',
-        __dirname: 'readonly',
-        __filename: 'readonly',
-        setTimeout: 'readonly',
-        setInterval: 'readonly',
-        clearTimeout: 'readonly',
-        clearInterval: 'readonly',
-        Buffer: 'readonly',
+        React: 'readonly',
+        JSX: 'readonly',
         global: 'readonly',
       },
     },

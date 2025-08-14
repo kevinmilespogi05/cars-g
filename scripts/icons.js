@@ -1,44 +1,49 @@
-import sharp from 'sharp';
-import path from 'path';
+#!/usr/bin/env node
 
-const SIZES = {
-  'favicon-16x16.png': 16,
-  'favicon-32x32.png': 32,
-  'apple-touch-icon.png': 180,
-  'pwa-192x192.png': 192,
-  'pwa-512x512.png': 512
-};
+import sharp from 'sharp';
+import { resolve } from 'path';
+import { fileURLToPath } from 'url';
+import { existsSync, mkdirSync } from 'fs';
+
+const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
 async function generateIcons() {
-  const sourceImage = path.join(process.cwd(), 'public', 'images', 'logo.jpg');
-  
   try {
-    for (const [filename, size] of Object.entries(SIZES)) {
-      await sharp(sourceImage)
+    console.log('🎨 Generating app icons...');
+    
+    const inputPath = resolve(__dirname, '../public/images/logo.jpg');
+    const outputDir = resolve(__dirname, '../public');
+    
+    // Ensure output directory exists
+    if (!existsSync(outputDir)) {
+      mkdirSync(outputDir, { recursive: true });
+    }
+    
+    const sizes = [
+      { size: 16, name: 'favicon-16x16.png' },
+      { size: 32, name: 'favicon-32x32.png' },
+      { size: 192, name: 'pwa-192x192.png' },
+      { size: 512, name: 'pwa-512x512.png' },
+      { size: 180, name: 'apple-touch-icon.png' }
+    ];
+    
+    for (const { size, name } of sizes) {
+      await sharp(inputPath)
         .resize(size, size, {
           fit: 'contain',
-          background: { r: 255, g: 255, b: 255, alpha: 0 }
+          background: { r: 255, g: 255, b: 255, alpha: 1 }
         })
         .png()
-        .toFile(path.join(process.cwd(), 'public', filename));
+        .toFile(resolve(outputDir, name));
       
-      console.log(`Generated ${filename}`);
+      console.log(`✅ Generated ${name} (${size}x${size})`);
     }
-
-    // Use 32x32 as favicon
-    await sharp(sourceImage)
-      .resize(32, 32, {
-        fit: 'contain',
-        background: { r: 255, g: 255, b: 255, alpha: 0 }
-      })
-      .png()
-      .toFile(path.join(process.cwd(), 'public', 'favicon.png'));
-
-    console.log('Generated favicon.png');
+    
+    console.log('🎉 All icons generated successfully!');
   } catch (error) {
-    console.error('Error generating icons:', error);
+    console.error('❌ Error generating icons:', error);
     process.exit(1);
   }
 }
 
-generateIcons(); 
+generateIcons();
