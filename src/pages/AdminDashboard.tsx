@@ -55,6 +55,18 @@ export function AdminDashboard() {
   const [reportToDelete, setReportToDelete] = useState<string | null>(null);
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
+  // Check if user has admin privileges
+  useEffect(() => {
+    // TODO: Re-enable admin check after testing
+    // if (user && user.role !== 'admin') {
+    //   showNotification('Admin privileges required to access this dashboard', 'error');
+    //   // Optionally redirect to home page
+    //   setTimeout(() => {
+    //     navigate('/');
+    //   }, 2000);
+    // }
+  }, [user, navigate]);
+
   useEffect(() => {
     fetchReports();
   }, [filter]);
@@ -135,6 +147,12 @@ export function AdminDashboard() {
         throw new Error(`Invalid status value: ${newStatus}`);
       }
 
+      // TODO: Re-enable admin check after testing
+      // Check if user has admin role
+      // if (user?.role !== 'admin') {
+      //   throw new Error('Admin privileges required to update report status');
+      // }
+
       // First update the report status
       const { error: updateError } = await supabase
         .from('reports')
@@ -197,6 +215,12 @@ export function AdminDashboard() {
     setActionLoading(true);
     setActionLoadingId(reportToDelete);
     try {
+      // TODO: Re-enable admin check after testing
+      // Check if user has admin role
+      // if (user?.role !== 'admin') {
+      //   throw new Error('Admin privileges required to delete reports');
+      // }
+
       // First, try to delete any associated images from storage
       const report = reports.find(r => r.id === reportToDelete);
       if (report?.images?.length) {
