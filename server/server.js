@@ -6,6 +6,7 @@ import helmet from 'helmet';
 import compression from 'compression';
 import dotenv from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
+import crypto from 'crypto';
 
 // Load environment variables
 dotenv.config();
@@ -13,7 +14,7 @@ dotenv.config();
 // Check required environment variables
 const requiredEnvVars = [
   'VITE_SUPABASE_URL',
-  'SUPABASE_SERVICE_ROLE_KEY'
+  'VITE_SUPABASE_ANON_KEY'
 ];
 
 const missingEnvVars = requiredEnvVars.filter(envVar => !process.env[envVar]);
@@ -46,14 +47,14 @@ const io = new Server(server, {
 
 // Initialize Supabase client
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY;
 
-if (!supabaseUrl || !supabaseServiceKey) {
+if (!supabaseUrl || !supabaseAnonKey) {
   console.error('❌ Supabase configuration is incomplete');
   process.exit(1);
 }
 
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Test Supabase connection
 const testSupabaseConnection = async () => {
@@ -212,6 +213,199 @@ app.delete('/api/chat/messages/:messageId', async (req, res) => {
   } catch (error) {
     console.error('Error deleting message:', error);
     res.status(500).json({ error: 'Failed to delete message' });
+  }
+});
+
+// Cloudinary API endpoints
+app.delete('/api/cloudinary/image/:publicId', async (req, res) => {
+  try {
+    const { publicId } = req.params;
+    const authHeader = req.headers.authorization;
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Authorization token required' });
+    }
+    
+    const token = authHeader.substring(7);
+    
+    // Verify the token with Supabase
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError || !user) {
+      return res.status(401).json({ error: 'Invalid or expired token' });
+    }
+    
+    // For now, allow any authenticated user to delete images
+    // In production, you should implement proper admin role checking
+    // You can add a profiles table with role field and check it here
+    console.log(`User ${user.id} authenticated for image deletion`);
+    
+    // Delete from Cloudinary using their API
+    const cloudName = process.env.VITE_CLOUDINARY_CLOUD_NAME;
+    const apiKey = process.env.VITE_CLOUDINARY_API_KEY;
+    const apiSecret = process.env.VITE_CLOUDINARY_API_SECRET;
+    
+    if (!cloudName || !apiKey || !apiSecret) {
+      return res.status(500).json({ error: 'Cloudinary configuration missing' });
+    }
+    
+    const timestamp = Math.round(new Date().getTime() / 1000);
+             const signature = crypto.createHash('sha1')
+           .update(`public_id=${publicId}&timestamp=${timestamp}${apiSecret}`)
+           .digest('hex');
+    
+    const formData = new URLSearchParams();
+    formData.append('public_id', publicId);
+    formData.append('api_key', apiKey);
+    formData.append('timestamp', timestamp);
+    formData.append('signature', signature);
+    
+    const cloudinaryResponse = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/destroy`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: formData.toString(),
+    });
+    
+    if (!cloudinaryResponse.ok) {
+      const errorData = await cloudinaryResponse.json();
+      console.error('Cloudinary deletion failed:', errorData);
+      return res.status(500).json({ 
+        error: 'Failed to delete image from Cloudinary',
+        details: errorData
+      });
+    }
+    
+    const result = await cloudinaryResponse.json();
+    console.log('Successfully deleted image from Cloudinary:', publicId);
+    
+    res.json({ 
+      success: true, 
+      message: 'Image deleted successfully',
+      result 
+    });
+    
+  } catch (error) {
+    console.error('Error deleting image:', error);
+    res.status(500).json({ 
+      error: 'Failed to delete image',
+      details: error.message 
+    });
+  }
+});
+
+app.post('/api/cloudinary/batch-delete', async (req, res) => {
+  try {
+    const { resources } = req.body;
+    const authHeader = req.headers.authorization;
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Authorization token required' });
+    }
+    
+    const token = authHeader.substring(7);
+    
+    // Verify the token with Supabase
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError || !user) {
+      return res.status(401).json({ error: 'Invalid or expired token' });
+    }
+    
+    // For now, allow any authenticated user to delete images
+    // In production, you should implement proper admin role checking
+    // You can add a profiles table with role field and check it here
+    console.log(`User ${user.id} authenticated for batch image deletion`);
+    
+    if (!resources || !Array.isArray(resources) || resources.length === 0) {
+      return res.status(400).json({ error: 'Resources array is required' });
+    }
+    
+    const cloudName = process.env.VITE_CLOUDINARY_CLOUD_NAME;
+    const apiKey = process.env.VITE_CLOUDINARY_API_KEY;
+    const apiSecret = process.env.VITE_CLOUDINARY_API_SECRET;
+    
+    if (!cloudName || !apiKey || !apiSecret) {
+      return res.status(500).json({ error: 'Cloudinary configuration missing' });
+    }
+    
+    const results = [];
+    const errors = [];
+    let successful = 0;
+    let failed = 0;
+    
+    // Process each resource deletion
+    for (const resource of resources) {
+      try {
+        const { publicId, resourceType = 'image' } = resource;
+        
+        if (!publicId) {
+          errors.push({ publicId: 'unknown', error: 'Missing public_id' });
+          failed++;
+          continue;
+        }
+        
+        const timestamp = Math.round(new Date().getTime() / 1000);
+        const signature = crypto.createHash('sha1')
+          .update(`public_id=${publicId}&timestamp=${timestamp}${apiSecret}`)
+          .digest('hex');
+        
+        const formData = new URLSearchParams();
+        formData.append('public_id', publicId);
+        formData.append('api_key', apiKey);
+        formData.append('timestamp', timestamp);
+        formData.append('signature', signature);
+        
+        const cloudinaryResponse = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/destroy`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: formData.toString(),
+        });
+        
+        if (!cloudinaryResponse.ok) {
+          const errorData = await cloudinaryResponse.json();
+          errors.push({ publicId, error: errorData.error?.message || 'Deletion failed' });
+          failed++;
+        } else {
+          const result = await cloudinaryResponse.json();
+          results.push({ publicId, result });
+          successful++;
+        }
+        
+      } catch (error) {
+        console.error(`Error deleting resource ${resource.publicId}:`, error);
+        errors.push({ 
+          publicId: resource.publicId || 'unknown', 
+          error: error.message || 'Unknown error' 
+        });
+        failed++;
+      }
+    }
+    
+    const summary = {
+      total: resources.length,
+      successful,
+      failed
+    };
+    
+    console.log(`Batch deletion completed: ${successful} successful, ${failed} failed`);
+    
+    res.json({
+      success: true,
+      summary,
+      results,
+      errors: errors.length > 0 ? errors : undefined
+    });
+    
+  } catch (error) {
+    console.error('Error in batch deletion:', error);
+    res.status(500).json({ 
+      error: 'Failed to process batch deletion',
+      details: error.message 
+    });
   }
 });
 
