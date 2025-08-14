@@ -10,14 +10,17 @@ interface UsePWAReturn {
   isUpdateAvailable: boolean;
   installPrompt: BeforeInstallPromptEvent | null;
   isInstalled: boolean;
+  isOnline: boolean;
   handleInstall: () => Promise<void>;
   handleUpdate: () => void;
+  checkConnection: () => Promise<boolean>;
 }
 
 export function usePWA(): UsePWAReturn {
   const [isUpdateAvailable, setIsUpdateAvailable] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   useEffect(() => {
     // Use vite-plugin-pwa's registerSW function
@@ -27,9 +30,22 @@ export function usePWA(): UsePWAReturn {
       },
       onOfflineReady() {
         console.log('App is ready for offline use');
+        // Show offline ready notification
+        if ('Notification' in window && Notification.permission === 'granted') {
+          new Notification('Cars-G is ready offline!', {
+            body: 'You can now use the app without internet connection',
+            icon: '/pwa-192x192.png',
+            tag: 'offline-ready'
+          });
+        }
       },
       onRegistered(registration) {
         console.log('Service Worker registered:', registration);
+        
+        // Check for updates periodically
+        setInterval(() => {
+          registration.update();
+        }, 1000 * 60 * 60); // Check every hour
       },
       onRegisterError(error) {
         console.error('Service Worker registration error:', error);
@@ -40,24 +56,52 @@ export function usePWA(): UsePWAReturn {
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       setInstallPrompt(e as BeforeInstallPromptEvent);
+      
+      // Show custom install prompt for mobile
+      if (window.innerWidth <= 768) {
+        // Mobile-specific install prompt handling
+        console.log('Mobile install prompt available');
+      }
     };
 
     // Handle PWA installation status
     const handleAppInstalled = () => {
       setIsInstalled(true);
       setInstallPrompt(null);
+      
+      // Track installation
+      if (typeof gtag !== 'undefined') {
+        gtag('event', 'pwa_install', {
+          event_category: 'engagement',
+          event_label: 'pwa_install_success'
+        });
+      }
     };
+
+    // Network status monitoring
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     window.addEventListener('appinstalled', handleAppInstalled);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
 
     // Check if already installed
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
-    setIsInstalled(isStandalone);
+    const isInTWA = window.matchMedia('(display-mode: minimal-ui)').matches;
+    setIsInstalled(isStandalone || isInTWA);
+
+    // Check if running in PWA mode
+    if (isStandalone || isInTWA) {
+      document.documentElement.classList.add('pwa-mode');
+    }
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
       window.removeEventListener('appinstalled', handleAppInstalled);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
     };
   }, []);
 
@@ -71,9 +115,25 @@ export function usePWA(): UsePWAReturn {
       if (outcome === 'accepted') {
         setIsInstalled(true);
         setInstallPrompt(null);
+        
+        // Track successful installation
+        if (typeof gtag !== 'undefined') {
+          gtag('event', 'pwa_install_accept', {
+            event_category: 'engagement',
+            event_label: 'pwa_install_accept'
+          });
+        }
       }
     } catch (error) {
       console.error('Error installing PWA:', error);
+      
+      // Track installation error
+      if (typeof gtag !== 'undefined') {
+        gtag('event', 'pwa_install_error', {
+          event_category: 'error',
+          event_label: 'pwa_install_error'
+        });
+      }
     }
   };
 
@@ -91,13 +151,45 @@ export function usePWA(): UsePWAReturn {
     // Trigger the update
     updateSW();
     setIsUpdateAvailable(false);
+    
+    // Track update action
+    if (typeof gtag !== 'undefined') {
+      gtag('event', 'pwa_update', {
+        event_category: 'engagement',
+        event_label: 'pwa_update_triggered'
+      });
+    }
+  };
+
+  const checkConnection = async (): Promise<boolean> => {
+    try {
+      // Try to fetch a small resource to test connection
+      const response = await fetch('/manifest.webmanifest', { 
+        method: 'HEAD',
+        cache: 'no-cache',
+        signal: AbortSignal.timeout(5000) // 5 second timeout
+      });
+      
+      if (response.ok) {
+        setIsOnline(true);
+        return true;
+      } else {
+        setIsOnline(false);
+        return false;
+      }
+    } catch (error) {
+      setIsOnline(false);
+      return false;
+    }
   };
 
   return {
     isUpdateAvailable,
     installPrompt,
     isInstalled,
+    isOnline,
     handleInstall,
-    handleUpdate
+    handleUpdate,
+    checkConnection
   };
 } 

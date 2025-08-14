@@ -1042,3 +1042,206 @@ img {
     display: block !important;
   }
 }
+
+/* PWA and Mobile-Specific Styles */
+@layer base {
+  /* PWA mode styles */
+  .pwa-mode {
+    --safe-area-inset-top: env(safe-area-inset-top);
+    --safe-area-inset-bottom: env(safe-area-inset-bottom);
+    --safe-area-inset-left: env(safe-area-inset-left);
+    --safe-area-inset-right: env(safe-area-inset-right);
+  }
+  
+  /* Mobile device specific styles */
+  .mobile-device {
+    --touch-target-size: 44px;
+    --mobile-spacing: 16px;
+  }
+  
+  /* Safe area handling for notched devices */
+  @supports (padding: max(0px)) {
+    .safe-area-top {
+      padding-top: max(env(safe-area-inset-top), 16px);
+    }
+    
+    .safe-area-bottom {
+      padding-bottom: max(env(safe-area-inset-bottom), 16px);
+    }
+    
+    .safe-area-left {
+      padding-left: max(env(safe-area-inset-left), 16px);
+    }
+    
+    .safe-area-right {
+      padding-right: max(env(safe-area-inset-right), 16px);
+    }
+  }
+}
+
+@layer components {
+  /* Mobile-optimized form elements */
+  .mobile-input {
+    @apply text-base; /* Prevent zoom on iOS */
+    font-size: 16px !important;
+  }
+  
+  /* Mobile-friendly card layouts */
+  .mobile-card {
+    @apply rounded-lg shadow-sm border border-gray-200 bg-white p-4;
+  }
+  
+  /* Mobile navigation drawer */
+  .mobile-drawer {
+    @apply fixed inset-y-0 left-0 w-80 bg-white shadow-xl transform transition-transform duration-300 ease-in-out z-40;
+  }
+  
+  .mobile-drawer.closed {
+    @apply -translate-x-full;
+  }
+  
+  .mobile-drawer.open {
+    @apply translate-x-0;
+  }
+  
+  /* Mobile bottom sheet */
+  .mobile-bottom-sheet {
+    @apply fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl transform transition-transform duration-300 ease-in-out z-40;
+    max-height: 90vh;
+  }
+  
+  .mobile-bottom-sheet.closed {
+    @apply translate-y-full;
+  }
+  
+  .mobile-bottom-sheet.open {
+    @apply translate-y-0;
+  }
+  
+  /* Mobile floating action button */
+  .mobile-fab {
+    @apply fixed bottom-6 right-6 w-14 h-14 bg-primary-color text-white rounded-full shadow-lg flex items-center justify-center z-30;
+    @apply hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-color;
+  }
+}
+
+@layer utilities {
+  /* Mobile spacing utilities */
+  .mobile-gap {
+    gap: var(--mobile-spacing, 16px);
+  }
+  
+  .mobile-p {
+    padding: var(--mobile-spacing, 16px);
+  }
+  
+  .mobile-m {
+    margin: var(--mobile-spacing, 16px);
+  }
+  
+  /* Mobile touch target utilities */
+  .touch-target {
+    min-height: var(--touch-target-size, 44px);
+    min-width: var(--touch-target-size, 44px);
+  }
+  
+  /* Mobile scroll snap utilities */
+  .scroll-snap-x {
+    scroll-snap-type: x mandatory;
+  }
+  
+  .scroll-snap-y {
+    scroll-snap-type: y mandatory;
+  }
+  
+  .scroll-snap-start {
+    scroll-snap-align: start;
+  }
+  
+  .scroll-snap-center {
+    scroll-snap-align: center;
+  }
+  
+  .scroll-snap-end {
+    scroll-snap-align: end;
+  }
+}
+
+/* Mobile-specific media queries */
+@media (max-width: 640px) {
+  /* Small mobile devices */
+  .mobile-only {
+    display: block;
+  }
+  
+  .desktop-only {
+    display: none;
+  }
+  
+  /* Adjust font sizes for mobile */
+  .mobile-text-xs {
+    font-size: 0.75rem;
+  }
+  
+  .mobile-text-sm {
+    font-size: 0.875rem;
+  }
+  
+  .mobile-text-base {
+    font-size: 1rem;
+  }
+  
+  .mobile-text-lg {
+    font-size: 1.125rem;
+  }
+  
+  .mobile-text-xl {
+    font-size: 1.25rem;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Extra small mobile devices */
+  .mobile-container {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  
+  .mobile-button {
+    width: 100%;
+    max-width: none;
+  }
+}
+
+/* PWA installation prompt styles */
+.pwa-prompt {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  right: 20px;
+  z-index: 1000;
+}
+
+/* Offline indicator styles */
+.offline-indicator {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: #ef4444;
+  color: white;
+  text-align: center;
+  padding: 8px;
+  z-index: 1001;
+}
+
+/* Mobile keyboard adjustments */
+@media (max-height: 500px) and (orientation: landscape) {
+  .mobile-keyboard-open {
+    padding-bottom: 0;
+  }
+  
+  .mobile-keyboard-open .mobile-bottom-sheet {
+    max-height: 70vh;
+  }
+}

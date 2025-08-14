@@ -224,29 +224,55 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
   
   signIn: async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    
-    if (error) throw error;
-    
-    if (data.user) {
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', data.user.id)
-        .single();
-        
-      if (profileError) throw profileError;
-
-      // Initialize user stats if they don't exist
-      await initializeUserStats(data.user.id);
-        
-      set({ 
-        user: { ...profile, email: data.user.email },
-        isAuthenticated: true,
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       });
+      
+      if (error) throw error;
+      
+      if (data.user) {
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', data.user.id)
+          .single();
+          
+        if (profileError) throw profileError;
+
+        // Initialize user stats if they don't exist
+        await initializeUserStats(data.user.id);
+          
+        set({ 
+          user: { ...profile, email: data.user.email },
+          isAuthenticated: true,
+        });
+      }
+    } catch (error: any) {
+      // Enhanced error handling for network issues
+      if (error.message?.includes('Failed to fetch') || 
+          error.message?.includes('net::ERR_INTERNET_DISCONNECTED') ||
+          error.message?.includes('NetworkError') ||
+          !navigator.onLine) {
+        throw new Error('No internet connection. Please check your network and try again.');
+      }
+      
+      // Handle specific Supabase errors
+      if (error.message?.includes('Invalid login credentials')) {
+        throw new Error('Invalid email or password. Please try again.');
+      }
+      
+      if (error.message?.includes('Email not confirmed')) {
+        throw new Error('Please check your email and confirm your account before signing in.');
+      }
+      
+      if (error.message?.includes('Too many requests')) {
+        throw new Error('Too many login attempts. Please wait a moment and try again.');
+      }
+      
+      // Generic error fallback
+      throw new Error(error.message || 'Failed to sign in. Please try again.');
     }
   },
 

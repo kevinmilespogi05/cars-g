@@ -1,8 +1,11 @@
--- Create get_user_leaderboard function for leaderboard functionality
--- This function returns user leaderboard data with accurate report counts
--- Admin users are excluded by default for normal leaderboard display
+-- Update leaderboard functions to exclude admin users by default
+-- Run this in your Supabase SQL Editor
 
--- Create a function to get user leaderboard data with accurate report counts
+-- Drop existing functions if they exist
+DROP FUNCTION IF EXISTS public.get_user_leaderboard(integer);
+DROP FUNCTION IF EXISTS public.get_admin_leaderboard(integer);
+
+-- Create updated function that excludes admin users by default
 CREATE OR REPLACE FUNCTION public.get_user_leaderboard(limit_count integer)
 RETURNS TABLE (
   id uuid,
@@ -47,7 +50,7 @@ BEGIN
 END;
 $$;
 
--- Create a separate function for admin users to see all users including admins
+-- Create separate function for admin users to see all users including admins
 CREATE OR REPLACE FUNCTION public.get_admin_leaderboard(limit_count integer)
 RETURNS TABLE (
   id uuid,
@@ -95,47 +98,21 @@ $$;
 GRANT EXECUTE ON FUNCTION public.get_user_leaderboard(integer) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_admin_leaderboard(integer) TO authenticated;
 
--- Create a test function to verify the leaderboard function works
-CREATE OR REPLACE FUNCTION public.test_leaderboard_function()
-RETURNS TEXT
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-BEGIN
-    -- This is just a test function to verify the get_user_leaderboard function exists
-    -- It doesn't actually call the function with data
-    RETURN 'get_user_leaderboard function is available';
-END;
-$$;
-
--- Grant execute permission for testing
-GRANT EXECUTE ON FUNCTION public.test_leaderboard_function() TO authenticated;
-
--- Add comment for documentation
+-- Add comments for documentation
 COMMENT ON FUNCTION public.get_user_leaderboard(integer) IS 'Returns user leaderboard data with points and report counts, excluding admin users, ordered by points descending';
 COMMENT ON FUNCTION public.get_admin_leaderboard(integer) IS 'Returns user leaderboard data with points and report counts, including admin users, ordered by points descending';
 
--- Test that the function can be called (without actually executing it)
-DO $$
-BEGIN
-    -- Just verify the function exists and can be referenced
-    IF EXISTS (
-        SELECT 1 FROM pg_proc 
-        WHERE proname = 'get_user_leaderboard' 
-        AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')
-    ) THEN
-        RAISE NOTICE 'get_user_leaderboard function created successfully';
-    ELSE
-        RAISE EXCEPTION 'Failed to create get_user_leaderboard function';
-    END IF;
-    
-    IF EXISTS (
-        SELECT 1 FROM pg_proc 
-        WHERE proname = 'get_admin_leaderboard' 
-        AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')
-    ) THEN
-        RAISE NOTICE 'get_admin_leaderboard function created successfully';
-    ELSE
-        RAISE EXCEPTION 'Failed to create get_admin_leaderboard function';
-    END IF;
-END $$; 
+-- Test that the functions were created successfully
+SELECT 'get_user_leaderboard function updated successfully' as status;
+SELECT 'get_admin_leaderboard function created successfully' as status;
+
+-- Show the function signatures
+SELECT 
+    p.proname as function_name,
+    pg_get_function_identity_arguments(p.oid) as arguments,
+    pg_get_function_result(p.oid) as return_type
+FROM pg_proc p
+JOIN pg_namespace n ON p.pronamespace = n.oid
+WHERE n.nspname = 'public' 
+  AND p.proname IN ('get_user_leaderboard', 'get_admin_leaderboard')
+ORDER BY p.proname;

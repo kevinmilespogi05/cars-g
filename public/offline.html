@@ -3,61 +3,304 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Offline - Cars App</title>
+    <meta name="theme-color" content="#800000">
+    <title>Offline - Cars-G</title>
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            height: 100vh;
-            margin: 0;
+            min-height: 100vh;
             padding: 20px;
             text-align: center;
-            background-color: #f5f5f5;
+            background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%);
             color: #333;
         }
+        
         .container {
             max-width: 600px;
-            padding: 40px;
+            width: 100%;
+            padding: 40px 20px;
             background: white;
-            border-radius: 10px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            backdrop-filter: blur(10px);
         }
+        
+        .icon {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 24px;
+            background: #800000;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 32px;
+        }
+        
         h1 {
             color: #800000;
-            margin-bottom: 20px;
+            margin-bottom: 16px;
+            font-size: 28px;
+            font-weight: 700;
         }
+        
         p {
             line-height: 1.6;
-            margin-bottom: 20px;
+            margin-bottom: 24px;
+            color: #666;
+            font-size: 16px;
         }
+        
+        .status {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: #f8f9fa;
+            border-radius: 20px;
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 24px;
+        }
+        
+        .status.online {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .status.offline {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+        
+        .actions {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            align-items: center;
+        }
+        
         .retry-button {
-            background-color: #800000;
+            background: #800000;
             color: white;
             border: none;
-            padding: 12px 24px;
-            border-radius: 5px;
+            padding: 14px 28px;
+            border-radius: 8px;
             cursor: pointer;
             font-size: 16px;
-            transition: background-color 0.3s;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            min-width: 140px;
         }
+        
         .retry-button:hover {
-            background-color: #600000;
+            background: #600000;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(128, 0, 0, 0.3);
+        }
+        
+        .retry-button:active {
+            transform: translateY(0);
+        }
+        
+        .retry-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .home-button {
+            background: transparent;
+            color: #800000;
+            border: 2px solid #800000;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .home-button:hover {
+            background: #800000;
+            color: white;
+        }
+        
+        .features {
+            margin-top: 32px;
+            padding-top: 24px;
+            border-top: 1px solid #eee;
+        }
+        
+        .features h3 {
+            font-size: 18px;
+            margin-bottom: 16px;
+            color: #333;
+        }
+        
+        .feature-list {
+            list-style: none;
+            text-align: left;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+        
+        .feature-list li {
+            padding: 8px 0;
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .feature-list li::before {
+            content: "✓";
+            color: #800000;
+            font-weight: bold;
+            margin-right: 8px;
+        }
+        
+        @media (max-width: 480px) {
+            .container {
+                padding: 24px 16px;
+                margin: 16px;
+            }
+            
+            h1 {
+                font-size: 24px;
+            }
+            
+            p {
+                font-size: 15px;
+            }
+            
+            .icon {
+                width: 64px;
+                height: 64px;
+                font-size: 24px;
+            }
+            
+            .actions {
+                gap: 16px;
+            }
+            
+            .retry-button, .home-button {
+                width: 100%;
+                max-width: 280px;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
+        <div class="icon">📱</div>
         <h1>You're Offline</h1>
-        <p>It seems you've lost your internet connection. Please check your connection and try again.</p>
-        <button class="retry-button" onclick="window.location.reload()">Retry</button>
+        <p>It seems you've lost your internet connection. Don't worry - Cars-G works offline too!</p>
+        
+        <div class="status offline" id="status">
+            <div class="status-dot"></div>
+            <span>No internet connection</span>
+        </div>
+        
+        <div class="actions">
+            <button class="retry-button" id="retryBtn" onclick="checkConnection()">
+                Check Connection
+            </button>
+            <a href="/" class="home-button">Go Home</a>
+        </div>
+        
+        <div class="features">
+            <h3>Offline Features Available:</h3>
+            <ul class="feature-list">
+                <li>View cached reports and data</li>
+                <li>Access your profile information</li>
+                <li>Browse previously loaded content</li>
+                <li>Use the app interface</li>
+            </ul>
+        </div>
     </div>
+    
     <script>
-        // Check if we're back online
+        let isOnline = false;
+        const statusEl = document.getElementById('status');
+        const retryBtn = document.getElementById('retryBtn');
+        
+        function updateStatus() {
+            if (navigator.onLine) {
+                isOnline = true;
+                statusEl.className = 'status online';
+                statusEl.innerHTML = '<div class="status-dot"></div><span>Connected to internet</span>';
+                retryBtn.textContent = 'Go Online';
+                retryBtn.onclick = () => window.location.reload();
+            } else {
+                isOnline = false;
+                statusEl.className = 'status offline';
+                statusEl.innerHTML = '<div class="status-dot"></div><span>No internet connection</span>';
+                retryBtn.textContent = 'Check Connection';
+                retryBtn.onclick = checkConnection;
+            }
+        }
+        
+        function checkConnection() {
+            retryBtn.disabled = true;
+            retryBtn.textContent = 'Checking...';
+            
+            // Try to fetch a small resource to test connection
+            fetch('/manifest.webmanifest', { 
+                method: 'HEAD',
+                cache: 'no-cache'
+            })
+            .then(() => {
+                if (!navigator.onLine) {
+                    // Force online status update
+                    window.dispatchEvent(new Event('online'));
+                }
+                updateStatus();
+            })
+            .catch(() => {
+                updateStatus();
+            })
+            .finally(() => {
+                retryBtn.disabled = false;
+            });
+        }
+        
+        // Listen for online/offline events
+        window.addEventListener('online', updateStatus);
+        window.addEventListener('offline', updateStatus);
+        
+        // Initial status check
+        updateStatus();
+        
+        // Check connection every 5 seconds
+        setInterval(checkConnection, 5000);
+        
+        // Auto-reload when connection is restored
         window.addEventListener('online', () => {
-            window.location.reload();
+            setTimeout(() => {
+                if (navigator.onLine) {
+                    window.location.reload();
+                }
+            }, 1000);
         });
     </script>
 </body>
