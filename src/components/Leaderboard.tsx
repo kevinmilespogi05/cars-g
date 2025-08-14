@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { getLeaderboardForUser } from '../lib/points';
+import { getLeaderboard } from '../lib/points';
 import { Trophy, Medal, Award, User } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { useAuthStore } from '../store/authStore';
 
 interface LeaderboardEntry {
   id: string;
@@ -10,24 +9,21 @@ interface LeaderboardEntry {
   points: number;
   avatar_url: string | null;
   rank?: number;
-  role?: string;
 }
 
 export function Leaderboard({ limit = 10 }: { limit?: number }) {
-  const { user: currentUser } = useAuthStore();
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchLeaderboard();
-  }, [limit, currentUser?.role]);
+  }, [limit]);
 
   const fetchLeaderboard = async () => {
     setLoading(true);
     try {
-      // Use the new function that automatically handles admin filtering
-      const data = await getLeaderboardForUser(limit, currentUser?.role);
+      const data = await getLeaderboard(limit);
       
       // Add rank to each entry
       const rankedData = data.map((entry, index) => ({
@@ -82,16 +78,25 @@ export function Leaderboard({ limit = 10 }: { limit?: number }) {
     return (
       <div className="bg-white shadow rounded-lg p-6">
         <h2 className="text-xl font-bold mb-4">Community Leaderboard</h2>
-        <div className="text-red-600 text-center py-4">{error}</div>
+        <div className="text-red-500">{error}</div>
+        <button
+          onClick={fetchLeaderboard}
+          className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+        >
+          Try Again
+        </button>
       </div>
     );
   }
 
   return (
-    <div className="bg-white shadow rounded-lg p-6">
-      <h2 className="text-xl font-bold mb-4">Community Leaderboard</h2>
+    <div className="bg-white shadow rounded-lg overflow-hidden">
+      <div className="px-6 py-4 border-b border-gray-200">
+        <h2 className="text-xl font-bold text-gray-800">Community Leaderboard</h2>
+        <p className="text-sm text-gray-700">Top contributors this month</p>
+      </div>
       
-      <ul className="space-y-2">
+      <ul className="divide-y divide-gray-200">
         {entries.map((entry, index) => (
           <li key={entry.id} className="px-6 py-4 hover:bg-gray-50">
             <div className="flex items-center">

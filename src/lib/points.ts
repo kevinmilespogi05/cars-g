@@ -27,23 +27,6 @@ export async function awardPoints(
   return points;
 }
 
-export interface PointsHistory {
-  id: string;
-  points: number;
-  reason: string;
-  created_at: string;
-}
-
-export interface LeaderboardEntry {
-  id: string;
-  username: string;
-  points: number;
-  avatar_url: string | null;
-  role: string;
-  reports_submitted: number;
-  reports_verified: number;
-}
-
 export async function getPointsHistory(userId: string) {
   const { data, error } = await supabase
     .from('points_history')
@@ -52,26 +35,15 @@ export async function getPointsHistory(userId: string) {
     .order('created_at', { ascending: false });
 
   if (error) throw error;
-
   return data;
 }
 
-export async function getLeaderboard(limit = 10, includeAdmins = false) {
-  // Use different functions based on whether we want to include admins
-  const functionName = includeAdmins ? 'get_admin_leaderboard' : 'get_user_leaderboard';
-  
+export async function getLeaderboard(limit = 10) {
+  // Use a raw SQL query to get accurate counts
   const { data, error } = await supabase
-    .rpc(functionName, { limit_count: limit });
+    .rpc('get_user_leaderboard', { limit_count: limit });
 
   if (error) throw error;
 
   return data;
-}
-
-export async function getLeaderboardForUser(limit = 10, userRole?: string) {
-  // If user is admin, they can see all users including admins
-  // If user is not admin, they only see normal users
-  const includeAdmins = userRole === 'admin';
-  
-  return getLeaderboard(limit, includeAdmins);
 }

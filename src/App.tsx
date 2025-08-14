@@ -24,9 +24,6 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { publicRoutes, protectedRoutes, adminRoutes } from './routes/routes';
 import { PWAPrompt } from './components/PWAPrompt';
 import { NetworkStatus } from './components/NetworkStatus';
-import { SupabaseOutageIndicator } from './components/SupabaseOutageIndicator';
-import { OutageProvider } from './lib/supabaseOutageHandler.tsx';
-import { supabase } from './lib/supabase';
 
 // Configure future flags for React Router v7
 const routerConfig = {
@@ -122,47 +119,42 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <OutageProvider supabase={supabase}>
-        <Providers>
-          <div className="min-h-screen bg-gray-100">
-            <Navigation />
-            <main className="pt-16 sm:pt-20">
-              <Suspense fallback={<LoadingSpinner />}>
-                <Routes>
-                  {publicRoutes.map((route) => (
+      <Providers>
+        <div className="min-h-screen bg-gray-100">
+          <Navigation />
+          <main className="pt-16 sm:pt-20">
+            <Suspense fallback={<LoadingSpinner />}>
+              <Routes>
+                {publicRoutes.map((route) => (
+                  <Route key={route.path} {...route} />
+                ))}
+                {isAuthenticated &&
+                  protectedRoutes.map((route) => (
                     <Route key={route.path} {...route} />
                   ))}
-                  {isAuthenticated &&
-                    protectedRoutes.map((route) => (
-                      <Route key={route.path} {...route} />
-                    ))}
-                  {isAuthenticated &&
-                    user?.role === 'admin' &&
-                    adminRoutes.map((route) => (
-                      <Route key={route.path} {...route} />
-                    ))}
-                  <Route
-                    path="*"
-                    element={<Navigate to={isAuthenticated ? "/reports" : "/login"} replace />}
-                  />
-                </Routes>
-              </Suspense>
-            </main>
-            
-            {/* Status Indicators */}
-            <SupabaseOutageIndicator />
-            
-            {/* Network Status Indicator */}
-            {!isOnline && (
-              <NetworkStatus />
-            )}
-            
-            {/* PWA Install Prompt */}
-            <PWAPrompt />
-          </div>
-          <Analytics />
-        </Providers>
-      </OutageProvider>
+                {isAuthenticated &&
+                  user?.role === 'admin' &&
+                  adminRoutes.map((route) => (
+                    <Route key={route.path} {...route} />
+                  ))}
+                <Route
+                  path="*"
+                  element={<Navigate to={isAuthenticated ? "/reports" : "/login"} replace />}
+                />
+              </Routes>
+            </Suspense>
+          </main>
+          
+          {/* Network Status Indicator */}
+          {!isOnline && (
+            <NetworkStatus />
+          )}
+          
+          {/* PWA Install Prompt */}
+          <PWAPrompt />
+        </div>
+        <Analytics />
+      </Providers>
     </ErrorBoundary>
   );
 }
