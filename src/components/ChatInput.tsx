@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { SendIcon, PaperclipIcon, ImageIcon, MapPinIcon, Loader2, AlertCircleIcon, RefreshCwIcon } from 'lucide-react';
+import { SendIcon, PaperclipIcon, ImageIcon, MapPinIcon, Loader2, AlertCircleIcon, RefreshCwIcon, Camera, Upload, X, RotateCcw, Check } from 'lucide-react';
 import { cloudinary } from '../lib/cloudinary';
+import { PhotoCapture } from './PhotoCapture';
 
 interface ChatInputProps {
   onSendMessage: (content: string, messageType: string) => Promise<boolean>;
@@ -33,6 +34,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout>();
+  const [showPhotoCapture, setShowPhotoCapture] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -391,8 +393,71 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     setUnsentMessages(prev => prev.filter(msg => msg.id !== messageId));
   };
 
+  // Enhanced photo handling for chat
+  const handlePhotoCaptured = (photoUrl: string) => {
+    // Send the photo URL as a message
+    const messageId = `unsent_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    const unsentMessage = {
+      id: messageId,
+      content: photoUrl,
+      messageType: 'image' as const,
+      timestamp: new Date(),
+    };
+    
+    setUnsentMessages(prev => [...prev, unsentMessage]);
+    
+    // Try to send immediately
+    handleSendMessage(photoUrl, 'image');
+  };
+
+  // Enhanced file upload section
+  const renderFileUploadSection = () => (
+    <div className="flex items-center space-x-2">
+      {/* Photo Capture Button */}
+      <button
+        type="button"
+        onClick={() => setShowPhotoCapture(true)}
+        disabled={disabled}
+        className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        title="Capture Photo"
+      >
+        <Camera className="h-5 w-5" />
+      </button>
+
+      {/* File Upload Button */}
+      <label className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*,video/*"
+          onChange={handleFileUpload}
+          className="hidden"
+          disabled={disabled}
+        />
+        <Upload className="h-5 w-5" />
+      </label>
+
+      {/* Image Upload Button */}
+      <label className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={handleImageUpload}
+          className="hidden"
+          disabled={disabled}
+        />
+        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+      </label>
+    </div>
+  );
+
   return (
-    <div className="border-t border-gray-200 bg-white p-4">
+    <div className="border-t bg-white p-4">
       {/* Unsent Messages */}
       {unsentMessages.length > 0 && (
         <div className="mb-4 space-y-2">
@@ -605,6 +670,16 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           </div>
           Typing...
         </div>
+      )}
+
+      {/* Photo Capture Modal */}
+      {showPhotoCapture && (
+        <PhotoCapture
+          onPhotoCaptured={handlePhotoCaptured}
+          onClose={() => setShowPhotoCapture(false)}
+          maxPhotos={1}
+          folder="cars-g/chat"
+        />
       )}
     </div>
   );
