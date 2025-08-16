@@ -96,9 +96,9 @@ export default defineConfig({
         clientsClaim: true
       },
       manifest: {
-        name: 'Cars-G - Car Management System',
+        name: 'Cars-G',
         short_name: 'Cars-G',
-        description: 'Your comprehensive car management and reporting system',
+        description: 'Your comprehensive reporting system',
         theme_color: '#800000',
         background_color: '#ffffff',
         display: 'standalone',
