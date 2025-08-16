@@ -15,7 +15,6 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,json,vue,txt,woff2}'],
-        // Remove globDirectory to let Workbox auto-detect the correct directory
         cleanupOutdatedCaches: true,
         sourcemap: true,
         runtimeCaching: [
@@ -92,9 +91,6 @@ export default defineConfig({
             }
           }
         ],
-        // Add offline fallback
-        navigateFallback: '/offline.html',
-        navigateFallbackAllowlist: [/^(?!\/__).*/],
         // Skip waiting for immediate activation
         skipWaiting: true,
         clientsClaim: true

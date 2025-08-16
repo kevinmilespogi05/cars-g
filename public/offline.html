@@ -245,6 +245,8 @@
     
     <script>
         let isOnline = false;
+        let checkCount = 0;
+        const maxChecks = 3;
         const statusEl = document.getElementById('status');
         const retryBtn = document.getElementById('retryBtn');
         
@@ -254,7 +256,10 @@
                 statusEl.className = 'status online';
                 statusEl.innerHTML = '<div class="status-dot"></div><span>Connected to internet</span>';
                 retryBtn.textContent = 'Go Online';
-                retryBtn.onclick = () => window.location.reload();
+                retryBtn.onclick = () => {
+                    // Try to redirect back to the main app
+                    window.location.href = '/';
+                };
             } else {
                 isOnline = false;
                 statusEl.className = 'status offline';
@@ -264,39 +269,85 @@
             }
         }
         
-        function checkConnection() {
+        async function checkConnection() {
+            if (checkCount >= maxChecks) {
+                retryBtn.disabled = true;
+                retryBtn.textContent = 'Max attempts reached';
+                return;
+            }
+            
+            checkCount++;
             retryBtn.disabled = true;
             retryBtn.textContent = 'Checking...';
             
-            // Try to fetch a small resource to test connection
-            fetch('/manifest.webmanifest', { 
-                method: 'HEAD',
-                cache: 'no-cache'
-            })
-            .then(() => {
-                if (!navigator.onLine) {
-                    // Force online status update
-                    window.dispatchEvent(new Event('online'));
+            try {
+                // Try multiple endpoints to test connection
+                const endpoints = [
+                    '/manifest.webmanifest',
+                    'https://httpbin.org/status/200',
+                    'https://www.google.com/favicon.ico'
+                ];
+                
+                let connectionSuccess = false;
+                
+                for (const endpoint of endpoints) {
+                    try {
+                        const response = await fetch(endpoint, { 
+                            method: 'HEAD',
+                            cache: 'no-cache',
+                            signal: AbortSignal.timeout(3000)
+                        });
+                        if (response.ok) {
+                            connectionSuccess = true;
+                            break;
+                        }
+                    } catch (error) {
+                        console.log(`Failed to reach ${endpoint}:`, error);
+                    }
                 }
+                
+                if (connectionSuccess) {
+                    // We have a connection, try to go back to the main app
+                    window.location.href = '/';
+                } else {
+                    // Still no connection
+                    updateStatus();
+                }
+            } catch (error) {
+                console.error('Connection check failed:', error);
                 updateStatus();
-            })
-            .catch(() => {
-                updateStatus();
-            })
-            .finally(() => {
+            } finally {
                 retryBtn.disabled = false;
-            });
+            }
         }
         
         // Listen for online/offline events
-        window.addEventListener('online', updateStatus);
-        window.addEventListener('offline', updateStatus);
+        window.addEventListener('online', () => {
+            console.log('Browser detected online status');
+            updateStatus();
+        });
+        
+        window.addEventListener('offline', () => {
+            console.log('Browser detected offline status');
+            updateStatus();
+        });
         
         // Initial status check
         updateStatus();
         
-        // Check connection every 5 seconds
-        setInterval(checkConnection, 5000);
+        // Check connection every 10 seconds (less aggressive)
+        setInterval(() => {
+            if (!navigator.onLine && checkCount < maxChecks) {
+                checkConnection();
+            }
+        }, 10000);
+        
+        // Auto-redirect if we detect we're back online
+        setInterval(() => {
+            if (navigator.onLine) {
+                window.location.href = '/';
+            }
+        }, 5000);
     </script>
 </body>
 </html>

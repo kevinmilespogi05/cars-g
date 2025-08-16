@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { registerSW } from 'virtual:pwa-register';
+import { useNetworkStatus } from './useNetworkStatus';
 
 interface BeforeInstallPromptEvent extends Event {
   readonly platforms: string[];
@@ -24,7 +25,9 @@ export function usePWA(): UsePWAReturn {
   const [isUpdateAvailable, setIsUpdateAvailable] = useState(false);
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstalled, setIsInstalled] = useState(false);
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  
+  // Use the improved network status hook
+  const { isOnline, checkConnection } = useNetworkStatus();
 
   useEffect(() => {
     // Use vite-plugin-pwa's registerSW function
@@ -82,14 +85,8 @@ export function usePWA(): UsePWAReturn {
       }
     };
 
-    // Network status monitoring
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     window.addEventListener('appinstalled', handleAppInstalled);
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
 
     // Check if already installed
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
@@ -104,8 +101,6 @@ export function usePWA(): UsePWAReturn {
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
       window.removeEventListener('appinstalled', handleAppInstalled);
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
     };
   }, []);
 
@@ -131,18 +126,6 @@ export function usePWA(): UsePWAReturn {
   const handleUpdate = () => {
     if (isUpdateAvailable) {
       window.location.reload();
-    }
-  };
-
-  const checkConnection = async (): Promise<boolean> => {
-    try {
-      await fetch('/manifest.webmanifest', { 
-        method: 'HEAD',
-        cache: 'no-cache'
-      });
-      return true;
-    } catch {
-      return false;
     }
   };
 

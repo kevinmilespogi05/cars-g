@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fix Offline Issue - Cars-G</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 3rem;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            max-width: 600px;
+            width: 100%;
+        }
+        
+        h1 {
+            color: #800000;
+            margin-bottom: 1rem;
+            font-size: 2rem;
+        }
+        
+        .status {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 10px;
+            margin: 1rem 0;
+            text-align: left;
+        }
+        
+        .button {
+            background: #800000;
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            margin: 0.5rem;
+            transition: background 0.3s;
+        }
+        
+        .button:hover {
+            background: #600000;
+        }
+        
+        .button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+        }
+        
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+        }
+        
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+            text-align: left;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Fix Offline Issue</h1>
+        <p>This page will help you clear the service worker and fix the offline detection problem.</p>
+        
+        <div class="status">
+            <strong>Current Status:</strong><br>
+            <span id="currentStatus">Checking...</span>
+        </div>
+        
+        <div>
+            <button class="button" onclick="clearServiceWorker()">Clear Service Worker</button>
+            <button class="button" onclick="clearCaches()">Clear All Caches</button>
+            <button class="button" onclick="testConnection()">Test Connection</button>
+            <button class="button" onclick="goToApp()">Go to Cars-G App</button>
+        </div>
+        
+        <div id="result"></div>
+        
+        <div class="log" id="log">
+            <strong>Log:</strong><br>
+            <div id="logContent"></div>
+        </div>
+    </div>
+    
+    <script>
+        let logContent = '';
+        
+        function log(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            logContent += `[${timestamp}] ${message}\n`;
+            document.getElementById('logContent').textContent = logContent;
+            console.log(message);
+        }
+        
+        function updateStatus(message) {
+            document.getElementById('currentStatus').textContent = message;
+        }
+        
+        async function clearServiceWorker() {
+            log('Clearing service worker...');
+            
+            try {
+                if ('serviceWorker' in navigator) {
+                    const registrations = await navigator.serviceWorker.getRegistrations();
+                    log(`Found ${registrations.length} service worker(s)`);
+                    
+                    for (let registration of registrations) {
+                        await registration.unregister();
+                        log('Service worker unregistered');
+                    }
+                    
+                    showResult('Service worker cleared successfully!', 'success');
+                } else {
+                    showResult('Service worker not supported in this browser', 'error');
+                }
+            } catch (error) {
+                log(`Error clearing service worker: ${error.message}`);
+                showResult(`Error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function clearCaches() {
+            log('Clearing all caches...');
+            
+            try {
+                if ('caches' in window) {
+                    const cacheNames = await caches.keys();
+                    log(`Found ${cacheNames.length} cache(s)`);
+                    
+                    for (let cacheName of cacheNames) {
+                        await caches.delete(cacheName);
+                        log(`Cache deleted: ${cacheName}`);
+                    }
+                    
+                    showResult('All caches cleared successfully!', 'success');
+                } else {
+                    showResult('Cache API not supported in this browser', 'error');
+                }
+            } catch (error) {
+                log(`Error clearing caches: ${error.message}`);
+                showResult(`Error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testConnection() {
+            log('Testing connection...');
+            
+            try {
+                const response = await fetch('/manifest.webmanifest', {
+                    method: 'HEAD',
+                    cache: 'no-cache'
+                });
+                
+                if (response.ok) {
+                    log('Local connection: OK');
+                    showResult('Local connection is working!', 'success');
+                } else {
+                    log('Local connection: Failed');
+                    showResult('Local connection failed', 'error');
+                }
+            } catch (error) {
+                log(`Connection test failed: ${error.message}`);
+                showResult(`Connection test failed: ${error.message}`, 'error');
+            }
+        }
+        
+        function goToApp() {
+            log('Redirecting to Cars-G app...');
+            window.location.href = '/';
+        }
+        
+        function showResult(message, type) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = `<div class="${type}">${message}</div>`;
+        }
+        
+        // Check initial status
+        window.addEventListener('load', () => {
+            log('Page loaded');
+            
+            if (navigator.onLine) {
+                updateStatus('Online - You have internet connection');
+                log('Browser reports: Online');
+            } else {
+                updateStatus('Offline - No internet connection detected');
+                log('Browser reports: Offline');
+            }
+            
+            // Check if service worker is registered
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistrations().then(registrations => {
+                    if (registrations.length > 0) {
+                        log(`Service worker registered: ${registrations[0].scope}`);
+                        updateStatus(updateStatus.textContent + ' (Service Worker Active)');
+                    } else {
+                        log('No service worker registered');
+                    }
+                });
+            }
+        });
+        
+        // Listen for online/offline events
+        window.addEventListener('online', () => {
+            log('Browser detected: Online');
+            updateStatus('Online - Internet connection restored');
+        });
+        
+        window.addEventListener('offline', () => {
+            log('Browser detected: Offline');
+            updateStatus('Offline - Internet connection lost');
+        });
+    </script>
+</body>
+</html>

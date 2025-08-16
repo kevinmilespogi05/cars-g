@@ -14,6 +14,7 @@ const MapTestPage = lazy(() => import('../pages/MapTestPage').then(module => ({ 
 const AdminDashboard = lazy(() => import('../pages/AdminDashboard').then(module => ({ default: module.AdminDashboard })));
 const PrivacyPolicy = lazy(() => import('../pages/PrivacyPolicy').then(module => ({ default: module.PrivacyPolicy })));
 const Chat = lazy(() => import('../pages/Chat').then(module => ({ default: module.Chat })));
+const NetworkTest = lazy(() => import('../pages/NetworkTest').then(module => ({ default: module.NetworkTest })));
 
 export const publicRoutes: RouteObject[] = [
   {
@@ -66,6 +67,10 @@ export const protectedRoutes: RouteObject[] = [
   {
     path: '/chat',
     element: <ProtectedRoute><Chat /></ProtectedRoute>
+  },
+  {
+    path: '/network-test',
+    element: <ProtectedRoute><NetworkTest /></ProtectedRoute>
   }
 ];
 
