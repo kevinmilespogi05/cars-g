@@ -394,21 +394,77 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   };
 
   // Enhanced photo handling for chat
-  const handlePhotoCaptured = (photoUrl: string) => {
-    // Send the photo URL as a message
-    const messageId = `unsent_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
-    const unsentMessage = {
-      id: messageId,
-      content: photoUrl,
-      messageType: 'image' as const,
-      timestamp: new Date(),
-    };
-    
-    setUnsentMessages(prev => [...prev, unsentMessage]);
-    
-    // Try to send immediately
-    handleSendMessage(photoUrl, 'image');
+  const handlePhotoCaptured = async (photoFile: File) => {
+    try {
+      setIsUploading(true);
+      setUploadProgress(0);
+      
+      // Upload the photo to Cloudinary
+      const result = await cloudinary.uploadImage(photoFile, 'cars-g/chat');
+      
+      console.log('Image uploaded successfully to Cloudinary:', result);
+      
+      // Send the image URL as a message
+      const messageId = `unsent_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      // Add message to unsent list immediately
+      const unsentMessage = {
+        id: messageId,
+        content: result.secureUrl,
+        messageType: 'image' as const,
+        timestamp: new Date(),
+      };
+      
+      setUnsentMessages(prev => [...prev, unsentMessage]);
+      
+      try {
+        const success = await onSendMessage(result.secureUrl, 'image');
+        
+        if (success) {
+          // Remove from unsent list if successful
+          setUnsentMessages(prev => prev.filter(msg => msg.id !== messageId));
+        } else {
+          // Mark as failed if not successful
+          setUnsentMessages(prev => 
+            prev.map(msg => 
+              msg.id === messageId 
+                ? { ...msg, error: 'Failed to send image' }
+                : msg
+            )
+          );
+        }
+      } catch (error) {
+        // Mark as failed if error occurs
+        setUnsentMessages(prev => 
+          prev.map(msg => 
+            msg.id === messageId 
+              ? { ...msg, error: error instanceof Error ? error.message : 'Failed to send image' }
+              : msg
+          )
+        );
+      }
+      
+      console.log('Image message sent with URL:', result.secureUrl);
+    } catch (error) {
+      console.error('Failed to upload image:', error);
+      
+      // Provide more detailed error information
+      let errorMessage = 'Failed to upload image';
+      if (error instanceof Error) {
+        if (error.message.includes('Cloudinary is not configured')) {
+          errorMessage = 'Cloudinary is not configured. Please check your .env file.';
+        } else if (error.message.includes('upload preset')) {
+          errorMessage = 'Upload preset issue. Please check your Cloudinary dashboard.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      alert(errorMessage);
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(0);
+    }
   };
 
   // Enhanced file upload section
@@ -678,6 +734,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           onPhotoCaptured={handlePhotoCaptured}
           onClose={() => setShowPhotoCapture(false)}
           maxPhotos={1}
+          currentPhotos={[]}
           folder="cars-g/chat"
         />
       )}

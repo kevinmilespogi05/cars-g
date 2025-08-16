@@ -111,9 +111,9 @@ export function MapPicker({ onLocationSelect, initialLocation }: MapPickerProps)
   };
 
   return (
-    <div className="w-full h-64 rounded-lg overflow-hidden border border-gray-300 relative">
+    <div className="w-full h-64 rounded-lg overflow-hidden border border-gray-300 relative z-0">
       {error && (
-        <div className="absolute top-0 left-0 right-0 bg-yellow-100 text-yellow-800 p-2 text-sm flex items-center justify-between">
+        <div className="absolute top-0 left-0 right-0 bg-yellow-100 text-yellow-800 p-2 text-sm flex items-center justify-between z-10">
           <span>{error}</span>
           {!showLocationButton && (
             <button
@@ -134,6 +134,7 @@ export function MapPicker({ onLocationSelect, initialLocation }: MapPickerProps)
         style={{ height: '100%', width: '100%' }}
         ref={mapRef}
         scrollWheelZoom={true}
+        className="z-0"
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -143,7 +144,7 @@ export function MapPicker({ onLocationSelect, initialLocation }: MapPickerProps)
           <button
             onClick={getLocation}
             disabled={isLoading}
-            className="absolute top-12 right-2 z-[1000] bg-white p-2 rounded-full shadow-md hover:bg-gray-50 disabled:opacity-50"
+            className="absolute top-12 right-2 z-10 bg-white p-2 rounded-full shadow-md hover:bg-gray-50 disabled:opacity-50"
             title="Get my location"
           >
             <MapPin className="h-5 w-5" />
