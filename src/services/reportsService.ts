@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { Report } from '../types';
+import { Report, LikeDetail, Comment, CommentReply, CommentLike } from '../types';
 
 export class ReportsServiceError extends Error {
   constructor(message: string) {
@@ -479,5 +479,340 @@ export const reportsService = {
       _batchTimer = null;
     }
     await _flushReportBatch();
+  },
+
+  // Get like details for a report
+  async getLikeDetails(reportId: string): Promise<LikeDetail[]> {
+    try {
+      // First, fetch all likes for the report
+      const { data: likesData, error: likesError } = await supabase
+        .from('likes')
+        .select('id, user_id, report_id, created_at')
+        .eq('report_id', reportId)
+        .order('created_at', { ascending: false });
+
+      if (likesError) throw likesError;
+      if (!likesData || likesData.length === 0) return [];
+
+      // Extract unique user IDs from likes
+      const userIds = [...new Set(likesData.map(like => like.user_id))];
+
+      // Fetch profiles for all users who liked the report
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, username, avatar_url')
+        .in('id', userIds);
+
+      if (profilesError) throw profilesError;
+
+      // Create a map of user profiles for easy lookup
+      const profilesMap = new Map();
+      profilesData?.forEach(profile => {
+        profilesMap.set(profile.id, profile);
+      });
+
+      // Combine likes with user data
+      return likesData.map(like => ({
+        id: like.id,
+        user_id: like.user_id,
+        report_id: like.report_id,
+        created_at: like.created_at,
+        user: {
+          username: profilesMap.get(like.user_id)?.username || 'Unknown',
+          avatar_url: profilesMap.get(like.user_id)?.avatar_url || null
+        }
+      }));
+    } catch (error) {
+      throw new ReportsServiceError(`Failed to fetch like details: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  },
+
+  // Get like details for a comment
+  async getCommentLikeDetails(commentId: string): Promise<LikeDetail[]> {
+    try {
+      const { data: likesData, error: likesError } = await supabase
+        .from('comment_likes')
+        .select('id, user_id, comment_id, created_at')
+        .eq('comment_id', commentId)
+        .order('created_at', { ascending: false });
+
+      if (likesError) throw likesError;
+      if (!likesData || likesData.length === 0) return [];
+
+      const userIds = [...new Set(likesData.map(like => like.user_id))];
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, username, avatar_url')
+        .in('id', userIds);
+
+      if (profilesError) throw profilesError;
+
+      const profilesMap = new Map();
+      profilesData?.forEach(profile => {
+        profilesMap.set(profile.id, profile);
+      });
+
+      return likesData.map(like => ({
+        id: like.id,
+        user_id: like.user_id,
+        comment_id: like.comment_id,
+        created_at: like.created_at,
+        user: {
+          username: profilesMap.get(like.user_id)?.username || 'Unknown',
+          avatar_url: profilesMap.get(like.user_id)?.avatar_url || null
+        }
+      }));
+    } catch (error) {
+      throw new ReportsServiceError(`Failed to fetch comment like details: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  },
+
+  // Get like details for a reply
+  async getReplyLikeDetails(replyId: string): Promise<LikeDetail[]> {
+    try {
+      const { data: likesData, error: likesError } = await supabase
+        .from('reply_likes')
+        .select('id, user_id, reply_id, created_at')
+        .eq('reply_id', replyId)
+        .order('created_at', { ascending: false });
+
+      if (likesError) throw likesError;
+      if (!likesData || likesData.length === 0) return [];
+
+      const userIds = [...new Set(likesData.map(like => like.user_id))];
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, username, avatar_url')
+        .in('id', userIds);
+
+      if (profilesError) throw profilesError;
+
+      const profilesMap = new Map();
+      profilesData?.forEach(profile => {
+        profilesMap.set(profile.id, profile);
+      });
+
+      return likesData.map(like => ({
+        id: like.id,
+        user_id: like.user_id,
+        reply_id: like.reply_id,
+        created_at: like.created_at,
+        user: {
+          username: profilesMap.get(like.user_id)?.username || 'Unknown',
+          avatar_url: profilesMap.get(like.user_id)?.avatar_url || null
+        }
+      }));
+    } catch (error) {
+      throw new ReportsServiceError(`Failed to fetch reply like details: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  },
+
+  // Toggle comment like
+  async toggleCommentLike(commentId: string): Promise<boolean> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new ReportsServiceError('User not authenticated');
+
+    // Check if already liked
+    const { data: existingLikes, error: checkError } = await supabase
+      .from('comment_likes')
+      .select('id')
+      .eq('comment_id', commentId)
+      .eq('user_id', user.id);
+
+    if (checkError) throw new ReportsServiceError(`Failed to check comment like: ${checkError.message}`);
+
+    const existingLike = existingLikes && existingLikes.length > 0 ? existingLikes[0] : null;
+
+    if (existingLike) {
+      // Unlike
+      const { error: deleteError } = await supabase
+        .from('comment_likes')
+        .delete()
+        .eq('id', existingLike.id);
+
+      if (deleteError) throw new ReportsServiceError(`Failed to unlike comment: ${deleteError.message}`);
+      return false;
+    } else {
+      // Like
+      const { error: insertError } = await supabase
+        .from('comment_likes')
+        .insert([{
+          comment_id: commentId,
+          user_id: user.id
+        }]);
+
+      if (insertError) throw new ReportsServiceError(`Failed to like comment: ${insertError.message}`);
+      return true;
+    }
+  },
+
+  // Toggle reply like
+  async toggleReplyLike(replyId: string): Promise<boolean> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new ReportsServiceError('User not authenticated');
+
+    // Check if already liked
+    const { data: existingLikes, error: checkError } = await supabase
+      .from('reply_likes')
+      .select('id')
+      .eq('reply_id', replyId)
+      .eq('user_id', user.id);
+
+    if (checkError) throw new ReportsServiceError(`Failed to check reply like: ${checkError.message}`);
+
+    const existingLike = existingLikes && existingLikes.length > 0 ? existingLikes[0] : null;
+
+    if (existingLike) {
+      // Unlike
+      const { error: deleteError } = await supabase
+        .from('reply_likes')
+        .delete()
+        .eq('id', existingLike.id);
+
+      if (deleteError) throw new ReportsServiceError(`Failed to unlike reply: ${deleteError.message}`);
+      return false;
+    } else {
+      // Like
+      const { error: insertError } = await supabase
+        .from('reply_likes')
+        .insert([{ reply_id: replyId, user_id: user.id }]);
+
+      if (insertError) throw new ReportsServiceError(`Failed to like reply: ${insertError.message}`);
+      return true;
+    }
+  },
+
+  // Add reply to comment or reply
+  async addCommentReply(parentId: string, content: string, isReplyToReply: boolean = false): Promise<CommentReply> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new ReportsServiceError('User not authenticated');
+
+    const insertData = isReplyToReply 
+      ? { parent_reply_id: parentId, user_id: user.id, content: content.trim() }
+      : { parent_comment_id: parentId, user_id: user.id, content: content.trim() };
+
+    const { data, error } = await supabase
+      .from('comment_replies')
+      .insert([insertData])
+      .select()
+      .single();
+
+    if (error) throw new ReportsServiceError(`Failed to add reply: ${error.message}`);
+    if (!data) throw new ReportsServiceError('Failed to add reply: No data returned');
+
+    // Fetch user profile for the reply
+    const { data: profileData, error: profileError } = await supabase
+      .from('profiles')
+      .select('username, avatar_url')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError) throw profileError;
+
+    return {
+      ...data,
+      user: profileData
+    };
+  },
+
+  // Get comment replies with nested replies
+  async getCommentReplies(commentId: string): Promise<CommentReply[]> {
+    try {
+      // Get all replies to this comment (first level)
+      const { data: repliesData, error: repliesError } = await supabase
+        .from('comment_replies')
+        .select('id, parent_comment_id, parent_reply_id, user_id, content, created_at, updated_at')
+        .eq('parent_comment_id', commentId)
+        .order('created_at', { ascending: true });
+
+      if (repliesError) throw repliesError;
+      if (!repliesData || repliesData.length === 0) return [];
+
+      // Extract unique user IDs from all replies
+      const userIds = [...new Set(repliesData.map(reply => reply.user_id))];
+
+      // Fetch profiles for all users who replied
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, username, avatar_url')
+        .in('id', userIds);
+
+      if (profilesError) throw profilesError;
+
+      // Create a map of user profiles for easy lookup
+      const profilesMap = new Map();
+      profilesData?.forEach(profile => {
+        profilesMap.set(profile.id, profile);
+      });
+
+      // Build the nested reply structure
+      const buildNestedReplies = async (parentId: string, depth: number = 0): Promise<CommentReply[]> => {
+        const { data: nestedReplies } = await supabase
+          .from('comment_replies')
+          .select('id, parent_comment_id, parent_reply_id, user_id, content, created_at, updated_at')
+          .eq('parent_reply_id', parentId)
+          .order('created_at', { ascending: true });
+
+        if (!nestedReplies || nestedReplies.length === 0) return [];
+
+        // Likes for nested replies
+        const nestedReplyIds = nestedReplies.map(r => r.id);
+        const [nestedLikesCounts, nestedUserLikes] = await Promise.all([
+          supabase.from('reply_likes').select('reply_id', { count: 'exact', head: false }).in('reply_id', nestedReplyIds),
+          supabase.auth.getUser().then(async ({ data: { user } }) => user ? await supabase.from('reply_likes').select('reply_id').eq('user_id', user.id).in('reply_id', nestedReplyIds) : { data: null, error: null })
+        ] as const);
+
+        const likesCountMap = new Map<string, number>();
+        (nestedLikesCounts.data || []).forEach((row: any) => {
+          likesCountMap.set(row.reply_id, (likesCountMap.get(row.reply_id) || 0) + 1);
+        });
+        const userLikedSet = new Set((nestedUserLikes.data || []).map((r: any) => r.reply_id));
+
+        return await Promise.all(
+          nestedReplies.map(async (reply) => ({
+            ...reply,
+            user: {
+              username: profilesMap.get(reply.user_id)?.username || 'Unknown',
+              avatar_url: profilesMap.get(reply.user_id)?.avatar_url || null
+            },
+            reply_depth: depth + 1,
+            likes_count: likesCountMap.get(reply.id) || 0,
+            is_liked: userLikedSet.has(reply.id),
+            replies: await buildNestedReplies(reply.id, depth + 1)
+          }))
+        );
+      };
+
+      // Build the complete nested structure
+      const topLevelReplyIds = repliesData.map(r => r.id);
+      const [topLikesCounts, topUserLikes] = await Promise.all([
+        supabase.from('reply_likes').select('reply_id', { count: 'exact', head: false }).in('reply_id', topLevelReplyIds),
+        supabase.auth.getUser().then(async ({ data: { user } }) => user ? await supabase.from('reply_likes').select('reply_id').eq('user_id', user.id).in('reply_id', topLevelReplyIds) : { data: null, error: null })
+      ] as const);
+
+      const topLikesCountMap = new Map<string, number>();
+      (topLikesCounts.data || []).forEach((row: any) => {
+        topLikesCountMap.set(row.reply_id, (topLikesCountMap.get(row.reply_id) || 0) + 1);
+      });
+      const topUserLikedSet = new Set((topUserLikes.data || []).map((r: any) => r.reply_id));
+
+      const repliesWithNesting = await Promise.all(
+        repliesData.map(async (reply) => ({
+          ...reply,
+          user: {
+            username: profilesMap.get(reply.user_id)?.username || 'Unknown',
+            avatar_url: profilesMap.get(reply.user_id)?.avatar_url || null
+          },
+          reply_depth: 0,
+          likes_count: topLikesCountMap.get(reply.id) || 0,
+          is_liked: topUserLikedSet.has(reply.id),
+          replies: await buildNestedReplies(reply.id, 0)
+        }))
+      );
+
+      return repliesWithNesting;
+    } catch (error) {
+      throw new ReportsServiceError(`Failed to fetch comment replies: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 }; 

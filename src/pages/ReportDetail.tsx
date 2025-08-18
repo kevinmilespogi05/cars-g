@@ -1,18 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { MapPin, Heart, MessageCircle, Send, Loader2, ChevronLeft, ChevronRight, ArrowLeft, X } from 'lucide-react';
+import { MapPin, Heart, MessageCircle, Send, Loader2, ChevronLeft, ChevronRight, ArrowLeft, X, Reply } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
-
-interface Comment {
-  id: string;
-  content: string;
-  created_at: string;
-  user: {
-    username: string;
-    avatar_url: string | null;
-  };
-}
+import { LikeDetailsModal } from '../components/LikeDetailsModal';
+import { Comment, CommentReply } from '../types';
+import { reportsService } from '../services/reportsService';
+import { ReplyThread } from '../components/ReplyThread';
 
 interface Report {
   id: string;
@@ -45,6 +39,12 @@ export function ReportDetail() {
   const [submittingComment, setSubmittingComment] = useState(false);
   const [likeLoading, setLikeLoading] = useState(false);
   const [selectedImage, setSelectedImage] = useState<{ url: string; index: number } | null>(null);
+  const [likeDetailsModal, setLikeDetailsModal] = useState<any>(null);
+  const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [replyContent, setReplyContent] = useState('');
+  const [submittingReply, setSubmittingReply] = useState(false);
+  const [commentLikeLoading, setCommentLikeLoading] = useState<{ [key: string]: boolean }>({});
+  const [nestedReplyForms, setNestedReplyForms] = useState<{ [key: string]: { content: string; submitting: boolean } }>({});
 
   // Create a fallback image data URL
   const fallbackImageUrl = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiB2aWV3Qm94PSIwIDAgMjAwIDIwMCI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiNmMGYwZjAiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE2IiBmaWxsPSIjODg4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5JbWFnZSBub3QgYXZhaWxhYmxlPC90ZXh0Pjwvc3ZnPg==";
@@ -83,6 +83,18 @@ export function ReportDetail() {
       fetchComments();
     }
   }, [id]);
+
+  // Listen for reply like details open requests
+  useEffect(() => {
+    const handler = (e: any) => {
+      const { type, id } = e.detail || {};
+      if (type === 'reply' && id) {
+        setLikeDetailsModal({ isOpen: true, replyId: id, reportId: '', reportTitle: '' });
+      }
+    };
+    window.addEventListener('open-like-details' as any, handler as any);
+    return () => window.removeEventListener('open-like-details' as any, handler as any);
+  }, []);
 
   const fetchReport = async () => {
     try {
@@ -137,7 +149,7 @@ export function ReportDetail() {
         .from('comments')
         .select('*')
         .eq('report_id', id)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: true });
 
       if (commentsError) throw commentsError;
 
@@ -156,13 +168,47 @@ export function ReportDetail() {
         profilesMap.set(profile.id, profile);
       });
 
-      // Combine comments with user data
-      const commentsWithUsers = commentsData.map(comment => ({
-        ...comment,
-        user: profilesMap.get(comment.user_id) || { username: 'Unknown User', avatar_url: null }
-      }));
+      // Fetch likes count and replies count for each comment
+      const commentsWithData = await Promise.all(
+        commentsData.map(async (comment) => {
+          // Get likes count
+          const { count: likesCount } = await supabase
+            .from('comment_likes')
+            .select('*', { count: 'exact', head: true })
+            .eq('comment_id', comment.id);
 
-      setComments(commentsWithUsers);
+          // Get replies count
+          const { count: repliesCount } = await supabase
+            .from('comment_replies')
+            .select('*', { count: 'exact', head: true })
+            .eq('parent_comment_id', comment.id);
+
+          // Check if current user has liked this comment
+          let isLiked = false;
+          if (user) {
+            const { data: userLikes } = await supabase
+              .from('comment_likes')
+              .select('id')
+              .eq('comment_id', comment.id)
+              .eq('user_id', user.id);
+            isLiked = userLikes && userLikes.length > 0;
+          }
+
+          // Get replies for this comment
+          const replies = await reportsService.getCommentReplies(comment.id);
+
+          return {
+            ...comment,
+            user: profilesMap.get(comment.user_id) || { username: 'Unknown User', avatar_url: null },
+            likes_count: likesCount || 0,
+            replies_count: repliesCount || 0,
+            is_liked: isLiked,
+            replies: replies
+          };
+        })
+      );
+
+      setComments(commentsWithData);
     } catch (error) {
       console.error('Error fetching comments:', error);
     }
@@ -276,6 +322,225 @@ export function ReportDetail() {
       alert('Failed to submit comment. Please try again.');
     } finally {
       setSubmittingComment(false);
+    }
+  };
+
+  const handleCommentLike = async (commentId: string) => {
+    if (!user) {
+      alert('Please sign in to like comments');
+      return;
+    }
+
+    setCommentLikeLoading(prev => ({ ...prev, [commentId]: true }));
+    try {
+      const isLiked = await reportsService.toggleCommentLike(commentId);
+      
+      // Update the comment's like status and count
+      setComments(prev => 
+        prev.map(comment => 
+          comment.id === commentId 
+            ? { 
+                ...comment, 
+                is_liked: isLiked,
+                likes_count: isLiked 
+                  ? (comment.likes_count || 0) + 1 
+                  : Math.max(0, (comment.likes_count || 0) - 1)
+              }
+            : comment
+        )
+      );
+    } catch (error) {
+      console.error('Error toggling comment like:', error);
+      alert('Failed to like/unlike comment. Please try again.');
+    } finally {
+      setCommentLikeLoading(prev => ({ ...prev, [commentId]: false }));
+    }
+  };
+
+  const handleReply = async (commentId: string) => {
+    if (!user) {
+      alert('Please sign in to reply to comments');
+      return;
+    }
+
+    if (!replyContent.trim()) {
+      alert('Please enter a reply');
+      return;
+    }
+
+    setSubmittingReply(true);
+    try {
+      const reply = await reportsService.addCommentReply(commentId, replyContent.trim());
+      
+      // Add the reply to the comment
+      setComments(prev => 
+        prev.map(comment => 
+          comment.id === commentId 
+            ? { 
+                ...comment, 
+                replies: [...(comment.replies || []), reply],
+                replies_count: (comment.replies_count || 0) + 1
+              }
+            : comment
+        )
+      );
+      
+      setReplyContent('');
+      setReplyingTo(null);
+    } catch (error) {
+      console.error('Error submitting reply:', error);
+      alert('Failed to submit reply. Please try again.');
+    } finally {
+      setSubmittingReply(false);
+    }
+  };
+
+  const handleNestedReply = async (replyId: string, commentId: string) => {
+    if (!user) {
+      alert('Please sign in to reply to comments');
+      return;
+    }
+
+    const formData = nestedReplyForms[replyId];
+    if (!formData || !formData.content.trim()) {
+      alert('Please enter a reply');
+      return;
+    }
+
+    setNestedReplyForms(prev => ({
+      ...prev,
+      [replyId]: { ...prev[replyId], submitting: true }
+    }));
+
+    try {
+      const nestedReply = await reportsService.addCommentReply(replyId, formData.content.trim(), true);
+      
+      // Add the nested reply to the appropriate reply
+      setComments(prev => 
+        prev.map(comment => {
+          if (comment.id === commentId) {
+            const addNestedReply = (replies: CommentReply[]): CommentReply[] => {
+              return replies.map(reply => {
+                if (reply.id === replyId) {
+                  return {
+                    ...reply,
+                    replies: [...(reply.replies || []), nestedReply]
+                  };
+                }
+                if (reply.replies) {
+                  return {
+                    ...reply,
+                    replies: addNestedReply(reply.replies)
+                  };
+                }
+                return reply;
+              });
+            };
+
+            return {
+              ...comment,
+              replies: addNestedReply(comment.replies || [])
+            };
+          }
+          return comment;
+        })
+      );
+      
+      // Clear the nested reply form
+      setNestedReplyForms(prev => {
+        const newState = { ...prev };
+        delete newState[replyId];
+        return newState;
+      });
+    } catch (error) {
+      console.error('Error submitting nested reply:', error);
+      alert('Failed to submit reply. Please try again.');
+    } finally {
+      setNestedReplyForms(prev => ({
+        ...prev,
+        [replyId]: { ...prev[replyId], submitting: false }
+      }));
+    }
+  };
+
+  const handleReplyLike = async (replyId: string) => {
+    if (!user) {
+      alert('Please sign in to like replies');
+      return;
+    }
+
+    setCommentLikeLoading(prev => ({ ...prev, [replyId]: true }));
+    try {
+      // Optimistic update
+      let previousState: CommentReply | null = null;
+      setComments(prev => 
+        prev.map(comment => {
+          const updateReplyLikes = (replies: CommentReply[]): CommentReply[] => {
+            return replies.map(reply => {
+              if (reply.id === replyId) {
+                previousState = { ...reply };
+                const nextLiked = !reply.is_liked;
+                const nextCount = nextLiked ? (reply.likes_count || 0) + 1 : Math.max(0, (reply.likes_count || 0) - 1);
+                return { ...reply, is_liked: nextLiked, likes_count: nextCount };
+              }
+              if (reply.replies) {
+                return { ...reply, replies: updateReplyLikes(reply.replies) };
+              }
+              return reply;
+            });
+          };
+
+          return {
+            ...comment,
+            replies: updateReplyLikes(comment.replies || [])
+          };
+        })
+      );
+
+      // Call API
+      const isLiked = await reportsService.toggleReplyLike(replyId);
+      // If server result disagrees with optimistic toggle, adjust
+      if (previousState && previousState.is_liked === isLiked) {
+        // No change needed
+      } else if (previousState) {
+        setComments(prev => 
+          prev.map(comment => {
+            const fixReplies = (replies: CommentReply[]): CommentReply[] => {
+              return replies.map(reply => {
+                if (reply.id === replyId) {
+                  const nextCount = isLiked ? (previousState!.likes_count || 0) + 1 : Math.max(0, (previousState!.likes_count || 0) - 1);
+                  return { ...reply, is_liked: isLiked, likes_count: nextCount };
+                }
+                if (reply.replies) return { ...reply, replies: fixReplies(reply.replies) };
+                return reply;
+              });
+            };
+            return { ...comment, replies: fixReplies(comment.replies || []) };
+          })
+        );
+      }
+    } catch (error) {
+      console.error('Error toggling reply like:', error);
+      alert('Failed to like/unlike reply. Please try again.');
+      // Rollback optimistic update
+      setComments(prev => 
+        prev.map(comment => {
+          const rollback = (replies: CommentReply[]): CommentReply[] => {
+            return replies.map(reply => {
+              if (reply.id === replyId) {
+                const nextLiked = !reply.is_liked;
+                const nextCount = nextLiked ? (reply.likes_count || 0) + 1 : Math.max(0, (reply.likes_count || 0) - 1);
+                return { ...reply, is_liked: nextLiked, likes_count: nextCount };
+              }
+              if (reply.replies) return { ...reply, replies: rollback(reply.replies) };
+              return reply;
+            });
+          };
+          return { ...comment, replies: rollback(comment.replies || []) };
+        })
+      );
+    } finally {
+      setCommentLikeLoading(prev => ({ ...prev, [replyId]: false }));
     }
   };
 
@@ -411,16 +676,36 @@ export function ReportDetail() {
           </div>
 
           <div className="flex items-center gap-4">
-            <button
-              onClick={handleLike}
-              disabled={likeLoading}
-              className={`flex items-center gap-1.5 text-sm ${
-                report.is_liked ? 'text-red-500' : 'text-gray-700 hover:text-red-500'
-              } transition-colors`}
-            >
-              <Heart className={`h-5 w-5 ${report.is_liked ? 'fill-current' : ''}`} />
-              <span>{report.likes_count}</span>
-            </button>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={handleLike}
+                disabled={likeLoading}
+                className={`text-sm ${
+                  report.is_liked ? 'text-red-500' : 'text-gray-700 hover:text-red-500'
+                } transition-colors`}
+              >
+                <Heart className={`h-5 w-5 ${report.is_liked ? 'fill-current' : ''}`} />
+              </button>
+              <button
+                onClick={() => {
+                  if (report.likes_count > 0) {
+                    setLikeDetailsModal({
+                      isOpen: true,
+                      reportId: report.id,
+                      reportTitle: report.title
+                    });
+                  }
+                }}
+                className={`text-sm transition-colors ${
+                  report.likes_count > 0
+                    ? 'text-gray-700 hover:text-gray-900 cursor-pointer'
+                    : 'text-gray-400 cursor-default'
+                }`}
+                disabled={report.likes_count === 0}
+              >
+                {report.likes_count}
+              </button>
+            </div>
             <div className="flex items-center gap-1.5 text-sm text-gray-700">
               <MessageCircle className="h-5 w-5" />
               <span>{report.comments_count}</span>
@@ -477,6 +762,102 @@ export function ReportDetail() {
                     </span>
                   </div>
                   <p className="mt-1 text-sm text-gray-700 whitespace-pre-wrap">{comment.content}</p>
+                  
+                  {/* Comment Actions */}
+                  <div className="flex items-center gap-4 mt-3">
+                    <button
+                      onClick={() => handleCommentLike(comment.id)}
+                      disabled={commentLikeLoading[comment.id]}
+                      className={`flex items-center gap-1 text-sm transition-colors ${
+                        comment.is_liked ? 'text-red-500' : 'text-gray-500 hover:text-red-500'
+                      }`}
+                    >
+                      {commentLikeLoading[comment.id] ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Heart className={`h-4 w-4 ${comment.is_liked ? 'fill-current' : ''}`} />
+                      )}
+                      <span
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if ((comment.likes_count || 0) > 0) {
+                            setLikeDetailsModal({
+                              isOpen: true,
+                              // @ts-ignore
+                              commentId: comment.id,
+                              reportId: '' as any,
+                              reportTitle: ''
+                            } as any);
+                          }
+                        }}
+                        className={(comment.likes_count || 0) > 0 ? 'cursor-pointer' : ''}
+                      >
+                        {comment.likes_count || 0}
+                      </span>
+                    </button>
+                    
+                    <button
+                      onClick={() => setReplyingTo(replyingTo === comment.id ? null : comment.id)}
+                      className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+                    >
+                      <Reply className="h-4 w-4" />
+                      <span>Reply</span>
+                      {comment.replies_count > 0 && (
+                        <span className="text-xs">({comment.replies_count})</span>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Reply Form */}
+                  {replyingTo === comment.id && (
+                    <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+                      <textarea
+                        value={replyContent}
+                        onChange={(e) => setReplyContent(e.target.value)}
+                        placeholder="Write a reply..."
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-primary-color focus:border-primary-color text-sm bg-white text-gray-900 placeholder-gray-400 resize-none"
+                        rows={2}
+                      />
+                      <div className="mt-2 flex justify-end gap-2">
+                        <button
+                          onClick={() => {
+                            setReplyingTo(null);
+                            setReplyContent('');
+                          }}
+                          className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={() => handleReply(comment.id)}
+                          disabled={submittingReply || !replyContent.trim()}
+                          className="px-3 py-1 bg-primary-color text-white text-sm rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {submittingReply ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            'Reply'
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Replies */}
+                  {comment.replies && comment.replies.length > 0 && (
+                    <div className="mt-3">
+                      <ReplyThread
+                        replies={comment.replies}
+                        commentId={comment.id}
+                        onLike={handleReplyLike}
+                        onReply={handleNestedReply}
+                        likeLoading={commentLikeLoading}
+                        nestedReplyForms={nestedReplyForms}
+                        setNestedReplyForms={setNestedReplyForms}
+                        maxDepth={5}
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -533,6 +914,23 @@ export function ReportDetail() {
             )}
           </div>
         </div>
+      )}
+
+      {/* Like Details Modal */}
+      {likeDetailsModal && (
+        <LikeDetailsModal
+          isOpen={likeDetailsModal.isOpen}
+          onClose={() => setLikeDetailsModal(null)}
+          reportId={likeDetailsModal.reportId}
+          reportTitle={likeDetailsModal.reportTitle}
+          commentId={likeDetailsModal.commentId}
+          replyId={likeDetailsModal.replyId}
+          contextLabel={
+            likeDetailsModal.replyId ? 'People who liked this reply' :
+            likeDetailsModal.commentId ? 'People who liked this comment' :
+            (likeDetailsModal.reportTitle ? `People who liked "${likeDetailsModal.reportTitle}"` : 'Likes')
+          }
+        />
       )}
     </div>
   );

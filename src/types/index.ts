@@ -105,3 +105,62 @@ export interface ChatUser {
   is_online?: boolean;
   last_seen?: string;
 }
+
+export interface LikeDetail {
+  id: string;
+  user_id: string;
+  report_id?: string;
+  comment_id?: string;
+  reply_id?: string;
+  created_at: string;
+  user: {
+    username: string;
+    avatar_url: string | null;
+  };
+}
+
+export interface CommentLike {
+  id: string;
+  comment_id: string;
+  user_id: string;
+  created_at: string;
+  user: {
+    username: string;
+    avatar_url: string | null;
+  };
+}
+
+export interface CommentReply {
+  id: string;
+  parent_comment_id?: string;
+  parent_reply_id?: string;
+  user_id: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
+  user: {
+    username: string;
+    avatar_url: string | null;
+  };
+  replies?: CommentReply[];
+  reply_depth?: number;
+  likes_count?: number;
+  is_liked?: boolean;
+}
+
+export interface Comment {
+  id: string;
+  report_id: string;
+  user_id: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
+  user: {
+    username: string;
+    avatar_url: string | null;
+  };
+  likes_count?: number;
+  replies_count?: number;
+  is_liked?: boolean;
+  replies?: CommentReply[];
+}

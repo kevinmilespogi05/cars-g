@@ -5,6 +5,7 @@ import { useAuthStore } from '../store/authStore';
 import { Report } from '../types';
 import { reportsService } from '../services/reportsService';
 import { supabase } from '../lib/supabase';
+import { LikeDetailsModal } from '../components/LikeDetailsModal';
 
 const CATEGORIES = ['All', 'Infrastructure', 'Safety', 'Environmental', 'Public Services', 'Other'];
 const STATUSES = ['All', 'Pending', 'In Progress', 'Resolved', 'Rejected'];
@@ -24,6 +25,7 @@ export function Reports() {
   const [selectedImage, setSelectedImage] = useState<{ url: string; index: number } | null>(null);
   const [imageErrors, setImageErrors] = useState<{ [key: string]: boolean }>({}); // Track image loading errors
   const [likeLoading, setLikeLoading] = useState<{ [key: string]: boolean }>({});
+  const [likeDetailsModal, setLikeDetailsModal] = useState<{ isOpen: boolean; reportId: string; reportTitle: string } | null>(null);
 
   useEffect(() => {
     // Wait for auth to be initialized before fetching reports
@@ -393,29 +395,48 @@ export function Reports() {
                   {/* Actions */}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleLike(report.id);
-                        }}
-                        disabled={likeLoading[report.id]}
-                        className="flex items-center gap-1 text-sm transition-colors"
-                      >
-                        {likeLoading[report.id] ? (
-                          <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
-                        ) : (
-                          <Heart 
-                            className={`h-4 w-4 transition-all duration-200 ${
-                              report.is_liked 
-                                ? 'fill-red-500 text-red-500' 
-                                : 'fill-none text-gray-500 hover:text-red-500'
-                            }`} 
-                          />
-                        )}
-                        <span className={report.is_liked ? 'text-red-500' : 'text-gray-500'}>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleLike(report.id);
+                          }}
+                          disabled={likeLoading[report.id]}
+                          className="flex items-center gap-1 text-sm transition-colors"
+                        >
+                          {likeLoading[report.id] ? (
+                            <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
+                          ) : (
+                            <Heart 
+                              className={`h-4 w-4 transition-all duration-200 ${
+                                report.is_liked 
+                                  ? 'fill-red-500 text-red-500' 
+                                  : 'fill-none text-gray-500 hover:text-red-500'
+                              }`} 
+                            />
+                          )}
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (report.likes?.count && report.likes.count > 0) {
+                              setLikeDetailsModal({
+                                isOpen: true,
+                                reportId: report.id,
+                                reportTitle: report.title
+                              });
+                            }
+                          }}
+                          className={`text-sm transition-colors ${
+                            report.likes?.count && report.likes.count > 0
+                              ? 'text-gray-700 hover:text-gray-900 cursor-pointer'
+                              : 'text-gray-400 cursor-default'
+                          }`}
+                          disabled={!report.likes?.count || report.likes.count === 0}
+                        >
                           {report.likes?.count || 0}
-                        </span>
-                      </button>
+                        </button>
+                      </div>
                       <div className="flex items-center gap-1 text-sm text-gray-500">
                         <MessageCircle className="h-4 w-4" />
                         <span>{report.comments?.count || 0}</span>
@@ -455,6 +476,16 @@ export function Reports() {
             />
           </div>
         </div>
+      )}
+
+      {/* Like Details Modal */}
+      {likeDetailsModal && (
+        <LikeDetailsModal
+          isOpen={likeDetailsModal.isOpen}
+          onClose={() => setLikeDetailsModal(null)}
+          reportId={likeDetailsModal.reportId}
+          reportTitle={likeDetailsModal.reportTitle}
+        />
       )}
     </div>
   );
