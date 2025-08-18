@@ -55,7 +55,7 @@ export function Notification({ message, type, onClose, duration = 5000 }: Notifi
       <div 
         className={`
           rounded-lg shadow-lg border-l-4 ${styles.border}
-          bg-white p-4 max-w-md w-full transform transition-all
+          bg-white p-4 w-full max-w-md transform transition-all
           hover:scale-102 hover:shadow-xl
         `}
       >

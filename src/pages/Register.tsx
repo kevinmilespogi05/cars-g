@@ -58,7 +58,7 @@ export function Register() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 py-6 px-4 sm:py-12 sm:px-6 lg:px-8">
       <motion.div 
-        className="max-w-md w-full space-y-6 sm:space-y-8 bg-white p-6 sm:p-10 rounded-xl shadow-lg"
+        className="w-full max-w-md space-y-6 sm:space-y-8 bg-white p-6 sm:p-10 rounded-xl shadow-lg"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}

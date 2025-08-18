@@ -166,7 +166,7 @@ export function UserManagement() {
   });
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="w-full px-3 sm:px-4 lg:px-6">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold text-gray-900">User Management</h2>
         <div className="flex space-x-4">

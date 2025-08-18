@@ -46,7 +46,7 @@ function ErrorFallback({ error, resetErrorBoundary }: { error: Error; resetError
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-white p-8 rounded-lg shadow-md max-w-md w-full"
+        className="bg-white p-8 rounded-lg shadow-md w-full max-w-md"
       >
         <h2 className="text-2xl font-bold text-red-600 mb-4">Something went wrong</h2>
         <pre className="bg-gray-100 p-4 rounded mb-4 overflow-auto text-sm">

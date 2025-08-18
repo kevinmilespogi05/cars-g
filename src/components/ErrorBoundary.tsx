@@ -32,7 +32,7 @@ const DefaultFallback: React.FC<FallbackProps> = ({ error, resetErrorBoundary })
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
-        className="max-w-md w-full p-8 bg-white rounded-lg shadow-lg"
+        className="w-full max-w-md p-8 bg-white rounded-lg shadow-lg"
       >
         <div className="text-center">
           <h2 className="text-2xl font-bold text-red-600 mb-4">Something went wrong</h2>

@@ -165,7 +165,7 @@ export function LeaderboardPage() {
   const topThreeEntries = sortedAndFilteredEntries.slice(0, 3);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="w-full px-3 sm:px-4 lg:px-6 py-6 sm:py-8">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Community Leaderboard</h1>

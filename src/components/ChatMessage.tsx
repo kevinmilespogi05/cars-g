@@ -62,7 +62,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
     switch (message.message_type) {
       case 'text':
         return (
-          <p className="text-sm leading-relaxed break-words">
+          <p className={`text-sm leading-relaxed break-words ${isOwnMessage ? 'text-white' : 'text-gray-900'}`}>
             {message.content}
           </p>
         );
@@ -189,14 +189,14 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
               <div>
                 <p className="text-sm font-medium text-gray-900">Location shared</p>
                 <p className="text-xs text-gray-500">
-                  {message.metadata?.address || 'Unknown location'}
+                  {(message as any).metadata?.address || 'Unknown location'}
                 </p>
               </div>
             </div>
-            {message.metadata?.coordinates && (
+            {(message as any).metadata?.coordinates && (
               <button
                 onClick={() => {
-                  const [lat, lng] = message.metadata.coordinates;
+                  const [lat, lng] = (message as any).metadata.coordinates;
                   window.open(`https://maps.google.com/?q=${lat},${lng}`, '_blank');
                 }}
                 className="mt-2 px-2 py-1 text-xs bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
@@ -251,11 +251,13 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
             }
           `}
         >
-          {renderMessageContent()}
+          <div className={isOwnMessage ? 'text-white font-semibold' : ''}>
+            {renderMessageContent()}
+          </div>
           
           {/* Message Time and Delete Button */}
           <div className={`flex items-center justify-between mt-2 ${
-            isOwnMessage ? 'text-white/80' : 'text-gray-500'
+            isOwnMessage ? 'text-white/60' : 'text-gray-500'
           }`}>
             <span className="text-xs">{formatMessageTime(message.created_at)}</span>
             

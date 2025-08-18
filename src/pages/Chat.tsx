@@ -247,10 +247,10 @@ export const Chat: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pt-20">
-      <div className="max-w-7xl mx-auto h-[calc(100vh-5rem)] flex bg-white rounded-lg shadow-lg overflow-hidden">
+    <div className="h-[100dvh] w-full bg-gray-50 pt-16 sm:pt-20">
+      <div className="h-[calc(100dvh-4rem)] sm:h-[calc(100dvh-5rem)] w-full flex flex-col sm:flex-row overflow-hidden">
         {/* Conversation List - Desktop */}
-        <div className="hidden md:block w-80 bg-white border-r border-gray-200 flex flex-col">
+        <div className="hidden md:flex w-72 lg:w-80 bg-white border-r border-gray-200 flex-col">
           <div className="p-4 border-b border-gray-200 bg-gray-50">
             <div className="flex items-center justify-between mb-3">
               <h1 className="text-xl font-semibold text-gray-900">Messages</h1>
@@ -312,31 +312,32 @@ export const Chat: React.FC = () => {
 
         {/* Chat Area */}
         {selectedConversation && (
-          <div className="flex-1 flex flex-col bg-white">
+          <div className="flex-1 flex flex-col bg-white min-h-[60dvh]">
             {/* Chat Header */}
-            <div className="p-4 border-b border-gray-200 bg-gray-50 flex items-center space-x-3">
-              <button
-                onClick={() => setShowMobileConversationList(true)}
-                className="md:hidden p-2 hover:bg-gray-200 rounded-lg transition-colors"
-              >
-                <ArrowLeftIcon size={20} />
-              </button>
-              
-              <div className="flex-1">
-                <h2 className="text-lg font-semibold text-gray-900">
-                  {getOtherParticipantName(selectedConversation)}
-                </h2>
-                <div className="flex items-center space-x-2">
-                  <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                  <span className="text-sm text-gray-500">
-                    {isConnected ? 'Online' : 'Offline'}
-                  </span>
+            <div className="p-3 sm:p-4 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowMobileConversationList(true)}
+                  className="md:hidden p-2 hover:bg-gray-200 rounded-lg transition-colors"
+                >
+                  <ArrowLeftIcon size={20} />
+                </button>
+                <div>
+                  <h2 className="text-base sm:text-lg font-semibold text-gray-900 leading-tight">
+                    {getOtherParticipantName(selectedConversation)}
+                  </h2>
+                  <div className="flex items-center gap-2">
+                    <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                    <span className="text-xs sm:text-sm text-gray-500">
+                      {isConnected ? 'Online' : 'Offline'}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
+            <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4 bg-gray-50">
               {loading ? (
                 <div className="flex items-center justify-center h-64">
                   <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>

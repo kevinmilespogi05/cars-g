@@ -123,7 +123,7 @@ export const IssueReportForm: React.FC<IssueReportFormProps> = ({ onSubmit }) =>
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 max-w-2xl mx-auto bg-white rounded-xl shadow-lg p-6">
+    <form onSubmit={handleSubmit} className="space-y-6 w-full max-w-2xl mx-auto bg-white rounded-xl shadow-lg p-6">
       <div className="space-y-6">
         <div>
           <label className="label" htmlFor="title">

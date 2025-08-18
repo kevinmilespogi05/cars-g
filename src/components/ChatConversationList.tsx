@@ -101,9 +101,9 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = ({
               {/* Conversation Info */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between">
-                  <h4 className={`font-semibold truncate ${
+                  <h4 className={`font-semibold ${
                     isSelected ? 'text-white' : 'text-gray-900'
-                  }`}>
+                  }`} style={{ wordBreak: 'break-word' }}>
                     {otherUser?.username || 'Unknown User'}
                   </h4>
                   <span className={`text-xs ${
@@ -114,9 +114,9 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = ({
                 </div>
                 
                 {conversation.last_message && (
-                  <p className={`text-sm truncate mt-1 ${
+                  <p className={`text-sm mt-1 ${
                     isSelected ? 'text-white/80' : 'text-gray-600'
-                  }`}>
+                  }`} style={{ wordBreak: 'break-word' }}>
                     {conversation.last_message.content}
                   </p>
                 )}

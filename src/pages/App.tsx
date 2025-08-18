@@ -29,9 +29,9 @@ export function App() {
 
   return (
     <Router>
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-[100dvh] w-full bg-gray-50">
         <Navigation />
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="w-full px-3 sm:px-4 lg:px-6 py-4 sm:py-8">
           <Routes>
             <Route path="/" element={<Navigate to="/reports" replace />} />
             <Route path="/reports" element={<Reports />} />

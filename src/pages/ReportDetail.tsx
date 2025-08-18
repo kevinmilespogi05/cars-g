@@ -582,7 +582,7 @@ export function ReportDetail() {
 
   if (!report) {
     return (
-      <div className="max-w-3xl mx-auto px-4 py-8">
+      <div className="w-full max-w-3xl mx-auto px-3 sm:px-4 py-6 sm:py-8">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-900 mb-4">Report not found</h1>
           <button
@@ -598,7 +598,7 @@ export function ReportDetail() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8">
+    <div className="w-full max-w-3xl mx-auto px-3 sm:px-4 py-6 sm:py-8">
       {/* Back Button */}
       <button
         onClick={() => navigate('/reports')}

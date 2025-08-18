@@ -329,8 +329,8 @@ export function CreateReport() {
 
   if (submitSuccess) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8">
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="min-h-[100dvh] bg-gradient-to-br from-gray-50 to-gray-100 py-6 sm:py-8">
+        <div className="w-full max-w-3xl mx-auto px-3 sm:px-4 lg:px-6">
           <div className="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden">
             <div className="bg-gradient-to-r from-green-500 to-green-600 px-6 py-8 text-white text-center">
               <CheckCircle className="mx-auto h-16 w-16 mb-4" />
@@ -358,8 +358,8 @@ export function CreateReport() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="min-h-[100dvh] bg-gradient-to-br from-gray-50 to-gray-100 py-6 sm:py-8">
+      <div className="w-full max-w-4xl mx-auto px-3 sm:px-4 lg:px-6">
         <div className="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden">
           {/* Header */}
           <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-8 text-white">

@@ -36,7 +36,7 @@ export function NetworkStatus() {
         exit={{ opacity: 0, y: -100 }}
         className="fixed top-0 left-0 right-0 bg-red-500 text-white px-4 py-3 z-50 shadow-lg"
       >
-        <div className="flex items-center justify-between max-w-7xl mx-auto">
+        <div className="flex items-center justify-between w-full px-3 sm:px-4 lg:px-6">
           <div className="flex items-center space-x-3">
             {getConnectionIcon()}
             <div>

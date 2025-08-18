@@ -65,8 +65,8 @@ export function MapPicker({ onLocationSelect, initialLocation }: MapPickerProps)
         },
         {
           enableHighAccuracy: true,
-          timeout: 10000, // Increased timeout to 10 seconds
-          maximumAge: 0
+          timeout: 15000,
+          maximumAge: 10000
         }
       );
     } else {
@@ -111,7 +111,7 @@ export function MapPicker({ onLocationSelect, initialLocation }: MapPickerProps)
   };
 
   return (
-    <div className="w-full h-64 rounded-lg overflow-hidden border border-gray-300 relative z-0">
+    <div className="w-full h-72 sm:h-80 rounded-lg overflow-hidden border border-gray-300 relative z-0">
       {error && (
         <div className="absolute top-0 left-0 right-0 bg-yellow-100 text-yellow-800 p-2 text-sm flex items-center justify-between z-10">
           <span>{error}</span>

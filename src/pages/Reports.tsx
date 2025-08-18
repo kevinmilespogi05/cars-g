@@ -248,8 +248,8 @@ export function Reports() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 reports-page">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="min-h-[100dvh] bg-gray-50 reports-page">
+      <div className="w-full px-3 sm:px-4 lg:px-6 py-6 sm:py-8">
         {/* Header Section */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 sm:mb-6">
           <h1 className="text-2xl sm:text-3xl font-bold text-[#800000]">Reports</h1>
@@ -338,11 +338,11 @@ export function Reports() {
               >
                 {/* Report Images */}
                 {report.images && report.images.length > 0 && !imageErrors[report.id] ? (
-                  <div className="relative h-48 overflow-hidden rounded-t-lg">
+                  <div className="relative h-56 sm:h-64 md:h-72 lg:h-80 overflow-hidden rounded-t-lg">
                     <img
                       src={report.images[0]}
                       alt={report.title}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover object-center"
                       onError={() => handleImageError(report.id)}
                     />
                     {report.images.length > 1 && (
@@ -352,7 +352,7 @@ export function Reports() {
                     )}
                   </div>
                 ) : (
-                  <div className="h-48 bg-gray-100 rounded-t-lg flex items-center justify-center">
+                  <div className="h-56 sm:h-64 md:h-72 lg:h-80 bg-gray-100 rounded-t-lg flex items-center justify-center">
                     <MapPin className="h-12 w-12 text-gray-400" />
                   </div>
                 )}
@@ -365,7 +365,7 @@ export function Reports() {
                     </h3>
                   </div>
 
-                  <p className="text-gray-600 text-sm line-clamp-2 mb-3">
+                  <p className="text-gray-900 text-base sm:text-lg font-medium leading-snug line-clamp-2 mb-3">
                     {report.description}
                   </p>
 

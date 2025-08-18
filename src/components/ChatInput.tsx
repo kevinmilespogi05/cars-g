@@ -343,8 +343,13 @@ export const ChatInput: React.FC<ChatInputProps> = ({
         },
         (error) => {
           console.error('Error getting location:', error);
-          alert('Unable to get your location');
-        }
+          let msg = 'Unable to get your location';
+          if (error.code === 1) msg = 'Location permission denied. Please allow location access and try again.';
+          if (error.code === 2) msg = 'Location unavailable. Check device settings and try again.';
+          if (error.code === 3) msg = 'Location request timed out. Check your connection and try again.';
+          alert(msg);
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
       );
     } else {
       alert('Geolocation is not supported by this browser');
