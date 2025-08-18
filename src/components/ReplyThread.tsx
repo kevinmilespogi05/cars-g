@@ -84,7 +84,7 @@ export function ReplyThread({
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium text-gray-900">{reply.user.username}</span>
                 <span className="text-xs text-gray-500">
-                  {new Date(reply.created_at).toLocaleDateString()}
+                  {new Date(reply.created_at).toLocaleString()}
                 </span>
               </div>
               <p className="mt-1 text-sm text-gray-700 whitespace-pre-wrap">{reply.content}</p>

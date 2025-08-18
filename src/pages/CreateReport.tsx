@@ -6,6 +6,7 @@ import { useAuthStore } from '../store/authStore';
 import { uploadMultipleImages } from '../lib/cloudinaryStorage';
 import { awardPoints } from '../lib/points';
 import { reportsService } from '../services/reportsService';
+import { activityService } from '../services/activityService';
 import { PhotoCapture } from '../components/PhotoCapture';
 
 const CATEGORIES = [
@@ -186,6 +187,13 @@ export function CreateReport() {
       } catch (error) {
         console.error('❌ Error awarding points:', error);
         // Don't throw here, as the report was still created successfully
+      }
+
+      // Track report creation for achievements/stats
+      try {
+        await activityService.trackReportCreated(user.id, createdReport.id);
+      } catch (error) {
+        console.error('❌ Error tracking report creation:', error);
       }
 
       // Clean up preview URLs

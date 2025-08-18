@@ -388,7 +388,7 @@ export function Reports() {
                     </div>
                     <div className="flex items-center gap-1">
                       <Calendar className="h-3 w-3" />
-                      <span>{new Date(report.created_at).toLocaleDateString()}</span>
+                      <span>{new Date(report.created_at).toLocaleString()}</span>
                     </div>
                   </div>
 

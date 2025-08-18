@@ -20,6 +20,7 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { UserManagement } from '../components/UserManagement';
+import { activityService } from '../services/activityService';
 import { AdminStatistics } from '../components/AdminStatistics';
 import { AdminSettings } from '../components/AdminSettings';
 import { ConfirmationDialog } from '../components/ConfirmationDialog';
@@ -186,8 +187,12 @@ export function AdminDashboard() {
           try {
             if (newStatus === 'in_progress') {
               await awardPoints(report.user_id, 'REPORT_VERIFIED', reportId);
+              // Track verification for achievements/stats
+              await activityService.trackReportVerified(report.user_id, reportId);
             } else if (newStatus === 'resolved') {
               await awardPoints(report.user_id, 'REPORT_RESOLVED', reportId);
+              // Track resolution for achievements/stats
+              await activityService.trackReportResolved(report.user_id, reportId);
             }
           } catch (pointsError) {
             console.error('Error awarding points:', pointsError);
@@ -460,7 +465,7 @@ export function AdminDashboard() {
                                   </div>
                                   <div className="ml-3">
                                     <div className="text-sm font-medium text-gray-900">{report.username}</div>
-                                    <div className="text-xs text-gray-500">{new Date(report.created_at).toLocaleDateString()}</div>
+                                    <div className="text-xs text-gray-500">{new Date(report.created_at).toLocaleString()}</div>
                                   </div>
                                 </div>
                                 <div className="flex space-x-2">
@@ -587,7 +592,7 @@ export function AdminDashboard() {
                     <div className="ml-4">
                       <div className="text-sm font-medium text-gray-900">{selectedReport.username}</div>
                       <div className="text-sm text-gray-500">
-                        {new Date(selectedReport.created_at).toLocaleDateString()}
+                        {new Date(selectedReport.created_at).toLocaleString()}
                       </div>
                     </div>
                   </div>

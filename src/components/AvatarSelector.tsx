@@ -14,6 +14,7 @@ interface AvatarSelectorProps {
   currentAvatar: string | null;
   onAvatarChange: (avatarUrl: string) => void;
   userId: string;
+  variant?: 'full' | 'compact';
 }
 
 // Allowed MIME types for avatar uploads
@@ -28,9 +29,10 @@ const ALLOWED_MIME_TYPES = [
 // Maximum file size (5MB)
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
-export function AvatarSelector({ currentAvatar, onAvatarChange, userId }: AvatarSelectorProps) {
+export function AvatarSelector({ currentAvatar, onAvatarChange, userId, variant = 'full' }: AvatarSelectorProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [showDefaultAvatars, setShowDefaultAvatars] = useState(false);
+  const inputId = `avatar-upload-${userId || 'me'}`;
 
   // Validate file before upload
   const validateFile = (file: File): string | null => {
@@ -167,7 +169,8 @@ export function AvatarSelector({ currentAvatar, onAvatarChange, userId }: Avatar
         .from('avatars')
         .upload(filePath, correctedFile, {
           cacheControl: '3600',
-          upsert: false
+          upsert: false,
+          contentType: correctedFile.type || 'image/jpeg'
         });
 
       if (uploadError) {
@@ -242,6 +245,39 @@ export function AvatarSelector({ currentAvatar, onAvatarChange, userId }: Avatar
     }
   };
 
+  if (variant === 'compact') {
+    return (
+      <div className="relative inline-block">
+        {currentAvatar ? (
+          <img
+            src={currentAvatar}
+            alt="Profile"
+            className="h-24 w-24 rounded-full object-cover border-4 border-white shadow-lg"
+          />
+        ) : (
+          <div className="h-24 w-24 rounded-full bg-gray-200 flex items-center justify-center border-4 border-white shadow-lg">
+            <User className="h-12 w-12 text-gray-400" />
+          </div>
+        )}
+        <label
+          htmlFor={inputId}
+          className="absolute bottom-1 right-1 bg-white rounded-full p-1.5 shadow-lg cursor-pointer hover:bg-gray-50"
+          aria-label="Change profile picture"
+        >
+          <Upload className="h-4 w-4 text-gray-600" />
+          <input
+            id={inputId}
+            type="file"
+            accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+            className="hidden"
+            onChange={handleFileUpload}
+            disabled={isUploading}
+          />
+        </label>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center space-x-4">
@@ -258,12 +294,12 @@ export function AvatarSelector({ currentAvatar, onAvatarChange, userId }: Avatar
             </div>
           )}
           <label
-            htmlFor="avatar-upload"
+            htmlFor={inputId}
             className="absolute bottom-0 right-0 bg-white rounded-full p-1.5 shadow-lg cursor-pointer hover:bg-gray-50"
           >
             <Upload className="h-4 w-4 text-gray-600" />
             <input
-              id="avatar-upload"
+              id={inputId}
               type="file"
               accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
               className="hidden"

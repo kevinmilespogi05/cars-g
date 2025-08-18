@@ -27,6 +27,23 @@ export async function awardPoints(
   return points;
 }
 
+// Award an arbitrary number of points with a custom reason. Useful for achievements.
+export async function awardCustomPoints(
+  userId: string,
+  points: number,
+  reasonText: string,
+  reportId?: string
+) {
+  const { error } = await supabase.rpc('award_points', {
+    user_id: userId,
+    points_to_award: points,
+    reason_text: reasonText,
+    report_id: reportId || null
+  });
+  if (error) throw error;
+  return points;
+}
+
 export async function getPointsHistory(userId: string) {
   const { data, error } = await supabase
     .from('points_history')

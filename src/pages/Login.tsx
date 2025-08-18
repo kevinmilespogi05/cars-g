@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { motion } from 'framer-motion';
-import { LogIn, Mail, Lock, AlertCircle, CheckCircle } from 'lucide-react';
+import { LogIn, Mail, Lock, AlertCircle, CheckCircle, ShieldAlert } from 'lucide-react';
 
 export function Login() {
   const navigate = useNavigate();
@@ -16,7 +16,7 @@ export function Login() {
 
   // Get the redirect path from location state or default to reports
   const from = (location.state as any)?.from?.pathname || '/reports';
-  const message = (location.state as any)?.message;
+  const message = (location.state as any)?.message as string | undefined;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,12 +88,16 @@ export function Login() {
         <form className="mt-6 sm:mt-8 space-y-4 sm:space-y-6" onSubmit={handleSubmit}>
           {message && (
             <motion.div 
-              className="bg-green-50 border border-green-200 text-green-600 px-3 sm:px-4 py-2 sm:py-3 rounded-lg flex items-center text-sm"
+              className={`px-3 sm:px-4 py-2 sm:py-3 rounded-lg flex items-start text-sm border ${message.toLowerCase().includes('banned') ? 'bg-yellow-50 border-yellow-200 text-yellow-800' : 'bg-green-50 border-green-200 text-green-600'}`}
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3 }}
             >
-              <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5 mr-2 flex-shrink-0" />
+              {message.toLowerCase().includes('banned') ? (
+                <ShieldAlert className="h-4 w-4 sm:h-5 sm:w-5 mr-2 flex-shrink-0 mt-0.5" />
+              ) : (
+                <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5 mr-2 flex-shrink-0 mt-0.5" />
+              )}
               <span>{message}</span>
             </motion.div>
           )}

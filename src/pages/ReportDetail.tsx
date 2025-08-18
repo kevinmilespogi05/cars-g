@@ -671,7 +671,7 @@ export function ReportDetail() {
             />
             <div>
               <div className="text-sm font-medium text-gray-900">{report.user.username}</div>
-              <p className="text-xs text-gray-700">{new Date(report.created_at).toLocaleDateString()}</p>
+              <p className="text-xs text-gray-700">{new Date(report.created_at).toLocaleString()}</p>
             </div>
           </div>
 
@@ -758,7 +758,7 @@ export function ReportDetail() {
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-gray-900">{comment.user.username}</span>
                     <span className="text-xs text-gray-700">
-                      {new Date(comment.created_at).toLocaleDateString()}
+                      {new Date(comment.created_at).toLocaleString()}
                     </span>
                   </div>
                   <p className="mt-1 text-sm text-gray-700 whitespace-pre-wrap">{comment.content}</p>

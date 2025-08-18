@@ -115,6 +115,12 @@ export const useAuthStore = create<AuthState>((set) => ({
             isAuthenticated: true,
           });
         } else {
+          // If user is banned, immediately sign out and stop initializing
+          if (profile.is_banned) {
+            await supabase.auth.signOut();
+            set({ user: null, isAuthenticated: false });
+            return;
+          }
           // Initialize user stats if they don't exist
           // First debug the database issue and verify the schema
           await debugDatabaseIssue();
@@ -180,6 +186,11 @@ export const useAuthStore = create<AuthState>((set) => ({
                 isAuthenticated: true,
               });
             } else {
+              if (existingProfile.is_banned) {
+                await supabase.auth.signOut();
+                set({ user: null, isAuthenticated: false });
+                return;
+              }
               // Initialize user stats if they don't exist
               await initializeUserStats(session.user.id);
               
@@ -201,6 +212,11 @@ export const useAuthStore = create<AuthState>((set) => ({
                 .single();
                 
               if (profile) {
+                if (profile.is_banned) {
+                  await supabase.auth.signOut();
+                  set({ user: null, isAuthenticated: false });
+                  return;
+                }
                 set({ user: { ...profile, email: session.user.email } });
               }
             }

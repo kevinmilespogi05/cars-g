@@ -74,10 +74,17 @@ export function UserManagement() {
   const updateUserRole = async (userId: string, newRole: 'user' | 'admin') => {
     setActionLoading(userId);
     try {
+      // First, ensure the current session has admin rights to update another user's role
+      const { data: { user: sessionUser } } = await supabase.auth.getUser();
+      if (!sessionUser) throw new Error('Not authenticated');
+
+      // Attempt role update (RLS requires admin policy to allow updating role)
       const { error } = await supabase
         .from('profiles')
         .update({ role: newRole })
-        .eq('id', userId);
+        .eq('id', userId)
+        .select('role')
+        .single();
 
       if (error) throw error;
       await fetchUsers();
@@ -88,7 +95,7 @@ export function UserManagement() {
     } catch (error) {
       console.error('Error updating user role:', error);
       setNotification({
-        message: 'Failed to update user role. Please try again.',
+        message: 'Failed to update user role. Ensure your admin policies allow updating the role column.',
         type: 'error',
       });
     } finally {
@@ -105,6 +112,11 @@ export function UserManagement() {
         .eq('id', userId);
 
       if (error) throw error;
+      // If the admin bans themselves accidentally, sign them out
+      const { data: { user: sessionUser } } = await supabase.auth.getUser();
+      if (sessionUser && sessionUser.id === userId && isBanned) {
+        await supabase.auth.signOut();
+      }
       await fetchUsers();
       setNotification({
         message: `User ${isBanned ? 'banned' : 'unbanned'} successfully.`,

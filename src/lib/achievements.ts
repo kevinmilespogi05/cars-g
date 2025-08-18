@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { awardCustomPoints } from './points';
 
 export interface Achievement {
   id: string;
@@ -120,28 +121,12 @@ export async function checkAchievements(userId: string): Promise<Achievement[]> 
       newlyEarnedAchievements.push(achievement);
       
       // Record the achievement
+      // Insert achievement and award points atomically (best-effort; RPC recommended)
       await supabase
         .from('user_achievements')
-        .insert({
-          user_id: userId,
-          achievement_id: achievement.id,
-          earned_at: new Date().toISOString()
-        });
-        
-      // Award points for the achievement
-      await supabase
-        .from('profiles')
-        .update({ points: supabase.raw('points + ?', [achievement.points]) })
-        .eq('id', userId);
-        
-      // Record points history
-      await supabase
-        .from('points_history')
-        .insert({
-          user_id: userId,
-          points: achievement.points,
-          reason: `Achievement: ${achievement.title}`,
-        });
+        .insert({ user_id: userId, achievement_id: achievement.id, earned_at: new Date().toISOString() });
+
+      await awardCustomPoints(userId, achievement.points, `ACHIEVEMENT_${achievement.id.toUpperCase()}`);
     }
   }
   

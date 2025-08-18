@@ -6,12 +6,23 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, user } = useAuthStore();
   const location = useLocation();
 
   if (!isAuthenticated) {
     // Redirect to login page but save the attempted location
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  // If a banned user somehow has a session, kick them to login with message
+  if (user?.is_banned) {
+    return (
+      <Navigate
+        to="/login"
+        state={{ from: location, message: 'Your account has been banned. Please contact support if you believe this is a mistake.' }}
+        replace
+      />
+    );
   }
 
   return <>{children}</>;

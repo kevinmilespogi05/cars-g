@@ -112,16 +112,16 @@ export function LeaderboardPage() {
     }
   };
 
-  const getRankIcon = (rank: number) => {
+  const getRankIcon = (rank: number, sizeClass: string = 'h-8 w-8', colorClass?: string) => {
     switch (rank) {
       case 1:
-        return <Trophy className="h-8 w-8 text-yellow-500" />;
+        return <Trophy className={`${sizeClass} ${colorClass ?? 'text-yellow-500'}`} />;
       case 2:
-        return <Medal className="h-8 w-8 text-gray-400" />;
+        return <Medal className={`${sizeClass} ${colorClass ?? 'text-gray-400'}`} />;
       case 3:
-        return <Award className="h-8 w-8 text-amber-600" />;
+        return <Award className={`${sizeClass} ${colorClass ?? 'text-amber-600'}`} />;
       default:
-        return <span className="text-2xl font-bold text-gray-500">{rank}</span>;
+        return <span className={`font-bold text-gray-500 ${sizeClass.replace('w-', 'text-')}`}>{rank}</span>;
     }
   };
 
@@ -259,47 +259,101 @@ export function LeaderboardPage() {
           {showTopThree && topThreeEntries.length > 0 && (
             <div className="mb-8">
               <h2 className="text-xl font-semibold text-gray-900 mb-4">Top Contributors</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {topThreeEntries.map((entry, index) => (
-                  <motion.div
-                    key={entry.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.1 }}
-                    className="bg-white shadow rounded-lg overflow-hidden"
-                  >
-                    <div className="p-4 flex flex-col items-center">
+              <div className="bg-white rounded-lg shadow p-6">
+                <div className="flex items-end justify-center gap-6 md:gap-12">
+                  {/* 2nd place */}
+                  {topThreeEntries[1] && (
+                    <motion.div
+                      key={topThreeEntries[1].id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.1 }}
+                      className="flex flex-col items-center"
+                    >
                       <div className="relative">
-                        {entry.avatar_url ? (
-                          <img
-                            className="h-20 w-20 rounded-full border-4 border-white shadow-lg"
-                            src={entry.avatar_url}
-                            alt={`Profile picture of ${entry.username}`}
-                          />
+                        {topThreeEntries[1].avatar_url ? (
+                          <img className="h-16 w-16 rounded-full border-4 border-white shadow-lg" src={topThreeEntries[1].avatar_url} alt={`Profile picture of ${topThreeEntries[1].username}`} />
                         ) : (
-                          <div className="h-20 w-20 rounded-full bg-gray-200 flex items-center justify-center border-4 border-white shadow-lg">
-                            <User className="h-10 w-10 text-gray-400" />
+                          <div className="h-16 w-16 rounded-full bg-gray-200 flex items-center justify-center border-4 border-white shadow-lg">
+                            <User className="h-8 w-8 text-gray-400" />
                           </div>
                         )}
-                        <div className="absolute -top-2 -right-2 bg-blue-600 text-white rounded-full p-1">
-                          {getRankIcon(index + 1)}
+                        <div className="absolute -top-2 -right-2 bg-gray-600 text-white rounded-full p-1">
+                          {getRankIcon(2, 'h-5 w-5', 'text-white')}
                         </div>
                       </div>
-                      <h3 className="mt-4 text-lg font-medium text-gray-900">{entry.username}</h3>
-                      <p className="text-sm text-gray-500">{entry.points.toLocaleString()} points</p>
-                      <div className="mt-2 flex space-x-2">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                          {entry.reports_submitted || 0} reports
-                        </span>
-                        {entry.reports_verified && (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                            {entry.reports_verified} verified
-                          </span>
-                        )}
+                      <div className="mt-3 text-center">
+                        <p className="text-sm font-medium text-gray-900">{topThreeEntries[1].username}</p>
+                        <p className="text-xs text-gray-500">{topThreeEntries[1].points.toLocaleString()} pts</p>
                       </div>
-                    </div>
-                  </motion.div>
-                ))}
+                      <div className="mt-3 w-24 h-16 bg-gray-200 rounded-t-lg flex items-end justify-center">
+                        <span className="mb-2 text-xs text-gray-600">2</span>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {/* 1st place */}
+                  {topThreeEntries[0] && (
+                    <motion.div
+                      key={topThreeEntries[0].id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.05 }}
+                      className="flex flex-col items-center"
+                    >
+                      <div className="relative">
+                        {topThreeEntries[0].avatar_url ? (
+                          <img className="h-20 w-20 rounded-full border-4 border-yellow-300 shadow-lg" src={topThreeEntries[0].avatar_url} alt={`Profile picture of ${topThreeEntries[0].username}`} />
+                        ) : (
+                          <div className="h-20 w-20 rounded-full bg-yellow-50 flex items-center justify-center border-4 border-yellow-300 shadow-lg">
+                            <User className="h-10 w-10 text-yellow-500" />
+                          </div>
+                        )}
+                        <div className="absolute -top-2 -right-2 bg-yellow-500 text-white rounded-full p-1">
+                          {getRankIcon(1, 'h-6 w-6', 'text-white')}
+                        </div>
+                      </div>
+                      <div className="mt-3 text-center">
+                        <p className="text-base font-semibold text-gray-900">{topThreeEntries[0].username}</p>
+                        <p className="text-sm text-gray-600">{topThreeEntries[0].points.toLocaleString()} pts</p>
+                      </div>
+                      <div className="mt-3 w-28 h-24 bg-yellow-300 rounded-t-lg flex items-end justify-center">
+                        <span className="mb-2 text-sm text-yellow-900 font-semibold">1</span>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {/* 3rd place */}
+                  {topThreeEntries[2] && (
+                    <motion.div
+                      key={topThreeEntries[2].id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.15 }}
+                      className="flex flex-col items-center"
+                    >
+                      <div className="relative">
+                        {topThreeEntries[2].avatar_url ? (
+                          <img className="h-14 w-14 rounded-full border-4 border-white shadow-lg" src={topThreeEntries[2].avatar_url} alt={`Profile picture of ${topThreeEntries[2].username}`} />
+                        ) : (
+                          <div className="h-14 w-14 rounded-full bg-gray-200 flex items-center justify-center border-4 border-white shadow-lg">
+                            <User className="h-7 w-7 text-gray-400" />
+                          </div>
+                        )}
+                        <div className="absolute -top-2 -right-2 bg-amber-600 text-white rounded-full p-1">
+                          {getRankIcon(3, 'h-5 w-5', 'text-white')}
+                        </div>
+                      </div>
+                      <div className="mt-3 text-center">
+                        <p className="text-sm font-medium text-gray-900">{topThreeEntries[2].username}</p>
+                        <p className="text-xs text-gray-500">{topThreeEntries[2].points.toLocaleString()} pts</p>
+                      </div>
+                      <div className="mt-3 w-24 h-12 bg-amber-200 rounded-t-lg flex items-end justify-center">
+                        <span className="mb-2 text-xs text-amber-900">3</span>
+                      </div>
+                    </motion.div>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -442,7 +496,7 @@ export function LeaderboardPage() {
                             {entry.reports_submitted || 0}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                            {entry.reports_verified || 0}
+                            {(entry.reports_verified || 0) > 0 ? entry.reports_verified : ''}
                           </td>
                         </motion.tr>
                       ))}
@@ -520,7 +574,7 @@ export function LeaderboardPage() {
                           </div>
                           <div className="bg-gray-50 rounded p-2">
                             <p className="text-xs text-gray-500">Verified</p>
-                            <p className="text-sm font-medium">{entry.reports_verified || 0}</p>
+                            <p className="text-sm font-medium">{(entry.reports_verified || 0) > 0 ? entry.reports_verified : ''}</p>
                           </div>
                           <div className="bg-gray-50 rounded p-2">
                             <p className="text-xs text-gray-500">Resolved</p>

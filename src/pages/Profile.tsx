@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../store/authStore';
-import { Award, MapPin, Star, Edit2, Save, X, Camera, Shield, Bell, Lock } from 'lucide-react';
+import { Award, MapPin, Star, Edit2, Save, X, Camera, Shield, Bell, Lock, Calendar, Eye } from 'lucide-react';
+import { AchievementsPanel } from '../components/AchievementsPanel';
 import { AvatarSelector } from '../components/AvatarSelector';
 import { supabase } from '../lib/supabase';
 import { motion } from 'framer-motion';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
+import { Report } from '../types';
+import { deleteMultipleImages } from '../lib/cloudinaryStorage';
+import { ConfirmationDialog } from '../components/ConfirmationDialog';
 
 interface UserStats {
   reports_submitted: number;
@@ -24,6 +28,7 @@ interface ProfileData {
 
 export function Profile() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { user: currentUser, setUser } = useAuthStore();
   const [isUpdating, setIsUpdating] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -41,16 +46,21 @@ export function Profile() {
 
   const isOwnProfile = !id || (currentUser && id === currentUser.id);
   const user = isOwnProfile ? currentUser : profileData;
+  const [myReports, setMyReports] = useState<Report[]>([]);
+  const [loadingMyReports, setLoadingMyReports] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Report | null>(null);
 
   useEffect(() => {
     if (isOwnProfile) {
       if (currentUser) {
         setEditedUsername(currentUser.username || '');
         fetchUserStats(currentUser.id);
+        fetchMyReports(currentUser.id);
       }
     } else if (id) {
       fetchProfile(id);
       fetchUserStats(id);
+      fetchMyReports(id);
     }
   }, [id, currentUser, isOwnProfile]);
 
@@ -125,6 +135,25 @@ export function Profile() {
         reports_verified: 0,
         reports_resolved: 0
       });
+    }
+  };
+
+  const fetchMyReports = async (userId: string) => {
+    try {
+      setLoadingMyReports(true);
+      const { data, error } = await supabase
+        .from('reports')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setMyReports(data || []);
+    } catch (error) {
+      console.error('Error fetching my reports:', error);
+      setMyReports([]);
+    } finally {
+      setLoadingMyReports(false);
     }
   };
 
@@ -220,25 +249,17 @@ export function Profile() {
               <div className="flex items-end space-x-4">
                 <div className="relative">
                   {isOwnProfile ? (
-                    <>
-                      <AvatarSelector
-                        currentAvatar={user?.avatar_url || null}
-                        onAvatarChange={handleAvatarChange}
-                        userId={user?.id || ''}
-                      />
-                      <button
-                        className="absolute bottom-0 right-0 bg-white rounded-full p-1 shadow-md hover:bg-gray-100 transition-colors"
-                        onClick={() => document.getElementById('avatar-upload')?.click()}
-                        aria-label="Change profile picture"
-                      >
-                        <Camera className="w-4 h-4 text-gray-600" />
-                      </button>
-                    </>
+                    <AvatarSelector
+                      currentAvatar={user?.avatar_url || null}
+                      onAvatarChange={handleAvatarChange}
+                      userId={user?.id || ''}
+                      variant="compact"
+                    />
                   ) : (
                     <img
                       src={user?.avatar_url || '/images/default-avatar.png'}
                       alt={user?.username}
-                      className="h-20 w-20 rounded-full object-cover border-4 border-white shadow-lg"
+                      className="h-24 w-24 rounded-full object-cover border-4 border-white shadow-lg"
                     />
                   )}
                 </div>
@@ -249,19 +270,19 @@ export function Profile() {
                         type="text"
                         value={editedUsername}
                         onChange={(e) => setEditedUsername(e.target.value)}
-                        className="text-2xl font-bold bg-gray-50 border border-gray-300 rounded px-2 py-1"
+                        className="text-2xl font-bold bg-white border-2 border-gray-200 rounded-lg px-3 py-1 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-color"
                       />
                       <button
                         onClick={handleSaveProfile}
                         disabled={isUpdating}
-                        className="p-1 rounded-full bg-primary-color text-white hover:bg-primary-dark transition-colors"
+                        className="px-3 py-1 rounded-lg bg-primary-color text-white hover:bg-primary-dark transition-colors shadow-sm disabled:opacity-60"
                         aria-label="Save username"
                       >
                         <Save className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => setIsEditing(false)}
-                        className="p-1 rounded-full bg-gray-200 text-gray-600 hover:bg-gray-300 transition-colors"
+                        className="px-3 py-1 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors shadow-sm"
                         aria-label="Cancel editing"
                       >
                         <X className="w-4 h-4" />
@@ -298,6 +319,75 @@ export function Profile() {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Reports for this profile (own or other user) */}
+        <div className="bg-white rounded-lg shadow-lg p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold flex items-center">
+              <MapPin className="w-5 h-5 mr-2 text-gray-500" />
+              {isOwnProfile ? 'My Reports' : `${user?.username || 'User'}'s Reports`}
+            </h3>
+          </div>
+          {loadingMyReports ? (
+            <p className="text-gray-600">Loading reports…</p>
+          ) : myReports.length === 0 ? (
+            <p className="text-gray-600">No reports yet.</p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {myReports.map((report) => (
+                <div
+                  key={report.id}
+                  className="bg-white rounded-lg border border-gray-200 hover:shadow-md transition-shadow cursor-pointer"
+                  onClick={() => navigate(`/reports/${report.id}`)}
+                >
+                  {report.images && report.images.length > 0 ? (
+                    <div className="h-36 overflow-hidden rounded-t-lg">
+                      <img src={report.images[0]} alt={report.title} className="w-full h-full object-cover" />
+                    </div>
+                  ) : (
+                    <div className="h-36 bg-gray-100 rounded-t-lg flex items-center justify-center">
+                      <MapPin className="h-10 w-10 text-gray-400" />
+                    </div>
+                  )}
+                  <div className="p-4">
+                    <h4 className="font-semibold text-gray-900 line-clamp-1">{report.title}</h4>
+                    <p className="text-sm text-gray-600 line-clamp-2 mt-1">{report.description}</p>
+                    <div className="flex items-center justify-between text-xs text-gray-500 mt-3">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-gray-100 capitalize">
+                        {report.status.replace('_', ' ')}
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        {new Date(report.created_at).toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="mt-3 flex justify-between items-center">
+                      {isOwnProfile ? (
+                        <button
+                          className="inline-flex items-center gap-1 text-red-600 hover:text-red-700 text-sm"
+                          onClick={(e) => { e.stopPropagation(); setDeleteTarget(report); }}
+                        >
+                          Delete
+                        </button>
+                      ) : (
+                        <span />
+                      )}
+                      <button
+                        className="inline-flex items-center gap-1 text-primary-color hover:text-primary-dark text-sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/reports/${report.id}`);
+                        }}
+                      >
+                        <Eye className="h-4 w-4" /> View
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Profile Sections */}
@@ -380,26 +470,7 @@ export function Profile() {
               <Award className="w-5 h-5 mr-2 text-gray-500" />
               Achievements
             </h3>
-            <div className="space-y-4">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-full bg-primary-color/10 flex items-center justify-center">
-                  <Star className="w-5 h-5 text-primary-color" />
-                </div>
-                <div>
-                  <p className="font-medium text-gray-900">First Report</p>
-                  <p className="text-sm text-gray-600">Submitted your first report</p>
-                </div>
-              </div>
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-full bg-primary-color/10 flex items-center justify-center">
-                  <MapPin className="w-5 h-5 text-primary-color" />
-                </div>
-                <div>
-                  <p className="font-medium text-gray-900">Local Hero</p>
-                  <p className="text-sm text-gray-600">Submitted 10 reports in your area</p>
-                </div>
-              </div>
-            </div>
+            <AchievementsPanel userId={user?.id || ''} />
           </div>
 
           {/* Activity Stats */}
@@ -429,6 +500,37 @@ export function Profile() {
           </div>
         </div>
       </motion.div>
+      {/* Delete confirmation modal */}
+      {deleteTarget && (
+        <ConfirmationDialog
+          isOpen={!!deleteTarget}
+          onClose={() => setDeleteTarget(null)}
+          onConfirm={async () => {
+            try {
+              const report = deleteTarget;
+              if (!report) return;
+              if (report.images && report.images.length) {
+                await deleteMultipleImages(report.images);
+              }
+              const { error } = await supabase
+                .from('reports')
+                .delete()
+                .eq('id', report.id)
+                .eq('user_id', user?.id || '');
+              if (error) throw error;
+              setMyReports(prev => prev.filter(r => r.id !== report.id));
+            } catch (err) {
+              console.error('Error deleting report:', err);
+              alert('Failed to delete report.');
+            }
+          }}
+          title="Delete Report?"
+          message="This action will permanently delete your report and its images. This cannot be undone."
+          confirmText="Delete"
+          cancelText="Cancel"
+          type="danger"
+        />
+      )}
     </div>
   );
 }
