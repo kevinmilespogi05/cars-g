@@ -98,6 +98,7 @@ CREATE POLICY "Users can view messages in their conversations" ON chat_messages
 
 CREATE POLICY "Users can send messages in their conversations" ON chat_messages
   FOR INSERT WITH CHECK (
+    sender_id = auth.uid() AND
     EXISTS (
       SELECT 1 FROM chat_conversations 
       WHERE id = conversation_id 
@@ -113,6 +114,15 @@ CREATE POLICY "Users can update their own messages" ON chat_messages
 -- RLS Policies for chat_participants
 CREATE POLICY "Users can view participants in their conversations" ON chat_participants
   FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM chat_conversations 
+      WHERE id = conversation_id 
+      AND auth.uid() IN (participant1_id, participant2_id)
+    )
+  );
+
+CREATE POLICY "Users can be added to conversations" ON chat_participants
+  FOR INSERT WITH CHECK (
     EXISTS (
       SELECT 1 FROM chat_conversations 
       WHERE id = conversation_id 

@@ -24,6 +24,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { publicRoutes, protectedRoutes, adminRoutes } from './routes/routes';
 import { PWAPrompt } from './components/PWAPrompt';
 import { NetworkStatus } from './components/NetworkStatus';
+import { AIReportingButton } from './components/AIReportingButton';
 
 // Configure future flags for React Router v7
 const routerConfig = {
@@ -113,6 +114,22 @@ function App() {
     };
   }, []);
 
+  // Handle AI-generated report
+  const handleAIReportGenerated = (reportData: {
+    title: string;
+    description: string;
+    category: string;
+    priority: 'low' | 'medium' | 'high';
+    imageUrls: string[];
+  }) => {
+    // Store the AI-generated report data in localStorage
+    // This will be picked up by the CreateReport page
+    localStorage.setItem('aiGeneratedReport', JSON.stringify(reportData));
+    
+    // Navigate to the create report page
+    window.location.href = '/reports/create';
+  };
+
   if (!isInitialized) {
     return <LoadingSpinner />;
   }
@@ -144,6 +161,11 @@ function App() {
               </Routes>
             </Suspense>
           </main>
+          
+          {/* AI Reporting Button - Only show for authenticated users */}
+          {isAuthenticated && (
+            <AIReportingButton onReportGenerated={handleAIReportGenerated} />
+          )}
           
           {/* Network Status Indicator */}
           {!isOnline && (

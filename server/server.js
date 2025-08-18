@@ -11,25 +11,38 @@ import crypto from 'crypto';
 // Load environment variables
 dotenv.config();
 
-// Check required environment variables
+// Check required environment variables with fallbacks for development
 const requiredEnvVars = [
   'VITE_SUPABASE_URL',
   'VITE_SUPABASE_ANON_KEY'
 ];
 
-const missingEnvVars = requiredEnvVars.filter(envVar => !process.env[envVar]);
-
-if (missingEnvVars.length > 0) {
-  console.error('❌ Missing required environment variables:');
-  missingEnvVars.forEach(envVar => {
-    console.error(`   - ${envVar}`);
-  });
-  console.error('\n📝 Please create a .env file in the server directory with:');
-  console.error('VITE_SUPABASE_URL=https://your-project.supabase.co');
-  console.error('SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here');
-  console.error('\n🔑 Get your service role key from:');
-  console.error('   Supabase Dashboard → Settings → API → service_role key');
-  process.exit(1);
+// For development, use default values if not set
+if (process.env.NODE_ENV === 'development') {
+  if (!process.env.VITE_SUPABASE_URL) {
+    process.env.VITE_SUPABASE_URL = 'https://mffuqdwqjdxbwpbhuxby.supabase.co';
+    console.log('⚠️  Using default Supabase URL for development');
+  }
+  if (!process.env.VITE_SUPABASE_ANON_KEY) {
+    console.log('⚠️  VITE_SUPABASE_ANON_KEY not set - chat functionality will be limited');
+  }
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    console.log('⚠️  SUPABASE_SERVICE_ROLE_KEY not set - chat functionality will be limited');
+  }
+} else {
+  const missingEnvVars = requiredEnvVars.filter(envVar => !process.env[envVar]);
+  if (missingEnvVars.length > 0) {
+    console.error('❌ Missing required environment variables:');
+    missingEnvVars.forEach(envVar => {
+      console.error(`   - ${envVar}`);
+    });
+    console.error('\n📝 Please create a .env file in the server directory with:');
+    console.error('VITE_SUPABASE_URL=https://your-project.supabase.co');
+    console.error('SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here');
+    console.error('\n🔑 Get your service role key from:');
+    console.error('   Supabase Dashboard → Settings → API → service_role key');
+    process.exit(1);
+  }
 }
 
 const app = express();
@@ -55,25 +68,37 @@ const supabaseUrl = process.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceKey) {
-  console.error('❌ Supabase configuration is incomplete');
+// Create clients with available keys
+const supabase = createClient(supabaseUrl, supabaseAnonKey || '');
+const supabaseAdmin = supabaseServiceKey ? createClient(supabaseUrl, supabaseServiceKey) : null;
+
+if (!supabaseUrl) {
+  console.error('❌ VITE_SUPABASE_URL is required');
   process.exit(1);
 }
-
-// Create two Supabase clients: one with anon key for auth, one with service key for admin operations
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
 // Test Supabase connection
 const testSupabaseConnection = async () => {
   try {
-    const { data, error } = await supabaseAdmin.from('profiles').select('count').limit(1);
-    if (error) {
-      console.error('❌ Failed to connect to Supabase:', error.message);
-      console.error('   Please check your VITE_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY');
-      process.exit(1);
+    if (supabaseAdmin) {
+      const { data, error } = await supabaseAdmin.from('profiles').select('count').limit(1);
+      if (error) {
+        console.error('❌ Failed to connect to Supabase:', error.message);
+        console.error('   Please check your VITE_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY');
+        process.exit(1);
+      }
+      console.log('✅ Successfully connected to Supabase with admin privileges');
+    } else {
+      // Test basic connection without admin privileges
+      const { data, error } = await supabase.from('profiles').select('count').limit(1);
+      if (error) {
+        console.error('❌ Failed to connect to Supabase:', error.message);
+        console.error('   Please check your VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY');
+        process.exit(1);
+      }
+      console.log('✅ Successfully connected to Supabase (limited functionality)');
+      console.log('⚠️  Chat functionality will be limited without SUPABASE_SERVICE_ROLE_KEY');
     }
-    console.log('✅ Successfully connected to Supabase');
   } catch (error) {
     console.error('❌ Error testing Supabase connection:', error.message);
     process.exit(1);
@@ -110,6 +135,13 @@ app.get('/api/chat/conversations/:userId', async (req, res) => {
     const { userId } = req.params;
     console.log('Fetching conversations for user:', userId);
     
+    if (!supabaseAdmin) {
+      return res.status(503).json({ 
+        error: 'Chat service temporarily unavailable', 
+        details: 'Admin privileges required for chat functionality' 
+      });
+    }
+    
     // First, get the conversations using admin client to bypass RLS
     const { data: conversations, error: convError } = await supabaseAdmin
       .from('chat_conversations')
@@ -137,6 +169,13 @@ app.get('/api/chat/messages/:conversationId', async (req, res) => {
     const { conversationId } = req.params;
     console.log('Fetching messages for conversation:', conversationId);
     
+    if (!supabaseAdmin) {
+      return res.status(503).json({ 
+        error: 'Chat service temporarily unavailable', 
+        details: 'Admin privileges required for chat functionality' 
+      });
+    }
+    
     const { data, error } = await supabaseAdmin
       .from('chat_messages')
       .select('*')
@@ -154,11 +193,18 @@ app.get('/api/chat/messages/:conversationId', async (req, res) => {
     console.error('Error fetching messages:', error);
     res.status(500).json({ error: 'Failed to fetch messages', details: error.message });
   }
-});
+ });
 
 app.post('/api/chat/conversations', async (req, res) => {
   try {
     const { participant1_id, participant2_id } = req.body;
+    
+    if (!supabaseAdmin) {
+      return res.status(503).json({ 
+        error: 'Chat service temporarily unavailable', 
+        details: 'Admin privileges required for chat functionality' 
+      });
+    }
     
     // Check if conversation already exists using admin client to bypass RLS
     const { data: existing } = await supabaseAdmin
@@ -191,6 +237,13 @@ app.delete('/api/chat/messages/:messageId', async (req, res) => {
   try {
     const { messageId } = req.params;
     const { userId } = req.body; // The user requesting the deletion
+    
+    if (!supabaseAdmin) {
+      return res.status(503).json({ 
+        error: 'Chat service temporarily unavailable', 
+        details: 'Admin privileges required for chat functionality' 
+      });
+    }
     
     // First, get the message to verify ownership using admin client
     const { data: message, error: fetchError } = await supabaseAdmin
@@ -485,8 +538,15 @@ io.on('connection', (socket) => {
         socketId: socket.id
       });
 
-      // Save message to Supabase
-      const { data: message, error } = await supabase
+      if (!supabaseAdmin) {
+        socket.emit('message_error', { 
+          message: 'Chat service temporarily unavailable - admin privileges required' 
+        });
+        return;
+      }
+
+      // Save message to Supabase using admin client to bypass RLS
+      const { data: message, error } = await supabaseAdmin
         .from('chat_messages')
         .insert([{
           conversation_id,
@@ -497,7 +557,15 @@ io.on('connection', (socket) => {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Database error details:', {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint
+        });
+        throw error;
+      }
       
       console.log('Message saved to database:', {
         messageId: message.id,
@@ -505,14 +573,24 @@ io.on('connection', (socket) => {
         contentLength: message.content?.length || 0
       });
 
-      // Get conversation participants
-      const { data: conversation, error: convError } = await supabase
+      // Get conversation participants using admin client to bypass RLS
+      if (!supabaseAdmin) {
+        socket.emit('message_error', { 
+          message: 'Chat service temporarily unavailable - admin privileges required' 
+        });
+        return;
+      }
+
+      const { data: conversation, error: convError } = await supabaseAdmin
         .from('chat_conversations')
         .select('participant1_id, participant2_id')
         .eq('id', conversation_id)
         .single();
 
-      if (convError) throw convError;
+      if (convError) {
+        console.error('Error fetching conversation participants:', convError);
+        throw convError;
+      }
 
       // Broadcast message to conversation room
       const messageWithUser = {
@@ -522,18 +600,23 @@ io.on('connection', (socket) => {
 
       console.log('Broadcasting message to clients:', {
         messageId: messageWithUser.id,
-        messageType: messageWithUser.message_type,
-        contentLength: messageWithUser.content?.length || 0,
+        messageType: message.message_type,
+        contentLength: message.content?.length || 0,
         conversationId: conversation_id
       });
 
       io.to(`conversation_${conversation_id}`).emit('new_message', messageWithUser);
 
-      // Update conversation last_message_at
-      await supabase
-        .from('chat_conversations')
-        .update({ last_message_at: new Date().toISOString() })
-        .eq('id', conversation_id);
+      // Update conversation last_message_at using admin client
+      try {
+        await supabaseAdmin
+          .from('chat_conversations')
+          .update({ last_message_at: new Date().toISOString() })
+          .eq('id', conversation_id);
+      } catch (updateError) {
+        console.error('Warning: Failed to update conversation timestamp:', updateError);
+        // Don't fail the message send for this non-critical update
+      }
 
     } catch (error) {
       console.error('Error sending message:', error);
@@ -571,8 +654,14 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Something went wrong!' });
 });
 
+// Set default environment
+if (!process.env.NODE_ENV) {
+  process.env.NODE_ENV = 'development';
+}
+
 const PORT = process.env.PORT || 3001;
 const WS_PORT = process.env.WS_PORT || 3001;
+
 
 // Start server after testing Supabase connection
 const startServer = async () => {

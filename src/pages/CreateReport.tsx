@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Camera, MapPin, Loader2, AlertCircle, X, CheckCircle, Upload } from 'lucide-react';
+import { Camera, MapPin, Loader2, AlertCircle, X, CheckCircle, Upload, Bot, Sparkles } from 'lucide-react';
 import { MapPicker } from '../components/MapPicker';
 import { useAuthStore } from '../store/authStore';
 import { uploadMultipleImages } from '../lib/cloudinaryStorage';
@@ -24,6 +24,13 @@ export function CreateReport() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [aiGeneratedData, setAiGeneratedData] = useState<{
+    title: string;
+    description: string;
+    category: string;
+    priority: 'low' | 'medium' | 'high';
+    imageUrls: string[];
+  } | null>(null);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -34,6 +41,36 @@ export function CreateReport() {
   const [uploadedImages, setUploadedImages] = useState<File[]>([]);
   const [imagePreviewUrls, setImagePreviewUrls] = useState<string[]>([]);
   const [showPhotoCapture, setShowPhotoCapture] = useState(false);
+
+  // Check for AI-generated report data on component mount
+  useEffect(() => {
+    const aiReportData = localStorage.getItem('aiGeneratedReport');
+    if (aiReportData) {
+      try {
+        const parsedData = JSON.parse(aiReportData);
+        setAiGeneratedData(parsedData);
+        
+        // Pre-fill the form with AI-generated data
+        setFormData({
+          title: parsedData.title,
+          description: parsedData.description,
+          category: parsedData.category,
+          priority: parsedData.priority,
+        });
+        
+        // Set image preview URLs from AI-generated data
+        setImagePreviewUrls(parsedData.imageUrls);
+        
+        // Clear the localStorage
+        localStorage.removeItem('aiGeneratedReport');
+        
+        console.log('🤖 AI-generated report data loaded:', parsedData);
+      } catch (error) {
+        console.error('Error parsing AI report data:', error);
+        localStorage.removeItem('aiGeneratedReport');
+      }
+    }
+  }, []);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     setUploadError(null);
@@ -104,16 +141,25 @@ export function CreateReport() {
     try {
       let imageUrls: string[] = [];
 
-      // Upload all images (both uploaded files and captured photos) together
+      // Handle AI-generated images (already uploaded to Cloudinary)
+      if (aiGeneratedData && aiGeneratedData.imageUrls.length > 0) {
+        console.log('🤖 Using AI-generated images:', aiGeneratedData.imageUrls);
+        imageUrls = [...aiGeneratedData.imageUrls];
+      }
+
+      // Upload additional images (both uploaded files and captured photos) together
       if (uploadedImages.length > 0) {
-        console.log('🚀 Starting upload of', uploadedImages.length, 'images...');
+        console.log('🚀 Starting upload of', uploadedImages.length, 'additional images...');
         console.log('📁 Files to upload:', uploadedImages.map(f => ({ name: f.name, size: f.size, type: f.type })));
         
-        imageUrls = await uploadMultipleImages(uploadedImages);
-        console.log('✅ Upload completed. URLs:', imageUrls);
-      } else {
-        console.log('ℹ️ No images to upload');
+        const additionalImageUrls = await uploadMultipleImages(uploadedImages);
+        console.log('✅ Additional upload completed. URLs:', additionalImageUrls);
+        
+        // Combine AI-generated images with additional uploaded images
+        imageUrls = [...imageUrls, ...additionalImageUrls];
       }
+
+      console.log('📸 Final image URLs:', imageUrls);
 
       const reportData = {
         user_id: user.id,
@@ -315,6 +361,26 @@ export function CreateReport() {
 
           {/* Form Content */}
           <div className="p-6 sm:p-8">
+            {/* AI Generated Report Indicator */}
+            {aiGeneratedData && (
+              <div className="mb-6 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-xl p-4">
+                <div className="flex items-center space-x-3">
+                  <div className="bg-gradient-to-r from-purple-600 to-blue-600 p-2 rounded-lg">
+                    <Bot className="h-5 w-5 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-purple-800 flex items-center space-x-2">
+                      <span>AI-Generated Report</span>
+                      <Sparkles className="h-4 w-4 text-yellow-500" />
+                    </h3>
+                    <p className="text-sm text-purple-700 mt-1">
+                      This report was automatically generated using AI analysis. You can review and edit the details below.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <form onSubmit={handleSubmit} className="space-y-8">
               {/* Basic Information Section */}
               <div className="space-y-6">
