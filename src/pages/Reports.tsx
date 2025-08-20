@@ -249,42 +249,42 @@ export function Reports() {
 
   return (
     <div className="min-h-[100dvh] bg-gray-50 reports-page">
-      <div className="w-full px-3 sm:px-4 lg:px-6 py-6 sm:py-8">
-        {/* Header Section */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 sm:mb-6">
-          <h1 className="text-2xl sm:text-3xl font-bold text-[#800000]">Reports</h1>
+      <div className="w-full px-3 sm:px-4 lg:px-6 py-4 sm:py-6">
+        {/* Header Section - More compact */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+          <h1 className="text-xl sm:text-2xl font-bold text-[#800000]">Reports</h1>
           <Link
             to="/reports/create"
-            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-primary-color text-white px-4 py-2.5 rounded-lg shadow hover:bg-primary-dark transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-color"
+            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-primary-color text-white px-3 py-2 rounded-md shadow-sm hover:bg-primary-dark transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-color text-sm font-medium"
           >
-            <Plus className="h-5 w-5" />
+            <Plus className="h-4 w-4" />
             <span>Create New Report</span>
           </Link>
         </div>
 
-        {/* Search and Filters Section */}
-        <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
-          <div className="flex flex-col lg:flex-row gap-4">
+        {/* Search and Filters Section - More compact and user-friendly */}
+        <div className="bg-white rounded-lg shadow-sm p-3 mb-4 border border-gray-100">
+          <div className="flex flex-col sm:flex-row gap-3">
             {/* Search */}
             <div className="flex-1">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                 <input
                   type="text"
                   placeholder="Search reports..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-color focus:border-transparent"
+                  className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-md focus:ring-2 focus:ring-primary-color focus:border-transparent"
                 />
               </div>
             </div>
 
-            {/* Filters */}
+            {/* Filters - More compact and touch-friendly */}
             <div className="flex flex-wrap gap-2">
               <select
                 value={filters.category}
                 onChange={(e) => setFilters(prev => ({ ...prev, category: e.target.value }))}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-color focus:border-transparent"
+                className="px-2.5 py-2 text-sm border border-gray-200 rounded-md focus:ring-2 focus:ring-primary-color focus:border-transparent bg-white"
               >
                 {CATEGORIES.map(category => (
                   <option key={category} value={category}>{category}</option>
@@ -294,7 +294,7 @@ export function Reports() {
               <select
                 value={filters.status}
                 onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-color focus:border-transparent"
+                className="px-2.5 py-2 text-sm border border-gray-200 rounded-md focus:ring-2 focus:ring-primary-color focus:border-transparent bg-white"
               >
                 {STATUSES.map(status => (
                   <option key={status} value={status}>{status}</option>
@@ -304,7 +304,7 @@ export function Reports() {
               <select
                 value={filters.priority}
                 onChange={(e) => setFilters(prev => ({ ...prev, priority: e.target.value }))}
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-color focus:border-transparent"
+                className="px-2.5 py-2 text-sm border border-gray-200 rounded-md focus:ring-2 focus:ring-primary-color focus:border-transparent bg-white"
               >
                 {PRIORITIES.map(priority => (
                   <option key={priority} value={priority}>{priority}</option>
@@ -316,12 +316,12 @@ export function Reports() {
 
         {/* Reports Grid */}
         {filteredReports.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="text-gray-400 mb-4">
-              <Filter className="h-16 w-16 mx-auto" />
+          <div className="text-center py-8">
+            <div className="text-gray-400 mb-3">
+              <Filter className="h-12 w-12 mx-auto" />
             </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No reports found</h3>
-            <p className="text-gray-500">
+            <h3 className="text-base font-medium text-gray-900 mb-2">No reports found</h3>
+            <p className="text-sm text-gray-500">
               {searchTerm || filters.category !== 'All' || filters.status !== 'All' || filters.priority !== 'All'
                 ? 'Try adjusting your search or filters'
                 : 'Be the first to submit a report!'
@@ -329,16 +329,16 @@ export function Reports() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {filteredReports.map((report) => (
               <div
                 key={report.id}
-                className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                className="bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer border border-gray-100 hover:border-gray-200"
                 onClick={() => navigate(`/reports/${report.id}`)}
               >
-                {/* Report Images */}
+                {/* Report Images - Much smaller and more compact */}
                 {report.images && report.images.length > 0 && !imageErrors[report.id] ? (
-                  <div className="relative h-56 sm:h-64 md:h-72 lg:h-80 overflow-hidden rounded-t-lg">
+                  <div className="relative h-32 overflow-hidden rounded-t-lg">
                     <img
                       src={report.images[0]}
                       alt={report.title}
@@ -346,55 +346,55 @@ export function Reports() {
                       onError={() => handleImageError(report.id)}
                     />
                     {report.images.length > 1 && (
-                      <div className="absolute top-2 right-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
+                      <div className="absolute top-2 right-2 bg-black bg-opacity-70 text-white text-xs px-1.5 py-0.5 rounded-full font-medium">
                         +{report.images.length - 1}
                       </div>
                     )}
                   </div>
                 ) : (
-                  <div className="h-56 sm:h-64 md:h-72 lg:h-80 bg-gray-100 rounded-t-lg flex items-center justify-center">
-                    <MapPin className="h-12 w-12 text-gray-400" />
+                  <div className="h-32 bg-gradient-to-br from-gray-50 to-gray-100 rounded-t-lg flex items-center justify-center">
+                    <MapPin className="h-8 w-8 text-gray-400" />
                   </div>
                 )}
 
-                {/* Report Content */}
-                <div className="p-4">
-                  <div className="flex items-start justify-between mb-2">
-                    <h3 className="font-semibold text-gray-900 line-clamp-2 flex-1">
-                      {report.title}
-                    </h3>
-                  </div>
+                {/* Report Content - More compact padding and typography */}
+                <div className="p-3">
+                  {/* Title - Single line with better typography */}
+                  <h3 className="font-semibold text-gray-900 text-sm leading-tight line-clamp-1 mb-2">
+                    {report.title}
+                  </h3>
 
-                  <p className="text-gray-900 text-base sm:text-lg font-medium leading-snug line-clamp-2 mb-3">
+                  {/* Description - Shorter, more readable */}
+                  <p className="text-gray-600 text-xs leading-relaxed line-clamp-2 mb-3">
                     {report.description}
                   </p>
 
-                  {/* Status and Priority */}
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(report.status)}`}>
+                  {/* Status and Priority - More compact badges */}
+                  <div className="flex items-center gap-1.5 mb-2.5">
+                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(report.status)}`}>
                       {getStatusIcon(report.status)}
-                      <span className="ml-1">{report.status.replace('_', ' ')}</span>
+                      <span className="ml-1 text-xs">{report.status.replace('_', ' ')}</span>
                     </span>
-                    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(report.priority)}`}>
+                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium ${getPriorityColor(report.priority)}`}>
                       {report.priority}
                     </span>
                   </div>
 
-                  {/* Meta Information */}
-                  <div className="flex items-center justify-between text-xs text-gray-500 mb-3">
+                  {/* Meta Information - More compact layout */}
+                  <div className="flex items-center justify-between text-xs text-gray-500 mb-2.5">
                     <div className="flex items-center gap-1">
                       <User className="h-3 w-3" />
-                      <span>{report.user_profile?.username || 'Anonymous'}</span>
+                      <span className="truncate max-w-[80px]">{report.user_profile?.username || 'Anonymous'}</span>
                     </div>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 text-gray-400">
                       <Calendar className="h-3 w-3" />
-                      <span>{new Date(report.created_at).toLocaleString()}</span>
+                      <span className="text-xs">{new Date(report.created_at).toLocaleDateString()}</span>
                     </div>
                   </div>
 
-                  {/* Actions */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
+                  {/* Actions - More compact and touch-friendly */}
+                  <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                    <div className="flex items-center gap-3">
                       <div className="flex items-center gap-1">
                         <button
                           onClick={(e) => {
@@ -402,43 +402,24 @@ export function Reports() {
                             handleLike(report.id);
                           }}
                           disabled={likeLoading[report.id]}
-                          className="flex items-center gap-1 text-sm transition-colors"
+                          className="flex items-center gap-1 text-xs transition-colors hover:text-red-500"
                         >
                           {likeLoading[report.id] ? (
-                            <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
+                            <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-500" />
                           ) : (
                             <Heart 
-                              className={`h-4 w-4 transition-all duration-200 ${
+                              className={`h-3.5 w-3.5 transition-all duration-200 ${
                                 report.is_liked 
                                   ? 'fill-red-500 text-red-500' 
                                   : 'fill-none text-gray-500 hover:text-red-500'
                               }`} 
                             />
                           )}
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (report.likes?.count && report.likes.count > 0) {
-                              setLikeDetailsModal({
-                                isOpen: true,
-                                reportId: report.id,
-                                reportTitle: report.title
-                              });
-                            }
-                          }}
-                          className={`text-sm transition-colors ${
-                            report.likes?.count && report.likes.count > 0
-                              ? 'text-gray-700 hover:text-gray-900 cursor-pointer'
-                              : 'text-gray-400 cursor-default'
-                          }`}
-                          disabled={!report.likes?.count || report.likes.count === 0}
-                        >
-                          {report.likes?.count || 0}
+                          <span className="text-xs text-gray-600">{report.likes?.count || 0}</span>
                         </button>
                       </div>
-                      <div className="flex items-center gap-1 text-sm text-gray-500">
-                        <MessageCircle className="h-4 w-4" />
+                      <div className="flex items-center gap-1 text-xs text-gray-500">
+                        <MessageCircle className="h-3.5 w-3.5" />
                         <span>{report.comments?.count || 0}</span>
                       </div>
                     </div>
@@ -447,9 +428,10 @@ export function Reports() {
                         e.stopPropagation();
                         navigate(`/reports/${report.id}`);
                       }}
-                      className="text-primary-color hover:text-primary-dark transition-colors"
+                      className="text-primary-color hover:text-primary-dark transition-colors p-1 rounded hover:bg-gray-50"
+                      title="View details"
                     >
-                      <Eye className="h-4 w-4" />
+                      <Eye className="h-3.5 w-3.5" />
                     </button>
                   </div>
                 </div>

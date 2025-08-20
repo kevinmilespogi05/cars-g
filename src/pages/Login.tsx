@@ -61,62 +61,68 @@ export function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 py-6 px-4 sm:py-12 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 py-6 px-4 sm:py-12 sm:px-6 lg:px-8">
       <motion.div 
-        className="w-full max-w-md space-y-6 sm:space-y-8 bg-white p-6 sm:p-10 rounded-xl shadow-lg"
+        className="w-full max-w-md space-y-8 bg-white p-8 sm:p-10 rounded-2xl shadow-xl border border-gray-100/50 backdrop-blur-sm"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <div>
+        {/* Header Section */}
+        <div className="text-center space-y-4">
           <div className="flex justify-center">
-            <div className="h-12 w-12 sm:h-16 sm:w-16 bg-primary-color bg-opacity-10 rounded-full flex items-center justify-center">
-              <LogIn className="h-6 w-6 sm:h-8 sm:w-8 text-primary-color" />
+            <div className="h-16 w-16 bg-gradient-to-br from-primary-color to-primary-dark rounded-2xl flex items-center justify-center shadow-lg">
+              <LogIn className="h-8 w-8 text-white" />
             </div>
           </div>
-          <h2 className="mt-4 sm:mt-6 text-center text-2xl sm:text-3xl font-extrabold text-gray-900">
-            Welcome back
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Don't have an account?{' '}
-            <Link to="/register" className="font-medium text-primary-color hover:text-primary-dark transition-colors">
-              Sign up for free
-            </Link>
-          </p>
+          <div className="space-y-2">
+            <h2 className="text-3xl font-bold text-gray-900">
+              Welcome back
+            </h2>
+            <p className="text-gray-600">
+              Don't have an account?{' '}
+              <Link to="/register" className="font-semibold text-primary-color hover:text-primary-dark transition-colors underline decoration-2 underline-offset-2">
+                Sign up for free
+              </Link>
+            </p>
+          </div>
         </div>
         
-        <form className="mt-6 sm:mt-8 space-y-4 sm:space-y-6" onSubmit={handleSubmit}>
+        {/* Form Section */}
+        <form className="space-y-6" onSubmit={handleSubmit}>
+          {/* Message Alerts */}
           {message && (
             <motion.div 
-              className={`px-3 sm:px-4 py-2 sm:py-3 rounded-lg flex items-start text-sm border ${message.toLowerCase().includes('banned') ? 'bg-yellow-50 border-yellow-200 text-yellow-800' : 'bg-green-50 border-green-200 text-green-600'}`}
+              className={`px-4 py-3 rounded-xl flex items-start text-sm border-2 ${message.toLowerCase().includes('banned') ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-emerald-50 border-emerald-200 text-emerald-700'}`}
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3 }}
             >
               {message.toLowerCase().includes('banned') ? (
-                <ShieldAlert className="h-4 w-4 sm:h-5 sm:w-5 mr-2 flex-shrink-0 mt-0.5" />
+                <ShieldAlert className="h-5 w-5 mr-3 flex-shrink-0 mt-0.5" />
               ) : (
-                <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5 mr-2 flex-shrink-0 mt-0.5" />
+                <CheckCircle className="h-5 w-5 mr-3 flex-shrink-0 mt-0.5" />
               )}
-              <span>{message}</span>
+              <span className="font-medium">{message}</span>
             </motion.div>
           )}
           
+          {/* Error Alert */}
           {error && (
             <motion.div 
-              className="bg-red-50 border border-red-200 text-red-600 px-3 sm:px-4 py-2 sm:py-3 rounded-lg flex items-start text-sm"
+              className="bg-red-50 border-2 border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-start text-sm"
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3 }}
             >
-              <AlertCircle className="h-4 w-4 sm:h-5 sm:w-5 mr-2 flex-shrink-0 mt-0.5" />
+              <AlertCircle className="h-5 w-5 mr-3 flex-shrink-0 mt-0.5" />
               <div className="flex-1">
-                <span className="block">{error}</span>
+                <span className="block font-medium">{error}</span>
                 {error.includes('internet connection') && (
                   <button
                     type="button"
                     onClick={() => window.location.reload()}
-                    className="mt-2 text-red-700 underline text-xs hover:text-red-800"
+                    className="mt-2 text-red-600 underline text-xs hover:text-red-700 font-medium"
                   >
                     Try again
                   </button>
@@ -125,21 +131,22 @@ export function Login() {
             </motion.div>
           )}
           
-          <div className="space-y-3 sm:space-y-4">
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+          {/* Input Fields */}
+          <div className="space-y-5">
+            <div className="space-y-2">
+              <label htmlFor="email" className="block text-sm font-semibold text-gray-700">
                 Email address
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Mail className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400" />
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <Mail className="h-5 w-5 text-gray-400" />
                 </div>
                 <input
                   id="email"
                   name="email"
                   type="email"
                   required
-                  className="appearance-none block w-full pl-10 pr-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg placeholder-gray-400 focus:outline-none focus:ring-primary-color focus:border-primary-color text-sm transition-colors"
+                  className="block w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-color/20 focus:border-primary-color text-sm transition-all duration-200 bg-gray-50/50 hover:bg-white"
                   placeholder="you@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -147,20 +154,20 @@ export function Login() {
               </div>
             </div>
             
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+            <div className="space-y-2">
+              <label htmlFor="password" className="block text-sm font-semibold text-gray-700">
                 Password
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Lock className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400" />
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                  <Lock className="h-5 w-5 text-gray-400" />
                 </div>
                 <input
                   id="password"
                   name="password"
                   type="password"
                   required
-                  className="appearance-none block w-full pl-10 pr-3 py-2.5 sm:py-2 border border-gray-300 rounded-lg placeholder-gray-400 focus:outline-none focus:ring-primary-color focus:border-primary-color text-sm transition-colors"
+                  className="block w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-color/20 focus:border-primary-color text-sm transition-all duration-200 bg-gray-50/50 hover:bg-white"
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -169,36 +176,38 @@ export function Login() {
             </div>
           </div>
 
+          {/* Remember Me & Forgot Password */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
             <div className="flex items-center">
               <input
                 id="remember-me"
                 name="remember-me"
                 type="checkbox"
-                className="h-4 w-4 text-primary-color focus:ring-primary-color border-gray-300 rounded"
+                className="h-4 w-4 text-primary-color focus:ring-2 focus:ring-primary-color/20 border-gray-300 rounded transition-colors"
               />
-              <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700">
+              <label htmlFor="remember-me" className="ml-3 block text-sm text-gray-600 font-medium">
                 Remember me
               </label>
             </div>
 
             <div className="text-sm">
-              <a href="#" className="font-medium text-primary-color hover:text-primary-dark transition-colors">
+              <a href="#" className="font-semibold text-primary-color hover:text-primary-dark transition-colors underline decoration-2 underline-offset-2">
                 Forgot your password?
               </a>
             </div>
           </div>
 
+          {/* Sign In Button */}
           <div>
             <button
               type="submit"
               disabled={isLoading}
-              className="group relative w-full flex justify-center py-2.5 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-primary-color hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-color disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="group relative w-full flex justify-center py-3.5 px-4 border border-transparent text-sm font-semibold rounded-xl text-white bg-gradient-to-r from-primary-color to-primary-dark hover:from-primary-dark hover:to-primary-color focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-color disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
             >
               {isLoading ? (
-                <span className="absolute left-0 inset-y-0 flex items-center pl-3">
+                <span className="absolute left-0 inset-y-0 flex items-center pl-4">
                   <svg
-                    className="animate-spin h-4 w-4 sm:h-5 sm:w-5 text-white"
+                    className="animate-spin h-5 w-5 text-white"
                     xmlns="http://www.w3.org/2000/svg"
                     fill="none"
                     viewBox="0 0 24 24"
@@ -224,25 +233,26 @@ export function Login() {
           </div>
         </form>
         
-        <div className="mt-6">
+                {/* Social Login Section */}
+        <div className="space-y-6">
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-300"></div>
+              <div className="w-full border-t border-gray-200"></div>
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white text-gray-500">Or continue with</span>
+              <span className="px-4 bg-white text-gray-500 font-medium">Or continue with</span>
             </div>
           </div>
 
-          <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <button
               onClick={handleGoogleSignIn}
               disabled={isSocialLoading === 'google'}
-              className="w-full inline-flex justify-center items-center py-2.5 px-4 border border-gray-300 rounded-lg shadow-sm bg-white text-sm font-medium text-gray-800 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full inline-flex justify-center items-center py-3 px-4 border-2 border-gray-200 rounded-xl shadow-sm bg-white text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed group"
             >
               {isSocialLoading === 'google' ? (
                 <svg
-                  className="animate-spin h-4 w-4 sm:h-5 sm:w-5 text-gray-800"
+                  className="animate-spin h-5 w-5 text-gray-700"
                   xmlns="http://www.w3.org/2000/svg"
                   fill="none"
                   viewBox="0 0 24 24"
@@ -262,7 +272,7 @@ export function Login() {
                   ></path>
                 </svg>
               ) : (
-                <svg className="w-4 h-4 sm:w-5 sm:h-5" viewBox="0 0 24 24">
+                <svg className="w-5 h-5" viewBox="0 0 24 24">
                   <path
                     fill="#4285F4"
                     d="M23.745 12.27c0-.79-.07-1.54-.19-2.27h-11.01v4.51h6.27c-.29 1.48-1.14 2.73-2.4 3.58v3h3.86c2.26-2.09 3.47-5.17 3.47-8.82z"
@@ -281,17 +291,17 @@ export function Login() {
                   />
                 </svg>
               )}
-              <span className="ml-2">Google</span>
+              <span className="ml-3 font-medium">Google</span>
             </button>
 
             <button
               onClick={handleFacebookSignIn}
               disabled={isSocialLoading === 'facebook'}
-              className="w-full inline-flex justify-center items-center py-2.5 px-4 border border-gray-300 rounded-lg shadow-sm bg-[#1877F2] text-sm font-medium text-white hover:bg-[#1664d9] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full inline-flex justify-center items-center py-3 px-4 border-2 border-[#1877F2] rounded-xl shadow-sm bg-[#1877F2] text-sm font-semibold text-white hover:bg-[#1664d9] hover:border-[#1664d9] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed group"
             >
               {isSocialLoading === 'facebook' ? (
                 <svg
-                  className="animate-spin h-4 w-4 sm:h-5 sm:w-5 text-white"
+                  className="animate-spin h-5 w-5 text-white"
                   xmlns="http://www.w3.org/2000/svg"
                   fill="none"
                   viewBox="0 0 24 24"
@@ -311,11 +321,11 @@ export function Login() {
                   ></path>
                 </svg>
               ) : (
-                <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
                 </svg>
               )}
-              <span className="ml-2">Facebook</span>
+              <span className="ml-3 font-medium">Facebook</span>
             </button>
           </div>
         </div>

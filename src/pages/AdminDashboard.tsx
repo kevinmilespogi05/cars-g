@@ -99,21 +99,22 @@ export function AdminDashboard() {
     setLoading(true);
     try {
       // First fetch reports
-      let query = supabase
+      const { data: reportsData, error: reportsError } = await supabase
         .from('reports')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (filter !== 'all') {
-        query = query.eq('status', filter);
-      }
-
-      const { data: reportsData, error: reportsError } = await query;
-
       if (reportsError) throw reportsError;
 
-      // Then fetch usernames and avatar_urls for each report
-      const userIds = reportsData?.map(report => report.user_id) || [];
+      if (!reportsData || reportsData.length === 0) {
+        setReports([]);
+        return;
+      }
+
+      // Get unique user IDs
+      const userIds = [...new Set(reportsData.map(report => report.user_id))];
+
+      // Fetch profiles for these users
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
         .select('id, username, avatar_url')
@@ -121,17 +122,23 @@ export function AdminDashboard() {
 
       if (profilesError) throw profilesError;
 
-      // Combine the data
-      const formattedReports = reportsData?.map(report => {
-        const profile = profilesData?.find(p => p.id === report.user_id);
+      // Create a map for quick profile lookup
+      const profilesMap = new Map(
+        profilesData?.map(profile => [profile.id, profile]) || []
+      );
+
+      // Combine reports with profile data
+      const reportsWithProfiles = reportsData.map(report => {
+        const profile = profilesMap.get(report.user_id);
         return {
           ...report,
           username: profile?.username || 'Unknown User',
-          avatar_url: profile?.avatar_url || null
+          avatar_url: profile?.avatar_url || null,
+          images: report.images || []
         };
-      }) || [];
+      });
 
-      setReports(formattedReports);
+      setReports(reportsWithProfiles);
     } catch (error) {
       console.error('Error fetching reports:', error);
       showNotification('Failed to fetch reports', 'error');
@@ -142,604 +149,410 @@ export function AdminDashboard() {
 
   const updateReportStatus = async (reportId: string, newStatus: Report['status']) => {
     setActionLoading(true);
-    setActionLoadingId(reportId); // Set the loading ID
+    setActionLoadingId(reportId);
+    
     try {
-      // Validate the status value
-      const validStatuses = ['pending', 'in_progress', 'resolved', 'rejected'] as const;
-      if (!validStatuses.includes(newStatus as any)) {
-        throw new Error(`Invalid status value: ${newStatus}`);
-      }
-
-      // TODO: Re-enable admin check after testing
-      // Check if user has admin role
-      // if (user?.role !== 'admin') {
-      //   throw new Error('Admin privileges required to update report status');
-      // }
-
-      // First update the report status
-      const { error: updateError } = await supabase
+      const { error } = await supabase
         .from('reports')
-        .update({ 
-          status: newStatus,
-          updated_at: new Date().toISOString()
-        })
+        .update({ status: newStatus })
         .eq('id', reportId);
 
-      if (updateError) {
-        console.error('Update error:', updateError);
-        throw updateError;
-      }
+      if (error) throw error;
 
-      // Update local state immediately for better UX
-      setReports(prevReports => 
-        prevReports.map(report => 
+      setReports(prev => 
+        prev.map(report => 
           report.id === reportId 
-            ? { ...report, status: newStatus, updated_at: new Date().toISOString() }
+            ? { ...report, status: newStatus }
             : report
         )
       );
 
-      showNotification(`Report ${newStatus.replace('_', ' ')} successfully`, 'success');
-      
-      // Award points in the background (non-blocking)
-      const report = reports.find(r => r.id === reportId);
-      if (report) {
-        // Use setTimeout to make this non-blocking
-        setTimeout(async () => {
-          try {
-            if (newStatus === 'in_progress') {
-              await awardPoints(report.user_id, 'REPORT_VERIFIED', reportId);
-              // Track verification for achievements/stats
-              await activityService.trackReportVerified(report.user_id, reportId);
-            } else if (newStatus === 'resolved') {
-              await awardPoints(report.user_id, 'REPORT_RESOLVED', reportId);
-              // Track resolution for achievements/stats
-              await activityService.trackReportResolved(report.user_id, reportId);
-            }
-          } catch (pointsError) {
-            console.error('Error awarding points:', pointsError);
-            // Don't show error to user as the main action was successful
-          }
-        }, 0);
-      }
+      showNotification(`Report status updated to ${newStatus.replace('_', ' ')}`, 'success');
     } catch (error) {
       console.error('Error updating report status:', error);
       showNotification('Failed to update report status', 'error');
     } finally {
       setActionLoading(false);
-      setActionLoadingId(null); // Clear the loading ID
+      setActionLoadingId(null);
     }
   };
 
   const deleteReport = async (reportId: string) => {
-    setReportToDelete(reportId);
-    setShowDeleteDialog(true);
-  };
-
-  const confirmDelete = async () => {
-    if (!reportToDelete) return;
-    
     setActionLoading(true);
-    setActionLoadingId(reportToDelete);
+    setActionLoadingId(reportId);
+    
     try {
-      // TODO: Re-enable admin check after testing
-      // Check if user has admin role
-      // if (user?.role !== 'admin') {
-      //   throw new Error('Admin privileges required to delete reports');
-      // }
-
-      // First, try to delete any associated images from storage
-      const report = reports.find(r => r.id === reportToDelete);
-      if (report?.images?.length) {
-        try {
-          await deleteMultipleImages(report.images);
-          console.log('Images deleted successfully from Cloudinary');
-        } catch (error) {
-          console.warn('Warning: Could not delete images from Cloudinary:', error);
-          // Show a warning but continue with report deletion
-          showNotification(
-            'Warning: Images could not be deleted from storage, but the report will still be removed from the database.',
-            'warning'
-          );
-        }
+      // Get report to delete images
+      const reportToDelete = reports.find(r => r.id === reportId);
+      
+      // Delete images from Cloudinary if they exist
+      if (reportToDelete?.images && reportToDelete.images.length > 0) {
+        await deleteMultipleImages(reportToDelete.images);
       }
 
-      // Then delete the report itself
-      const { data, error: deleteError } = await supabase
+      // Delete report from database
+      const { error } = await supabase
         .from('reports')
         .delete()
-        .eq('id', reportToDelete)
-        .select();
+        .eq('id', reportId);
 
-      console.log('Delete response:', { data, error: deleteError });
+      if (error) throw error;
 
-      if (deleteError) {
-        console.error('Delete error:', deleteError);
-        throw deleteError;
-      }
-
-      if (!data || data.length === 0) {
-        throw new Error('Report not deleted - no rows affected');
-      }
+      // Remove from local state
+      setReports(prev => prev.filter(report => report.id !== reportId));
+      
+      // Close modal and dialog
+      setSelectedReport(null);
+      setShowDeleteDialog(false);
+      setReportToDelete(null);
 
       showNotification('Report deleted successfully', 'success');
-      
-      // Close the modal if the deleted report was selected
-      if (selectedReport?.id === reportToDelete) {
-        setSelectedReport(null);
-      }
-      
-      // Remove the deleted report from the local state
-      setReports(prevReports => prevReports.filter(r => r.id !== reportToDelete));
     } catch (error) {
       console.error('Error deleting report:', error);
       showNotification('Failed to delete report', 'error');
     } finally {
       setActionLoading(false);
       setActionLoadingId(null);
-      setShowDeleteDialog(false);
-      setReportToDelete(null);
+    }
+  };
+
+  const confirmDelete = () => {
+    if (reportToDelete) {
+      deleteReport(reportToDelete);
     }
   };
 
   const filteredReports = reports.filter(report => {
-    if (searchTerm === '') return true;
-    
-    const searchLower = searchTerm.toLowerCase();
-    return (
-      report.title.toLowerCase().includes(searchLower) ||
-      report.description.toLowerCase().includes(searchLower) ||
-      report.category.toLowerCase().includes(searchLower) ||
-      report.location_address.toLowerCase().includes(searchLower) ||
-      report.username.toLowerCase().includes(searchLower)
-    );
+    const matchesSearch = report.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         report.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         report.username.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesFilter = filter === 'all' || report.status === filter;
+    return matchesSearch && matchesFilter;
   });
 
   const getStatusColor = (status: Report['status']) => {
     switch (status) {
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'in_progress':
-        return 'bg-blue-100 text-blue-800';
-      case 'resolved':
-        return 'bg-green-100 text-green-800';
-      case 'rejected':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+      case 'pending': return 'text-yellow-600 bg-yellow-50 border-yellow-200';
+      case 'in_progress': return 'text-blue-600 bg-blue-50 border-blue-200';
+      case 'resolved': return 'text-green-600 bg-green-50 border-green-200';
+      case 'rejected': return 'text-red-600 bg-red-50 border-red-200';
+      default: return 'text-gray-600 bg-gray-50 border-gray-200';
     }
   };
 
   const getPriorityColor = (priority: Report['priority']) => {
     switch (priority) {
-      case 'high':
-        return 'bg-red-100 text-red-800';
-      case 'medium':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'low':
-        return 'bg-green-100 text-green-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+      case 'low': return 'text-green-600 bg-green-50 border-green-200';
+      case 'medium': return 'text-yellow-600 bg-yellow-50 border-yellow-200';
+      case 'high': return 'text-red-600 bg-red-50 border-red-200';
+      default: return 'text-gray-600 bg-gray-50 border-gray-200';
     }
   };
 
+  const getStatusIcon = (status: Report['status']) => {
+    switch (status) {
+      case 'pending': return <AlertTriangle className="h-4 w-4" />;
+      case 'in_progress': return <Loader2 className="h-4 w-4 animate-spin" />;
+      case 'resolved': return <Check className="h-4 w-4" />;
+      case 'rejected': return <X className="h-4 w-4" />;
+      default: return <AlertTriangle className="h-4 w-4" />;
+    }
+  };
+
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="w-full px-2 sm:px-4 lg:px-6">
-      <div className="bg-white shadow sm:rounded-lg">
-        <div className="px-3 py-4 sm:px-6 sm:py-5">
-          {/* Header with mobile menu */}
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg leading-6 font-medium text-gray-900">Admin Dashboard</h3>
-            <button
-              onClick={() => setShowMobileMenu(!showMobileMenu)}
-              className="sm:hidden inline-flex items-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100"
-            >
-              <Menu className="h-5 w-5" />
-            </button>
-          </div>
-
-          {/* Mobile Tab Menu */}
-          {showMobileMenu && (
-            <div className="sm:hidden mb-4 bg-gray-50 rounded-lg p-2">
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => {
-                    setActiveTab('reports');
-                    setShowMobileMenu(false);
-                  }}
-                  className={`flex items-center justify-center px-3 py-2 text-sm font-medium rounded-md ${
-                    activeTab === 'reports'
-                      ? 'bg-blue-600 text-white'
-                      : 'text-gray-700 bg-white hover:bg-gray-100'
-                  }`}
-                >
-                  <MapPin className="h-4 w-4 mr-1" />
-                  Reports
-                </button>
-                <button
-                  onClick={() => {
-                    setActiveTab('users');
-                    setShowMobileMenu(false);
-                  }}
-                  className={`flex items-center justify-center px-3 py-2 text-sm font-medium rounded-md ${
-                    activeTab === 'users'
-                      ? 'bg-blue-600 text-white'
-                      : 'text-gray-700 bg-white hover:bg-gray-100'
-                  }`}
-                >
-                  <Users className="h-4 w-4 mr-1" />
-                  Users
-                </button>
-                <button
-                  onClick={() => {
-                    setActiveTab('stats');
-                    setShowMobileMenu(false);
-                  }}
-                  className={`flex items-center justify-center px-3 py-2 text-sm font-medium rounded-md ${
-                    activeTab === 'stats'
-                      ? 'bg-blue-600 text-white'
-                      : 'text-gray-700 bg-white hover:bg-gray-100'
-                  }`}
-                >
-                  <BarChart3 className="h-4 w-4 mr-1" />
-                  Stats
-                </button>
-                <button
-                  onClick={() => {
-                    setActiveTab('settings');
-                    setShowMobileMenu(false);
-                  }}
-                  className={`flex items-center justify-center px-3 py-2 text-sm font-medium rounded-md ${
-                    activeTab === 'settings'
-                      ? 'bg-blue-600 text-white'
-                      : 'text-gray-700 bg-white hover:bg-gray-100'
-                  }`}
-                >
-                  <Settings className="h-4 w-4 mr-1" />
-                  Settings
-                </button>
-              </div>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white shadow-sm border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center">
+              <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
             </div>
-          )}
+            
+            {/* Mobile menu button */}
+            <div className="md:hidden">
+              <button
+                onClick={() => setShowMobileMenu(!showMobileMenu)}
+                className="p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
+              >
+                <Menu className="h-6 w-6" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
 
-          {/* Desktop Tab Navigation */}
-          <div className="hidden sm:flex space-x-2 mb-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Mobile Menu */}
+        {showMobileMenu && (
+          <div className="md:hidden mb-6 bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => {
+                  setActiveTab('reports');
+                  setShowMobileMenu(false);
+                }}
+                className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                  activeTab === 'reports'
+                    ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Reports
+              </button>
+              <button
+                onClick={() => {
+                  setActiveTab('users');
+                  setShowMobileMenu(false);
+                }}
+                className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                  activeTab === 'users'
+                    ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Users
+              </button>
+              <button
+                onClick={() => {
+                  setActiveTab('stats');
+                  setShowMobileMenu(false);
+                }}
+                className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                  activeTab === 'stats'
+                    ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Statistics
+              </button>
+              <button
+                onClick={() => {
+                  setActiveTab('settings');
+                  setShowMobileMenu(false);
+                }}
+                className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                  activeTab === 'settings'
+                    ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Settings
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Desktop Tabs */}
+        <div className="hidden md:block mb-8">
+          <nav className="flex space-x-8">
             <button
               onClick={() => setActiveTab('reports')}
-              className={`inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md ${
+              className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
                 activeTab === 'reports'
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-700 bg-gray-100 hover:bg-gray-200'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
-              <MapPin className="h-4 w-4 mr-2" />
               Reports
             </button>
             <button
               onClick={() => setActiveTab('users')}
-              className={`inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md ${
+              className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
                 activeTab === 'users'
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-700 bg-gray-100 hover:bg-gray-200'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
-              <Users className="h-4 w-4 mr-2" />
               Users
             </button>
             <button
               onClick={() => setActiveTab('stats')}
-              className={`inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md ${
+              className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
                 activeTab === 'stats'
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-700 bg-gray-100 hover:bg-gray-200'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
-              <BarChart3 className="h-4 w-4 mr-2" />
               Statistics
             </button>
             <button
               onClick={() => setActiveTab('settings')}
-              className={`inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md ${
+              className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
                 activeTab === 'settings'
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-700 bg-gray-100 hover:bg-gray-200'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
-              <Settings className="h-4 w-4 mr-2" />
               Settings
             </button>
-          </div>
+          </nav>
+        </div>
 
+        {/* Tab Content */}
+        <div>
           {activeTab === 'reports' && (
-            <div className="mt-4 sm:mt-6">
-              {/* Mobile Search and Filter */}
-              <div className="sm:hidden space-y-3 mb-4">
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Search reports..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm"
-                  />
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Search className="h-5 w-5 text-gray-400" />
-                  </div>
-                </div>
-                <div className="flex space-x-2">
-                  <select
-                    value={filter}
-                    onChange={(e) => setFilter(e.target.value as any)}
-                    className="flex-1 block pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm rounded-md"
-                  >
-                    <option value="all">All Reports</option>
-                    <option value="pending">Pending</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="resolved">Resolved</option>
-                    <option value="rejected">Rejected</option>
-                  </select>
-                  <button
-                    onClick={fetchReports}
-                    disabled={loading}
-                    className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-gray-700 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                  >
-                    <Loader2 className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-                  </button>
-                </div>
-              </div>
-
-              {/* Desktop Search and Filter */}
-              <div className="hidden sm:flex justify-between items-center mb-4">
-                <div className="flex space-x-2">
-                  <select
-                    value={filter}
-                    onChange={(e) => setFilter(e.target.value as any)}
-                    className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-                  >
-                    <option value="all">All Reports</option>
-                    <option value="pending">Pending</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="resolved">Resolved</option>
-                    <option value="rejected">Rejected</option>
-                  </select>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      placeholder="Search reports..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                    />
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Search className="h-5 w-5 text-gray-400" />
+            <div className="space-y-6">
+              {/* Search and Filter */}
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <div className="flex-1">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                      <input
+                        type="text"
+                        placeholder="Search reports by title, description, or username..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+                      />
                     </div>
                   </div>
+                  <div className="flex-shrink-0">
+                    <select
+                      value={filter}
+                      onChange={(e) => setFilter(e.target.value as 'all' | Report['status'])}
+                      className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+                    >
+                      <option value="all">All Status</option>
+                      <option value="pending">Pending</option>
+                      <option value="in_progress">In Progress</option>
+                      <option value="resolved">Resolved</option>
+                      <option value="rejected">Rejected</option>
+                    </select>
+                  </div>
                 </div>
-                <button
-                  onClick={fetchReports}
-                  disabled={loading}
-                  className="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-gray-700 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                >
-                  <Loader2 className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-                  Refresh
-                </button>
               </div>
 
-              {loading ? (
-                <div className="flex justify-center items-center h-64">
-                  <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-                </div>
-              ) : (
-                <div className="bg-white shadow overflow-hidden sm:rounded-md">
-                  <ul className="divide-y divide-gray-200">
+              {/* Reports List */}
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+                {loading ? (
+                  <div className="p-8 text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                    <p className="text-gray-600">Loading reports...</p>
+                  </div>
+                ) : filteredReports.length === 0 ? (
+                  <div className="p-8 text-center">
+                    <AlertTriangle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No reports found</h3>
+                    <p className="text-gray-500">
+                      {searchTerm || filter !== 'all' 
+                        ? 'Try adjusting your search or filter criteria.'
+                        : 'There are no reports to display at the moment.'
+                      }
+                    </p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-gray-200">
                     {filteredReports.map((report) => (
-                      <li 
-                        key={report.id} 
-                        className="px-3 py-4 sm:px-6 hover:bg-gray-50 cursor-pointer"
-                        onClick={() => setSelectedReport(report)}
-                      >
-                        {/* Mobile Layout */}
-                        <div className="sm:hidden">
-                          <div className="flex items-start space-x-3">
-                            <div className="flex-shrink-0">
-                              {report.avatar_url ? (
-                                <img
-                                  src={report.avatar_url}
-                                  alt={report.username}
-                                  className="h-10 w-10 rounded-full object-cover border-2 border-gray-200 shadow-sm"
-                                />
-                              ) : (
-                                <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center border-2 border-gray-200 shadow-sm">
-                                  <span className="text-gray-500 font-medium text-sm">
-                                    {report.username.charAt(0).toUpperCase()}
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <h3 className="text-base font-semibold text-gray-900 mb-1">
+                      <div key={report.id} className="p-4 sm:p-6 hover:bg-gray-50 transition-colors">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center space-x-3 mb-2">
+                              <h3 className="text-lg font-semibold text-gray-900 truncate">
                                 {report.title}
                               </h3>
-                              <div className="flex items-center text-xs text-gray-600 mb-2">
-                                <MapPin className="flex-shrink-0 mr-1 h-3 w-3 text-gray-400" />
-                                <span className="truncate">{report.location_address}</span>
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(report.status)}`}>
+                                {getStatusIcon(report.status)}
+                                <span className="ml-1">{report.status.replace('_', ' ')}</span>
+                              </span>
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getPriorityColor(report.priority)}`}>
+                                {report.priority}
+                              </span>
+                            </div>
+                            <p className="text-gray-600 mb-3 line-clamp-2">{report.description}</p>
+                            <div className="flex items-center space-x-4 text-sm text-gray-700">
+                              <div className="flex items-center">
+                                <Users className="h-4 w-4 mr-1 text-gray-600" />
+                                <span className="font-medium text-gray-800">{report.username}</span>
                               </div>
-                              <div className="flex items-center space-x-2 mb-3">
-                                <span className={`px-2 py-1 inline-flex text-xs font-medium rounded-full ${getStatusColor(report.status)}`}>
-                                  {report.status.replace('_', ' ')}
-                                </span>
-                                <span className={`px-2 py-1 inline-flex text-xs font-medium rounded-full ${getPriorityColor(report.priority)}`}>
-                                  {report.priority}
-                                </span>
+                              <div className="flex items-center">
+                                <Calendar className="h-4 w-4 mr-1 text-gray-600" />
+                                <span className="font-medium text-gray-800">{new Date(report.created_at).toLocaleDateString()}</span>
                               </div>
-                              <div className="text-xs text-gray-500 mb-3">
-                                by {report.username} • {new Date(report.created_at).toLocaleDateString()}
-                              </div>
-                              {/* Mobile Action Buttons */}
-                              <div className="flex space-x-2">
-                                {report.status === 'pending' && (
-                                  <>
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        debouncedUpdateStatus(report.id, 'in_progress');
-                                      }}
-                                      disabled={actionLoading && actionLoadingId === report.id}
-                                      className="flex-1 inline-flex items-center justify-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                      {actionLoading && actionLoadingId === report.id ? (
-                                        <Loader2 className="h-3 w-3 animate-spin" />
-                                      ) : (
-                                        <Check className="h-3 w-3 mr-1" />
-                                      )}
-                                      Accept
-                                    </button>
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        debouncedUpdateStatus(report.id, 'rejected');
-                                      }}
-                                      disabled={actionLoading && actionLoadingId === report.id}
-                                      className="flex-1 inline-flex items-center justify-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                      {actionLoading && actionLoadingId === report.id ? (
-                                        <Loader2 className="h-3 w-3 animate-spin" />
-                                      ) : (
-                                        <X className="h-3 w-3 mr-1" />
-                                      )}
-                                      Reject
-                                    </button>
-                                  </>
-                                )}
-                                {report.status === 'in_progress' && (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      debouncedUpdateStatus(report.id, 'resolved');
-                                    }}
-                                    disabled={actionLoading && actionLoadingId === report.id}
-                                    className="flex-1 inline-flex items-center justify-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                                  >
-                                    {actionLoading && actionLoadingId === report.id ? (
-                                      <Loader2 className="h-3 w-3 animate-spin" />
-                                    ) : (
-                                      <Check className="h-3 w-3 mr-1" />
-                                    )}
-                                    Resolve
-                                  </button>
-                                )}
+                              <div className="flex items-center">
+                                <MapPin className="h-4 w-4 mr-1 text-gray-600" />
+                                <span className="font-medium text-gray-800">{report.location_address}</span>
                               </div>
                             </div>
+                          </div>
+                          <div className="flex items-center space-x-2 ml-4">
+                            <button
+                              onClick={() => setSelectedReport(report)}
+                              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                              title="View details"
+                            >
+                              <Eye className="h-5 w-5" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                setReportToDelete(report.id);
+                                setShowDeleteDialog(true);
+                              }}
+                              disabled={actionLoading && actionLoadingId === report.id}
+                              className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                              title="Delete report"
+                            >
+                              <Trash2 className="h-5 w-5" />
+                            </button>
                           </div>
                         </div>
 
-                        {/* Desktop Layout */}
-                        <div className="hidden sm:block">
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between">
-                                <div className="flex-1 pr-4">
-                                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                                    {report.title}
-                                  </h3>
-                                  <div className="flex items-center text-sm text-gray-600 mb-3">
-                                    <MapPin className="flex-shrink-0 mr-1.5 h-4 w-4 text-gray-400" />
-                                    {report.location_address}
-                                  </div>
-                                  <div className="flex items-center space-x-3">
-                                    <p className={`px-3 py-1 inline-flex text-xs font-medium rounded-full ${getStatusColor(report.status)}`}>
-                                      {report.status.replace('_', ' ')}
-                                    </p>
-                                    <p className={`px-3 py-1 inline-flex text-xs font-medium rounded-full ${getPriorityColor(report.priority)}`}>
-                                      {report.priority}
-                                    </p>
-                                  </div>
-                                </div>
-                                <div className="flex items-center space-x-4">
-                                  <div className="flex items-center">
-                                    <div className="flex-shrink-0">
-                                      {report.avatar_url ? (
-                                        <img
-                                          src={report.avatar_url}
-                                          alt={report.username}
-                                          className="h-12 w-12 rounded-full object-cover border-2 border-gray-200 shadow-sm"
-                                        />
-                                      ) : (
-                                        <div className="h-12 w-12 rounded-full bg-gray-100 flex items-center justify-center border-2 border-gray-200 shadow-sm">
-                                          <span className="text-gray-500 font-medium text-lg">
-                                            {report.username.charAt(0).toUpperCase()}
-                                          </span>
-                                        </div>
-                                      )}
-                                    </div>
-                                    <div className="ml-3">
-                                      <div className="text-sm font-medium text-gray-900">{report.username}</div>
-                                      <div className="text-xs text-gray-500">{new Date(report.created_at).toLocaleString()}</div>
-                                    </div>
-                                  </div>
-                                  <div className="flex space-x-2">
-                                    {report.status === 'pending' && (
-                                      <>
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            debouncedUpdateStatus(report.id, 'in_progress');
-                                          }}
-                                          disabled={actionLoading && actionLoadingId === report.id}
-                                          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
-                                        >
-                                          {actionLoading && actionLoadingId === report.id ? (
-                                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                          ) : (
-                                            <Check className="h-4 w-4 mr-2" />
-                                          )}
-                                          Accept
-                                        </button>
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            debouncedUpdateStatus(report.id, 'rejected');
-                                          }}
-                                          disabled={actionLoading && actionLoadingId === report.id}
-                                          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
-                                        >
-                                          {actionLoading && actionLoadingId === report.id ? (
-                                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                          ) : (
-                                            <X className="h-4 w-4 mr-2" />
-                                          )}
-                                          Reject
-                                        </button>
-                                      </>
-                                    )}
-                                    {report.status === 'in_progress' && (
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          debouncedUpdateStatus(report.id, 'resolved');
-                                        }}
-                                        disabled={actionLoading && actionLoadingId === report.id}
-                                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
-                                      >
-                                        {actionLoading && actionLoadingId === report.id ? (
-                                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                        ) : (
-                                          <Check className="h-4 w-4 mr-2" />
-                                        )}
-                                        Mark as Resolved
-                                      </button>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
+                        {/* Status Update Buttons */}
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          {report.status !== 'pending' && (
+                            <button
+                              onClick={() => debouncedUpdateStatus(report.id, 'pending')}
+                              disabled={actionLoading && actionLoadingId === report.id}
+                              className="px-3 py-1.5 text-xs font-medium text-yellow-700 bg-yellow-100 border border-yellow-200 rounded-lg hover:bg-yellow-200 transition-colors disabled:opacity-50"
+                            >
+                              Mark Pending
+                            </button>
+                          )}
+                          {report.status !== 'in_progress' && (
+                            <button
+                              onClick={() => debouncedUpdateStatus(report.id, 'in_progress')}
+                              disabled={actionLoading && actionLoadingId === report.id}
+                              className="px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-100 border border-blue-200 rounded-lg hover:bg-blue-200 transition-colors disabled:opacity-50"
+                            >
+                              Mark In Progress
+                            </button>
+                          )}
+                          {report.status !== 'resolved' && (
+                            <button
+                              onClick={() => debouncedUpdateStatus(report.id, 'resolved')}
+                              disabled={actionLoading && actionLoadingId === report.id}
+                              className="px-3 py-1.5 text-xs font-medium text-green-700 bg-green-100 border border-green-200 rounded-lg hover:bg-green-200 transition-colors disabled:opacity-50"
+                            >
+                              Mark Resolved
+                            </button>
+                          )}
+                          {report.status !== 'rejected' && (
+                            <button
+                              onClick={() => debouncedUpdateStatus(report.id, 'rejected')}
+                              disabled={actionLoading && actionLoadingId === report.id}
+                              className="px-3 py-1.5 text-xs font-medium text-red-700 bg-red-100 border border-red-200 rounded-lg hover:bg-red-200 transition-colors disabled:opacity-50"
+                            >
+                              Mark Rejected
+                            </button>
+                          )}
                         </div>
-                      </li>
+                      </div>
                     ))}
-                  </ul>
-                </div>
-              )}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -751,40 +564,40 @@ export function AdminDashboard() {
 
       {/* Report Details Modal - Mobile Optimized */}
       {selectedReport && (
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-2 sm:p-4 z-50">
-          <div className="bg-white rounded-lg max-w-3xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
-            <div className="px-4 py-4 sm:px-6 sm:py-5">
-              <div className="flex justify-between items-start mb-4">
-                <h3 className="text-lg leading-6 font-medium text-gray-900 pr-4">{selectedReport.title}</h3>
+        <div className="fixed inset-0 bg-gray-900/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 z-50">
+          <div className="bg-white/95 backdrop-blur-sm rounded-2xl max-w-4xl w-full max-h-[95vh] sm:max-h-[90vh] overflow-y-auto shadow-2xl border border-white/50">
+            <div className="px-6 py-6 sm:px-8 sm:py-8">
+              <div className="flex justify-between items-start mb-6">
+                <h3 className="text-2xl font-bold text-gray-900 pr-4 leading-tight">{selectedReport.title}</h3>
                 <button
                   onClick={() => setSelectedReport(null)}
-                  className="text-gray-400 hover:text-gray-500 flex-shrink-0"
+                  className="text-gray-400 hover:text-gray-600 flex-shrink-0 p-2 hover:bg-gray-100 rounded-xl transition-all duration-200"
                 >
                   <X className="h-6 w-6" />
                 </button>
               </div>
-              <div className="mb-4">
-                <p className="text-sm text-gray-500">{selectedReport.description}</p>
+              <div className="mb-6">
+                <p className="text-base text-gray-700 leading-relaxed">{selectedReport.description}</p>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
                 <div>
-                  <h4 className="text-sm font-medium text-gray-500">Category</h4>
+                  <h4 className="text-sm font-semibold text-gray-700">Category</h4>
                   <p className="mt-1 text-sm text-gray-900">{selectedReport.category}</p>
                 </div>
                 <div>
-                  <h4 className="text-sm font-medium text-gray-500">Priority</h4>
+                  <h4 className="text-sm font-semibold text-gray-700">Priority</h4>
                   <p className={`mt-1 text-sm font-medium ${getPriorityColor(selectedReport.priority)}`}>
                     {selectedReport.priority}
                   </p>
                 </div>
                 <div>
-                  <h4 className="text-sm font-medium text-gray-500">Status</h4>
+                  <h4 className="text-sm font-semibold text-gray-700">Status</h4>
                   <p className={`mt-1 text-sm font-medium ${getStatusColor(selectedReport.status)}`}>
                     {selectedReport.status.replace('_', ' ')}
                   </p>
                 </div>
                 <div>
-                  <h4 className="text-sm font-medium text-gray-500">Reported By</h4>
+                  <h4 className="text-sm font-semibold text-gray-700">Reported By</h4>
                   <div className="mt-2 flex items-center">
                     {selectedReport.avatar_url ? (
                       <img
@@ -800,24 +613,24 @@ export function AdminDashboard() {
                       </div>
                     )}
                     <div className="ml-3">
-                      <div className="text-sm font-medium text-gray-900">{selectedReport.username}</div>
-                      <div className="text-sm text-gray-500">
+                      <div className="text-sm font-semibold text-gray-900">{selectedReport.username}</div>
+                      <div className="text-sm font-medium text-gray-700">
                         {new Date(selectedReport.created_at).toLocaleString()}
                       </div>
                     </div>
                   </div>
                 </div>
                 <div className="col-span-1 sm:col-span-2">
-                  <h4 className="text-sm font-medium text-gray-500">Location</h4>
+                  <h4 className="text-sm font-semibold text-gray-700">Location</h4>
                   <p className="mt-1 text-sm text-gray-900 flex items-center">
-                    <MapPin className="h-4 w-4 mr-1 text-gray-400" />
+                    <MapPin className="h-4 w-4 mr-1 text-gray-600" />
                     {selectedReport.location_address}
                   </p>
                 </div>
               </div>
               {selectedReport.images && selectedReport.images.length > 0 && (
                 <div className="mb-4">
-                  <h4 className="text-sm font-medium text-gray-500 mb-2">Images</h4>
+                  <h4 className="text-sm font-semibold text-gray-700 mb-2">Images</h4>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     {selectedReport.images.map((url, index) => (
                       <img
@@ -830,25 +643,25 @@ export function AdminDashboard() {
                   </div>
                 </div>
               )}
-              <div className="flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-2">
+              <div className="flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-4">
                 <button
                   onClick={() => {
                     setReportToDelete(selectedReport.id);
                     setShowDeleteDialog(true);
                   }}
                   disabled={actionLoading && actionLoadingId === selectedReport.id}
-                  className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full sm:w-auto inline-flex items-center justify-center px-6 py-3 border-2 border-transparent text-sm font-semibold rounded-xl text-white bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl"
                 >
                   {actionLoading && actionLoadingId === selectedReport.id ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    <Loader2 className="h-5 w-5 mr-2 animate-spin" />
                   ) : (
-                    <Trash2 className="h-4 w-4 mr-2" />
+                    <Trash2 className="h-5 w-5 mr-2" />
                   )}
                   Delete Report
                 </button>
                 <button
                   onClick={() => setSelectedReport(null)}
-                  className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  className="w-full sm:w-auto inline-flex items-center justify-center px-6 py-3 border-2 border-gray-300 text-sm font-semibold rounded-xl text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 shadow-md hover:shadow-lg"
                 >
                   Close
                 </button>
