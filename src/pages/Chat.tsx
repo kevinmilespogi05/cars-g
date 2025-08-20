@@ -4,6 +4,7 @@ import { ChatMessage } from '../components/ChatMessage';
 import { ChatInput } from '../components/ChatInput';
 import { ChatDemo } from '../components/ChatDemo';
 import { NewConversationModal } from '../components/NewConversationModal';
+import { NotificationPermissionRequest } from '../components/NotificationPermissionRequest';
 import { ChatConversation, ChatMessage as ChatMessageType } from '../types';
 import { ChatService } from '../services/chatService';
 import { useChatSocket } from '../hooks/useChatSocket';
@@ -498,12 +499,15 @@ export const Chat: React.FC = () => {
         )}
       </div>
 
-      {/* New Conversation Modal */}
-      <NewConversationModal
-        isOpen={showNewConversation}
-        onClose={() => setShowNewConversation(false)}
-        onConversationCreated={handleConversationCreated}
-      />
-    </div>
-  );
-}; 
+             {/* New Conversation Modal */}
+       <NewConversationModal
+         isOpen={showNewConversation}
+         onClose={() => setShowNewConversation(false)}
+         onConversationCreated={handleConversationCreated}
+       />
+
+       {/* Notification Permission Request */}
+       <NotificationPermissionRequest />
+     </div>
+   );
+ }; 

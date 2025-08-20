@@ -4,20 +4,26 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Download, RefreshCw, X } from 'lucide-react';
 
 export function PWAPrompt() {
-  const { isUpdateAvailable, installPrompt, isInstalled, handleInstall, handleUpdate } = usePWA();
+  const { isUpdateAvailable, installPrompt, isInstalled, handleInstall, handleUpdate, dismissUpdate } = usePWA();
+  const [localInstallPrompt, setLocalInstallPrompt] = React.useState(installPrompt);
 
-  if (!installPrompt && !isUpdateAvailable) return null;
+  // Sync local state with prop
+  React.useEffect(() => {
+    setLocalInstallPrompt(installPrompt);
+  }, [installPrompt]);
+
+  if (!localInstallPrompt && !isUpdateAvailable) return null;
 
   return (
     <AnimatePresence>
-      {(installPrompt || isUpdateAvailable) && (
+      {(localInstallPrompt || isUpdateAvailable) && (
         <motion.div
           initial={{ opacity: 0, y: 50 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 50 }}
           className="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-96 bg-white rounded-lg shadow-lg border border-gray-200 p-4 z-50"
         >
-          {installPrompt && !isInstalled && (
+          {localInstallPrompt && !isInstalled && (
             <div className="flex items-start">
               <div className="flex-1">
                 <div className="flex items-center space-x-2 mb-2">
@@ -36,7 +42,10 @@ export function PWAPrompt() {
                   Install
                 </button>
                 <button
-                  onClick={() => window.location.reload()}
+                  onClick={() => {
+                    // Dismiss the install prompt
+                    setLocalInstallPrompt(null);
+                  }}
                   className="text-gray-500 hover:text-gray-700 px-3 py-1.5 rounded text-sm font-medium transition-colors focus:outline-none"
                 >
                   Not Now
@@ -64,7 +73,7 @@ export function PWAPrompt() {
                   Update
                 </button>
                 <button
-                  onClick={() => window.location.reload()}
+                  onClick={dismissUpdate}
                   className="text-gray-500 hover:text-gray-700 px-3 py-1.5 rounded text-sm font-medium transition-colors focus:outline-none"
                 >
                   Later

@@ -130,6 +130,10 @@ export function usePWA(): UsePWAReturn {
     }
   };
 
+  const dismissUpdate = () => {
+    setIsUpdateAvailable(false);
+  };
+
   return {
     isUpdateAvailable,
     installPrompt,
@@ -137,6 +141,7 @@ export function usePWA(): UsePWAReturn {
     isOnline,
     handleInstall,
     handleUpdate,
+    dismissUpdate,
     checkConnection
   };
 }
