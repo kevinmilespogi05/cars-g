@@ -3,240 +3,121 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Network Reset - Cars-G</title>
+    <title>Fix Cars-G App Issues</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            margin: 0;
+            max-width: 600px;
+            margin: 0 auto;
             padding: 20px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        .container {
-            background: white;
-            padding: 40px;
-            border-radius: 12px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-            max-width: 500px;
-            width: 100%;
-            text-align: center;
-        }
-        .icon {
-            width: 80px;
-            height: 80px;
-            background: #f0f9ff;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 20px;
-            color: #3b82f6;
-        }
-        h1 {
-            color: #1f2937;
-            margin-bottom: 10px;
-        }
-        p {
-            color: #6b7280;
-            margin-bottom: 30px;
             line-height: 1.6;
         }
         .button {
-            background: #3b82f6;
+            background: #800000;
             color: white;
-            border: none;
             padding: 12px 24px;
+            border: none;
             border-radius: 8px;
-            font-size: 16px;
             cursor: pointer;
-            margin: 10px;
-            transition: background 0.3s;
+            font-size: 16px;
+            margin: 10px 5px;
         }
         .button:hover {
-            background: #2563eb;
+            background: #600000;
         }
-        .button.danger {
-            background: #ef4444;
+        .success {
+            color: green;
+            font-weight: bold;
         }
-        .button.danger:hover {
-            background: #dc2626;
+        .error {
+            color: red;
+            font-weight: bold;
         }
-        .status {
-            margin-top: 20px;
+        .info {
+            background: #f0f0f0;
             padding: 15px;
             border-radius: 8px;
-            font-size: 14px;
-        }
-        .status.success {
-            background: #f0fdf4;
-            color: #166534;
-            border: 1px solid #bbf7d0;
-        }
-        .status.error {
-            background: #fef2f2;
-            color: #dc2626;
-            border: 1px solid #fecaca;
-        }
-        .status.info {
-            background: #eff6ff;
-            color: #1d4ed8;
-            border: 1px solid #bfdbfe;
+            margin: 15px 0;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="icon">
-            <svg width="40" height="40" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"></path>
-            </svg>
-        </div>
-        <h1>Network Reset Tool</h1>
-        <p>This tool will help fix network connectivity issues by clearing caches, service workers, and resetting network state.</p>
-        
-        <button class="button" onclick="resetNetwork()">Reset Network State</button>
-        <button class="button danger" onclick="clearEverything()">Clear Everything</button>
-        <button class="button" onclick="testConnection()">Test Connection</button>
-        <button class="button" onclick="goBack()">Go Back to App</button>
-        
-        <div id="status"></div>
+    <h1>Fix Cars-G App Issues</h1>
+    
+    <div class="info">
+        <h3>If your Cars-G app is stuck in a refresh loop or not working properly:</h3>
+        <ol>
+            <li>Click "Clear Service Workers" below</li>
+            <li>Click "Clear All Data" to reset the app</li>
+            <li>Go back to the main app</li>
+        </ol>
     </div>
+
+    <button class="button" onclick="clearServiceWorkers()">Clear Service Workers</button>
+    <button class="button" onclick="clearAllData()">Clear All Data</button>
+    <button class="button" onclick="goToApp()">Go to Cars-G App</button>
+
+    <div id="status"></div>
 
     <script>
         function showStatus(message, type = 'info') {
             const status = document.getElementById('status');
-            status.className = `status ${type}`;
-            status.textContent = message;
+            status.innerHTML = `<p class="${type}">${message}</p>`;
         }
 
-        async function resetNetwork() {
-            showStatus('Resetting network state...', 'info');
-            
+        async function clearServiceWorkers() {
             try {
-                // Force online status
-                window.dispatchEvent(new Event('online'));
-                
-                // Override navigator.onLine if possible
-                try {
-                    Object.defineProperty(navigator, 'onLine', {
-                        writable: true,
-                        value: true
-                    });
-                } catch (e) {
-                    console.log('Could not override navigator.onLine');
+                if ('serviceWorker' in navigator) {
+                    const registrations = await navigator.serviceWorker.getRegistrations();
+                    console.log('Found', registrations.length, 'service worker registrations');
+                    
+                    for(let registration of registrations) {
+                        console.log('Unregistering service worker:', registration.scope);
+                        await registration.unregister();
+                    }
+                    
+                    showStatus(`Successfully unregistered ${registrations.length} service workers`, 'success');
+                } else {
+                    showStatus('Service Workers not supported', 'error');
                 }
-                
+            } catch (error) {
+                showStatus('Error clearing service workers: ' + error.message, 'error');
+            }
+        }
+
+        async function clearAllData() {
+            try {
                 // Clear service workers
                 if ('serviceWorker' in navigator) {
                     const registrations = await navigator.serviceWorker.getRegistrations();
-                    for (let registration of registrations) {
+                    for(let registration of registrations) {
                         await registration.unregister();
-                        console.log('Service Worker unregistered');
                     }
                 }
-                
+
                 // Clear caches
                 if ('caches' in window) {
                     const cacheNames = await caches.keys();
-                    for (let name of cacheNames) {
-                        await caches.delete(name);
-                        console.log('Cache deleted:', name);
-                    }
+                    await Promise.all(cacheNames.map(name => caches.delete(name)));
                 }
-                
+
                 // Clear storage
                 localStorage.clear();
                 sessionStorage.clear();
-                
-                showStatus('Network state reset successfully! You can now go back to the app.', 'success');
-                
-                // Auto-redirect after 3 seconds
-                setTimeout(() => {
-                    window.location.href = '/';
-                }, 3000);
-                
+
+                showStatus('All data cleared successfully!', 'success');
             } catch (error) {
-                showStatus('Error resetting network: ' + error.message, 'error');
+                showStatus('Error clearing data: ' + error.message, 'error');
             }
         }
 
-        async function clearEverything() {
-            showStatus('Clearing everything...', 'info');
-            
-            try {
-                // Clear everything
-                await resetNetwork();
-                
-                // Clear IndexedDB
-                if ('indexedDB' in window) {
-                    const databases = await indexedDB.databases();
-                    for (let db of databases) {
-                        indexedDB.deleteDatabase(db.name);
-                    }
-                }
-                
-                // Clear cookies
-                document.cookie.split(";").forEach(function(c) { 
-                    document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
-                });
-                
-                showStatus('Everything cleared! Redirecting to app...', 'success');
-                
-                setTimeout(() => {
-                    window.location.href = '/';
-                }, 2000);
-                
-            } catch (error) {
-                showStatus('Error clearing everything: ' + error.message, 'error');
-            }
-        }
-
-        async function testConnection() {
-            showStatus('Testing connection...', 'info');
-            
-            try {
-                // Test multiple endpoints
-                const endpoints = [
-                    'https://httpbin.org/status/200',
-                    'https://api.github.com',
-                    'https://jsonplaceholder.typicode.com/posts/1'
-                ];
-                
-                let successCount = 0;
-                
-                for (let endpoint of endpoints) {
-                    try {
-                        const response = await fetch(endpoint, {
-                            method: 'HEAD',
-                            signal: AbortSignal.timeout(5000)
-                        });
-                        if (response.ok) successCount++;
-                    } catch (e) {
-                        console.log('Failed to reach:', endpoint);
-                    }
-                }
-                
-                if (successCount > 0) {
-                    showStatus(`Connection test successful! ${successCount}/${endpoints.length} endpoints reachable.`, 'success');
-                } else {
-                    showStatus('Connection test failed. No endpoints reachable.', 'error');
-                }
-                
-            } catch (error) {
-                showStatus('Connection test error: ' + error.message, 'error');
-            }
-        }
-
-        function goBack() {
+        function goToApp() {
             window.location.href = '/';
         }
 
-        // Auto-reset on page load
+        // Auto-clear on page load
         window.addEventListener('load', () => {
-            showStatus('Page loaded. Click "Reset Network State" to fix connectivity issues.', 'info');
+            showStatus('Page loaded. Click the buttons above to fix app issues.', 'info');
         });
     </script>
 </body>

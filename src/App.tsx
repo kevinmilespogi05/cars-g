@@ -101,6 +101,50 @@ function App() {
     init();
   }, [initialize]);
 
+  // Mobile-specific fixes to prevent refresh loops
+  useEffect(() => {
+    // Detect if running on mobile device
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    if (isMobile) {
+      console.log('Mobile device detected, applying mobile-specific fixes');
+      
+      // Prevent infinite refresh loops on mobile
+      let refreshCount = parseInt(sessionStorage.getItem('refreshCount') || '0');
+      const maxRefreshes = 3;
+      
+      if (refreshCount >= maxRefreshes) {
+        console.warn('Too many refreshes detected on mobile, clearing session storage');
+        sessionStorage.clear();
+        localStorage.removeItem('supabase.auth.token');
+        refreshCount = 0;
+        
+        // Redirect to fix page if too many refreshes
+        if (window.location.pathname !== '/fix-offline.html') {
+          window.location.href = '/fix-offline.html';
+          return;
+        }
+      }
+      
+      sessionStorage.setItem('refreshCount', (refreshCount + 1).toString());
+      
+      // Reset refresh count after 5 minutes
+      setTimeout(() => {
+        sessionStorage.removeItem('refreshCount');
+      }, 5 * 60 * 1000);
+      
+      // Disable aggressive service worker updates on mobile
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.addEventListener('message', (event) => {
+          if (event.data && event.data.type === 'SKIP_WAITING') {
+            console.log('Preventing automatic service worker update on mobile');
+            event.preventDefault();
+          }
+        });
+      }
+    }
+  }, []);
+
   // Initialize push notifications when authenticated
   usePushNotifications({ userId: isAuthenticated ? user?.id || null : null, enabled: true });
 

@@ -33,6 +33,7 @@ export function usePWA(): UsePWAReturn {
     // Use vite-plugin-pwa's registerSW function
     const updateSW = registerSW({
       onNeedRefresh() {
+        // Only show update prompt, don't auto-update
         setIsUpdateAvailable(true);
       },
       onOfflineReady() {
@@ -49,10 +50,10 @@ export function usePWA(): UsePWAReturn {
       onRegistered(registration) {
         console.log('Service Worker registered:', registration);
         
-        // Check for updates periodically
-        setInterval(() => {
-          registration.update();
-        }, 1000 * 60 * 60); // Check every hour
+        // Disable automatic update checks to prevent refresh loops
+        // setInterval(() => {
+        //   registration.update();
+        // }, 1000 * 60 * 60); // Check every hour
       },
       onRegisterError(error) {
         console.error('Service Worker registration error:', error);

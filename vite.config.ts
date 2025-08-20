@@ -8,7 +8,8 @@ export default defineConfig({
     react(),
     VitePWA({
       strategies: 'generateSW',
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
+      injectRegister: 'auto',
       devOptions: {
         enabled: false, // Disable service worker in development
         type: 'module'
@@ -91,9 +92,12 @@ export default defineConfig({
             }
           }
         ],
-        // Skip waiting for immediate activation
-        skipWaiting: true,
-        clientsClaim: true
+        // Don't skip waiting to prevent infinite refresh loops
+        skipWaiting: false,
+        clientsClaim: false,
+        // Prevent navigation loops
+        navigateFallback: null,
+        navigateFallbackAllowlist: [/^\/$/]
       },
       manifest: {
         name: 'Cars-G',
