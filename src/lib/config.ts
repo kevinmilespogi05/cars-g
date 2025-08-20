@@ -11,6 +11,16 @@ export const config = {
     anonKey: import.meta.env.VITE_SUPABASE_ANON_KEY,
   },
   
+  // Firebase Configuration (FCM)
+  firebase: {
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+    appId: import.meta.env.VITE_FIREBASE_APP_ID,
+    vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
+  },
+  
   // Google Maps Configuration
   googleMaps: {
     apiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,

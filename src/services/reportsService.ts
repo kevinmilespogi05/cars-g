@@ -95,6 +95,20 @@ export const reportsService = {
     if (error) throw new ReportsServiceError(`Failed to create report: ${error.message}`);
     if (!data) throw new ReportsServiceError('Failed to create report: No data returned');
 
+    // Create a DB notification for the user (forwarded to FCM by backend)
+    try {
+      await supabase.from('notifications').insert({
+        user_id: reportData.user_id,
+        title: 'Report Submitted',
+        message: `Your report "${reportData.title}" was submitted successfully.`,
+        type: 'success',
+        link: `/reports/${data.id}`,
+        read: false,
+      });
+    } catch (e) {
+      console.warn('Failed to create notification after report creation:', e);
+    }
+
     // Return the actual database report with proper structure
     return {
       ...data,
@@ -210,6 +224,28 @@ export const reportsService = {
 
     if (error) throw new ReportsServiceError(`Failed to update report: ${error.message}`);
     if (!data) throw new ReportsServiceError('Report not found');
+
+    // Notify report owner
+    try {
+      const { data: reportOwner } = await supabase
+        .from('reports')
+        .select('user_id, title')
+        .eq('id', reportId)
+        .single();
+
+      if (reportOwner?.user_id) {
+        await supabase.from('notifications').insert({
+          user_id: reportOwner.user_id,
+          title: 'Report Status Updated',
+          message: `Your report "${reportOwner.title}" is now ${newStatus.replace('_', ' ')}.`,
+          type: newStatus === 'resolved' ? 'success' : (newStatus === 'rejected' ? 'warning' : 'info'),
+          link: `/reports/${reportId}`,
+          read: false,
+        });
+      }
+    } catch (e) {
+      console.warn('Failed to create notification after status update:', e);
+    }
 
     return data;
   },

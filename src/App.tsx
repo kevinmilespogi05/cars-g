@@ -25,6 +25,7 @@ import { publicRoutes, protectedRoutes, adminRoutes } from './routes/routes';
 import { PWAPrompt } from './components/PWAPrompt';
 import { NetworkStatus } from './components/NetworkStatus';
 import { AIReportingButton } from './components/AIReportingButton';
+import { usePushNotifications } from './hooks/usePushNotifications';
 
 // Configure future flags for React Router v7
 const routerConfig = {
@@ -99,6 +100,9 @@ function App() {
     };
     init();
   }, [initialize]);
+
+  // Initialize push notifications when authenticated
+  usePushNotifications({ userId: isAuthenticated ? user?.id || null : null, enabled: true });
 
   // Network status monitoring
   useEffect(() => {

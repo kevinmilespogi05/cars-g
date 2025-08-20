@@ -7,6 +7,7 @@ import compression from 'compression';
 import dotenv from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
+import fetch from 'node-fetch';
 
 // Load environment variables
 dotenv.config();
@@ -118,6 +119,92 @@ app.use(cors({
   credentials: true
 }));
 app.use(express.json());
+// In-memory rate limit for push registration
+const recentRegistrations = new Map();
+
+// Push: register device token
+app.post('/api/push/register', async (req, res) => {
+  try {
+    const { token, userId, platform = 'web', userAgent } = req.body || {};
+    if (!token || !userId) {
+      return res.status(400).json({ error: 'token and userId are required' });
+    }
+
+    // rudimentary rate limit by user
+    const last = recentRegistrations.get(userId) || 0;
+    if (Date.now() - last < 5000) {
+      return res.json({ ok: true });
+    }
+
+    if (!supabaseAdmin) {
+      return res.status(503).json({ error: 'Admin privileges required' });
+    }
+
+    // Ensure table exists (idempotent upsert)
+    await supabaseAdmin.rpc('ensure_push_subscriptions_table');
+
+    // Upsert token
+    const { error } = await supabaseAdmin
+      .from('push_subscriptions')
+      .upsert({
+        user_id: userId,
+        token,
+        platform,
+        user_agent: userAgent || null,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'token' });
+
+    if (error) throw error;
+    recentRegistrations.set(userId, Date.now());
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Push register error:', e);
+    res.status(500).json({ error: 'Failed to register push token' });
+  }
+});
+
+// Push: send test notification
+app.post('/api/push/send', async (req, res) => {
+  try {
+    if (!supabaseAdmin) {
+      return res.status(503).json({ error: 'Admin privileges required' });
+    }
+
+    const { userId, title = 'Cars-G', body = 'Test notification', link } = req.body || {};
+    if (!userId) return res.status(400).json({ error: 'userId is required' });
+
+    const { data: subs, error } = await supabaseAdmin
+      .from('push_subscriptions')
+      .select('token')
+      .eq('user_id', userId);
+    if (error) throw error;
+
+    const serverKey = process.env.FIREBASE_SERVER_KEY;
+    if (!serverKey) return res.status(500).json({ error: 'FIREBASE_SERVER_KEY not configured' });
+
+    const responses = [];
+    for (const sub of subs || []) {
+      const resp = await fetch('https://fcm.googleapis.com/fcm/send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `key=${serverKey}`,
+        },
+        body: JSON.stringify({
+          to: sub.token,
+          notification: { title, body },
+          data: { link: link || '/' },
+        }),
+      });
+      responses.push({ token: sub.token, ok: resp.ok });
+    }
+
+    res.json({ ok: true, count: responses.length });
+  } catch (e) {
+    console.error('Push send error:', e);
+    res.status(500).json({ error: 'Failed to send push' });
+  }
+});
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -618,6 +705,23 @@ io.on('connection', (socket) => {
         // Don't fail the message send for this non-critical update
       }
 
+      // Create a notification for the recipient user to trigger push
+      try {
+        const recipientId = conversation.participant1_id === sender_id
+          ? conversation.participant2_id
+          : conversation.participant1_id;
+        const senderName = connectedUsers.get(sender_id)?.user?.username || 'New message';
+        const preview = (content || '').slice(0, 120);
+        const link = `/chat?conversationId=${conversation_id}`;
+
+        await supabaseAdmin
+          .from('notifications')
+          .insert([{ user_id: recipientId, title: `New message from ${senderName}`, message: preview, link }]);
+      } catch (notifError) {
+        console.error('Warning: Failed to insert chat notification:', notifError);
+        // Non-critical: chat message already delivered via socket
+      }
+
     } catch (error) {
       console.error('Error sending message:', error);
       socket.emit('message_error', { message: 'Failed to send message' });
@@ -675,6 +779,65 @@ const startServer = async () => {
       console.log(`📊 Health check: http://localhost:${PORT}/health`);
       console.log('\n✅ Chat server is ready!');
     });
+
+    // Helper: send push to a specific user via FCM
+    const sendPushToUser = async (userId, title, body, link) => {
+      try {
+        if (!supabaseAdmin) return;
+        const { data: subs, error } = await supabaseAdmin
+          .from('push_subscriptions')
+          .select('token')
+          .eq('user_id', userId);
+        if (error) throw error;
+
+        const serverKey = process.env.FIREBASE_SERVER_KEY;
+        if (!serverKey) {
+          console.warn('FIREBASE_SERVER_KEY not set, skipping push');
+          return;
+        }
+
+        for (const sub of subs || []) {
+          await fetch('https://fcm.googleapis.com/fcm/send', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `key=${serverKey}`,
+            },
+            body: JSON.stringify({
+              to: sub.token,
+              notification: { title, body },
+              data: { link: link || '/' },
+            }),
+          });
+        }
+      } catch (err) {
+        console.error('sendPushToUser error:', err);
+      }
+    };
+
+    // Subscribe to notifications inserts and forward to FCM
+    try {
+      const channel = supabaseAdmin
+        ? supabaseAdmin.channel('notify_fcm')
+        : supabase.channel('notify_fcm');
+
+      channel
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, async (payload) => {
+          const n = payload.new || {};
+          const title = n.title || 'Cars-G';
+          const body = n.message || '';
+          const link = n.link || '/';
+          const userId = n.user_id;
+          if (userId) {
+            await sendPushToUser(userId, title, body, link);
+          }
+        })
+        .subscribe((status) => {
+          console.log('Realtime notifications subscription status:', status);
+        });
+    } catch (subErr) {
+      console.warn('Failed to subscribe to notifications realtime:', subErr);
+    }
   } catch (error) {
     console.error('❌ Failed to start server:', error);
     process.exit(1);
