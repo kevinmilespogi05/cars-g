@@ -217,8 +217,8 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
   };
 
   return (
-    <div className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'} mb-4`}>
-      <div className={`max-w-xs lg:max-w-md ${isOwnMessage ? 'order-2' : 'order-1'}`}>
+    <div className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'} mb-3 sm:mb-4 px-2 sm:px-0`}>
+      <div className={`max-w-[85%] sm:max-w-xs lg:max-w-md ${isOwnMessage ? 'order-2' : 'order-1'}`}>
         {/* Avatar and Username */}
         {!isOwnMessage && (
           <div className="flex items-center space-x-2 mb-2">
@@ -226,16 +226,16 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
               <img
                 src={sender.avatar_url}
                 alt={sender.username}
-                className="w-6 h-6 rounded-full object-cover border border-gray-200"
+                className="w-5 h-5 sm:w-6 sm:h-6 rounded-full object-cover border border-gray-200"
               />
             ) : (
-              <div className="w-6 h-6 rounded-full bg-gray-300 flex items-center justify-center border border-gray-200">
+              <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-gray-300 flex items-center justify-center border border-gray-200">
                 <span className="text-gray-600 text-xs font-semibold">
                   {sender?.username?.charAt(0).toUpperCase() || message.sender_id.charAt(0).toUpperCase()}
                 </span>
               </div>
             )}
-            <span className="text-xs text-gray-500 font-medium">
+            <span className="text-xs text-gray-500 font-medium truncate">
               {sender?.username || `User ${message.sender_id.slice(0, 8)}`}
             </span>
           </div>
@@ -244,7 +244,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
         {/* Message Bubble */}
         <div
           className={`
-            p-3 rounded-lg shadow-sm border
+            p-2.5 sm:p-3 rounded-lg shadow-sm border
             ${isOwnMessage 
               ? 'bg-blue-500 text-white rounded-br-md border-blue-500' 
               : 'bg-white text-gray-900 rounded-bl-md border-gray-200'
@@ -266,18 +266,18 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
               <div className="relative">
                 <button
                   onClick={handleDeleteClick}
-                  className="p-1 hover:bg-white/20 rounded transition-colors"
+                  className="p-1.5 hover:bg-white/20 rounded transition-colors touch-manipulation"
                   title="Delete message"
                 >
-                  <MoreVerticalIcon size={12} />
+                  <MoreVerticalIcon size={14} />
                 </button>
                 
                 {/* Delete Menu */}
                 {showDeleteMenu && (
-                  <div className="absolute bottom-full right-0 mb-2 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+                  <div className="absolute bottom-full right-0 mb-2 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[160px]">
                     <button
                       onClick={handleDeleteMessage}
-                      className="flex items-center space-x-2 w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-t-lg transition-colors"
+                      className="flex items-center space-x-2 w-full px-3 py-2.5 text-sm text-red-600 hover:bg-red-50 rounded-t-lg transition-colors touch-manipulation"
                     >
                       <Trash2Icon size={14} />
                       <span>Delete for everyone</span>

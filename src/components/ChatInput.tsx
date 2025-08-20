@@ -518,16 +518,16 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   );
 
   return (
-    <div className="border-t bg-white p-4">
+    <div className="border-t bg-white p-2 sm:p-3 md:p-4">
       {/* Unsent Messages */}
       {unsentMessages.length > 0 && (
-        <div className="mb-4 space-y-2">
+        <div className="mb-3 sm:mb-4 space-y-2">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center space-x-2">
               <div className="text-xs font-medium text-gray-600">
                 Unsent Messages ({unsentMessages.length})
               </div>
-              <div className="text-xs text-gray-400">
+              <div className="hidden sm:block text-xs text-gray-400">
                 Ctrl+R to retry failed messages
               </div>
             </div>
@@ -542,7 +542,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           {unsentMessages.map((unsentMessage) => (
             <div
               key={unsentMessage.id}
-              className={`p-3 rounded-lg border ${
+              className={`p-2 sm:p-3 rounded-lg border ${
                 unsentMessage.isRetrying
                   ? 'bg-blue-50 border-blue-200'
                   : unsentMessage.error
@@ -626,7 +626,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       {/* Attachment Menu */}
       {showAttachments && (
         <div className="mb-3 p-3 bg-gray-50 rounded-lg border border-gray-200 shadow-sm">
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2 sm:space-x-3 flex-wrap gap-2">
             <button
               onClick={() => imageInputRef.current?.click()}
               disabled={isUploading}
@@ -680,10 +680,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       />
 
       {/* Message Input */}
-      <div className="flex items-end space-x-3">
+      <div className="flex items-end space-x-2 sm:space-x-3">
         <button
           onClick={() => setShowAttachments(!showAttachments)}
-          className={`flex-shrink-0 p-2 rounded-lg transition-colors ${
+          className={`flex-shrink-0 p-2 sm:p-2.5 rounded-lg transition-colors ${
             showAttachments 
               ? 'text-blue-600 bg-blue-50 hover:bg-blue-100' 
               : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
@@ -691,7 +691,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           disabled={disabled}
           title="Attachments"
         >
-          <PaperclipIcon size={20} />
+          <PaperclipIcon size={18} className="sm:w-5 sm:h-5" />
         </button>
 
         <div className="flex-1 relative">
@@ -701,23 +701,23 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             onKeyPress={handleKeyPress}
             placeholder={placeholder}
             disabled={disabled}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed transition-all duration-200"
+            className="w-full px-3 py-2 sm:py-2.5 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed transition-all duration-200 text-sm sm:text-base"
             rows={1}
-            style={{ minHeight: '40px', maxHeight: '120px' }}
+            style={{ minHeight: '44px', maxHeight: '120px' }}
           />
         </div>
 
         <button
           onClick={handleSendMessage}
           disabled={!message.trim() || disabled}
-          className={`flex-shrink-0 p-2 rounded-lg transition-all duration-200 ${
+          className={`flex-shrink-0 p-2 sm:p-2.5 rounded-lg transition-all duration-200 ${
             !message.trim() || disabled
               ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
               : 'bg-blue-500 text-white hover:bg-blue-600 hover:scale-105'
           }`}
           title="Send message"
         >
-          <SendIcon size={20} />
+          <SendIcon size={18} className="sm:w-5 sm:h-5" />
         </button>
       </div>
 

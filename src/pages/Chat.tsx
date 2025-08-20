@@ -10,6 +10,7 @@ import { useChatSocket } from '../hooks/useChatSocket';
 import { useAuthStore } from '../store/authStore';
 import { ArrowLeftIcon, MessageCircleIcon, PlusIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import '../components/ChatMobile.css';
 
 export const Chat: React.FC = () => {
   const { user } = useAuthStore();
@@ -25,6 +26,40 @@ export const Chat: React.FC = () => {
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [showMobileConversationList, setShowMobileConversationList] = useState(true);
+
+  // Mobile-specific improvements
+  useEffect(() => {
+    // Prevent zoom on input focus for mobile devices
+    const preventZoom = (e: TouchEvent) => {
+      if (e.touches.length > 1) {
+        e.preventDefault();
+      }
+    };
+
+    // Handle window resize to manage mobile state
+    const handleResize = () => {
+      if (window.innerWidth >= 768) {
+        // Desktop view - always show both
+        setShowMobileConversationList(false);
+      } else {
+        // Mobile view - show conversation list if no conversation selected
+        if (!selectedConversation) {
+          setShowMobileConversationList(true);
+        }
+      }
+    };
+
+    document.addEventListener('touchstart', preventZoom, { passive: false });
+    window.addEventListener('resize', handleResize);
+    
+    // Initial check
+    handleResize();
+    
+    return () => {
+      document.removeEventListener('touchstart', preventZoom);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [selectedConversation]);
 
   // Define handlers before using them in the hook
   const handleNewMessage = useCallback((message: ChatMessageType) => {
@@ -99,6 +134,18 @@ export const Chat: React.FC = () => {
       }
     };
   }, [selectedConversation, leaveConversation]);
+
+  // Handle mobile state when conversation is selected/deselected
+  useEffect(() => {
+    // On mobile, when a conversation is selected, hide the conversation list
+    if (selectedConversation && window.innerWidth < 768) {
+      setShowMobileConversationList(false);
+    }
+    // On mobile, when no conversation is selected, show the conversation list
+    else if (!selectedConversation && window.innerWidth < 768) {
+      setShowMobileConversationList(true);
+    }
+  }, [selectedConversation]);
 
   const loadConversations = async () => {
     try {
@@ -219,6 +266,8 @@ export const Chat: React.FC = () => {
     setConversations(prev => [conversation, ...prev]);
     // Select the new conversation
     setSelectedConversation(conversation);
+    // Hide mobile conversation list to show the chat
+    setShowMobileConversationList(false);
     // Close the modal
     setShowNewConversation(false);
   };
@@ -227,6 +276,12 @@ export const Chat: React.FC = () => {
     setShowDemo(false);
     // Focus on conversation list
     setShowMobileConversationList(true);
+  };
+
+  const handleBackToConversationList = () => {
+    setSelectedConversation(null);
+    setShowMobileConversationList(true);
+    setMessages([]);
   };
 
   if (!user) {
@@ -281,9 +336,9 @@ export const Chat: React.FC = () => {
         </div>
 
         {/* Mobile Conversation List */}
-        {showMobileConversationList && (
-          <div className="md:hidden w-full bg-white flex flex-col">
-            <div className="p-4 border-b border-gray-200 bg-gray-50">
+        {showMobileConversationList && !selectedConversation && (
+          <div className="md:hidden w-full bg-white flex flex-col h-full">
+            <div className="p-4 border-b border-gray-200 bg-gray-50 flex-shrink-0">
               <div className="flex items-center justify-between mb-3">
                 <h1 className="text-xl font-semibold text-gray-900">Messages</h1>
                 <button
@@ -294,9 +349,15 @@ export const Chat: React.FC = () => {
                   <PlusIcon size={20} />
                 </button>
               </div>
+              <div className="flex items-center space-x-2">
+                <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                <span className="text-sm text-gray-500">
+                  {isConnected ? 'Connected' : 'Disconnected'}
+                </span>
+              </div>
             </div>
             
-            <div className="flex-1 overflow-y-auto">
+            <div className="chat-conversations-container flex-1 overflow-y-auto">
               <ChatConversationList
                 conversations={conversations}
                 onSelectConversation={(conv) => {
@@ -312,18 +373,18 @@ export const Chat: React.FC = () => {
 
         {/* Chat Area */}
         {selectedConversation && (
-          <div className="flex-1 flex flex-col bg-white min-h-[60dvh]">
+          <div className="flex-1 flex flex-col bg-white min-h-[60dvh] md:min-h-0">
             {/* Chat Header */}
-            <div className="p-3 sm:p-4 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
-              <div className="flex items-center gap-2">
+            <div className="chat-header p-3 sm:p-4 border-b border-gray-200 bg-gray-50 flex items-center justify-between flex-shrink-0">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
                 <button
-                  onClick={() => setShowMobileConversationList(true)}
-                  className="md:hidden p-2 hover:bg-gray-200 rounded-lg transition-colors"
+                  onClick={handleBackToConversationList}
+                  className="chat-back-button md:hidden p-2 hover:bg-gray-200 rounded-lg transition-colors flex-shrink-0"
                 >
                   <ArrowLeftIcon size={20} />
                 </button>
-                <div>
-                  <h2 className="text-base sm:text-lg font-semibold text-gray-900 leading-tight">
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-base sm:text-lg font-semibold text-gray-900 leading-tight truncate">
                     {getOtherParticipantName(selectedConversation)}
                   </h2>
                   <div className="flex items-center gap-2">
@@ -337,42 +398,42 @@ export const Chat: React.FC = () => {
             </div>
 
             {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4 bg-gray-50">
+            <div className="chat-messages-container flex-1 overflow-y-auto p-2 sm:p-3 md:p-4 space-y-2 sm:space-y-3 md:space-y-4 bg-gray-50">
               {loading ? (
-                <div className="flex items-center justify-center h-64">
-                  <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+                <div className="chat-loading-state flex items-center justify-center h-64">
+                  <div className="chat-loading-spinner animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
                 </div>
               ) : error ? (
-                <div className="text-center text-red-600 bg-red-50 p-4 rounded-lg">
+                <div className="chat-error-state text-center text-red-600 bg-red-50 p-4 rounded-lg mx-2">
                   <p className="font-medium">{error}</p>
                   <button 
                     onClick={() => loadMessages(selectedConversation.id)}
-                    className="mt-2 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+                    className="chat-error-button mt-2 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
                   >
                     Retry
                   </button>
                 </div>
               ) : messages.length === 0 ? (
-                <div className="text-center text-gray-500 mt-8">
-                  <MessageCircleIcon size={48} className="mx-auto mb-4 text-gray-300" />
+                <div className="chat-empty-state text-center text-gray-500 mt-8 mx-2">
+                  <MessageCircleIcon size={48} className="chat-empty-state-icon mx-auto mb-4 text-gray-300" />
                   <h3 className="text-lg font-semibold mb-2">No messages yet</h3>
                   <p className="text-sm">Start the conversation by sending a message!</p>
                 </div>
               ) : (
-                                 <>
-                                       {messages.map((message) => (
-                      <ChatMessage 
-                        key={message.id} 
-                        message={message} 
-                        profiles={profiles}
-                        onDeleteMessage={handleDeleteMessage}
-                        canDelete={true}
-                      />
-                    ))}
+                <>
+                  {messages.map((message) => (
+                    <ChatMessage 
+                      key={message.id} 
+                      message={message} 
+                      profiles={profiles}
+                      onDeleteMessage={handleDeleteMessage}
+                      canDelete={true}
+                    />
+                  ))}
                   
                   {/* Typing indicator */}
                   {typingUsers.size > 0 && (
-                    <div className="flex justify-start">
+                    <div className="chat-typing-indicator flex justify-start mx-2">
                       <div className="bg-white text-gray-600 px-3 py-2 rounded-lg text-sm border border-gray-200 shadow-sm">
                         {Array.from(typingUsers).join(', ')} typing...
                       </div>
@@ -385,19 +446,21 @@ export const Chat: React.FC = () => {
             </div>
 
             {/* Chat Input */}
-            <ChatInput
-              onSendMessage={handleSendMessage}
-              onTypingStart={handleTypingStart}
-              onTypingStop={handleTypingStop}
-              disabled={!isConnected || !isAuthenticated}
-              placeholder="Type a message..."
-            />
+            <div className="flex-shrink-0">
+              <ChatInput
+                onSendMessage={handleSendMessage}
+                onTypingStart={handleTypingStart}
+                onTypingStop={handleTypingStop}
+                disabled={!isConnected || !isAuthenticated}
+                placeholder="Type a message..."
+              />
+            </div>
           </div>
         )}
 
-        {/* No Conversation Selected */}
-        {!selectedConversation && !showMobileConversationList && (
-          <div className="flex-1 flex items-center justify-center bg-gray-50">
+        {/* No Conversation Selected - Desktop only */}
+        {!selectedConversation && (
+          <div className="hidden md:flex flex-1 items-center justify-center bg-gray-50">
             <div className="text-center p-8">
               <MessageCircleIcon size={64} className="mx-auto text-gray-300 mb-4" />
               <h2 className="text-xl font-semibold text-gray-600 mb-2">Select a conversation</h2>

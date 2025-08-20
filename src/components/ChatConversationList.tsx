@@ -59,7 +59,7 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = ({
   }
 
   return (
-    <div className="p-4 space-y-2">
+    <div className="p-2 sm:p-4 space-y-2">
       {conversations.map((conversation) => {
         const otherUser = getOtherParticipant(conversation);
         const isSelected = selectedConversationId === conversation.id;
@@ -69,27 +69,27 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = ({
             key={conversation.id}
             onClick={() => onSelectConversation(conversation)}
             className={`
-              p-4 rounded-lg cursor-pointer transition-all duration-200 hover:shadow-md
+              p-3 sm:p-4 rounded-lg cursor-pointer transition-all duration-200 hover:shadow-md touch-manipulation
               ${isSelected 
                 ? 'bg-blue-500 text-white shadow-lg' 
                 : 'bg-white border border-gray-200 hover:border-gray-300'
               }
             `}
           >
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-2 sm:space-x-3">
               {/* Avatar */}
               <div className="flex-shrink-0">
                 {otherUser?.avatar_url ? (
                   <img
                     src={otherUser.avatar_url}
                     alt={otherUser.username}
-                    className="w-12 h-12 rounded-full object-cover border-2 border-gray-200"
+                    className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover border-2 border-gray-200"
                   />
                 ) : (
-                  <div className={`w-12 h-12 rounded-full flex items-center justify-center border-2 ${
+                  <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center border-2 ${
                     isSelected ? 'border-white/30' : 'border-gray-200'
                   }`}>
-                    <span className={`font-semibold text-lg ${
+                    <span className={`font-semibold text-base sm:text-lg ${
                       isSelected ? 'text-white' : 'text-gray-600'
                     }`}>
                       {otherUser?.username?.charAt(0).toUpperCase() || 'U'}
@@ -101,7 +101,7 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = ({
               {/* Conversation Info */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between">
-                  <h4 className={`font-semibold ${
+                  <h4 className={`font-semibold text-sm sm:text-base ${
                     isSelected ? 'text-white' : 'text-gray-900'
                   }`} style={{ wordBreak: 'break-word' }}>
                     {otherUser?.username || 'Unknown User'}
