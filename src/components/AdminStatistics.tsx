@@ -332,10 +332,48 @@ export function AdminStatistics() {
   }
 
   return (
-    <div className="w-full px-3 sm:px-4 lg:px-6">
+    <div className="w-full px-2 sm:px-4 lg:px-6">
       <div className="bg-white shadow sm:rounded-lg">
-        <div className="px-4 py-5 sm:p-6">
-          <div className="flex justify-between items-center">
+        <div className="px-3 py-4 sm:px-6 sm:py-5">
+          {/* Mobile Header */}
+          <div className="sm:hidden mb-4">
+            <h3 className="text-lg leading-6 font-medium text-gray-900 mb-3">Statistics Dashboard</h3>
+            <div className="space-y-3">
+              <div className="flex items-center space-x-2">
+                <Filter className="h-4 w-4 text-gray-500" />
+                <select
+                  value={timeRange}
+                  onChange={(e) => setTimeRange(e.target.value as 'day' | 'week' | 'month' | 'year')}
+                  className="flex-1 block pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-sm rounded-md"
+                >
+                  <option value="day">Last 24 Hours</option>
+                  <option value="week">Last 7 Days</option>
+                  <option value="month">Last 30 Days</option>
+                  <option value="year">Last 12 Months</option>
+                </select>
+              </div>
+              <div className="flex space-x-2">
+                <button
+                  onClick={fetchStatistics}
+                  disabled={loading}
+                  className="flex-1 inline-flex items-center justify-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                  Refresh
+                </button>
+                <button
+                  onClick={exportStatistics}
+                  className="flex-1 inline-flex items-center justify-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Export
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Desktop Header */}
+          <div className="hidden sm:flex justify-between items-center">
             <h3 className="text-lg leading-6 font-medium text-gray-900">Statistics Dashboard</h3>
             <div className="flex space-x-4">
               <div className="flex items-center space-x-2">
@@ -369,20 +407,20 @@ export function AdminStatistics() {
             </div>
           </div>
 
-          <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-4 sm:mt-6 grid grid-cols-2 gap-3 sm:gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {/* Key Metrics */}
             <div className="bg-white overflow-hidden shadow rounded-lg">
-              <div className="p-5">
+              <div className="p-3 sm:p-5">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <div className="h-12 w-12 rounded-md bg-blue-500 flex items-center justify-center">
-                      <AlertTriangle className="h-6 w-6 text-white" />
+                    <div className="h-8 w-8 sm:h-12 sm:w-12 rounded-md bg-blue-500 flex items-center justify-center">
+                      <AlertTriangle className="h-4 w-4 sm:h-6 sm:w-6 text-white" />
                     </div>
                   </div>
-                  <div className="ml-5 w-0 flex-1">
+                  <div className="ml-3 sm:ml-5 w-0 flex-1">
                     <dl>
-                      <dt className="text-sm font-medium text-gray-500 truncate">Total Reports</dt>
-                      <dd className="text-lg font-medium text-gray-900">{statistics.totalReports}</dd>
+                      <dt className="text-xs sm:text-sm font-medium text-gray-500 truncate">Total Reports</dt>
+                      <dd className="text-base sm:text-lg font-medium text-gray-900">{statistics.totalReports}</dd>
                       {statistics.previousStats && (
                         <div className="flex items-center mt-1">
                           {getTrendIcon(calculateTrend(statistics.totalReports, statistics.previousStats.totalReports).direction)}
@@ -398,17 +436,17 @@ export function AdminStatistics() {
             </div>
 
             <div className="bg-white overflow-hidden shadow rounded-lg">
-              <div className="p-5">
+              <div className="p-3 sm:p-5">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <div className="h-12 w-12 rounded-md bg-yellow-500 flex items-center justify-center">
-                      <Clock className="h-6 w-6 text-white" />
+                    <div className="h-8 w-8 sm:h-12 sm:w-12 rounded-md bg-yellow-500 flex items-center justify-center">
+                      <Clock className="h-4 w-4 sm:h-6 sm:w-6 text-white" />
                     </div>
                   </div>
-                  <div className="ml-5 w-0 flex-1">
+                  <div className="ml-3 sm:ml-5 w-0 flex-1">
                     <dl>
-                      <dt className="text-sm font-medium text-gray-500 truncate">Pending Reports</dt>
-                      <dd className="text-lg font-medium text-gray-900">{statistics.pendingReports}</dd>
+                      <dt className="text-xs sm:text-sm font-medium text-gray-500 truncate">Pending Reports</dt>
+                      <dd className="text-base sm:text-lg font-medium text-gray-900">{statistics.pendingReports}</dd>
                       {statistics.previousStats && (
                         <div className="flex items-center mt-1">
                           {getTrendIcon(calculateTrend(statistics.pendingReports, statistics.previousStats.pendingReports).direction)}
@@ -424,17 +462,17 @@ export function AdminStatistics() {
             </div>
 
             <div className="bg-white overflow-hidden shadow rounded-lg">
-              <div className="p-5">
+              <div className="p-3 sm:p-5">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <div className="h-12 w-12 rounded-md bg-green-500 flex items-center justify-center">
-                      <Calendar className="h-6 w-6 text-white" />
+                    <div className="h-8 w-8 sm:h-12 sm:w-12 rounded-md bg-green-500 flex items-center justify-center">
+                      <Calendar className="h-4 w-4 sm:h-6 sm:w-6 text-white" />
                     </div>
                   </div>
-                  <div className="ml-5 w-0 flex-1">
+                  <div className="ml-3 sm:ml-5 w-0 flex-1">
                     <dl>
-                      <dt className="text-sm font-medium text-gray-500 truncate">Resolved Reports</dt>
-                      <dd className="text-lg font-medium text-gray-900">{statistics.resolvedReports}</dd>
+                      <dt className="text-xs sm:text-sm font-medium text-gray-500 truncate">Resolved Reports</dt>
+                      <dd className="text-base sm:text-lg font-medium text-gray-900">{statistics.resolvedReports}</dd>
                       {statistics.previousStats && (
                         <div className="flex items-center mt-1">
                           {getTrendIcon(calculateTrend(statistics.resolvedReports, statistics.previousStats.resolvedReports).direction)}
@@ -450,17 +488,17 @@ export function AdminStatistics() {
             </div>
 
             <div className="bg-white overflow-hidden shadow rounded-lg">
-              <div className="p-5">
+              <div className="p-3 sm:p-5">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <div className="h-12 w-12 rounded-md bg-purple-500 flex items-center justify-center">
-                      <User className="h-6 w-6 text-white" />
+                    <div className="h-8 w-8 sm:h-12 sm:w-12 rounded-md bg-purple-500 flex items-center justify-center">
+                      <User className="h-4 w-4 sm:h-6 sm:w-6 text-white" />
                     </div>
                   </div>
-                  <div className="ml-5 w-0 flex-1">
+                  <div className="ml-3 sm:ml-5 w-0 flex-1">
                     <dl>
-                      <dt className="text-sm font-medium text-gray-500 truncate">Total Users</dt>
-                      <dd className="text-lg font-medium text-gray-900">{statistics.totalUsers}</dd>
+                      <dt className="text-xs sm:text-sm font-medium text-gray-500 truncate">Total Users</dt>
+                      <dd className="text-base sm:text-lg font-medium text-gray-900">{statistics.totalUsers}</dd>
                       {statistics.previousStats && (
                         <div className="flex items-center mt-1">
                           {getTrendIcon(calculateTrend(statistics.totalUsers, statistics.previousStats.totalUsers).direction)}
@@ -477,38 +515,38 @@ export function AdminStatistics() {
           </div>
 
           {/* Resolution Time Metrics */}
-          <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-3">
+          <div className="mt-6 sm:mt-8 grid grid-cols-1 gap-4 sm:gap-5 sm:grid-cols-3">
             <div className="bg-white overflow-hidden shadow rounded-lg">
-              <div className="p-5">
-                <h4 className="text-lg font-medium text-gray-900">Average Resolution Time</h4>
-                <p className="mt-2 text-3xl font-semibold text-gray-900">
+              <div className="p-4 sm:p-5">
+                <h4 className="text-base sm:text-lg font-medium text-gray-900">Average Resolution Time</h4>
+                <p className="mt-2 text-2xl sm:text-3xl font-semibold text-gray-900">
                   {formatTime(statistics.averageResolutionTime)}
                 </p>
-                <p className="mt-1 text-sm text-gray-500">
+                <p className="mt-1 text-xs sm:text-sm text-gray-500">
                   Average time taken to resolve reports
                 </p>
               </div>
             </div>
 
             <div className="bg-white overflow-hidden shadow rounded-lg">
-              <div className="p-5">
-                <h4 className="text-lg font-medium text-gray-900">Fastest Resolution</h4>
-                <p className="mt-2 text-3xl font-semibold text-gray-900">
+              <div className="p-4 sm:p-5">
+                <h4 className="text-base sm:text-lg font-medium text-gray-900">Fastest Resolution</h4>
+                <p className="mt-2 text-2xl sm:text-3xl font-semibold text-gray-900">
                   {formatTime(statistics.fastestResolutionTime)}
                 </p>
-                <p className="mt-1 text-sm text-gray-500">
+                <p className="mt-1 text-xs sm:text-sm text-gray-500">
                   Quickest report resolution
                 </p>
               </div>
             </div>
 
             <div className="bg-white overflow-hidden shadow rounded-lg">
-              <div className="p-5">
-                <h4 className="text-lg font-medium text-gray-900">Slowest Resolution</h4>
-                <p className="mt-2 text-3xl font-semibold text-gray-900">
+              <div className="p-4 sm:p-5">
+                <h4 className="text-base sm:text-lg font-medium text-gray-900">Slowest Resolution</h4>
+                <p className="mt-2 text-2xl sm:text-3xl font-semibold text-gray-900">
                   {formatTime(statistics.slowestResolutionTime)}
                 </p>
-                <p className="mt-1 text-sm text-gray-500">
+                <p className="mt-1 text-xs sm:text-sm text-gray-500">
                   Longest report resolution
                 </p>
               </div>
@@ -516,28 +554,28 @@ export function AdminStatistics() {
           </div>
 
           {/* User Activity */}
-          <div className="mt-8">
+          <div className="mt-6 sm:mt-8">
             <div className="bg-white overflow-hidden shadow rounded-lg">
-              <div className="p-5">
-                <h4 className="text-lg font-medium text-gray-900">User Activity</h4>
+              <div className="p-4 sm:p-5">
+                <h4 className="text-base sm:text-lg font-medium text-gray-900">User Activity</h4>
                 <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
                   <div>
-                    <p className="text-sm text-gray-500">Active Users</p>
-                    <p className="text-2xl font-semibold text-gray-900">{statistics.activeUsers}</p>
+                    <p className="text-xs sm:text-sm text-gray-500">Active Users</p>
+                    <p className="text-xl sm:text-2xl font-semibold text-gray-900">{statistics.activeUsers}</p>
                     <p className="text-xs text-gray-500">
                       {((statistics.activeUsers / statistics.totalUsers) * 100).toFixed(1)}% of total
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">Banned Users</p>
-                    <p className="text-2xl font-semibold text-gray-900">{statistics.bannedUsers}</p>
+                    <p className="text-xs sm:text-sm text-gray-500">Banned Users</p>
+                    <p className="text-xl sm:text-2xl font-semibold text-gray-900">{statistics.bannedUsers}</p>
                     <p className="text-xs text-gray-500">
                       {((statistics.bannedUsers / statistics.totalUsers) * 100).toFixed(1)}% of total
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500">Reports per User</p>
-                    <p className="text-2xl font-semibold text-gray-900">
+                    <p className="text-xs sm:text-sm text-gray-500">Reports per User</p>
+                    <p className="text-xl sm:text-2xl font-semibold text-gray-900">
                       {statistics.totalUsers > 0 ? (statistics.totalReports / statistics.totalUsers).toFixed(1) : 0}
                     </p>
                     <p className="text-xs text-gray-500">
@@ -550,16 +588,16 @@ export function AdminStatistics() {
           </div>
 
           {/* Reports by Category */}
-          <div className="mt-8">
-            <h4 className="text-lg font-medium text-gray-900">Reports by Category</h4>
-            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-6 sm:mt-8">
+            <h4 className="text-base sm:text-lg font-medium text-gray-900">Reports by Category</h4>
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {statistics.reportsByCategory.map((item) => (
                 <div key={item.category} className="bg-white overflow-hidden shadow rounded-lg">
-                  <div className="p-5">
+                  <div className="p-4 sm:p-5">
                     <div className="flex items-center">
                       <div className="flex-1">
-                        <p className="text-sm font-medium text-gray-500">{item.category}</p>
-                        <p className="text-lg font-medium text-gray-900">{item.count}</p>
+                        <p className="text-xs sm:text-sm font-medium text-gray-500">{item.category}</p>
+                        <p className="text-base sm:text-lg font-medium text-gray-900">{item.count}</p>
                         <p className="text-xs text-gray-500">
                           {((item.count / statistics.totalReports) * 100).toFixed(1)}% of total
                         </p>
@@ -572,16 +610,16 @@ export function AdminStatistics() {
           </div>
 
           {/* Reports by Location */}
-          <div className="mt-8">
-            <h4 className="text-lg font-medium text-gray-900">Reports by Location</h4>
-            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-6 sm:mt-8">
+            <h4 className="text-base sm:text-lg font-medium text-gray-900">Reports by Location</h4>
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {statistics.reportsByLocation.map((item) => (
                 <div key={item.location} className="bg-white overflow-hidden shadow rounded-lg">
-                  <div className="p-5">
+                  <div className="p-4 sm:p-5">
                     <div className="flex items-center">
                       <div className="flex-1">
-                        <p className="text-sm font-medium text-gray-500">{item.location}</p>
-                        <p className="text-lg font-medium text-gray-900">{item.count}</p>
+                        <p className="text-xs sm:text-sm font-medium text-gray-500 truncate">{item.location}</p>
+                        <p className="text-base sm:text-lg font-medium text-gray-900">{item.count}</p>
                         <p className="text-xs text-gray-500">
                           {((item.count / statistics.totalReports) * 100).toFixed(1)}% of total
                         </p>
@@ -594,24 +632,24 @@ export function AdminStatistics() {
           </div>
 
           {/* Time-based Statistics */}
-          <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2">
+          <div className="mt-6 sm:mt-8 grid grid-cols-1 gap-4 sm:gap-5 sm:grid-cols-2">
             <div className="bg-white overflow-hidden shadow rounded-lg">
-              <div className="p-5">
-                <h4 className="text-lg font-medium text-gray-900">Reports by Time of Day</h4>
+              <div className="p-4 sm:p-5">
+                <h4 className="text-base sm:text-lg font-medium text-gray-900">Reports by Time of Day</h4>
                 <div className="mt-4">
                   {statistics.reportsByTime.map((item) => (
                     <div key={item.hour} className="flex items-center justify-between py-2">
-                      <span className="text-sm text-gray-500">
+                      <span className="text-xs sm:text-sm text-gray-500">
                         {item.hour.toString().padStart(2, '0')}:00
                       </span>
                       <div className="flex items-center">
-                        <div className="w-32 bg-gray-200 rounded-full h-2.5">
+                        <div className="w-20 sm:w-32 bg-gray-200 rounded-full h-2 sm:h-2.5">
                           <div
-                            className="bg-blue-500 h-2.5 rounded-full"
+                            className="bg-blue-500 h-2 sm:h-2.5 rounded-full"
                             style={{ width: `${(item.count / Math.max(...statistics.reportsByTime.map(r => r.count))) * 100}%` }}
                           />
                         </div>
-                        <span className="ml-2 text-sm text-gray-500">{item.count}</span>
+                        <span className="ml-2 text-xs sm:text-sm text-gray-500">{item.count}</span>
                       </div>
                     </div>
                   ))}
@@ -620,20 +658,20 @@ export function AdminStatistics() {
             </div>
 
             <div className="bg-white overflow-hidden shadow rounded-lg">
-              <div className="p-5">
-                <h4 className="text-lg font-medium text-gray-900">Reports by Day of Week</h4>
+              <div className="p-4 sm:p-5">
+                <h4 className="text-base sm:text-lg font-medium text-gray-900">Reports by Day of Week</h4>
                 <div className="mt-4">
                   {statistics.reportsByDay.map((item) => (
                     <div key={item.day} className="flex items-center justify-between py-2">
-                      <span className="text-sm text-gray-500">{item.day}</span>
+                      <span className="text-xs sm:text-sm text-gray-500">{item.day}</span>
                       <div className="flex items-center">
-                        <div className="w-32 bg-gray-200 rounded-full h-2.5">
+                        <div className="w-20 sm:w-32 bg-gray-200 rounded-full h-2 sm:h-2.5">
                           <div
-                            className="bg-green-500 h-2.5 rounded-full"
+                            className="bg-green-500 h-2 sm:h-2.5 rounded-full"
                             style={{ width: `${(item.count / Math.max(...statistics.reportsByDay.map(r => r.count))) * 100}%` }}
                           />
                         </div>
-                        <span className="ml-2 text-sm text-gray-500">{item.count}</span>
+                        <span className="ml-2 text-xs sm:text-sm text-gray-500">{item.count}</span>
                       </div>
                     </div>
                   ))}
@@ -643,22 +681,22 @@ export function AdminStatistics() {
           </div>
 
           {/* Monthly Statistics */}
-          <div className="mt-8">
+          <div className="mt-6 sm:mt-8">
             <div className="bg-white overflow-hidden shadow rounded-lg">
-              <div className="p-5">
-                <h4 className="text-lg font-medium text-gray-900">Reports by Month</h4>
+              <div className="p-4 sm:p-5">
+                <h4 className="text-base sm:text-lg font-medium text-gray-900">Reports by Month</h4>
                 <div className="mt-4">
                   {statistics.reportsByMonth.map((item) => (
                     <div key={item.month} className="flex items-center justify-between py-2">
-                      <span className="text-sm text-gray-500">{item.month}</span>
+                      <span className="text-xs sm:text-sm text-gray-500">{item.month}</span>
                       <div className="flex items-center">
-                        <div className="w-32 bg-gray-200 rounded-full h-2.5">
+                        <div className="w-20 sm:w-32 bg-gray-200 rounded-full h-2 sm:h-2.5">
                           <div
-                            className="bg-purple-500 h-2.5 rounded-full"
+                            className="bg-purple-500 h-2 sm:h-2.5 rounded-full"
                             style={{ width: `${(item.count / Math.max(...statistics.reportsByMonth.map(r => r.count))) * 100}%` }}
                           />
                         </div>
-                        <span className="ml-2 text-sm text-gray-500">{item.count}</span>
+                        <span className="ml-2 text-xs sm:text-sm text-gray-500">{item.count}</span>
                       </div>
                     </div>
                   ))}

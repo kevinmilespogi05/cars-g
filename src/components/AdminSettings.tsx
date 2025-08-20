@@ -109,8 +109,36 @@ export function AdminSettings() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="space-y-4 sm:space-y-6">
+      {/* Mobile Header */}
+      <div className="sm:hidden">
+        <h3 className="text-lg font-medium text-gray-900 mb-3">System Settings</h3>
+        <div className="space-y-2">
+          <button
+            onClick={fetchSettings}
+            disabled={loading}
+            className="w-full inline-flex items-center justify-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-gray-700 bg-gray-100 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="w-full inline-flex items-center justify-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          >
+            {saving ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4 mr-2" />
+            )}
+            Save Changes
+          </button>
+        </div>
+      </div>
+
+      {/* Desktop Header */}
+      <div className="hidden sm:flex justify-between items-center">
         <h3 className="text-lg font-medium text-gray-900">System Settings</h3>
         <div className="flex space-x-2">
           <button
@@ -137,7 +165,7 @@ export function AdminSettings() {
       </div>
 
       <div className="bg-white shadow sm:rounded-lg">
-        <div className="px-4 py-5 sm:p-6">
+        <div className="px-3 py-4 sm:px-6 sm:py-5">
           {settings.map((setting) => (
             <div key={setting.id} className="mb-6 last:mb-0">
               <h4 className="text-sm font-medium text-gray-900 capitalize">
@@ -157,7 +185,7 @@ export function AdminSettings() {
                           ...setting.value,
                           min_points: parseInt(e.target.value)
                         })}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
                       />
                     </div>
                     <div>
@@ -171,7 +199,7 @@ export function AdminSettings() {
                           ...setting.value,
                           max_points: parseInt(e.target.value)
                         })}
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
                       />
                     </div>
                   </div>

@@ -241,6 +241,20 @@ export const useAuthStore = create<AuthState>((set) => ({
   
   signIn: async (email: string, password: string) => {
     try {
+      // Force online status in development
+      const isDevelopment = process.env.NODE_ENV === 'development' || 
+                           window.location.hostname === 'localhost' || 
+                           window.location.hostname === '127.0.0.1';
+      
+      if (isDevelopment) {
+        // Force browser to think it's online
+        window.dispatchEvent(new Event('online'));
+        Object.defineProperty(navigator, 'onLine', {
+          writable: true,
+          value: true
+        });
+      }
+
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,

@@ -10,7 +10,7 @@ export default defineConfig({
       strategies: 'generateSW',
       registerType: 'autoUpdate',
       devOptions: {
-        enabled: true,
+        enabled: false, // Disable service worker in development
         type: 'module'
       },
       workbox: {
@@ -153,6 +153,11 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
+    host: true, // Allow external connections
+    hmr: {
+      port: 5173,
+      host: 'localhost'
+    },
     proxy: {
       '/api': {
         target: 'https://cars-g-api.onrender.com',

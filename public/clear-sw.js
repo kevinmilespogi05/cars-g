@@ -1,28 +1,27 @@
-// Script to clear service worker caches
-// Run this in the browser console to clear all caches
-
-console.log('Clearing service worker caches...');
-
-// Clear all caches
-caches.keys().then(function(names) {
-  for (let name of names) {
-    console.log('Deleting cache:', name);
-    caches.delete(name);
-  }
-});
-
-// Unregister service worker
+// Clear Service Workers and Caches
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.getRegistrations().then(function(registrations) {
     for(let registration of registrations) {
-      console.log('Unregistering service worker:', registration);
       registration.unregister();
+      console.log('Service Worker unregistered');
     }
   });
 }
 
-// Clear localStorage and sessionStorage
-localStorage.clear();
-sessionStorage.clear();
+if ('caches' in window) {
+  caches.keys().then(function(names) {
+    for (let name of names) {
+      caches.delete(name);
+      console.log('Cache deleted:', name);
+    }
+  });
+}
 
-console.log('All caches and storage cleared. Refresh the page to test.');
+// Force online status
+window.dispatchEvent(new Event('online'));
+console.log('Forced online status');
+
+// Reload the page
+setTimeout(() => {
+  window.location.reload();
+}, 1000);

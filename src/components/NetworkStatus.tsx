@@ -1,12 +1,19 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Wifi, WifiOff, RefreshCw, WifiIcon } from 'lucide-react';
+import { Wifi, WifiOff, RefreshCw, WifiIcon, X } from 'lucide-react';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
 
 export function NetworkStatus() {
   const { isOnline, isChecking, connectionType, effectiveType, checkConnection, forceOnline } = useNetworkStatus();
+  const [isDismissed, setIsDismissed] = useState(false);
 
-  if (isOnline) return null;
+  // Check if we're in development mode
+  const isDevelopment = process.env.NODE_ENV === 'development' || 
+                       window.location.hostname === 'localhost' || 
+                       window.location.hostname === '127.0.0.1';
+
+  // Don't show if online, dismissed, or in development mode
+  if (isOnline || isDismissed || isDevelopment) return null;
 
   const getConnectionIcon = () => {
     switch (connectionType) {
@@ -47,25 +54,53 @@ export function NetworkStatus() {
             </div>
           </div>
           <div className="flex items-center space-x-2">
+            {/* Mobile-friendly buttons - show fewer options on small screens */}
+            <div className="hidden sm:flex items-center space-x-2">
+              <button
+                onClick={forceOnline}
+                className="flex items-center space-x-2 bg-white bg-opacity-20 hover:bg-opacity-30 px-3 py-1.5 rounded-lg text-sm font-medium transition-all focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50"
+                title="Force online status (if you know you have connection)"
+              >
+                <Wifi className="h-4 w-4" />
+                <span>Force Online</span>
+              </button>
+              <button
+                onClick={checkConnection}
+                disabled={isChecking}
+                className="flex items-center space-x-2 bg-white bg-opacity-20 hover:bg-opacity-30 px-3 py-1.5 rounded-lg text-sm font-medium transition-all focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 disabled:opacity-50"
+              >
+                {isChecking ? (
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+                <span>{isChecking ? 'Checking...' : 'Check Connection'}</span>
+              </button>
+            </div>
+            
+            {/* Mobile: Show only refresh button */}
+            <div className="sm:hidden">
+              <button
+                onClick={checkConnection}
+                disabled={isChecking}
+                className="flex items-center space-x-1 bg-white bg-opacity-20 hover:bg-opacity-30 px-2 py-1.5 rounded-lg text-sm font-medium transition-all focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 disabled:opacity-50"
+              >
+                {isChecking ? (
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+                <span className="text-xs">{isChecking ? 'Checking...' : 'Refresh'}</span>
+              </button>
+            </div>
+            
+            {/* Dismiss button */}
             <button
-              onClick={forceOnline}
-              className="flex items-center space-x-2 bg-white bg-opacity-20 hover:bg-opacity-30 px-3 py-1.5 rounded-lg text-sm font-medium transition-all focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50"
-              title="Force online status (if you know you have connection)"
+              onClick={() => setIsDismissed(true)}
+              className="flex items-center justify-center w-8 h-8 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50"
+              title="Dismiss notification"
             >
-              <Wifi className="h-4 w-4" />
-              <span>Force Online</span>
-            </button>
-            <button
-              onClick={checkConnection}
-              disabled={isChecking}
-              className="flex items-center space-x-2 bg-white bg-opacity-20 hover:bg-opacity-30 px-3 py-1.5 rounded-lg text-sm font-medium transition-all focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50 disabled:opacity-50"
-            >
-              {isChecking ? (
-                <RefreshCw className="h-4 w-4 animate-spin" />
-              ) : (
-                <RefreshCw className="h-4 w-4" />
-              )}
-              <span>{isChecking ? 'Checking...' : 'Check Connection'}</span>
+              <X className="h-4 w-4" />
             </button>
           </div>
         </div>

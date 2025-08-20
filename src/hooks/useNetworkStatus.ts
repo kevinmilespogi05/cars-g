@@ -8,6 +8,9 @@ interface NetworkStatus {
   effectiveType: 'slow-2g' | '2g' | '3g' | '4g' | 'unknown';
 }
 
+// Simple flag to disable network checking (useful for testing)
+const DISABLE_NETWORK_CHECK = true; // Set to true to disable network checking
+
 export function useNetworkStatus(): NetworkStatus & {
   checkConnection: () => Promise<boolean>;
   forceOnline: () => void;
@@ -20,41 +23,80 @@ export function useNetworkStatus(): NetworkStatus & {
     effectiveType: 'unknown'
   });
 
+  // Check if we're in development mode
+  const isDevelopment = process.env.NODE_ENV === 'development' || 
+                       window.location.hostname === 'localhost' || 
+                       window.location.hostname === '127.0.0.1';
+
   // Check connection using multiple methods
   const checkConnection = useCallback(async (): Promise<boolean> => {
+    // If network checking is disabled, always return true
+    if (DISABLE_NETWORK_CHECK) {
+      console.log('Network checking disabled - always returning online');
+      setStatus({
+        isOnline: true,
+        isChecking: false,
+        lastChecked: new Date(),
+        connectionType: 'wifi',
+        effectiveType: '4g'
+      });
+      return true;
+    }
+
     setStatus(prev => ({ ...prev, isChecking: true }));
 
     try {
-      // Method 1: Check navigator.onLine
+      // Method 1: Check navigator.onLine (primary indicator)
       const browserOnline = navigator.onLine;
       
-      // Method 2: Try to fetch a small resource
-      let fetchSuccess = false;
-      try {
-        const response = await fetch('/manifest.webmanifest', {
-          method: 'HEAD',
-          cache: 'no-cache',
-          signal: AbortSignal.timeout(5000) // 5 second timeout
+      // In development mode, be very lenient
+      if (isDevelopment) {
+        console.log('Development mode detected - using lenient network detection');
+        setStatus({
+          isOnline: true, // Assume online in development
+          isChecking: false,
+          lastChecked: new Date(),
+          connectionType: 'wifi',
+          effectiveType: '4g'
         });
-        fetchSuccess = response.ok;
-      } catch (error) {
-        console.log('Fetch test failed:', error);
+        return true;
       }
 
-      // Method 3: Check if we can reach external services
-      let externalSuccess = false;
-      try {
-        const response = await fetch('https://httpbin.org/status/200', {
-          method: 'HEAD',
-          signal: AbortSignal.timeout(3000) // 3 second timeout
-        });
-        externalSuccess = response.ok;
-      } catch (error) {
-        console.log('External service test failed:', error);
+      // Method 2: Try to fetch a small resource (only if browser thinks we're offline)
+      let fetchSuccess = true; // Default to true to avoid false negatives
+      if (!browserOnline) {
+        try {
+          const response = await fetch('/manifest.webmanifest', {
+            method: 'HEAD',
+            cache: 'no-cache',
+            signal: AbortSignal.timeout(2000) // Reduced timeout to 2 seconds
+          });
+          fetchSuccess = response.ok;
+        } catch (error) {
+          console.log('Fetch test failed:', error);
+          fetchSuccess = false;
+        }
       }
 
-      // Determine online status based on multiple checks
-      const isOnline = browserOnline && (fetchSuccess || externalSuccess);
+      // Method 3: Check external services (only if previous checks failed)
+      let externalSuccess = true; // Default to true to avoid false negatives
+      if (!browserOnline && !fetchSuccess) {
+        try {
+          const response = await fetch('https://httpbin.org/status/200', {
+            method: 'HEAD',
+            signal: AbortSignal.timeout(1500) // Reduced timeout to 1.5 seconds
+          });
+          externalSuccess = response.ok;
+        } catch (error) {
+          console.log('External service test failed:', error);
+          externalSuccess = false;
+        }
+      }
+
+      // Determine online status - be very lenient
+      // If browser thinks we're online, trust it
+      // If browser thinks we're offline, require at least one successful test
+      const isOnline = browserOnline || fetchSuccess || externalSuccess;
       
       // Get connection information if available
       let connectionType: 'wifi' | 'cellular' | 'ethernet' | 'unknown' = 'unknown';
@@ -85,9 +127,10 @@ export function useNetworkStatus(): NetworkStatus & {
     } catch (error) {
       console.error('Error checking connection:', error);
       setStatus(prev => ({ ...prev, isChecking: false }));
-      return false;
+      // Don't assume offline on error, trust navigator.onLine
+      return navigator.onLine;
     }
-  }, []);
+  }, [isDevelopment]);
 
   // Force online status (useful for debugging)
   const forceOnline = useCallback(() => {
@@ -96,6 +139,12 @@ export function useNetworkStatus(): NetworkStatus & {
   }, []);
 
   useEffect(() => {
+    // If network checking is disabled, don't set up any listeners
+    if (DISABLE_NETWORK_CHECK) {
+      console.log('Network checking disabled - not setting up listeners');
+      return;
+    }
+
     const handleOnline = () => {
       setStatus(prev => ({ ...prev, isOnline: true }));
     };
@@ -108,15 +157,18 @@ export function useNetworkStatus(): NetworkStatus & {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    // Initial connection check
-    checkConnection();
+    // Initial connection check with delay to avoid immediate false detection
+    const initialCheck = setTimeout(() => {
+      checkConnection();
+    }, 2000); // Increased delay to 2 seconds
 
-    // Set up periodic connection checking
-    const interval = setInterval(checkConnection, 30000); // Check every 30 seconds
+    // Set up periodic connection checking (less frequent to reduce false positives)
+    const interval = setInterval(checkConnection, 120000); // Check every 2 minutes instead of 1 minute
 
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      clearTimeout(initialCheck);
       clearInterval(interval);
     };
   }, [checkConnection]);

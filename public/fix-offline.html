@@ -3,248 +3,240 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Fix Offline Issue - Cars-G</title>
+    <title>Network Reset - Cars-G</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            color: #333;
-            margin: 0;
-            padding: 20px;
         }
-        
         .container {
             background: white;
-            border-radius: 20px;
-            padding: 3rem;
-            text-align: center;
+            padding: 40px;
+            border-radius: 12px;
             box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-            max-width: 600px;
+            max-width: 500px;
             width: 100%;
+            text-align: center;
         }
-        
+        .icon {
+            width: 80px;
+            height: 80px;
+            background: #f0f9ff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            color: #3b82f6;
+        }
         h1 {
-            color: #800000;
-            margin-bottom: 1rem;
-            font-size: 2rem;
+            color: #1f2937;
+            margin-bottom: 10px;
         }
-        
-        .status {
-            background: #f8f9fa;
-            padding: 1rem;
-            border-radius: 10px;
-            margin: 1rem 0;
-            text-align: left;
+        p {
+            color: #6b7280;
+            margin-bottom: 30px;
+            line-height: 1.6;
         }
-        
         .button {
-            background: #800000;
+            background: #3b82f6;
             color: white;
             border: none;
-            padding: 1rem 2rem;
+            padding: 12px 24px;
             border-radius: 8px;
-            font-size: 1rem;
+            font-size: 16px;
             cursor: pointer;
-            margin: 0.5rem;
+            margin: 10px;
             transition: background 0.3s;
         }
-        
         .button:hover {
-            background: #600000;
+            background: #2563eb;
         }
-        
-        .button:disabled {
-            background: #ccc;
-            cursor: not-allowed;
+        .button.danger {
+            background: #ef4444;
         }
-        
-        .success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-            padding: 1rem;
+        .button.danger:hover {
+            background: #dc2626;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 15px;
             border-radius: 8px;
-            margin: 1rem 0;
+            font-size: 14px;
         }
-        
-        .error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-            padding: 1rem;
-            border-radius: 8px;
-            margin: 1rem 0;
+        .status.success {
+            background: #f0fdf4;
+            color: #166534;
+            border: 1px solid #bbf7d0;
         }
-        
-        .log {
-            background: #f8f9fa;
-            border: 1px solid #dee2e6;
-            border-radius: 8px;
-            padding: 1rem;
-            margin: 1rem 0;
-            text-align: left;
-            max-height: 200px;
-            overflow-y: auto;
-            font-family: monospace;
-            font-size: 0.9rem;
+        .status.error {
+            background: #fef2f2;
+            color: #dc2626;
+            border: 1px solid #fecaca;
+        }
+        .status.info {
+            background: #eff6ff;
+            color: #1d4ed8;
+            border: 1px solid #bfdbfe;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🔧 Fix Offline Issue</h1>
-        <p>This page will help you clear the service worker and fix the offline detection problem.</p>
-        
-        <div class="status">
-            <strong>Current Status:</strong><br>
-            <span id="currentStatus">Checking...</span>
+        <div class="icon">
+            <svg width="40" height="40" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"></path>
+            </svg>
         </div>
+        <h1>Network Reset Tool</h1>
+        <p>This tool will help fix network connectivity issues by clearing caches, service workers, and resetting network state.</p>
         
-        <div>
-            <button class="button" onclick="clearServiceWorker()">Clear Service Worker</button>
-            <button class="button" onclick="clearCaches()">Clear All Caches</button>
-            <button class="button" onclick="testConnection()">Test Connection</button>
-            <button class="button" onclick="goToApp()">Go to Cars-G App</button>
-        </div>
+        <button class="button" onclick="resetNetwork()">Reset Network State</button>
+        <button class="button danger" onclick="clearEverything()">Clear Everything</button>
+        <button class="button" onclick="testConnection()">Test Connection</button>
+        <button class="button" onclick="goBack()">Go Back to App</button>
         
-        <div id="result"></div>
-        
-        <div class="log" id="log">
-            <strong>Log:</strong><br>
-            <div id="logContent"></div>
-        </div>
+        <div id="status"></div>
     </div>
-    
+
     <script>
-        let logContent = '';
-        
-        function log(message) {
-            const timestamp = new Date().toLocaleTimeString();
-            logContent += `[${timestamp}] ${message}\n`;
-            document.getElementById('logContent').textContent = logContent;
-            console.log(message);
+        function showStatus(message, type = 'info') {
+            const status = document.getElementById('status');
+            status.className = `status ${type}`;
+            status.textContent = message;
         }
-        
-        function updateStatus(message) {
-            document.getElementById('currentStatus').textContent = message;
-        }
-        
-        async function clearServiceWorker() {
-            log('Clearing service worker...');
+
+        async function resetNetwork() {
+            showStatus('Resetting network state...', 'info');
             
             try {
+                // Force online status
+                window.dispatchEvent(new Event('online'));
+                
+                // Override navigator.onLine if possible
+                try {
+                    Object.defineProperty(navigator, 'onLine', {
+                        writable: true,
+                        value: true
+                    });
+                } catch (e) {
+                    console.log('Could not override navigator.onLine');
+                }
+                
+                // Clear service workers
                 if ('serviceWorker' in navigator) {
                     const registrations = await navigator.serviceWorker.getRegistrations();
-                    log(`Found ${registrations.length} service worker(s)`);
-                    
                     for (let registration of registrations) {
                         await registration.unregister();
-                        log('Service worker unregistered');
+                        console.log('Service Worker unregistered');
                     }
-                    
-                    showResult('Service worker cleared successfully!', 'success');
-                } else {
-                    showResult('Service worker not supported in this browser', 'error');
                 }
-            } catch (error) {
-                log(`Error clearing service worker: ${error.message}`);
-                showResult(`Error: ${error.message}`, 'error');
-            }
-        }
-        
-        async function clearCaches() {
-            log('Clearing all caches...');
-            
-            try {
+                
+                // Clear caches
                 if ('caches' in window) {
                     const cacheNames = await caches.keys();
-                    log(`Found ${cacheNames.length} cache(s)`);
-                    
-                    for (let cacheName of cacheNames) {
-                        await caches.delete(cacheName);
-                        log(`Cache deleted: ${cacheName}`);
+                    for (let name of cacheNames) {
+                        await caches.delete(name);
+                        console.log('Cache deleted:', name);
                     }
-                    
-                    showResult('All caches cleared successfully!', 'success');
-                } else {
-                    showResult('Cache API not supported in this browser', 'error');
                 }
+                
+                // Clear storage
+                localStorage.clear();
+                sessionStorage.clear();
+                
+                showStatus('Network state reset successfully! You can now go back to the app.', 'success');
+                
+                // Auto-redirect after 3 seconds
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 3000);
+                
             } catch (error) {
-                log(`Error clearing caches: ${error.message}`);
-                showResult(`Error: ${error.message}`, 'error');
+                showStatus('Error resetting network: ' + error.message, 'error');
             }
         }
-        
-        async function testConnection() {
-            log('Testing connection...');
+
+        async function clearEverything() {
+            showStatus('Clearing everything...', 'info');
             
             try {
-                const response = await fetch('/manifest.webmanifest', {
-                    method: 'HEAD',
-                    cache: 'no-cache'
+                // Clear everything
+                await resetNetwork();
+                
+                // Clear IndexedDB
+                if ('indexedDB' in window) {
+                    const databases = await indexedDB.databases();
+                    for (let db of databases) {
+                        indexedDB.deleteDatabase(db.name);
+                    }
+                }
+                
+                // Clear cookies
+                document.cookie.split(";").forEach(function(c) { 
+                    document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/"); 
                 });
                 
-                if (response.ok) {
-                    log('Local connection: OK');
-                    showResult('Local connection is working!', 'success');
-                } else {
-                    log('Local connection: Failed');
-                    showResult('Local connection failed', 'error');
-                }
+                showStatus('Everything cleared! Redirecting to app...', 'success');
+                
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 2000);
+                
             } catch (error) {
-                log(`Connection test failed: ${error.message}`);
-                showResult(`Connection test failed: ${error.message}`, 'error');
+                showStatus('Error clearing everything: ' + error.message, 'error');
             }
         }
-        
-        function goToApp() {
-            log('Redirecting to Cars-G app...');
+
+        async function testConnection() {
+            showStatus('Testing connection...', 'info');
+            
+            try {
+                // Test multiple endpoints
+                const endpoints = [
+                    'https://httpbin.org/status/200',
+                    'https://api.github.com',
+                    'https://jsonplaceholder.typicode.com/posts/1'
+                ];
+                
+                let successCount = 0;
+                
+                for (let endpoint of endpoints) {
+                    try {
+                        const response = await fetch(endpoint, {
+                            method: 'HEAD',
+                            signal: AbortSignal.timeout(5000)
+                        });
+                        if (response.ok) successCount++;
+                    } catch (e) {
+                        console.log('Failed to reach:', endpoint);
+                    }
+                }
+                
+                if (successCount > 0) {
+                    showStatus(`Connection test successful! ${successCount}/${endpoints.length} endpoints reachable.`, 'success');
+                } else {
+                    showStatus('Connection test failed. No endpoints reachable.', 'error');
+                }
+                
+            } catch (error) {
+                showStatus('Connection test error: ' + error.message, 'error');
+            }
+        }
+
+        function goBack() {
             window.location.href = '/';
         }
-        
-        function showResult(message, type) {
-            const resultDiv = document.getElementById('result');
-            resultDiv.innerHTML = `<div class="${type}">${message}</div>`;
-        }
-        
-        // Check initial status
+
+        // Auto-reset on page load
         window.addEventListener('load', () => {
-            log('Page loaded');
-            
-            if (navigator.onLine) {
-                updateStatus('Online - You have internet connection');
-                log('Browser reports: Online');
-            } else {
-                updateStatus('Offline - No internet connection detected');
-                log('Browser reports: Offline');
-            }
-            
-            // Check if service worker is registered
-            if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.getRegistrations().then(registrations => {
-                    if (registrations.length > 0) {
-                        log(`Service worker registered: ${registrations[0].scope}`);
-                        updateStatus(updateStatus.textContent + ' (Service Worker Active)');
-                    } else {
-                        log('No service worker registered');
-                    }
-                });
-            }
-        });
-        
-        // Listen for online/offline events
-        window.addEventListener('online', () => {
-            log('Browser detected: Online');
-            updateStatus('Online - Internet connection restored');
-        });
-        
-        window.addEventListener('offline', () => {
-            log('Browser detected: Offline');
-            updateStatus('Offline - Internet connection lost');
+            showStatus('Page loaded. Click "Reset Network State" to fix connectivity issues.', 'info');
         });
     </script>
 </body>
