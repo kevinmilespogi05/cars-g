@@ -27,20 +27,64 @@ self.addEventListener('activate', function() {
 });
 
 messaging.onBackgroundMessage(function(payload) {
+  console.log('Background message received:', payload);
+  
   const notificationTitle = payload.notification?.title || 'Cars-G';
   const notificationOptions = {
     body: payload.notification?.body || '',
     icon: '/pwa-192x192.png',
+    badge: '/pwa-192x192.png',
+    tag: payload.notification?.tag || 'default',
+    requireInteraction: false,
+    silent: false,
     data: payload.data || {},
+    actions: [
+      {
+        action: 'reply',
+        title: 'Reply',
+        icon: '/pwa-192x192.png'
+      },
+      {
+        action: 'view',
+        title: 'View',
+        icon: '/pwa-192x192.png'
+      }
+    ]
   };
+  
+  // Show the notification
   self.registration.showNotification(notificationTitle, notificationOptions);
 });
 
 self.addEventListener('notificationclick', function(event) {
   event.notification.close();
-  const link = event.notification?.data?.link;
+  
+  const data = event.notification?.data || {};
+  const link = data.link || '/';
+  const conversationId = data.conversationId;
+  const action = event.action;
+  
+  console.log('Notification clicked:', { action, data });
+  
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
+      // If action is reply, navigate to chat with focus on input
+      if (action === 'reply' && conversationId) {
+        const chatLink = `/chat?conversationId=${conversationId}&focus=input`;
+        
+        for (const client of windowClients) {
+          if ('focus' in client) {
+            client.focus();
+            client.navigate(chatLink);
+            return;
+          }
+        }
+        if (clients.openWindow) {
+          return clients.openWindow(chatLink);
+        }
+      }
+      
+      // Default behavior: navigate to the link
       for (const client of windowClients) {
         if ('focus' in client) {
           client.focus();
@@ -49,7 +93,7 @@ self.addEventListener('notificationclick', function(event) {
         }
       }
       if (clients.openWindow) {
-        return clients.openWindow(link || '/');
+        return clients.openWindow(link);
       }
     })
   );

@@ -101,12 +101,55 @@ export function usePushNotifications({ userId, enabled = true }: UsePushNotifica
   useEffect(() => {
     // Foreground message handler
     onForegroundMessage((payload) => {
-      const { notification } = payload || {};
+      console.log('Foreground message received:', payload);
+      const { notification, data } = payload || {};
+      
       if (notification && Notification.permission === 'granted') {
-        new Notification(notification.title || 'Cars-G', {
+        // Create a more interactive notification for foreground
+        const notificationOptions: NotificationOptions = {
           body: notification.body || '',
           icon: '/pwa-192x192.png',
-        });
+          badge: '/pwa-192x192.png',
+          tag: notification.tag || 'default',
+          requireInteraction: false,
+          silent: false,
+          data: data || {},
+          actions: [
+            {
+              action: 'reply',
+              title: 'Reply',
+              icon: '/pwa-192x192.png'
+            },
+            {
+              action: 'view',
+              title: 'View',
+              icon: '/pwa-192x192.png'
+            }
+          ]
+        };
+
+        const foregroundNotification = new Notification(notification.title || 'Cars-G', notificationOptions);
+        
+        // Handle notification click actions
+        foregroundNotification.onclick = (event) => {
+          const target = event.target as Notification;
+          const data = target.data || {};
+          const link = data.link || '/';
+          const conversationId = data.conversationId;
+          
+          // Close the notification
+          target.close();
+          
+          // Navigate to the appropriate page
+          if (window.location.pathname !== link) {
+            window.location.href = link;
+          }
+        };
+        
+        // Auto-close after 5 seconds for foreground notifications
+        setTimeout(() => {
+          foregroundNotification.close();
+        }, 5000);
       }
     });
   }, []);

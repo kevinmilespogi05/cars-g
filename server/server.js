@@ -714,9 +714,58 @@ io.on('connection', (socket) => {
         const preview = (content || '').slice(0, 120);
         const link = `/chat?conversationId=${conversation_id}`;
 
+        // Insert notification to database
         await supabaseAdmin
           .from('notifications')
           .insert([{ user_id: recipientId, title: `New message from ${senderName}`, message: preview, link }]);
+
+        // Send immediate push notification
+        if (supabaseAdmin) {
+          const { data: subs, error } = await supabaseAdmin
+            .from('push_subscriptions')
+            .select('token')
+            .eq('user_id', recipientId);
+          
+          if (!error && subs && subs.length > 0) {
+            const serverKey = process.env.FIREBASE_SERVER_KEY;
+            if (serverKey) {
+              // Send push notification to all user's devices
+              for (const sub of subs) {
+                try {
+                  await fetch('https://fcm.googleapis.com/fcm/send', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': `key=${serverKey}`,
+                    },
+                    body: JSON.stringify({
+                      to: sub.token,
+                      notification: { 
+                        title: `New message from ${senderName}`,
+                        body: preview,
+                        icon: '/pwa-192x192.png',
+                        badge: '/pwa-192x192.png',
+                        tag: `chat_${conversation_id}`,
+                        requireInteraction: false,
+                        silent: false
+                      },
+                      data: { 
+                        link: link,
+                        conversationId: conversation_id,
+                        senderId: sender_id,
+                        messageType: 'chat'
+                      },
+                      priority: 'high',
+                      content_available: true
+                    }),
+                  });
+                } catch (pushError) {
+                  console.error('Failed to send push notification:', pushError);
+                }
+              }
+            }
+          }
+        }
       } catch (notifError) {
         console.error('Warning: Failed to insert chat notification:', notifError);
         // Non-critical: chat message already delivered via socket

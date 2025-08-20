@@ -8,6 +8,7 @@ import { ChatConversation, ChatMessage as ChatMessageType } from '../types';
 import { ChatService } from '../services/chatService';
 import { useChatSocket } from '../hooks/useChatSocket';
 import { useAuthStore } from '../store/authStore';
+import { useChatNotifications } from '../hooks/useChatNotifications';
 import { ArrowLeftIcon, MessageCircleIcon, PlusIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import '../components/ChatMobile.css';
@@ -26,6 +27,9 @@ export const Chat: React.FC = () => {
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [showMobileConversationList, setShowMobileConversationList] = useState(true);
+
+  // Chat notifications hook
+  const { markConversationAsRead, unreadCount } = useChatNotifications();
 
   // Mobile-specific improvements
   useEffect(() => {
@@ -118,8 +122,11 @@ export const Chat: React.FC = () => {
     if (selectedConversation) {
       loadMessages(selectedConversation.id);
       joinConversation(selectedConversation.id);
+      
+      // Mark conversation as read when selected
+      markConversationAsRead(selectedConversation.id);
     }
-  }, [selectedConversation, joinConversation]);
+  }, [selectedConversation, joinConversation, markConversationAsRead]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -306,17 +313,24 @@ export const Chat: React.FC = () => {
       <div className="h-[calc(100dvh-4rem)] sm:h-[calc(100dvh-5rem)] w-full flex flex-col sm:flex-row overflow-hidden">
         {/* Conversation List - Desktop */}
         <div className="hidden md:flex w-72 lg:w-80 bg-white border-r border-gray-200 flex-col">
-          <div className="p-4 border-b border-gray-200 bg-gray-50">
-            <div className="flex items-center justify-between mb-3">
-              <h1 className="text-xl font-semibold text-gray-900">Messages</h1>
-              <button
-                onClick={handleNewConversation}
-                className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-200 rounded-lg transition-colors"
-                title="New conversation"
-              >
-                <PlusIcon size={20} />
-              </button>
-            </div>
+                       <div className="p-4 border-b border-gray-200 bg-gray-50">
+               <div className="flex items-center justify-between mb-3">
+                 <div className="flex items-center gap-3">
+                   <h1 className="text-xl font-semibold text-gray-900">Messages</h1>
+                   {unreadCount > 0 && (
+                     <span className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+                       {unreadCount}
+                     </span>
+                   )}
+                 </div>
+                 <button
+                   onClick={handleNewConversation}
+                   className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-200 rounded-lg transition-colors"
+                   title="New conversation"
+                 >
+                   <PlusIcon size={20} />
+                 </button>
+               </div>
             <div className="flex items-center space-x-2">
               <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
               <span className="text-sm text-gray-500">
@@ -338,17 +352,24 @@ export const Chat: React.FC = () => {
         {/* Mobile Conversation List */}
         {showMobileConversationList && !selectedConversation && (
           <div className="md:hidden w-full bg-white flex flex-col h-full">
-            <div className="p-4 border-b border-gray-200 bg-gray-50 flex-shrink-0">
-              <div className="flex items-center justify-between mb-3">
-                <h1 className="text-xl font-semibold text-gray-900">Messages</h1>
-                <button
-                  onClick={handleNewConversation}
-                  className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-200 rounded-lg transition-colors"
-                  title="New conversation"
-                >
-                  <PlusIcon size={20} />
-                </button>
-              </div>
+                         <div className="p-4 border-b border-gray-200 bg-gray-50 flex-shrink-0">
+               <div className="flex items-center justify-between mb-3">
+                 <div className="flex items-center gap-3">
+                   <h1 className="text-xl font-semibold text-gray-900">Messages</h1>
+                   {unreadCount > 0 && (
+                     <span className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+                       {unreadCount}
+                     </span>
+                   )}
+                 </div>
+                 <button
+                   onClick={handleNewConversation}
+                   className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-200 rounded-lg transition-colors"
+                   title="New conversation"
+                 >
+                   <PlusIcon size={20} />
+                 </button>
+               </div>
               <div className="flex items-center space-x-2">
                 <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
                 <span className="text-sm text-gray-500">
