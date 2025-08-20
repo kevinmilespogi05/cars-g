@@ -298,59 +298,102 @@ export const ChatInput: React.FC<ChatInputProps> = ({
 
   const handleLocationShare = async () => {
     if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          const { latitude, longitude } = position.coords;
-          const messageContent = `Location: ${latitude}, ${longitude}`;
-          const messageId = `unsent_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-          
-          // Add message to unsent list immediately
-          const unsentMessage = {
-            id: messageId,
-            content: messageContent,
-            messageType: 'location' as const,
-            timestamp: new Date(),
-          };
-          
-          setUnsentMessages(prev => [...prev, unsentMessage]);
+      // Enhanced location options for better precision
+      const locationOptions = {
+        enableHighAccuracy: true,
+        timeout: 30000, // Increased timeout for better accuracy
+        maximumAge: 0, // Always get fresh position
+      };
 
-          try {
-            const success = await onSendMessage(messageContent, 'location');
-            
-            if (success) {
-              // Remove from unsent list if successful
-              setUnsentMessages(prev => prev.filter(msg => msg.id !== messageId));
-            } else {
-              // Mark as failed if not successful
-              setUnsentMessages(prev => 
-                prev.map(msg => 
-                  msg.id === messageId 
-                    ? { ...msg, error: 'Failed to send location' }
-                    : msg
-                )
-              );
-            }
-          } catch (error) {
-            // Mark as failed if error occurs
+      // Get location with retry mechanism
+      const getLocationWithRetry = (maxRetries: number = 3): Promise<GeolocationPosition> => {
+        return new Promise((resolve, reject) => {
+          let attempts = 0;
+
+          const tryGetLocation = () => {
+            attempts++;
+            navigator.geolocation.getCurrentPosition(
+              (position) => {
+                // Check if accuracy is acceptable (better than 50 meters)
+                if (position.coords.accuracy && position.coords.accuracy <= 50) {
+                  resolve(position);
+                } else if (attempts < maxRetries) {
+                  console.log(`Location accuracy ${position.coords.accuracy}m not sufficient, retrying...`);
+                  setTimeout(tryGetLocation, 1000 * attempts);
+                } else {
+                  // Accept the position even if accuracy isn't ideal
+                  resolve(position);
+                }
+              },
+              (error) => {
+                if (attempts < maxRetries) {
+                  console.log(`Location attempt ${attempts} failed, retrying...`);
+                  setTimeout(tryGetLocation, 1000 * attempts);
+                } else {
+                  reject(error);
+                }
+              },
+              locationOptions
+            );
+          };
+
+          tryGetLocation();
+        });
+      };
+
+      try {
+        const position = await getLocationWithRetry();
+        const { latitude, longitude, accuracy } = position.coords;
+        
+        // Enhanced location message with accuracy information
+        const accuracyText = accuracy ? ` (Accuracy: ±${Math.round(accuracy)}m)` : '';
+        const messageContent = `Location: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}${accuracyText}`;
+        const messageId = `unsent_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        // Add message to unsent list immediately
+        const unsentMessage = {
+          id: messageId,
+          content: messageContent,
+          messageType: 'location' as const,
+          timestamp: new Date(),
+        };
+        
+        setUnsentMessages(prev => [...prev, unsentMessage]);
+
+        try {
+          const success = await onSendMessage(messageContent, 'location');
+          
+          if (success) {
+            // Remove from unsent list if successful
+            setUnsentMessages(prev => prev.filter(msg => msg.id !== messageId));
+          } else {
+            // Mark as failed if not successful
             setUnsentMessages(prev => 
               prev.map(msg => 
                 msg.id === messageId 
-                  ? { ...msg, error: error instanceof Error ? error.message : 'Failed to send location' }
+                  ? { ...msg, error: 'Failed to send location' }
                   : msg
               )
             );
           }
-        },
-        (error) => {
-          console.error('Error getting location:', error);
-          let msg = 'Unable to get your location';
-          if (error.code === 1) msg = 'Location permission denied. Please allow location access and try again.';
-          if (error.code === 2) msg = 'Location unavailable. Check device settings and try again.';
-          if (error.code === 3) msg = 'Location request timed out. Check your connection and try again.';
-          alert(msg);
-        },
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
-      );
+        } catch (error) {
+          // Mark as failed if error occurs
+          setUnsentMessages(prev => 
+            prev.map(msg => 
+              msg.id === messageId 
+                ? { ...msg, error: error instanceof Error ? error.message : 'Failed to send location' }
+                : msg
+            )
+          );
+        }
+      } catch (error) {
+        console.error('Error getting location:', error);
+        let msg = 'Unable to get your location';
+        if (error.code === 1) msg = 'Location permission denied. Please allow location access and try again.';
+        if (error.code === 2) msg = 'Location unavailable. Check device settings and try again.';
+        if (error.code === 3) msg = 'Location request timed out. Check your connection and try again.';
+        alert(msg);
+      }
     } else {
       alert('Geolocation is not supported by this browser');
     }
