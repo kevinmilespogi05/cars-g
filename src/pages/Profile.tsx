@@ -103,30 +103,14 @@ export function Profile() {
 
   const fetchUserStats = async (userId: string) => {
     try {
-      // Fetch reports submitted
-      const { count: submittedCount } = await supabase
-        .from('reports')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId);
-
-      // Fetch reports verified (reports that have been verified by authorities)
-      const { count: verifiedCount } = await supabase
-        .from('reports')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId)
-        .eq('status', 'in_progress');
-
-      // Fetch reports resolved
-      const { count: resolvedCount } = await supabase
-        .from('reports')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId)
-        .eq('status', 'resolved');
-
+      // Use the achievements system to get comprehensive stats
+      const { getUserStatsWithCache } = await import('../lib/achievements');
+      const stats = await getUserStatsWithCache(userId);
+      
       setUserStats({
-        reports_submitted: submittedCount || 0,
-        reports_verified: verifiedCount || 0,
-        reports_resolved: resolvedCount || 0
+        reports_submitted: stats.reports_submitted,
+        reports_verified: stats.reports_verified,
+        reports_resolved: stats.reports_resolved
       });
     } catch (error) {
       console.error('Error fetching user stats:', error);

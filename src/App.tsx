@@ -26,6 +26,8 @@ import { PWAPrompt } from './components/PWAPrompt';
 import { NetworkStatus } from './components/NetworkStatus';
 import { AIReportingButton } from './components/AIReportingButton';
 import { usePushNotifications } from './hooks/usePushNotifications';
+import { PerformanceMonitor } from './components/PerformanceMonitor';
+import { useAchievementNotifications, AchievementNotification } from './components/AchievementNotification';
 
 // Configure future flags for React Router v7
 const routerConfig = {
@@ -86,6 +88,7 @@ function App() {
   const { initialize, isAuthenticated, user } = useAuthStore();
   const [isInitialized, setIsInitialized] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const { notifications, removeNotification } = useAchievementNotifications();
 
   useEffect(() => {
     const init = async () => {
@@ -222,6 +225,23 @@ function App() {
           
           {/* PWA Install Prompt */}
           <PWAPrompt />
+
+          {/* Performance Monitor - only show in development or for admins */}
+          {(import.meta.env.DEV || user?.role === 'admin') && (
+            <PerformanceMonitor />
+          )}
+
+          {/* Achievement Notifications */}
+          {notifications.map((notification) => (
+            <AchievementNotification
+              key={notification.id}
+              achievementId={notification.achievementId}
+              title={notification.title}
+              points={notification.points}
+              icon={notification.icon}
+              onClose={() => removeNotification(notification.id)}
+            />
+          ))}
         </div>
         <Analytics />
       </Providers>

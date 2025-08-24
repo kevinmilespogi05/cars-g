@@ -7,7 +7,7 @@ import { NewConversationModal } from '../components/NewConversationModal';
 import { NotificationPermissionRequest } from '../components/NotificationPermissionRequest';
 import { ChatConversation, ChatMessage as ChatMessageType } from '../types';
 import { ChatService } from '../services/chatService';
-import { useChatSocket } from '../hooks/useChatSocket';
+import { useOptimizedRealTime } from '../hooks/useOptimizedRealTime';
 import { useAuthStore } from '../store/authStore';
 import { useChatNotifications } from '../hooks/useChatNotifications';
 import { ArrowLeftIcon, MessageCircleIcon, PlusIcon } from 'lucide-react';
@@ -92,23 +92,31 @@ export const Chat: React.FC = () => {
     });
   }, []);
 
-  // WebSocket hook
+  // Optimized real-time hook
   const {
     isConnected,
     isAuthenticated,
+    connectionQuality,
+    stats,
     sendMessage,
     joinConversation,
     leaveConversation,
     startTyping,
     stopTyping,
-  } = useChatSocket({
-    userId: user?.id || '',
-    onMessage: handleNewMessage,
-    onTyping: handleUserTyping,
-    onTypingStop: handleUserStoppedTyping,
-    onAuthenticated: () => console.log('Chat authenticated'),
-    onAuthError: (error) => console.error('Chat auth error:', error),
+    trackActivity,
+  } = useOptimizedRealTime({
+    enableChat: true,
+    enableReports: false,
+    debounceDelay: 100,
+    batchDelay: 50,
   });
+
+  // Update activity tracking
+  useEffect(() => {
+    if (messages.length > 0) {
+      trackActivity();
+    }
+  }, [messages, trackActivity]);
 
   // Load conversations and profiles on mount
   useEffect(() => {

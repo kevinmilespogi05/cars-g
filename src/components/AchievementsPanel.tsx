@@ -1,81 +1,76 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { supabase } from '../lib/supabase';
-import { Trophy, CheckCircle2 } from 'lucide-react';
-import { ACHIEVEMENTS } from '../lib/achievements';
+import React, { useEffect, useState } from 'react';
+import { Trophy, CheckCircle2, RefreshCw } from 'lucide-react';
+import { getUserAchievementProgress, clearUserStatsCache } from '../lib/achievements';
 
-interface Props { userId: string; }
+interface Props { 
+  userId: string; 
+  onAchievementUnlocked?: (achievementId: string) => void;
+}
 
-export function AchievementsPanel({ userId }: Props) {
+export function AchievementsPanel({ userId, onAchievementUnlocked }: Props) {
   const [loading, setLoading] = useState(true);
-  const [userStats, setUserStats] = useState<any | null>(null);
-  const [earnedIds, setEarnedIds] = useState<Set<string>>(new Set());
+  const [refreshing, setRefreshing] = useState(false);
+  const [achievementProgress, setAchievementProgress] = useState<{
+    achievements: Array<{
+      id: string;
+      title: string;
+      description: string;
+      icon: string;
+      points: number;
+      requirement: { type: string; count: number };
+      unlocked: boolean;
+      progress: number;
+      currentValue: number;
+    }>;
+    unlockedCount: number;
+    totalCount: number;
+  }>({
+    achievements: [],
+    unlockedCount: 0,
+    totalCount: 0
+  });
+
+  const loadAchievements = async (isRefresh = false) => {
+    try {
+      if (isRefresh) {
+        setRefreshing(true);
+        clearUserStatsCache(userId);
+      } else {
+        setLoading(true);
+      }
+
+      const progress = await getUserAchievementProgress(userId);
+      setAchievementProgress(progress);
+
+      // Check for newly unlocked achievements
+      if (isRefresh && progress.unlockedCount > achievementProgress.unlockedCount) {
+        const newlyUnlocked = progress.achievements.filter(
+          a => a.unlocked && !achievementProgress.achievements.find(
+            existing => existing.id === a.id && existing.unlocked
+          )
+        );
+        
+        newlyUnlocked.forEach(achievement => {
+          onAchievementUnlocked?.(achievement.id);
+        });
+      }
+    } catch (error) {
+      console.error('Error loading achievements:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
 
   useEffect(() => {
-    let mounted = true;
-    async function load() {
-      if (!userId) return;
-      setLoading(true);
-      const [statsRes, earnedRes] = await Promise.all([
-        supabase
-          .from('user_stats')
-          .select('*')
-          .eq('user_id', userId)
-          .single(),
-        supabase
-          .from('user_achievements')
-          .select('achievement_id')
-          .eq('user_id', userId)
-      ]);
-      if (!mounted) return;
-      if (statsRes.error) {
-        console.error('Error fetching user_stats:', statsRes.error);
-        setUserStats(null);
-      } else {
-        setUserStats(statsRes.data);
-      }
-      if (earnedRes.error) {
-        console.error('Error fetching user_achievements:', earnedRes.error);
-        setEarnedIds(new Set());
-      } else {
-        setEarnedIds(new Set((earnedRes.data || []).map((r: any) => r.achievement_id)));
-      }
-      setLoading(false);
+    if (userId) {
+      loadAchievements();
     }
-    load();
-    return () => { mounted = false; };
   }, [userId]);
 
-  const computed = useMemo(() => {
-    if (!userStats) return [] as Array<{ id: string; name: string; description: string; icon?: string; points: number; requirement_type: string; requirement_count: number; unlocked: boolean; progressPct: number }>;
-    return ACHIEVEMENTS.map(a => {
-      let value = 0;
-      switch (a.requirement.type) {
-        case 'reports_submitted': value = userStats.reports_submitted || 0; break;
-        case 'reports_verified': value = userStats.reports_verified || 0; break;
-        case 'reports_resolved': value = userStats.reports_resolved || 0; break;
-        case 'days_active': value = userStats.days_active || 0; break;
-        case 'points_earned': value = userStats.total_points || 0; break;
-      }
-      const unlocked = earnedIds.has(a.id);
-      const progressPct = Math.min(100, Math.round((value / a.requirement.count) * 100));
-      return {
-        id: a.id,
-        name: a.title,
-        description: a.description,
-        icon: a.icon,
-        points: a.points,
-        requirement_type: a.requirement.type,
-        requirement_count: a.requirement.count,
-        unlocked,
-        progressPct
-      };
-    });
-  }, [userStats, earnedIds]);
-
-  const [unlockedCount, totalCount] = useMemo(() => {
-    const unlocked = computed.filter(x => x.unlocked).length;
-    return [unlocked, computed.length];
-  }, [computed]);
+  const handleRefresh = () => {
+    loadAchievements(true);
+  };
 
   if (!userId) return null;
 
@@ -84,40 +79,75 @@ export function AchievementsPanel({ userId }: Props) {
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2 text-gray-700">
           <Trophy className="w-5 h-5 text-yellow-500" />
-          <span className="text-sm">{unlockedCount} / {totalCount} unlocked</span>
+          <span className="text-sm font-medium">
+            {achievementProgress.unlockedCount} / {achievementProgress.totalCount} unlocked
+          </span>
         </div>
-        {loading && <span className="text-xs text-gray-500">Loading…</span>}
+        <div className="flex items-center gap-2">
+          {(loading || refreshing) && (
+            <span className="text-xs text-gray-500">
+              {refreshing ? 'Refreshing...' : 'Loading…'}
+            </span>
+          )}
+          <button
+            onClick={handleRefresh}
+            disabled={loading || refreshing}
+            className="p-1 text-gray-500 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            title="Refresh achievements"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {computed.map((r) => (
-          <div key={r.id} className={`rounded-lg border p-4 ${r.unlocked ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-white'}`}>
+        {achievementProgress.achievements.map((achievement) => (
+          <div 
+            key={achievement.id} 
+            className={`rounded-lg border p-4 transition-all duration-200 ${
+              achievement.unlocked 
+                ? 'border-green-200 bg-green-50 shadow-sm' 
+                : 'border-gray-200 bg-white hover:shadow-sm'
+            }`}
+          >
             <div className="flex items-start gap-3">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${r.unlocked ? 'bg-green-100' : 'bg-gray-100'}`}>
-                {r.icon ? (
-                  <span className="text-lg" role="img" aria-label="icon">{r.icon}</span>
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${
+                achievement.unlocked ? 'bg-green-100' : 'bg-gray-100'
+              }`}>
+                {achievement.icon ? (
+                  <span className="text-lg" role="img" aria-label="icon">{achievement.icon}</span>
                 ) : (
-                  <Trophy className={`w-5 h-5 ${r.unlocked ? 'text-green-600' : 'text-gray-500'}`} />
+                  <Trophy className={`w-5 h-5 ${achievement.unlocked ? 'text-green-600' : 'text-gray-500'}`} />
                 )}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between">
-                  <h4 className="font-medium text-gray-900 truncate">{r.name}</h4>
-                  <span className="ml-2 text-xs text-gray-500">{r.points} pts</span>
+                  <h4 className="font-medium text-gray-900 truncate">{achievement.title}</h4>
+                  <span className="ml-2 text-xs text-gray-500">{achievement.points} pts</span>
                 </div>
-                <p className="text-sm text-gray-600 mt-0.5 line-clamp-2">{r.description}</p>
+                <p className="text-sm text-gray-600 mt-0.5 line-clamp-2">{achievement.description}</p>
                 <div className="mt-3">
-                  <div className="flex justify-between text-xs text-gray-500">
-                    <span>Requirement</span>
-                    <span>{r.requirement_type.replace('_', ' ')} · {r.requirement_count}</span>
+                  <div className="flex justify-between text-xs text-gray-500 mb-1">
+                    <span>Progress</span>
+                    <span>{achievement.currentValue} / {achievement.requirement.count}</span>
                   </div>
-                  <div className="mt-2 h-2 bg-gray-100 rounded-full overflow-hidden">
-                    <div className={`h-full ${r.unlocked ? 'bg-green-500' : 'bg-primary-color/60'}`} style={{ width: `${r.progressPct}%` }} />
+                  <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full transition-all duration-300 ${
+                        achievement.unlocked ? 'bg-green-500' : 'bg-blue-500'
+                      }`} 
+                      style={{ width: `${achievement.progress}%` }} 
+                    />
                   </div>
-                  {r.unlocked && (
+                  {achievement.unlocked && (
                     <div className="mt-2 flex items-center gap-1 text-xs text-green-700">
                       <CheckCircle2 className="w-4 h-4" />
-                      <span>Unlocked</span>
+                      <span>Unlocked!</span>
+                    </div>
+                  )}
+                  {!achievement.unlocked && achievement.progress > 0 && (
+                    <div className="mt-1 text-xs text-gray-500">
+                      {achievement.progress}% complete
                     </div>
                   )}
                 </div>
@@ -126,6 +156,13 @@ export function AchievementsPanel({ userId }: Props) {
           </div>
         ))}
       </div>
+
+      {achievementProgress.achievements.length === 0 && !loading && (
+        <div className="text-center py-8 text-gray-500">
+          <Trophy className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+          <p>No achievements available</p>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, useState } from 'react';
+import { useEffect, useRef, useCallback, useState, useMemo } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { ChatMessage } from '../types';
 import { config } from '../lib/config';
@@ -24,6 +24,19 @@ interface UseChatSocketReturn {
   disconnect: () => void;
 }
 
+// Global socket instance for connection pooling
+let globalSocket: Socket | null = null;
+let globalSocketUsers = new Set<string>();
+
+// Message batching for better performance
+const messageBatch = new Map<string, Array<{ content: string; messageType: string; timestamp: number }>>();
+const BATCH_DELAY = 50; // 50ms batch delay
+const BATCH_TIMERS = new Map<string, NodeJS.Timeout>();
+
+// Typing debouncing
+const typingTimers = new Map<string, NodeJS.Timeout>();
+const TYPING_DEBOUNCE = 300; // 300ms debounce
+
 export const useChatSocket = ({
   userId,
   onMessage,
@@ -35,96 +48,103 @@ export const useChatSocket = ({
   const socketRef = useRef<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const messageQueueRef = useRef<Array<{ conversationId: string; content: string; messageType: string }>>([]);
+  const isProcessingRef = useRef(false);
 
-  // Initialize socket connection
+  // Optimized socket configuration
+  const socketConfig = useMemo(() => ({
+    transports: ['websocket'], // Force WebSocket only for better performance
+    autoConnect: false, // Manual connection control
+    reconnection: true,
+    reconnectionAttempts: 3,
+    reconnectionDelay: 500,
+    reconnectionDelayMax: 2000,
+    timeout: 10000, // Reduced timeout
+    forceNew: false,
+    upgrade: false, // Disable upgrade for better performance
+    rememberUpgrade: false,
+    // Performance optimizations
+    pingTimeout: 60000,
+    pingInterval: 25000,
+    maxHttpBufferSize: 1e6, // 1MB
+    allowEIO3: false, // Disable legacy support
+  }), []);
+
+  // Initialize socket connection with connection pooling
   useEffect(() => {
     if (!userId) return;
 
-    // Prevent multiple connections
-    if (socketRef.current) {
-      console.log('Socket already exists, skipping new connection');
+    // Use global socket if available and not at capacity
+    if (globalSocket && globalSocket.connected && globalSocketUsers.size < 10) {
+      socketRef.current = globalSocket;
+      globalSocketUsers.add(userId);
+      setIsConnected(true);
+      
+      // Authenticate user
+      globalSocket.emit('authenticate', userId);
       return;
     }
 
-    const chatServerUrl = import.meta.env.DEV ? 'http://localhost:3001' : (import.meta.env.VITE_CHAT_SERVER_URL || config.api.baseUrl);
-    console.log('Creating new socket connection to:', chatServerUrl);
-    
-    socketRef.current = io(chatServerUrl, {
-      transports: ['websocket', 'polling'],
-      autoConnect: true,
-      reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-      timeout: 20000,
-      forceNew: false,
-      upgrade: true,
-      rememberUpgrade: true,
-    });
-
-    const socket = socketRef.current;
-
-    // Connection events
-    socket.on('connect', () => {
-      console.log('Connected to chat server');
-      setIsConnected(true);
+    // Create new socket if needed
+    if (!globalSocket || !globalSocket.connected) {
+      const chatServerUrl = import.meta.env.DEV 
+        ? 'http://localhost:3001' 
+        : (import.meta.env.VITE_CHAT_SERVER_URL || config.api.baseUrl);
       
-      // Authenticate user after connection
-      socket.emit('authenticate', userId);
-    });
+      console.log('Creating optimized socket connection to:', chatServerUrl);
+      
+      globalSocket = io(chatServerUrl, socketConfig);
+      socketRef.current = globalSocket;
+      globalSocketUsers.add(userId);
 
-    socket.on('disconnect', () => {
-      console.log('Disconnected from chat server');
-      setIsConnected(false);
-      setIsAuthenticated(false);
-    });
+      // Connection events
+      globalSocket.on('connect', () => {
+        console.log('Connected to chat server');
+        setIsConnected(true);
+        globalSocket!.emit('authenticate', userId);
+      });
 
-    socket.on('connect_error', (error) => {
-      console.error('Connection error:', error);
-      setIsConnected(false);
-    });
+      globalSocket.on('disconnect', () => {
+        console.log('Disconnected from chat server');
+        setIsConnected(false);
+        setIsAuthenticated(false);
+        globalSocketUsers.clear();
+      });
 
-    // Authentication events
-    socket.on('authenticated', (data) => {
-      console.log('Authenticated with chat server:', data);
-      setIsAuthenticated(true);
-      onAuthenticated?.(data);
-    });
+      globalSocket.on('connect_error', (error) => {
+        console.error('Connection error:', error);
+        setIsConnected(false);
+      });
 
-    socket.on('auth_error', (error) => {
-      console.error('Authentication error:', error);
-      setIsAuthenticated(false);
-      onAuthError?.(error);
-    });
+      // Authentication events
+      globalSocket.on('authenticated', (data) => {
+        console.log('Authenticated with chat server:', data);
+        setIsAuthenticated(true);
+        onAuthenticated?.(data);
+      });
 
-    // Chat events
-    socket.on('new_message', (message: ChatMessage) => {
-      console.log('New message received:', message);
-      onMessage?.(message);
-    });
+      globalSocket.on('auth_error', (error) => {
+        console.error('Authentication error:', error);
+        setIsAuthenticated(false);
+        onAuthError?.(error);
+      });
 
-    socket.on('message_deleted', (data: { messageId: string; conversationId: string }) => {
-      console.log('Message deleted:', data);
-      // This will be handled by the Chat component to remove the message from the UI
-    });
-
-    socket.on('user_typing', (data) => {
-      onTyping?.(data.userId, data.username);
-    });
-
-    socket.on('user_stopped_typing', (data) => {
-      onTypingStop?.(data.userId);
-    });
+      // Connect the socket
+      globalSocket.connect();
+    }
 
     return () => {
-      if (socket) {
-        console.log('Cleaning up socket connection');
-        socket.disconnect();
-        socketRef.current = null;
+      if (globalSocket && globalSocketUsers.has(userId)) {
+        globalSocketUsers.delete(userId);
+        if (globalSocketUsers.size === 0) {
+          globalSocket.disconnect();
+          globalSocket = null;
+        }
       }
     };
-  }, [userId]); // Only depend on userId, not the callback functions
+  }, [userId, socketConfig, onAuthenticated, onAuthError]);
 
-  // Update event listeners when callbacks change (without recreating socket)
+  // Optimized event listeners with memoization
   useEffect(() => {
     const socket = socketRef.current;
     if (!socket || !isConnected) return;
@@ -133,11 +153,9 @@ export const useChatSocket = ({
     socket.off('new_message');
     socket.off('user_typing');
     socket.off('user_stopped_typing');
-    socket.off('authenticated');
-    socket.off('auth_error');
     socket.off('message_deleted');
 
-    // Add new listeners
+    // Add new listeners with debouncing
     socket.on('new_message', (message: ChatMessage) => {
       console.log('New message received:', message);
       onMessage?.(message);
@@ -145,31 +163,63 @@ export const useChatSocket = ({
 
     socket.on('message_deleted', (data: { messageId: string; conversationId: string }) => {
       console.log('Message deleted:', data);
-      // This will be handled by the Chat component to remove the message from the UI
     });
 
     socket.on('user_typing', (data) => {
+      // Debounce typing events
+      const key = `${data.userId}-${data.conversationId || 'global'}`;
+      if (typingTimers.has(key)) {
+        clearTimeout(typingTimers.get(key)!);
+      }
+      
       onTyping?.(data.userId, data.username);
+      
+      const timer = setTimeout(() => {
+        onTypingStop?.(data.userId);
+        typingTimers.delete(key);
+      }, TYPING_DEBOUNCE);
+      
+      typingTimers.set(key, timer);
     });
 
     socket.on('user_stopped_typing', (data) => {
+      const key = `${data.userId}-${data.conversationId || 'global'}`;
+      if (typingTimers.has(key)) {
+        clearTimeout(typingTimers.get(key)!);
+        typingTimers.delete(key);
+      }
       onTypingStop?.(data.userId);
     });
+  }, [onMessage, onTyping, onTypingStop, isConnected]);
 
-    socket.on('authenticated', (data) => {
-      console.log('Authenticated with chat server:', data);
-      setIsAuthenticated(true);
-      onAuthenticated?.(data);
+  // Message batching function
+  const flushMessageBatch = useCallback((conversationId: string) => {
+    const batch = messageBatch.get(conversationId);
+    if (!batch || batch.length === 0) return;
+
+    const socket = socketRef.current;
+    if (!socket || !isAuthenticated) return;
+
+    // Send batched messages
+    socket.emit('send_message_batch', {
+      conversation_id: conversationId,
+      messages: batch.map(msg => ({
+        content: msg.content,
+        message_type: msg.messageType,
+        timestamp: msg.timestamp
+      }))
     });
 
-    socket.on('auth_error', (error) => {
-      console.error('Authentication error:', error);
-      setIsAuthenticated(false);
-      onAuthError?.(error);
-    });
-  }, [onMessage, onTyping, onTypingStop, onAuthenticated, onAuthError, isConnected]);
+    // Clear batch
+    messageBatch.delete(conversationId);
+    const timer = BATCH_TIMERS.get(conversationId);
+    if (timer) {
+      clearTimeout(timer);
+      BATCH_TIMERS.delete(conversationId);
+    }
+  }, [isAuthenticated]);
 
-  // Send message
+  // Optimized send message with batching
   const sendMessage = useCallback((
     conversationId: string,
     content: string,
@@ -180,22 +230,34 @@ export const useChatSocket = ({
       return;
     }
 
-    console.log('Sending message via socket:', {
-      conversationId,
-      content: content.substring(0, 100) + (content.length > 100 ? '...' : ''),
-      messageType,
-      userId
-    });
-
-    socketRef.current.emit('send_message', {
-      conversation_id: conversationId,
-      sender_id: userId,
+    // Add to batch
+    if (!messageBatch.has(conversationId)) {
+      messageBatch.set(conversationId, []);
+    }
+    
+    messageBatch.get(conversationId)!.push({
       content,
-      message_type: messageType,
+      messageType,
+      timestamp: Date.now()
     });
-  }, [userId, isAuthenticated]);
 
-  // Join conversation
+    // Set batch timer
+    if (!BATCH_TIMERS.has(conversationId)) {
+      const timer = setTimeout(() => {
+        flushMessageBatch(conversationId);
+      }, BATCH_DELAY);
+      BATCH_TIMERS.set(conversationId, timer);
+    }
+
+    console.log('Message queued for batch send:', {
+      conversationId,
+      content: content.substring(0, 50) + (content.length > 50 ? '...' : ''),
+      messageType,
+      batchSize: messageBatch.get(conversationId)?.length || 0
+    });
+  }, [isAuthenticated, flushMessageBatch]);
+
+  // Optimized conversation management
   const joinConversation = useCallback((conversationId: string) => {
     if (!socketRef.current || !isAuthenticated) {
       console.error('Socket not connected or not authenticated');
@@ -205,42 +267,71 @@ export const useChatSocket = ({
     socketRef.current.emit('join_conversation', conversationId);
   }, [isAuthenticated]);
 
-  // Leave conversation
   const leaveConversation = useCallback((conversationId: string) => {
     if (!socketRef.current || !isAuthenticated) {
       console.error('Socket not connected or not authenticated');
       return;
     }
 
+    // Flush any pending messages before leaving
+    flushMessageBatch(conversationId);
     socketRef.current.emit('leave_conversation', conversationId);
-  }, [isAuthenticated]);
+  }, [isAuthenticated, flushMessageBatch]);
 
-  // Start typing indicator
+  // Optimized typing indicators with debouncing
   const startTyping = useCallback((conversationId: string) => {
     if (!socketRef.current || !isAuthenticated) {
       console.error('Socket not connected or not authenticated');
       return;
     }
 
+    const key = `typing-${conversationId}`;
+    if (typingTimers.has(key)) {
+      clearTimeout(typingTimers.get(key)!);
+    }
+
     socketRef.current.emit('typing_start', conversationId);
+    
+    const timer = setTimeout(() => {
+      stopTyping(conversationId);
+      typingTimers.delete(key);
+    }, 3000); // Auto-stop typing after 3 seconds
+    
+    typingTimers.set(key, timer);
   }, [isAuthenticated]);
 
-  // Stop typing indicator
   const stopTyping = useCallback((conversationId: string) => {
     if (!socketRef.current || !isAuthenticated) {
       console.error('Socket not connected or not authenticated');
       return;
     }
 
+    const key = `typing-${conversationId}`;
+    if (typingTimers.has(key)) {
+      clearTimeout(typingTimers.get(key)!);
+      typingTimers.delete(key);
+    }
+
     socketRef.current.emit('typing_stop', conversationId);
   }, [isAuthenticated]);
 
-  // Disconnect
+  // Cleanup function
   const disconnect = useCallback(() => {
+    // Flush all pending message batches
+    messageBatch.forEach((_, conversationId) => {
+      flushMessageBatch(conversationId);
+    });
+
+    // Clear all timers
+    BATCH_TIMERS.forEach(timer => clearTimeout(timer));
+    BATCH_TIMERS.clear();
+    typingTimers.forEach(timer => clearTimeout(timer));
+    typingTimers.clear();
+
     if (socketRef.current) {
       socketRef.current.disconnect();
     }
-  }, []);
+  }, [flushMessageBatch]);
 
   return {
     socket: socketRef.current,
