@@ -1,6 +1,6 @@
-import { reportsService } from './reportsService';
+import { reportsService } from '../services/reportsService';
 import { awardPoints } from './points';
-import { activityService } from './activityService';
+import { activityService } from '../services/activityService';
 
 export type QueuedReport = {
   id: string; // local temp id
