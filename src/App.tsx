@@ -105,24 +105,7 @@ function App() {
     init();
   }, [initialize]);
 
-  // Log out on tab/browser close to ensure session ends
-  useEffect(() => {
-    const handleUnload = () => {
-      try {
-        // Fire-and-forget sign out; clearing local tokens guarantees logout on next load
-        supabase.auth.signOut();
-      } catch {}
-      try { localStorage.removeItem('supabase.auth.token'); } catch {}
-      try { sessionStorage.clear(); } catch {}
-    };
 
-    window.addEventListener('beforeunload', handleUnload);
-    window.addEventListener('pagehide', handleUnload);
-    return () => {
-      window.removeEventListener('beforeunload', handleUnload);
-      window.removeEventListener('pagehide', handleUnload);
-    };
-  }, []);
 
   // Mobile-specific fixes to prevent refresh loops
   useEffect(() => {
