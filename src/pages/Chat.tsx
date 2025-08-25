@@ -5,12 +5,14 @@ import { ChatInput } from '../components/ChatInput';
 import { ChatDemo } from '../components/ChatDemo';
 import { NewConversationModal } from '../components/NewConversationModal';
 import { NotificationPermissionRequest } from '../components/NotificationPermissionRequest';
+
 import { ChatConversation, ChatMessage as ChatMessageType } from '../types';
 import { ChatService } from '../services/chatService';
 import { useOptimizedRealTime } from '../hooks/useOptimizedRealTime';
+import { useChatSocket } from '../hooks/useChatSocket';
 import { useAuthStore } from '../store/authStore';
 import { useChatNotifications } from '../hooks/useChatNotifications';
-import { ArrowLeftIcon, MessageCircleIcon, PlusIcon } from 'lucide-react';
+import { ArrowLeftIcon, MessageCircleIcon, PlusIcon, WifiIcon, WifiOffIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import '../components/ChatMobile.css';
 
@@ -68,7 +70,12 @@ export const Chat: React.FC = () => {
 
   // Define handlers before using them in the hook
   const handleNewMessage = useCallback((message: ChatMessageType) => {
-    setMessages(prev => [...prev, message]);
+    console.log('New message received:', message);
+    
+    // Add message to current conversation if it matches
+    if (selectedConversation && message.conversation_id === selectedConversation.id) {
+      setMessages(prev => [...prev, message]);
+    }
     
     // Update conversation in list with new message
     setConversations(prev => 
@@ -78,7 +85,7 @@ export const Chat: React.FC = () => {
           : conv
       )
     );
-  }, []);
+  }, [selectedConversation]);
 
   const handleUserTyping = useCallback((userId: string, username: string) => {
     setTypingUsers(prev => new Set(prev).add(username));
@@ -92,20 +99,40 @@ export const Chat: React.FC = () => {
     });
   }, []);
 
-  // Optimized real-time hook
+  // Chat socket hook for real-time messaging
   const {
+    socket,
     isConnected,
     isAuthenticated,
-    connectionQuality,
-    stats,
     sendMessage,
     joinConversation,
     leaveConversation,
     startTyping,
     stopTyping,
+  } = useChatSocket({
+    userId: user?.id || '',
+    onMessage: handleNewMessage,
+    onTyping: handleUserTyping,
+    onTypingStop: handleUserStoppedTyping,
+  });
+
+  // Debug logging for WebSocket status
+  useEffect(() => {
+    console.log('WebSocket Status:', {
+      isConnected,
+      isAuthenticated,
+      socketId: socket?.id,
+      userId: user?.id
+    });
+  }, [isConnected, isAuthenticated, socket?.id, user?.id]);
+
+  // Optimized real-time hook for other features
+  const {
+    connectionQuality,
+    stats,
     trackActivity,
   } = useOptimizedRealTime({
-    enableChat: true,
+    enableChat: false, // We're handling chat separately
     enableReports: false,
     debounceDelay: 100,
     batchDelay: 50,
@@ -141,6 +168,40 @@ export const Chat: React.FC = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // WebSocket event listeners for real-time updates
+  useEffect(() => {
+    if (!socket) return;
+
+    // Listen for new messages
+    const handleSocketMessage = (message: ChatMessageType) => {
+      console.log('Socket message received:', message);
+      handleNewMessage(message);
+    };
+
+    // Listen for typing events
+    const handleSocketTyping = (data: { userId: string; username: string }) => {
+      console.log('User typing:', data);
+      handleUserTyping(data.userId, data.username);
+    };
+
+    const handleSocketTypingStop = (data: { userId: string }) => {
+      console.log('User stopped typing:', data);
+      handleUserStoppedTyping(data.userId);
+    };
+
+    // Add event listeners
+    socket.on('new_message', handleSocketMessage);
+    socket.on('user_typing', handleSocketTyping);
+    socket.on('user_stopped_typing', handleSocketTypingStop);
+
+    // Cleanup
+    return () => {
+      socket.off('new_message', handleSocketMessage);
+      socket.off('user_typing', handleSocketTyping);
+      socket.off('user_stopped_typing', handleSocketTypingStop);
+    };
+  }, [socket, handleNewMessage, handleUserTyping, handleUserStoppedTyping]);
 
   // Cleanup when leaving conversation
   useEffect(() => {
@@ -209,11 +270,44 @@ export const Chat: React.FC = () => {
   };
 
   const handleSendMessage = async (content: string, messageType: string): Promise<boolean> => {
-    if (!selectedConversation) return false;
+    if (!selectedConversation || !user) return false;
 
     try {
+      // Create optimistic message
+      const optimisticMessage: ChatMessageType = {
+        id: `temp-${Date.now()}`, // Temporary ID
+        conversation_id: selectedConversation.id,
+        sender_id: user.id,
+        content,
+        message_type: messageType as any,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        sender: {
+          id: user.id,
+          username: user.username || 'You',
+          avatar_url: user.avatar_url
+        }
+      };
+
+      // Add message immediately to UI (optimistic update)
+      setMessages(prev => [...prev, optimisticMessage]);
+      
+      // Update conversation list
+      setConversations(prev => 
+        prev.map(conv => 
+          conv.id === selectedConversation.id 
+            ? { ...conv, last_message: optimisticMessage, last_message_at: optimisticMessage.created_at }
+            : conv
+        )
+      );
+
+      // Send message through WebSocket
       sendMessage(selectedConversation.id, content, messageType);
-      return true; // Assume success for now, could be enhanced with actual confirmation
+      
+      // Scroll to bottom
+      setTimeout(() => scrollToBottom(), 100);
+      
+      return true;
     } catch (error) {
       console.error('Failed to send message:', error);
       return false;
@@ -346,6 +440,8 @@ export const Chat: React.FC = () => {
                 {isConnected ? 'Connected' : 'Disconnected'}
               </span>
             </div>
+            
+
           </div>
           
           <div className="flex-1 overflow-y-auto">
@@ -385,6 +481,8 @@ export const Chat: React.FC = () => {
                   {isConnected ? 'Connected' : 'Disconnected'}
                 </span>
               </div>
+              
+
             </div>
             
             <div className="chat-conversations-container flex-1 overflow-y-auto">
@@ -394,7 +492,7 @@ export const Chat: React.FC = () => {
                   setSelectedConversation(conv);
                   setShowMobileConversationList(false);
                 }}
-                selectedConversationId={selectedConversation?.id}
+                selectedConversationId={selectedConversation ? selectedConversation.id : undefined}
                 profiles={profiles}
               />
             </div>
@@ -437,7 +535,7 @@ export const Chat: React.FC = () => {
                 <div className="chat-error-state text-center text-red-600 bg-red-50 p-4 rounded-lg mx-2">
                   <p className="font-medium">{error}</p>
                   <button 
-                    onClick={() => loadMessages(selectedConversation.id)}
+                    onClick={() => loadMessages(selectedConversation!.id)}
                     className="chat-error-button mt-2 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
                   >
                     Retry

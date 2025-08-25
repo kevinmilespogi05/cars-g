@@ -636,15 +636,16 @@ const io = new Server(server, {
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true
   },
-  transports: ['websocket'], // Force WebSocket only for better performance
+  transports: ['websocket', 'polling'], // Allow fallback to polling for better compatibility
   allowEIO3: false, // Disable legacy support
   pingTimeout: 60000,
   pingInterval: 25000,
   maxHttpBufferSize: 1e6, // 1MB
   // Performance optimizations
-  connectTimeout: 10000,
-  upgradeTimeout: 10000,
-  allowUpgrades: false, // Disable upgrade for better performance
+  connectTimeout: 20000, // Increased timeout
+  upgradeTimeout: 20000, // Increased upgrade timeout
+  allowUpgrades: true, // Enable upgrade for better compatibility
+  rememberUpgrade: true,
   perMessageDeflate: {
     threshold: 32768, // Only compress messages larger than 32KB
     zlibInflateOptions: {
@@ -738,13 +739,37 @@ io.on('connection', (socket) => {
     }
     return originalEmit.apply(this, [event, ...args]);
   };
+  
+  // Add connection deduplication
+  socket.authenticated = false;
+  socket.userId = null;
 
   // Handle user authentication with caching
   socket.on('authenticate', async (userId) => {
     try {
-      // Check if user is already authenticated
+      // Check if user is already authenticated on this socket
       if (socket.userId === userId && connectedUsers.has(userId)) {
         socket.emit('authenticated', { user: connectedUsers.get(userId).user });
+        return;
+      }
+
+      // Check if user is already connected on another socket
+      if (connectedUsers.has(userId)) {
+        const existingConnection = connectedUsers.get(userId);
+        console.log(`User ${userId} already connected on socket ${existingConnection.socketId}, updating to ${socket.id}`);
+        
+        // Update the connection to use the new socket
+        connectedUsers.set(userId, {
+          socketId: socket.id,
+          user: existingConnection.user,
+          lastSeen: Date.now()
+        });
+        
+        socket.userId = userId;
+        socket.join(`user_${userId}`);
+        
+        console.log(`User ${existingConnection.user.username} reconnected with socket ${socket.id}`);
+        socket.emit('authenticated', { user: existingConnection.user });
         return;
       }
 
@@ -923,8 +948,14 @@ io.on('connection', (socket) => {
   // Handle disconnection
   socket.on('disconnect', () => {
     if (socket.userId) {
-      connectedUsers.delete(socket.userId);
-      console.log(`User ${socket.userId} disconnected`);
+      // Only remove user if this socket was the active one
+      const currentConnection = connectedUsers.get(socket.userId);
+      if (currentConnection && currentConnection.socketId === socket.id) {
+        connectedUsers.delete(socket.userId);
+        console.log(`User ${socket.userId} disconnected from active socket ${socket.id}`);
+      } else {
+        console.log(`User ${socket.userId} disconnected from inactive socket ${socket.id}`);
+      }
     }
     
     // Clear any pending timers

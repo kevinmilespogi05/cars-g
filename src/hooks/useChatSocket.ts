@@ -27,6 +27,7 @@ interface UseChatSocketReturn {
 // Global socket instance for connection pooling
 let globalSocket: Socket | null = null;
 let globalSocketUsers = new Set<string>();
+let connectionInProgress = false; // Prevent multiple simultaneous connection attempts
 
 // Message batching for better performance
 const messageBatch = new Map<string, Array<{ content: string; messageType: string; timestamp: number }>>();
@@ -53,16 +54,16 @@ export const useChatSocket = ({
 
   // Optimized socket configuration
   const socketConfig = useMemo(() => ({
-    transports: ['websocket'], // Force WebSocket only for better performance
+    transports: ['websocket', 'polling'], // Allow fallback to polling
     autoConnect: false, // Manual connection control
     reconnection: true,
-    reconnectionAttempts: 3,
-    reconnectionDelay: 500,
-    reconnectionDelayMax: 2000,
-    timeout: 10000, // Reduced timeout
+    reconnectionAttempts: 5, // Increased retry attempts
+    reconnectionDelay: 1000, // Increased delay
+    reconnectionDelayMax: 5000, // Increased max delay
+    timeout: 20000, // Increased timeout for better reliability
     forceNew: false,
-    upgrade: false, // Disable upgrade for better performance
-    rememberUpgrade: false,
+    upgrade: true, // Enable upgrade for better compatibility
+    rememberUpgrade: true,
     // Performance optimizations
     pingTimeout: 60000,
     pingInterval: 25000,
@@ -80,45 +81,92 @@ export const useChatSocket = ({
       globalSocketUsers.add(userId);
       setIsConnected(true);
       
-      // Authenticate user
-      globalSocket.emit('authenticate', userId);
+      // Authenticate user if not already authenticated
+      if (!globalSocket.auth) {
+        globalSocket.emit('authenticate', userId);
+      }
       return;
     }
 
     // Create new socket if needed
     if (!globalSocket || !globalSocket.connected) {
-      const chatServerUrl = import.meta.env.DEV 
+      // Prevent multiple simultaneous connection attempts
+      if (connectionInProgress) {
+        console.log('Connection already in progress, waiting...');
+        return;
+      }
+      
+      connectionInProgress = true;
+      
+      let chatServerUrl = import.meta.env.DEV 
         ? 'http://localhost:3001' 
         : (import.meta.env.VITE_CHAT_SERVER_URL || config.api.baseUrl);
       
+      // Ensure proper protocol for WebSocket
+      if (chatServerUrl.startsWith('https://')) {
+        chatServerUrl = chatServerUrl.replace('https://', 'wss://');
+      } else if (chatServerUrl.startsWith('http://')) {
+        chatServerUrl = chatServerUrl.replace('http://', 'ws://');
+      }
+      
       console.log('Creating optimized socket connection to:', chatServerUrl);
       
-      globalSocket = io(chatServerUrl, socketConfig);
+      // Enhanced socket configuration with better error handling
+      const enhancedSocketConfig = {
+        ...socketConfig,
+        transports: ['websocket', 'polling'], // Allow fallback to polling
+        upgrade: true, // Enable upgrade for better compatibility
+        rememberUpgrade: true,
+        timeout: 20000, // Increased timeout
+        reconnectionAttempts: 5, // More retry attempts
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+      };
+      
+      globalSocket = io(chatServerUrl, enhancedSocketConfig);
       socketRef.current = globalSocket;
       globalSocketUsers.add(userId);
 
-      // Connection events
+      // Connection events with better error handling
       globalSocket.on('connect', () => {
         console.log('Connected to chat server');
+        connectionInProgress = false;
         setIsConnected(true);
+        setIsAuthenticated(false); // Reset auth state on new connection
         globalSocket!.emit('authenticate', userId);
       });
 
-      globalSocket.on('disconnect', () => {
-        console.log('Disconnected from chat server');
+      globalSocket.on('disconnect', (reason) => {
+        console.log('Disconnected from chat server, reason:', reason);
+        connectionInProgress = false;
         setIsConnected(false);
         setIsAuthenticated(false);
-        globalSocketUsers.clear();
+        
+        // Only clear users if it's a server disconnect
+        if (reason === 'io server disconnect') {
+          globalSocketUsers.clear();
+        }
       });
 
       globalSocket.on('connect_error', (error) => {
         console.error('Connection error:', error);
+        connectionInProgress = false;
         setIsConnected(false);
+        setIsAuthenticated(false);
+        
+        // Attempt reconnection with exponential backoff
+        setTimeout(() => {
+          if (globalSocket && !globalSocket.connected && !connectionInProgress) {
+            console.log('Attempting to reconnect...');
+            globalSocket.connect();
+          }
+        }, 2000);
       });
 
       // Authentication events
       globalSocket.on('authenticated', (data) => {
         console.log('Authenticated with chat server:', data);
+        globalSocket!.auth = true; // Mark as authenticated
         setIsAuthenticated(true);
         onAuthenticated?.(data);
       });
@@ -131,12 +179,28 @@ export const useChatSocket = ({
 
       // Connect the socket
       globalSocket.connect();
+      
+      // Add connection status monitoring with better state management
+      const connectionCheck = setInterval(() => {
+        if (globalSocket && !globalSocket.connected && !globalSocket.connecting && !connectionInProgress) {
+          console.log('Socket not connected, attempting reconnection...');
+          connectionInProgress = true;
+          globalSocket.connect();
+        }
+      }, 10000); // Check every 10 seconds instead of 5 to reduce aggressive reconnection
+      
+      // Cleanup interval on unmount
+      return () => {
+        clearInterval(connectionCheck);
+      };
     }
 
     return () => {
       if (globalSocket && globalSocketUsers.has(userId)) {
         globalSocketUsers.delete(userId);
-        if (globalSocketUsers.size === 0) {
+        // Only disconnect if no users are left and we're not in the middle of connecting
+        if (globalSocketUsers.size === 0 && !connectionInProgress) {
+          console.log('No users left, disconnecting global socket');
           globalSocket.disconnect();
           globalSocket = null;
         }
