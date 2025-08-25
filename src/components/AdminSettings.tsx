@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
 import { Loader2, RefreshCw, Save, AlertTriangle } from 'lucide-react';
 import { Notification } from './Notification';
+import { User } from '../types';
 
 interface Setting {
   id: string;
@@ -28,6 +29,9 @@ export function AdminSettings() {
     type: 'success',
     show: false
   });
+  const [quotaUserId, setQuotaUserId] = useState('');
+  const [quotaLimit, setQuotaLimit] = useState<number>(20);
+  const [quotaSaving, setQuotaSaving] = useState(false);
 
   useEffect(() => {
     if (currentUser?.role === 'admin') {
@@ -166,6 +170,47 @@ export function AdminSettings() {
 
       <div className="bg-white shadow sm:rounded-lg">
         <div className="px-3 py-4 sm:px-6 sm:py-5">
+          {/* Report Quotas */}
+          <div className="mb-8">
+            <h4 className="text-sm font-medium text-gray-900 mb-3">Report Quotas</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <input
+                type="text"
+                placeholder="User ID (UUID)"
+                value={quotaUserId}
+                onChange={(e) => setQuotaUserId(e.target.value)}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+              />
+              <input
+                type="number"
+                placeholder="Daily limit"
+                value={quotaLimit}
+                onChange={(e) => setQuotaLimit(parseInt(e.target.value || '0'))}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+              />
+              <button
+                onClick={async () => {
+                  try {
+                    setQuotaSaving(true);
+                    const { error } = await supabase.rpc('set_report_quota', { p_user: quotaUserId, p_limit: quotaLimit });
+                    if (error) throw error;
+                    showNotification('Quota updated', 'success');
+                  } catch (e) {
+                    console.error('Quota update error:', e);
+                    showNotification('Failed to update quota', 'error');
+                  } finally {
+                    setQuotaSaving(false);
+                  }
+                }}
+                disabled={quotaSaving || !quotaUserId || quotaLimit <= 0}
+                className="inline-flex items-center justify-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                {quotaSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                Save Quota
+              </button>
+            </div>
+          </div>
+
           {settings.map((setting) => (
             <div key={setting.id} className="mb-6 last:mb-0">
               <h4 className="text-sm font-medium text-gray-900 capitalize">

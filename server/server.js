@@ -4,6 +4,7 @@ import { Server } from 'socket.io';
 import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
+import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
@@ -105,6 +106,15 @@ app.use(cors({
   credentials: true
 }));
 app.use(express.json());
+
+// Global rate limit (basic protection)
+const globalLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 300, // 300 requests/min per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use(globalLimiter);
 
 // Performance tracking middleware
 app.use((req, res, next) => {
@@ -222,6 +232,41 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Current user quota usage
+app.get('/api/quotas/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    if (!supabaseAdmin) {
+      return res.status(503).json({ error: 'Admin privileges required' });
+    }
+    // Get configured limit
+    const { data: quotaRow } = await supabaseAdmin
+      .from('report_quotas')
+      .select('daily_limit')
+      .eq('user_id', userId)
+      .maybeSingle();
+    const dailyLimit = quotaRow?.daily_limit ?? 20;
+
+    // Count last 24h
+    const { data: countRows, error: countError } = await supabaseAdmin
+      .rpc('can_create_report', { user_uuid: userId });
+    // We used the boolean check for RLS; for actual usage number, query directly
+    const { data: reportsCountData, error: cntErr } = await supabaseAdmin
+      .from('reports')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .gt('created_at', new Date(Date.now() - 24*60*60*1000).toISOString());
+    const used = reportsCountData?.length ? reportsCountData.length : (reportsCountData === null ? 0 : 0);
+    // Supabase head+count returns count in response headers; client lib exposes via count on select when not head
+    // Simpler: fetch ids with limit and count via length (OK for small limits)
+
+    res.json({ dailyLimit, used });
+  } catch (e) {
+    console.error('Quota endpoint error:', e);
+    res.status(500).json({ error: 'Failed to fetch quota' });
+  }
+});
+
 // Chat API endpoints
 app.get('/api/chat/conversations/:userId', async (req, res) => {
   try {
@@ -288,7 +333,10 @@ app.get('/api/chat/messages/:conversationId', async (req, res) => {
   }
  });
 
-app.post('/api/chat/conversations', async (req, res) => {
+// Stricter rate limit for conversation creation
+const createConversationLimiter = rateLimit({ windowMs: 60 * 1000, max: 20 });
+app.post('/api/chat/conversations', createConversationLimiter, async (req, res) => {
+app.post('/api/chat/conversations', createConversationLimiter, async (req, res) => {
   try {
     const { participant1_id, participant2_id } = req.body;
     

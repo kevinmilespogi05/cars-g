@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { track } from '@vercel/analytics';
 import { useNavigate } from 'react-router-dom';
 import { Camera, MapPin, Loader2, AlertCircle, X, CheckCircle, Upload, Bot, Sparkles } from 'lucide-react';
 import { MapPicker } from '../components/MapPicker';
@@ -7,6 +8,8 @@ import { uploadMultipleImages } from '../lib/cloudinaryStorage';
 import { awardPoints } from '../lib/points';
 import { reportsService } from '../services/reportsService';
 import { activityService } from '../services/activityService';
+import { enqueueReport, flushQueuedReports } from '../lib/offlineQueue';
+import { FocusTrap } from '../components/FocusTrap';
 import { PhotoCapture } from '../components/PhotoCapture';
 
 const CATEGORIES = [
@@ -25,6 +28,7 @@ export function CreateReport() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [aiGeneratedData, setAiGeneratedData] = useState<{
     title: string;
     description: string;
@@ -42,9 +46,21 @@ export function CreateReport() {
   const [uploadedImages, setUploadedImages] = useState<File[]>([]);
   const [imagePreviewUrls, setImagePreviewUrls] = useState<string[]>([]);
   const [showPhotoCapture, setShowPhotoCapture] = useState(false);
+  const [currentStep, setCurrentStep] = useState<string | null>(null);
+  const [isDirty, setIsDirty] = useState(false);
+  const submitButtonRef = React.useRef<HTMLButtonElement | null>(null);
+  const safeTrack = (name: string, props?: Record<string, any>) => {
+    try {
+      // Sample high-volume step events at 30%
+      const stepEvent = name === 'report_submit_step';
+      if (stepEvent && Math.random() > 0.3) return;
+      track(name as any, props as any);
+    } catch {}
+  };
 
   // Check for AI-generated report data on component mount
   useEffect(() => {
+    safeTrack('report_form_opened');
     const aiReportData = localStorage.getItem('aiGeneratedReport');
     if (aiReportData) {
       try {
@@ -73,15 +89,52 @@ export function CreateReport() {
     }
   }, []);
 
+  // Load draft if available
+  useEffect(() => {
+    try {
+      const draftRaw = localStorage.getItem('createReportDraft');
+      if (draftRaw && !aiGeneratedData) {
+        const draft = JSON.parse(draftRaw);
+        if (draft?.formData) setFormData(draft.formData);
+        if (draft?.location) setLocation(draft.location);
+      }
+    } catch {}
+  }, [aiGeneratedData]);
+
+  // Autosave draft (form data + location)
+  useEffect(() => {
+    const payload = JSON.stringify({ formData, location });
+    localStorage.setItem('createReportDraft', payload);
+  }, [formData, location]);
+
+  // Mark dirty on changes
+  useEffect(() => {
+    setIsDirty(true);
+  }, [formData.title, formData.description, formData.category, formData.priority, location, uploadedImages.length]);
+
+  // Warn on navigation if there are unsaved changes
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (isDirty && !submitSuccess) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [isDirty, submitSuccess]);
+
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     setUploadError(null);
     if (!e.target.files || e.target.files.length === 0) return;
     
     const files = Array.from(e.target.files);
+    safeTrack('report_images_selected', { count: files.length });
     
     // Check if adding new files would exceed the limit
     if (uploadedImages.length + files.length > MAX_IMAGES) {
       setUploadError(`You can only upload up to ${MAX_IMAGES} images`);
+      safeTrack('report_images_too_many', { selected: files.length, existing: uploadedImages.length });
       return;
     }
 
@@ -94,14 +147,27 @@ export function CreateReport() {
 
     if (invalidFiles.length > 0) {
       setUploadError('Some files were invalid. Please ensure all files are images under 10MB.');
+      safeTrack('report_images_invalid', { invalidCount: invalidFiles.length });
       return;
     }
 
     setUploadedImages(prev => [...prev, ...files]);
+    safeTrack('report_images_added', { total: uploadedImages.length + files.length });
     
     // Create preview URLs
     const newPreviewUrls = files.map(file => URL.createObjectURL(file));
     setImagePreviewUrls(prev => [...prev, ...newPreviewUrls]);
+  };
+
+  // Map raw errors to user-friendly messages
+  const mapFriendlyError = (error: unknown): string => {
+    const msg = error instanceof Error ? error.message : String(error || 'Unknown error');
+    if (/CLOUDINARY_NOT_CONFIGURED|CLOUDINARY_CONFIG_ERROR/i.test(msg)) return 'Image service is temporarily unavailable. Please try again later.';
+    if (/FILE_TOO_LARGE|TOTAL_SIZE_EXCEEDED/i.test(msg)) return 'One or more images are too large. Please choose smaller images.';
+    if (/INVALID_FILE_TYPE/i.test(msg)) return 'Unsupported image type. Please upload JPEG, PNG, GIF, or WebP.';
+    if (/row level security|RLS|not allowed/i.test(msg)) return 'You are not allowed to perform this action. Please sign in and try again.';
+    if (/Failed to fetch|NetworkError|timeout|ECONN/i.test(msg)) return 'Network issue encountered. Please check your connection and try again.';
+    return msg || 'Failed to submit report. Please try again.';
   };
 
   const removeImage = (index: number) => {
@@ -150,6 +216,8 @@ export function CreateReport() {
 
       // Upload additional images (both uploaded files and captured photos) together
       if (uploadedImages.length > 0) {
+        setCurrentStep('Uploading photos');
+        safeTrack('report_submit_step', { step: 'upload_photos', count: uploadedImages.length });
         console.log('🚀 Starting upload of', uploadedImages.length, 'additional images...');
         console.log('📁 Files to upload:', uploadedImages.map(f => ({ name: f.name, size: f.size, type: f.type })));
         
@@ -172,52 +240,93 @@ export function CreateReport() {
         location_lng: location.lng,
         location_address: location.address || `${location.lat}, ${location.lng}`,
         images: imageUrls,
+        idempotency_key: `rep_${user.id}_${Date.now()}`,
       };
 
       console.log('📤 Submitting report with data:', reportData);
 
       // Create the report and get the real ID
-      const createdReport = await reportsService.createReport(reportData);
+      setCurrentStep('Creating report');
+      safeTrack('report_submit_step', { step: 'create_report' });
+      const createdReport = await (async () => {
+        // Basic retry for transient failures
+        let attempts = 0; let lastErr: any;
+        while (attempts < 3) {
+          attempts++;
+          try { return await reportsService.createReport(reportData); } catch (e) { lastErr = e; await new Promise(r => setTimeout(r, attempts * 500)); }
+        }
+        throw lastErr;
+      })();
       console.log('✅ Report created successfully:', createdReport);
 
       // Award points with the real report ID
       try {
+        setCurrentStep('Awarding points');
         await awardPoints(user.id, 'REPORT_SUBMITTED', createdReport.id);
         console.log('🎯 Points awarded successfully');
+        safeTrack('report_submit_points_awarded', { reportId: createdReport.id });
       } catch (error) {
         console.error('❌ Error awarding points:', error);
+        safeTrack('report_submit_points_failed');
         // Don't throw here, as the report was still created successfully
       }
 
       // Track report creation for achievements/stats
       try {
+        setCurrentStep('Recording activity');
         await activityService.trackReportCreated(user.id, createdReport.id);
+        safeTrack('report_submit_tracked', { reportId: createdReport.id });
       } catch (error) {
         console.error('❌ Error tracking report creation:', error);
+        safeTrack('report_submit_track_failed');
       }
 
       // Clean up preview URLs
       imagePreviewUrls.forEach(url => URL.revokeObjectURL(url));
 
-      // Show success state
+      // Stash for optimistic render on the list page
+      try { sessionStorage.setItem('optimisticReport', JSON.stringify(createdReport)); } catch {}
+
+      // Show success modal and redirect shortly after
       setSubmitSuccess(true);
-      
-      // Auto-navigate after 2 seconds
+      setIsDirty(false);
+      localStorage.removeItem('createReportDraft');
+      safeTrack('report_submit_succeeded', { reportId: createdReport.id });
       setTimeout(() => {
         navigate('/reports');
-      }, 2000);
+      }, 1500);
       
     } catch (error) {
       console.error('❌ Error creating report:', error);
-      if (error instanceof Error) {
-        setUploadError(error.message);
-      } else {
-        setUploadError('Failed to submit report. Please try again.');
+      const friendly = mapFriendlyError(error);
+      setUploadError(friendly);
+      setSubmitError(friendly);
+      safeTrack('report_submit_failed', { message: friendly });
+      if (!navigator.onLine) {
+        enqueueReport({
+          user_id: user.id,
+          title: formData.title.trim(),
+          description: formData.description.trim(),
+          category: formData.category,
+          priority: formData.priority,
+          location_lat: location!.lat,
+          location_lng: location!.lng,
+          location_address: location!.address || `${location!.lat}, ${location!.lng}`,
+          images: [],
+        });
       }
     } finally {
       setIsSubmitting(false);
+      setCurrentStep(null);
     }
   };
+
+  // Try to flush queued reports when the app goes online
+  useEffect(() => {
+    const onOnline = async () => { try { await flushQueuedReports(); } catch {} };
+    window.addEventListener('online', onOnline);
+    return () => window.removeEventListener('online', onOnline);
+  }, []);
 
   // Enhanced photo handling
   const handlePhotoCaptured = (photoFile: File) => {
@@ -327,35 +436,7 @@ export function CreateReport() {
     };
   }, []);
 
-  if (submitSuccess) {
-    return (
-      <div className="min-h-[100dvh] bg-gradient-to-br from-gray-50 to-gray-100 py-6 sm:py-8">
-        <div className="w-full max-w-3xl mx-auto px-3 sm:px-4 lg:px-6">
-          <div className="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden">
-            <div className="bg-gradient-to-r from-green-500 to-green-600 px-6 py-8 text-white text-center">
-              <CheckCircle className="mx-auto h-16 w-16 mb-4" />
-              <h2 className="text-3xl font-bold mb-2">Report Submitted Successfully!</h2>
-              <p className="text-green-100 text-lg">
-                Your report has been submitted and will be reviewed by authorities.
-              </p>
-            </div>
-            <div className="p-8 text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500 mx-auto mb-4"></div>
-              <p className="text-gray-600 mb-6">
-                You'll be redirected to the reports page shortly...
-              </p>
-              <button
-                onClick={() => navigate('/reports')}
-                className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-all duration-200 font-medium shadow-md hover:shadow-lg"
-              >
-                Go to Reports
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Success modal is rendered inline below when submitSuccess is true
 
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-gray-50 to-gray-100 py-6 sm:py-8">
@@ -502,11 +583,12 @@ export function CreateReport() {
                     type="submit"
                     disabled={isSubmitting}
                     className="w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center font-medium shadow-lg hover:shadow-xl"
+                    ref={submitButtonRef}
                   >
                     {isSubmitting ? (
                       <>
                         <Loader2 className="animate-spin -ml-1 mr-2 h-5 w-5" />
-                        Submitting...
+                        {currentStep || 'Submitting...'}
                       </>
                     ) : (
                       'Submit Report'
@@ -527,6 +609,72 @@ export function CreateReport() {
             currentPhotos={uploadedImages}
             folder="cars-g/reports"
           />
+        )}
+
+        {submitSuccess && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 animate-fade-in" role="dialog" aria-modal="true" aria-labelledby="report-success-title">
+            <FocusTrap>
+            <div className="bg-white rounded-2xl max-w-sm w-full shadow-2xl p-8 text-center animate-slide-up" tabIndex={0}>
+              <div className="mx-auto mb-4 relative h-16 w-16">
+                <span className="absolute inset-0 rounded-full bg-green-100 animate-ping"></span>
+                <div className="relative h-16 w-16 rounded-full bg-green-600 flex items-center justify-center">
+                  <CheckCircle className="h-10 w-10 text-white" />
+                </div>
+              </div>
+              <h3 id="report-success-title" className="text-xl font-semibold text-gray-900 mb-1">Report submitted</h3>
+              <p className="text-gray-600 mb-6">Thank you for helping improve your community.</p>
+              <div className="flex items-center justify-center space-x-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSubmitSuccess(false);
+                    if (submitButtonRef.current) submitButtonRef.current.focus();
+                  }}
+                  className="px-5 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+            </FocusTrap>
+          </div>
+        )}
+
+        {submitError && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 animate-fade-in" role="dialog" aria-modal="true" aria-labelledby="report-fail-title">
+            <FocusTrap>
+            <div className="bg-white rounded-2xl max-w-sm w-full shadow-2xl p-8 text-center animate-slide-up" tabIndex={0}>
+              <div className="mx-auto mb-4 relative h-16 w-16">
+                <span className="absolute inset-0 rounded-full bg-red-100 animate-ping"></span>
+                <div className="relative h-16 w-16 rounded-full bg-red-600 flex items-center justify-center">
+                  <AlertCircle className="h-10 w-10 text-white" />
+                </div>
+              </div>
+              <h3 id="report-fail-title" className="text-xl font-semibold text-gray-900 mb-1">Submission failed</h3>
+              <p className="text-gray-600 mb-4">{submitError}</p>
+              <div className="flex items-center justify-center space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setSubmitError(null)}
+                  className="px-5 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition"
+                >
+                  Close
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSubmitError(null);
+                    if (submitButtonRef.current) submitButtonRef.current.focus();
+                    navigate('/create-report');
+                  }}
+                  className="px-5 py-2.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition"
+                >
+                  Try again
+                </button>
+              </div>
+            </div>
+            </FocusTrap>
+          </div>
         )}
       </div>
     </div>

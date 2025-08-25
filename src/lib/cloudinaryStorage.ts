@@ -5,6 +5,8 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_TOTAL_SIZE = MAX_FILE_SIZE * 5; // 50MB for multiple uploads
 const ALLOWED_FILE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 const UPLOAD_FOLDER = 'cars-g/reports';
+const MAX_DIMENSION = 1600; // px
+const JPEG_QUALITY = 0.8; // 80%
 
 interface UploadError extends Error {
   code: string;
@@ -97,8 +99,11 @@ export async function uploadImage(file: File): Promise<string> {
     // Validate file content
     await validateFileContent(file);
 
+    // Preprocess image (resize/compress) to improve upload performance
+    const processedFile = await preprocessImageForUpload(file).catch(() => file);
+
     // Upload to Cloudinary
-    const result = await cloudinary.uploadImage(file, UPLOAD_FOLDER);
+    const result = await cloudinary.uploadImage(processedFile, UPLOAD_FOLDER);
     
     // Return the secure URL
     return result.secureUrl;
@@ -146,10 +151,13 @@ export async function uploadMultipleImages(files: File[]): Promise<string[]> {
       );
     }
 
-    // Validate and upload each file
+    // Preprocess, validate and upload each file with basic retry
     const uploadPromises = files.map(async (file, index) => {
       try {
-        return await uploadImage(file);
+        // Preprocess first to reduce size
+        const processed = await preprocessImageForUpload(file).catch(() => file);
+        // Attempt upload with small retry for transient errors
+        return await retry(async () => uploadImage(processed), 2, 500);
       } catch (error) {
         throw new FileUploadError(
           `Failed to upload image ${index + 1}`,
@@ -199,6 +207,43 @@ export async function uploadMultipleImages(files: File[]): Promise<string[]> {
       'BATCH_ERROR',
       error instanceof Error ? error.message : undefined
     );
+  }
+}
+
+// Resize/compress image on the client to reduce failures and speed up uploads
+async function preprocessImageForUpload(file: File): Promise<File> {
+  if (!file.type.startsWith('image/')) return file;
+  const imageBitmap = await createImageBitmap(file).catch(() => null as any);
+  if (!imageBitmap) return file;
+
+  const { width, height } = imageBitmap;
+  const scale = Math.min(1, MAX_DIMENSION / Math.max(width, height));
+  if (scale >= 1 && (file.type === 'image/jpeg' || file.type === 'image/webp')) {
+    // Already small enough; optionally recompress JPEG/WebP
+  }
+
+  const targetWidth = Math.round(width * scale);
+  const targetHeight = Math.round(height * scale);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return file;
+  ctx.drawImage(imageBitmap, 0, 0, targetWidth, targetHeight);
+
+  const mime = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+  const blob: Blob = await new Promise((resolve) => canvas.toBlob(b => resolve(b || file), mime, JPEG_QUALITY));
+  if (!blob) return file;
+  return new File([blob], file.name.replace(/\.(png|jpg|jpeg|webp)$/i, mime === 'image/png' ? '.png' : '.jpg'), { type: mime });
+}
+
+// Simple retry helper
+async function retry<T>(fn: () => Promise<T>, retries = 2, delayMs = 300): Promise<T> {
+  try { return await fn(); } catch (e) {
+    if (retries <= 0) throw e;
+    await new Promise(r => setTimeout(r, delayMs));
+    return retry(fn, retries - 1, delayMs * 2);
   }
 }
 

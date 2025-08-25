@@ -20,6 +20,17 @@ export function useRealTimeReports(options: UseRealTimeReportsOptions = {}) {
   } = options;
 
   const subscriptionsRef = useRef<Array<() => void>>([]);
+  const isSubscribedRef = useRef(false);
+  const hiddenRef = useRef<boolean>(typeof document !== 'undefined' ? document.hidden : false);
+
+  // Debounce helper to coalesce rapid events and reduce UI thrash under load
+  const debounce = <T extends (...args: any[]) => void>(fn: T, delay = 50) => {
+    let timer: any;
+    return (...args: Parameters<T>) => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => fn(...args), delay);
+    };
+  };
 
   // Cleanup function
   const cleanup = useCallback(() => {
@@ -28,41 +39,68 @@ export function useRealTimeReports(options: UseRealTimeReportsOptions = {}) {
   }, []);
 
   useEffect(() => {
-    if (!enabled) {
+    const subscribeAll = () => {
+      if (!enabled || isSubscribedRef.current || hiddenRef.current) return;
+
+      // Subscribe to new reports
+      if (onReportCreated) {
+        const subscription = reportsService.subscribeToReports(debounce(onReportCreated, 50));
+        subscriptionsRef.current.push(subscription);
+      }
+
+      // Subscribe to report updates
+      if (onReportUpdated) {
+        const subscription = reportsService.subscribeToReports(debounce((report) => {
+          onReportUpdated(report.id, report);
+        }, 50));
+        subscriptionsRef.current.push(subscription);
+      }
+
+      // Subscribe to status changes
+      if (onReportStatusChanged) {
+        const subscription = reportsService.subscribeToReportStatusChanges(debounce(onReportStatusChanged, 50));
+        subscriptionsRef.current.push(subscription);
+      }
+
+      // Subscribe to likes changes
+      if (onLikesChanged) {
+        const subscription = reportsService.subscribeToLikesChanges(debounce(onLikesChanged, 50));
+        subscriptionsRef.current.push(subscription);
+      }
+
+      isSubscribedRef.current = true;
+    };
+
+    const unsubscribeAll = () => {
+      if (!isSubscribedRef.current) return;
       cleanup();
-      return;
-    }
+      isSubscribedRef.current = false;
+    };
 
-    // Subscribe to new reports
-    if (onReportCreated) {
-      const subscription = reportsService.subscribeToReports(onReportCreated);
-      subscriptionsRef.current.push(subscription);
-    }
+    // Initial subscribe
+    subscribeAll();
 
-    // Subscribe to report updates
-    if (onReportUpdated) {
-      const subscription = reportsService.subscribeToReports((report) => {
-        // This will trigger for both new and updated reports
-        // You can differentiate by checking if the report already exists in your state
-        onReportUpdated(report.id, report);
-      });
-      subscriptionsRef.current.push(subscription);
-    }
+    // Visibility-based optimization: pause realtime when tab is hidden
+    const handleVisibility = () => {
+      hiddenRef.current = document.hidden;
+      if (document.hidden) {
+        unsubscribeAll();
+      } else {
+        subscribeAll();
+      }
+    };
 
-    // Subscribe to status changes
-    if (onReportStatusChanged) {
-      const subscription = reportsService.subscribeToReportStatusChanges(onReportStatusChanged);
-      subscriptionsRef.current.push(subscription);
-    }
-
-    // Subscribe to likes changes
-    if (onLikesChanged) {
-      const subscription = reportsService.subscribeToLikesChanges(onLikesChanged);
-      subscriptionsRef.current.push(subscription);
+    if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+      document.addEventListener('visibilitychange', handleVisibility);
     }
 
     // Cleanup on unmount or when dependencies change
-    return cleanup;
+    return () => {
+      if (typeof document !== 'undefined' && typeof document.removeEventListener === 'function') {
+        document.removeEventListener('visibilitychange', handleVisibility);
+      }
+      unsubscribeAll();
+    };
   }, [enabled, onReportCreated, onReportUpdated, onReportStatusChanged, onLikesChanged, cleanup]);
 
   // Return cleanup function for manual cleanup

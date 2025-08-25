@@ -20,6 +20,21 @@ export default defineConfig({
         sourcemap: true,
         runtimeCaching: [
           {
+            // Opportunistic map tiles caching (OpenStreetMap)
+            urlPattern: /^https:\/\/\{s\}\.tile\.openstreetmap\.org\//,
+            handler: 'StaleWhileRevalidate',
+            options: {
+              cacheName: 'osm-tiles-cache',
+              expiration: {
+                maxEntries: 200,
+                maxAgeSeconds: 60 * 60 * 24 * 7 // 7 days
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
+              }
+            }
+          },
+          {
             urlPattern: /^https:\/\/[a-z0-9-]+\.supabase\.co\/auth\/v1/,
             handler: 'NetworkFirst',
             options: {

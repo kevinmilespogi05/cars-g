@@ -112,7 +112,7 @@ function _createSubscription(channelName: string, events: any[], callback: Funct
 
 export const reportsService = {
   // Create report with optimistic updates
-  async createReport(reportData: Omit<Report, 'id' | 'created_at' | 'updated_at' | 'status'>): Promise<Report> {
+  async createReport(reportData: Omit<Report, 'id' | 'created_at' | 'updated_at' | 'status'> & { idempotency_key?: string }): Promise<Report> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new ReportsServiceError('User not authenticated');
 
@@ -132,7 +132,7 @@ export const reportsService = {
     try {
     const { data, error } = await supabase
       .from('reports')
-        .insert([reportData])
+        .insert([{ ...reportData, idempotency_key: reportData.idempotency_key }])
       .select()
       .single();
 
@@ -175,6 +175,302 @@ export const reportsService = {
     };
     } catch (error) {
       throw new ReportsServiceError(`Failed to create report: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  },
+
+  // Fetch replies for a comment with nested replies and like info
+  async getCommentReplies(commentId: string, maxDepth: number = 5): Promise<CommentReply[]> {
+    try {
+      const { data: rootReplies, error } = await supabase
+        .from('comment_replies')
+        .select('*')
+        .eq('parent_comment_id', commentId)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+
+      const hydrateReplies = async (replies: any[], depth: number): Promise<CommentReply[]> => {
+        if (!replies || replies.length === 0) return [];
+
+        // Fetch profiles for these replies
+        const userIds = [...new Set(replies.map(r => r.user_id))];
+        const uncached = userIds.filter(id => !_getCachedProfile(id));
+        if (uncached.length > 0) {
+          const { data: profiles, error: profilesError } = await supabase
+            .from('profiles')
+            .select('id, username, avatar_url')
+            .in('id', uncached);
+          if (profilesError) throw profilesError;
+          (profiles || []).forEach(p => _cacheProfile(p.id, { username: p.username, avatar_url: p.avatar_url }));
+        }
+
+        // Current user for like status
+        const { data: { user } } = await supabase.auth.getUser();
+
+        // For each reply, get likes count, is_liked, and nested replies if depth allows
+        const result: CommentReply[] = [];
+        for (const r of replies) {
+          const [{ count: likesCount }, userLikedData] = await Promise.all([
+            supabase.from('reply_likes').select('*', { count: 'exact', head: true }).eq('reply_id', r.id),
+            user ? supabase.from('reply_likes').select('id').eq('reply_id', r.id).eq('user_id', user.id) : Promise.resolve({ data: null })
+          ] as any);
+
+          let nested: CommentReply[] | undefined = undefined;
+          if (depth < maxDepth) {
+            const { data: childReplies } = await supabase
+              .from('comment_replies')
+              .select('*')
+              .eq('parent_reply_id', r.id)
+              .order('created_at', { ascending: true });
+            if (childReplies && childReplies.length > 0) {
+              nested = await hydrateReplies(childReplies, depth + 1);
+            }
+          }
+
+          const profile = _getCachedProfile(r.user_id) || { username: 'User', avatar_url: null };
+          result.push({
+            id: r.id,
+            parent_comment_id: r.parent_comment_id || undefined,
+            parent_reply_id: r.parent_reply_id || undefined,
+            user_id: r.user_id,
+            content: r.content,
+            created_at: r.created_at,
+            updated_at: r.updated_at,
+            user: { username: profile.username, avatar_url: profile.avatar_url },
+            replies: nested,
+            reply_depth: depth,
+            likes_count: likesCount || 0,
+            is_liked: !!(userLikedData && userLikedData.data && userLikedData.data.length > 0)
+          } as CommentReply);
+        }
+
+        return result;
+      };
+
+      return await hydrateReplies(rootReplies || [], 0);
+    } catch (error) {
+      throw new ReportsServiceError(`Failed to get comment replies: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  },
+
+  // Add a comment reply (top-level to comment or nested to reply)
+  async addCommentReply(parentId: string, content: string, isNested: boolean = false): Promise<CommentReply> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new ReportsServiceError('User not authenticated');
+
+      const payload: any = {
+        user_id: user.id,
+        content,
+      };
+      if (isNested) {
+        payload.parent_reply_id = parentId;
+      } else {
+        payload.parent_comment_id = parentId;
+      }
+
+      const { data, error } = await supabase
+        .from('comment_replies')
+        .insert([payload])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const profile = _getCachedProfile(user.id) || (() => ({ username: user.email?.split('@')[0] || 'User', avatar_url: null }))();
+
+      return {
+        id: data.id,
+        parent_comment_id: data.parent_comment_id || undefined,
+        parent_reply_id: data.parent_reply_id || undefined,
+        user_id: user.id,
+        content: data.content,
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+        user: { username: profile.username, avatar_url: profile.avatar_url },
+        replies: [],
+        reply_depth: isNested ? 1 : 0,
+        likes_count: 0,
+        is_liked: false,
+      } as CommentReply;
+    } catch (error) {
+      throw new ReportsServiceError(`Failed to add reply: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  },
+
+  // Toggle like for a comment
+  async toggleCommentLike(commentId: string): Promise<boolean> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new ReportsServiceError('User not authenticated');
+
+    const { data: existing, error: checkError } = await supabase
+      .from('comment_likes')
+      .select('id')
+      .eq('comment_id', commentId)
+      .eq('user_id', user.id);
+    if (checkError) throw new ReportsServiceError(checkError.message);
+
+    if (existing && existing.length > 0) {
+      const { error } = await supabase
+        .from('comment_likes')
+        .delete()
+        .eq('id', existing[0].id);
+      if (error) throw new ReportsServiceError(`Failed to unlike comment: ${error.message}`);
+      return false;
+    } else {
+      const { error } = await supabase
+        .from('comment_likes')
+        .insert([{ comment_id: commentId, user_id: user.id }]);
+      if (error) throw new ReportsServiceError(`Failed to like comment: ${error.message}`);
+      return true;
+    }
+  },
+
+  // Toggle like for a reply
+  async toggleReplyLike(replyId: string): Promise<boolean> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new ReportsServiceError('User not authenticated');
+
+    const { data: existing, error: checkError } = await supabase
+      .from('reply_likes')
+      .select('id')
+      .eq('reply_id', replyId)
+      .eq('user_id', user.id);
+    if (checkError) throw new ReportsServiceError(checkError.message);
+
+    if (existing && existing.length > 0) {
+      const { error } = await supabase
+        .from('reply_likes')
+        .delete()
+        .eq('id', existing[0].id);
+      if (error) throw new ReportsServiceError(`Failed to unlike reply: ${error.message}`);
+      return false;
+    } else {
+      const { error } = await supabase
+        .from('reply_likes')
+        .insert([{ reply_id: replyId, user_id: user.id }]);
+      if (error) throw new ReportsServiceError(`Failed to like reply: ${error.message}`);
+      return true;
+    }
+  },
+
+  // Get like details for a report (users who liked a report)
+  async getLikeDetails(reportId: string): Promise<LikeDetail[]> {
+    try {
+      const { data, error } = await supabase
+        .from('likes')
+        .select('id, user_id, report_id, created_at')
+        .eq('report_id', reportId)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+
+      const userIds = [...new Set((data || []).map(row => row.user_id))];
+      const uncached = userIds.filter(id => !_getCachedProfile(id));
+
+      if (uncached.length > 0) {
+        const { data: profiles, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, username, avatar_url')
+          .in('id', uncached);
+        if (profilesError) throw profilesError;
+        (profiles || []).forEach(p => _cacheProfile(p.id, { username: p.username, avatar_url: p.avatar_url }));
+      }
+
+      const result: LikeDetail[] = (data || []).map(row => {
+        const profile = _getCachedProfile(row.user_id) || { username: 'User', avatar_url: null };
+        return {
+          id: row.id,
+          user_id: row.user_id,
+          report_id: row.report_id,
+          created_at: row.created_at,
+          user: { username: profile.username, avatar_url: profile.avatar_url }
+        } as LikeDetail;
+      });
+
+      return result;
+    } catch (error) {
+      throw new ReportsServiceError(`Failed to get like details: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  },
+
+  // Get like details for a comment
+  async getCommentLikeDetails(commentId: string): Promise<LikeDetail[]> {
+    try {
+      const { data, error } = await supabase
+        .from('comment_likes')
+        .select('id, user_id, comment_id, created_at')
+        .eq('comment_id', commentId)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+
+      const userIds = [...new Set((data || []).map(row => row.user_id))];
+      const uncached = userIds.filter(id => !_getCachedProfile(id));
+
+      if (uncached.length > 0) {
+        const { data: profiles, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, username, avatar_url')
+          .in('id', uncached);
+        if (profilesError) throw profilesError;
+        (profiles || []).forEach(p => _cacheProfile(p.id, { username: p.username, avatar_url: p.avatar_url }));
+      }
+
+      const result: LikeDetail[] = (data || []).map(row => {
+        const profile = _getCachedProfile(row.user_id) || { username: 'User', avatar_url: null };
+        return {
+          id: row.id,
+          user_id: row.user_id,
+          comment_id: row.comment_id,
+          created_at: row.created_at,
+          user: { username: profile.username, avatar_url: profile.avatar_url }
+        } as LikeDetail;
+      });
+
+      return result;
+    } catch (error) {
+      throw new ReportsServiceError(`Failed to get comment like details: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  },
+
+  // Get like details for a reply
+  async getReplyLikeDetails(replyId: string): Promise<LikeDetail[]> {
+    try {
+      const { data, error } = await supabase
+        .from('reply_likes')
+        .select('id, user_id, reply_id, created_at')
+        .eq('reply_id', replyId)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+
+      const userIds = [...new Set((data || []).map(row => row.user_id))];
+      const uncached = userIds.filter(id => !_getCachedProfile(id));
+
+      if (uncached.length > 0) {
+        const { data: profiles, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, username, avatar_url')
+          .in('id', uncached);
+        if (profilesError) throw profilesError;
+        (profiles || []).forEach(p => _cacheProfile(p.id, { username: p.username, avatar_url: p.avatar_url }));
+      }
+
+      const result: LikeDetail[] = (data || []).map(row => {
+        const profile = _getCachedProfile(row.user_id) || { username: 'User', avatar_url: null };
+        return {
+          id: row.id,
+          user_id: row.user_id,
+          reply_id: row.reply_id,
+          created_at: row.created_at,
+          user: { username: profile.username, avatar_url: profile.avatar_url }
+        } as LikeDetail;
+      });
+
+      return result;
+    } catch (error) {
+      throw new ReportsServiceError(`Failed to get reply like details: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   },
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../store/authStore';
-import { Award, MapPin, Star, Edit2, Save, X, Camera, Shield, Bell, Lock, Calendar, Eye } from 'lucide-react';
+import { Award, MapPin, Star, Edit2, Save, X, Camera, Shield, Bell, Lock, Calendar, Eye, CheckCircle, AlertCircle } from 'lucide-react';
 import { AchievementsPanel } from '../components/AchievementsPanel';
 import { AvatarSelector } from '../components/AvatarSelector';
 import { supabase } from '../lib/supabase';
@@ -49,6 +49,8 @@ export function Profile() {
   const [myReports, setMyReports] = useState<Report[]>([]);
   const [loadingMyReports, setLoadingMyReports] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Report | null>(null);
+  const [deleteSuccess, setDeleteSuccess] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOwnProfile) {
@@ -503,9 +505,11 @@ export function Profile() {
                 .eq('user_id', user?.id || '');
               if (error) throw error;
               setMyReports(prev => prev.filter(r => r.id !== report.id));
+              setDeleteTarget(null);
+              setDeleteSuccess('Your report was deleted successfully.');
             } catch (err) {
               console.error('Error deleting report:', err);
-              alert('Failed to delete report.');
+              setDeleteError(err instanceof Error ? err.message : 'Failed to delete report.');
             }
           }}
           title="Delete Report?"
@@ -514,6 +518,51 @@ export function Profile() {
           cancelText="Cancel"
           type="danger"
         />
+      )}
+      {deleteSuccess && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-sm w-full shadow-2xl p-8 text-center">
+            <div className="mx-auto mb-4 relative h-16 w-16">
+              <span className="absolute inset-0 rounded-full bg-green-100 animate-ping"></span>
+              <div className="relative h-16 w-16 rounded-full bg-green-600 flex items-center justify-center">
+                <CheckCircle className="h-10 w-10 text-white" />
+              </div>
+            </div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-1">Deleted</h3>
+            <p className="text-gray-600 mb-6">{deleteSuccess}</p>
+            <button
+              type="button"
+              onClick={() => setDeleteSuccess(null)}
+              className="px-5 py-2.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {deleteError && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-sm w-full shadow-2xl p-8 text-center">
+            <div className="mx-auto mb-4 relative h-16 w-16">
+              <span className="absolute inset-0 rounded-full bg-red-100 animate-ping"></span>
+              <div className="relative h-16 w-16 rounded-full bg-red-600 flex items-center justify-center">
+                <AlertCircle className="h-10 w-10 text-white" />
+              </div>
+            </div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-1">Delete failed</h3>
+            <p className="text-gray-600 mb-6">{deleteError}</p>
+            <div className="flex items-center justify-center space-x-3">
+              <button
+                type="button"
+                onClick={() => setDeleteError(null)}
+                className="px-5 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

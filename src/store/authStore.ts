@@ -322,18 +322,29 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   signInWithFacebook: async () => {
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'facebook',
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-        queryParams: {
-          access_type: 'offline',
-          prompt: 'consent',
+    try {
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'facebook',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          }
         }
+      });
+      
+      if (error) {
+        // Handle specific Facebook OAuth errors
+        if (error.message?.includes('provider is not enabled')) {
+          throw new Error('Facebook sign-in is not available. Please use email/password or Google sign-in instead.');
+        }
+        throw error;
       }
-    });
-    
-    if (error) throw error;
+    } catch (error: any) {
+      console.error('Facebook OAuth error:', error);
+      throw error;
+    }
   },
   
   signUp: async (email: string, password: string, username: string) => {

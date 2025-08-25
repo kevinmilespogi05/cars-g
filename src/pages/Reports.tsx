@@ -32,6 +32,18 @@ export function Reports() {
     const initializeAndFetch = async () => {
       // Wait for auth to be established
       await new Promise(resolve => setTimeout(resolve, 500));
+      // Optimistic pre-pend if we have a freshly created report
+      try {
+        const optimisticRaw = sessionStorage.getItem('optimisticReport');
+        if (optimisticRaw) {
+          const optimistic = JSON.parse(optimisticRaw);
+          setReports(prev => {
+            if (prev.some(r => r.id === optimistic.id)) return prev;
+            return [optimistic, ...prev];
+          });
+          sessionStorage.removeItem('optimisticReport');
+        }
+      } catch {}
       await fetchReports();
     };
     
