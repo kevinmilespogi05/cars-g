@@ -336,6 +336,7 @@ app.get('/api/chat/messages/:conversationId', async (req, res) => {
 // Stricter rate limit for conversation creation
 const createConversationLimiter = rateLimit({ windowMs: 60 * 1000, max: 20 });
 app.post('/api/chat/conversations', createConversationLimiter, async (req, res) => {
+app.post('/api/chat/conversations', createConversationLimiter, async (req, res) => {
   try {
     const { participant1_id, participant2_id } = req.body;
     
@@ -1111,3 +1112,4 @@ const startServer = async () => {
 };
 
 startServer();
+
