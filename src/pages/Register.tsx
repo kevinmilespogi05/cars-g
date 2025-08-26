@@ -6,13 +6,13 @@ import { UserPlus, Mail, Lock, User, AlertCircle } from 'lucide-react';
 
 export function Register() {
   const navigate = useNavigate();
-  const { signUp, signInWithGoogle, signInWithFacebook } = useAuthStore();
+  const { signUp, signInWithGoogle } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isSocialLoading, setIsSocialLoading] = useState<'google' | 'facebook' | null>(null);
+  const [isSocialLoading, setIsSocialLoading] = useState<'google' | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -44,16 +44,7 @@ export function Register() {
     }
   };
 
-  const handleFacebookSignUp = async () => {
-    setError('');
-    setIsSocialLoading('facebook');
-    try {
-      await signInWithFacebook();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to sign up with Facebook');
-      setIsSocialLoading(null);
-    }
-  };
+
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 py-6 px-4 sm:py-12 sm:px-6 lg:px-8">
@@ -211,7 +202,7 @@ export function Register() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4">
             <button
               onClick={handleGoogleSignUp}
               disabled={isSocialLoading === 'google'}
@@ -259,40 +250,6 @@ export function Register() {
                 </svg>
               )}
               <span className="ml-3 font-medium">Google</span>
-            </button>
-
-            <button
-              onClick={handleFacebookSignUp}
-              disabled={isSocialLoading === 'facebook'}
-              className="w-full inline-flex justify-center items-center py-3 px-4 border-2 border-[#1877F2] rounded-xl shadow-sm bg-[#1877F2] text-sm font-semibold text-white hover:bg-[#1664d9] hover:border-[#1664d9] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed group"
-            >
-              {isSocialLoading === 'facebook' ? (
-                <svg
-                  className="animate-spin h-5 w-5 text-white"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  ></circle>
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  ></path>
-                </svg>
-              ) : (
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-                </svg>
-              )}
-              <span className="ml-3 font-medium">Facebook</span>
             </button>
           </div>
         </div>
