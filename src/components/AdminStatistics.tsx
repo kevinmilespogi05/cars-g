@@ -37,6 +37,7 @@ interface Statistics {
   pendingReports: number;
   inProgressReports: number;
   resolvedReports: number;
+  rejectedReports: number;
   totalUsers: number;
   activeUsers: number;
   bannedUsers: number;
@@ -52,6 +53,7 @@ interface Statistics {
     totalReports: number;
     pendingReports: number;
     resolvedReports: number;
+    rejectedReports: number;
     totalUsers: number;
   };
 }
@@ -63,6 +65,7 @@ export function AdminStatistics() {
     pendingReports: 0,
     inProgressReports: 0,
     resolvedReports: 0,
+    rejectedReports: 0,
     totalUsers: 0,
     activeUsers: 0,
     bannedUsers: 0,
@@ -167,6 +170,7 @@ export function AdminStatistics() {
       const pendingReports = reports?.filter(r => r.status === 'pending').length || 0;
       const inProgressReports = reports?.filter(r => r.status === 'in_progress').length || 0;
       const resolvedReports = reports?.filter(r => r.status === 'resolved').length || 0;
+      const rejectedReports = reports?.filter(r => r.status === 'rejected').length || 0;
       const totalUsers = users?.length || 0;
       const activeUsers = users?.filter(u => !u.is_banned).length || 0;
       const bannedUsers = users?.filter(u => u.is_banned).length || 0;
@@ -176,6 +180,7 @@ export function AdminStatistics() {
         pendingReports,
         inProgressReports,
         resolvedReports,
+        rejectedReports,
         totalUsers,
         activeUsers,
         bannedUsers
@@ -339,6 +344,7 @@ export function AdminStatistics() {
         totalReports: statistics.totalReports,
         pendingReports: statistics.pendingReports,
         resolvedReports: statistics.resolvedReports,
+        rejectedReports: statistics.rejectedReports,
         totalUsers: statistics.totalUsers,
       };
 
@@ -347,6 +353,7 @@ export function AdminStatistics() {
         pendingReports,
         inProgressReports,
         resolvedReports,
+        rejectedReports,
         totalUsers,
         activeUsers,
         bannedUsers,
@@ -383,6 +390,7 @@ export function AdminStatistics() {
         pendingReports: 0,
         inProgressReports: 0,
         resolvedReports: 0,
+        rejectedReports: 0,
         totalUsers: 0,
         activeUsers: 0,
         bannedUsers: 0,
@@ -437,21 +445,23 @@ export function AdminStatistics() {
     reports: {
       resolved: statistics.resolvedReports,
       inProgress: statistics.inProgressReports,
-      pending: statistics.pendingReports
+      pending: statistics.pendingReports,
+      rejected: statistics.rejectedReports
     }
   });
 
   const reportsStatusData = {
-    labels: ['Pending', 'In Progress', 'Resolved'],
+    labels: ['Pending', 'In Progress', 'Resolved', 'Rejected'],
     datasets: [
       {
         data: [
           Number(statistics.pendingReports) || 0, 
           Number(statistics.inProgressReports) || 0, 
-          Number(statistics.resolvedReports) || 0
+          Number(statistics.resolvedReports) || 0,
+          Number(statistics.rejectedReports) || 0
         ],
-        backgroundColor: ['#f59e0b', '#3b82f6', '#10b981'],
-        borderColor: ['#d97706', '#2563eb', '#059669'],
+        backgroundColor: ['#f59e0b', '#3b82f6', '#10b981', '#ef4444'],
+        borderColor: ['#d97706', '#2563eb', '#059669', '#dc2626'],
         borderWidth: 2,
       },
     ],
@@ -579,21 +589,23 @@ export function AdminStatistics() {
   });
 
   const reportsEfficiencyData = {
-    labels: ['Resolved', 'In Progress', 'Pending'],
+    labels: ['Resolved', 'In Progress', 'Pending', 'Rejected'],
     datasets: [
       {
         label: 'Reports Count',
         data: [
           Math.max(0, Number(statistics.resolvedReports) || 0),
           Math.max(0, Number(statistics.inProgressReports) || 0),
-          Math.max(0, Number(statistics.pendingReports) || 0)
+          Math.max(0, Number(statistics.pendingReports) || 0),
+          Math.max(0, Number(statistics.rejectedReports) || 0)
         ],
         backgroundColor: [
           'rgba(16, 185, 129, 0.8)',
           'rgba(59, 130, 246, 0.8)',
-          'rgba(245, 158, 11, 0.8)'
+          'rgba(245, 158, 11, 0.8)',
+          'rgba(239, 68, 68, 0.8)'
         ],
-        borderColor: ['#10b981', '#3b82f6', '#f59e0b'],
+        borderColor: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'],
         borderWidth: 2,
         borderRadius: 4,
       },
@@ -641,6 +653,9 @@ export function AdminStatistics() {
         ['Resolved Reports', statistics.resolvedReports,
          statistics.totalReports > 0 ? ((statistics.resolvedReports / statistics.totalReports) * 100).toFixed(1) + '%' : '0%',
          'Successfully completed reports'],
+        ['Rejected Reports', statistics.rejectedReports,
+         statistics.totalReports > 0 ? ((statistics.rejectedReports / statistics.totalReports) * 100).toFixed(1) + '%' : '0%',
+         'Reports that were rejected'],
         ['Total Users', statistics.totalUsers, '100%', 'All registered users'],
         ['Active Users', statistics.activeUsers,
          statistics.totalUsers > 0 ? ((statistics.activeUsers / statistics.totalUsers) * 100).toFixed(1) + '%' : '0%',
@@ -662,6 +677,9 @@ export function AdminStatistics() {
         ['Pending Rate',
          statistics.totalReports > 0 ? ((statistics.pendingReports / statistics.totalReports) * 100).toFixed(1) : 0,
          '%', 'Percentage of reports still pending'],
+        ['Rejection Rate',
+         statistics.totalReports > 0 ? ((statistics.rejectedReports / statistics.totalReports) * 100).toFixed(1) : 0,
+         '%', 'Percentage of reports that were rejected'],
         ['Active User Rate',
          statistics.totalUsers > 0 ? ((statistics.activeUsers / statistics.totalUsers) * 100).toFixed(1) : 0,
          '%', 'Percentage of active users'],
@@ -745,6 +763,9 @@ export function AdminStatistics() {
         ['Resolved', statistics.resolvedReports,
          statistics.totalReports > 0 ? ((statistics.resolvedReports / statistics.totalReports) * 100).toFixed(1) + '%' : '0%',
          '#10b981'],
+        ['Rejected', statistics.rejectedReports,
+         statistics.totalReports > 0 ? ((statistics.rejectedReports / statistics.totalReports) * 100).toFixed(1) + '%' : '0%',
+         '#ef4444'],
         [],
         
         ['CHART DATA - USER ACTIVITY'],
@@ -1021,6 +1042,32 @@ export function AdminStatistics() {
                           {getTrendIcon(calculateTrend(statistics.resolvedReports, statistics.previousStats.resolvedReports).direction)}
                           <span className="ml-1 text-xs text-gray-500">
                             {calculateTrend(statistics.resolvedReports, statistics.previousStats.resolvedReports).percentage}%
+                          </span>
+                        </div>
+                      )}
+                    </dl>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white overflow-hidden shadow rounded-lg">
+              <div className="p-3 sm:p-5">
+                <div className="flex items-center">
+                  <div className="flex-shrink-0">
+                    <div className="h-8 w-8 sm:h-12 sm:w-12 rounded-md bg-red-500 flex items-center justify-center">
+                      <AlertTriangle className="h-4 w-4 sm:h-6 sm:w-6 text-white" />
+                    </div>
+                  </div>
+                  <div className="ml-3 sm:ml-5 w-0 flex-1">
+                    <dl>
+                      <dt className="text-xs sm:text-sm font-medium text-gray-500 truncate">Rejected Reports</dt>
+                      <dd className="text-base sm:text-lg font-medium text-gray-900">{statistics.rejectedReports}</dd>
+                      {statistics.previousStats && (
+                        <div className="flex items-center mt-1">
+                          {getTrendIcon(calculateTrend(statistics.rejectedReports, statistics.previousStats.rejectedReports).direction)}
+                          <span className="ml-1 text-xs text-gray-500">
+                            {calculateTrend(statistics.rejectedReports, statistics.previousStats.rejectedReports).percentage}%
                           </span>
                         </div>
                       )}
@@ -1401,7 +1448,7 @@ export function AdminStatistics() {
                   <Activity className="h-5 w-5 text-indigo-500 mr-2" />
                   <h4 className="text-base sm:text-lg font-medium text-gray-900">Performance Metrics Summary</h4>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                   <div className="text-center p-3 bg-blue-50 rounded-lg">
                     <p className="text-2xl font-bold text-blue-600">
                       {statistics.totalReports > 0 ? ((statistics.resolvedReports / statistics.totalReports) * 100).toFixed(1) : 0}%
@@ -1419,6 +1466,12 @@ export function AdminStatistics() {
                       {statistics.totalReports > 0 ? ((statistics.pendingReports / statistics.totalReports) * 100).toFixed(1) : 0}%
                     </p>
                     <p className="text-sm text-yellow-800">Pending Rate</p>
+                  </div>
+                  <div className="text-center p-3 bg-red-50 rounded-lg">
+                    <p className="text-2xl font-bold text-red-600">
+                      {statistics.totalReports > 0 ? ((statistics.rejectedReports / statistics.totalReports) * 100).toFixed(1) : 0}%
+                    </p>
+                    <p className="text-sm text-red-800">Rejection Rate</p>
                   </div>
                   <div className="text-center p-3 bg-purple-50 rounded-lg">
                     <p className="text-2xl font-bold text-purple-600">
