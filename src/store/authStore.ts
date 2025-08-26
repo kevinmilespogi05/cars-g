@@ -307,18 +307,40 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   signInWithGoogle: async () => {
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-        queryParams: {
-          access_type: 'offline',
-          prompt: 'consent',
+    try {
+      console.log('Starting Google OAuth sign-in...');
+      
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          }
         }
+      });
+      
+      if (error) {
+        console.error('Google OAuth error:', error);
+        
+        // Handle specific Google OAuth errors
+        if (error.message?.includes('provider is not enabled')) {
+          throw new Error('Google sign-in is not enabled. Please contact support or use email/password sign-in instead.');
+        }
+        
+        if (error.message?.includes('redirect_uri_mismatch')) {
+          throw new Error('Google OAuth configuration error. Please contact support.');
+        }
+        
+        throw error;
       }
-    });
-    
-    if (error) throw error;
+      
+      console.log('Google OAuth initiated successfully:', data);
+    } catch (error: any) {
+      console.error('Unexpected error during Google OAuth:', error);
+      throw error;
+    }
   },
 
   signInWithFacebook: async () => {

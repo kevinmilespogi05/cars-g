@@ -5,6 +5,7 @@ import { ProtectedRoute } from '../components/ProtectedRoute';
 // Lazy load components
 const Login = lazy(() => import('../pages/Login').then(module => ({ default: module.Login })));
 const Register = lazy(() => import('../pages/Register').then(module => ({ default: module.Register })));
+const AuthCallback = lazy(() => import('../pages/AuthCallback').then(module => ({ default: module.AuthCallback })));
 const Reports = lazy(() => import('../pages/Reports').then(module => ({ default: module.Reports })));
 const CreateReport = lazy(() => import('../pages/CreateReport').then(module => ({ default: module.CreateReport })));
 const ReportDetail = lazy(() => import('../pages/ReportDetail').then(module => ({ default: module.ReportDetail })));
@@ -29,6 +30,10 @@ export const publicRoutes: RouteObject[] = [
   {
     path: '/register',
     element: <Register />
+  },
+  {
+    path: '/auth/callback',
+    element: <AuthCallback />
   },
   {
     path: '/privacy-policy',
