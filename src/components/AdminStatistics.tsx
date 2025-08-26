@@ -359,9 +359,9 @@ export function AdminStatistics() {
     datasets: [
       {
         data: [
-          statistics.pendingReports || 0, 
-          statistics.inProgressReports || 0, 
-          statistics.resolvedReports || 0
+          Number(statistics.pendingReports) || 0, 
+          Number(statistics.inProgressReports) || 0, 
+          Number(statistics.resolvedReports) || 0
         ],
         backgroundColor: ['#f59e0b', '#3b82f6', '#10b981'],
         borderColor: ['#d97706', '#2563eb', '#059669'],
@@ -376,8 +376,9 @@ export function AdminStatistics() {
       : ['No Data'],
     datasets: [
       {
+        label: 'Reports by Category',
         data: (statistics.reportsByCategory || []).length > 0
-          ? statistics.reportsByCategory.map(item => item.count)
+          ? statistics.reportsByCategory.map(item => Number(item.count) || 0)
           : [0],
         backgroundColor: [
           '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6',
@@ -397,7 +398,7 @@ export function AdminStatistics() {
       {
         label: 'Reports',
         data: (statistics.reportsByTime || []).length > 0
-          ? statistics.reportsByTime.map(item => item.count)
+          ? statistics.reportsByTime.map(item => Number(item.count) || 0)
           : Array.from({ length: 24 }, () => 0),
         borderColor: '#3b82f6',
         backgroundColor: 'rgba(59, 130, 246, 0.1)',
@@ -416,7 +417,7 @@ export function AdminStatistics() {
     datasets: [
       {
         label: 'Reports',
-        data: (statistics.reportsByDay || []).map(item => item.count || 0),
+        data: (statistics.reportsByDay || []).map(item => Number(item.count) || 0),
         backgroundColor: 'rgba(16, 185, 129, 0.8)',
         borderColor: '#10b981',
         borderWidth: 2,
@@ -431,7 +432,7 @@ export function AdminStatistics() {
     datasets: [
       {
         label: 'Reports',
-        data: (statistics.reportsByMonth || []).map(item => item.count || 0),
+        data: (statistics.reportsByMonth || []).map(item => Number(item.count) || 0),
         borderColor: '#8b5cf6',
         backgroundColor: 'rgba(139, 92, 246, 0.1)',
         fill: true,
@@ -448,7 +449,7 @@ export function AdminStatistics() {
     labels: ['Active Users', 'Banned Users'],
     datasets: [
       {
-        data: [statistics.activeUsers || 0, statistics.bannedUsers || 0],
+        data: [Number(statistics.activeUsers) || 0, Number(statistics.bannedUsers) || 0],
         backgroundColor: ['#10b981', '#ef4444'],
         borderColor: ['#059669', '#dc2626'],
         borderWidth: 2,
@@ -463,9 +464,9 @@ export function AdminStatistics() {
       {
         label: 'Resolution Time (hours)',
         data: [
-          (statistics.averageResolutionTime || 0) / (1000 * 60 * 60),
-          (statistics.fastestResolutionTime || 0) / (1000 * 60 * 60),
-          (statistics.slowestResolutionTime || 0) / (1000 * 60 * 60)
+          Number(statistics.averageResolutionTime || 0) / (1000 * 60 * 60),
+          Number(statistics.fastestResolutionTime || 0) / (1000 * 60 * 60),
+          Number(statistics.slowestResolutionTime || 0) / (1000 * 60 * 60)
         ],
         backgroundColor: [
           'rgba(59, 130, 246, 0.8)',
@@ -485,9 +486,9 @@ export function AdminStatistics() {
       {
         label: 'Efficiency Rate',
         data: [
-          statistics.resolvedReports || 0,
-          statistics.inProgressReports || 0,
-          statistics.pendingReports || 0
+          Number(statistics.resolvedReports) || 0,
+          Number(statistics.inProgressReports) || 0,
+          Number(statistics.pendingReports) || 0
         ],
         backgroundColor: [
           'rgba(16, 185, 129, 0.8)',
@@ -970,9 +971,10 @@ export function AdminStatistics() {
                           tooltip: {
                             callbacks: {
                               label: function(context) {
+                                const value = context.raw || context.parsed || 0;
                                 const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0);
-                                const percentage = total > 0 && typeof context.parsed === 'number' ? ((context.parsed / total) * 100).toFixed(1) : '0.0';
-                                return `${context.label}: ${context.parsed || 0} (${percentage}%)`;
+                                const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
+                                return `${context.label}: ${value} (${percentage}%)`;
                               }
                             }
                           }
@@ -1002,9 +1004,10 @@ export function AdminStatistics() {
                           tooltip: {
                             callbacks: {
                               label: function(context) {
+                                const value = context.raw || context.parsed || 0;
                                 const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0);
-                                const percentage = total > 0 && typeof context.parsed === 'number' ? ((context.parsed / total) * 100).toFixed(1) : '0.0';
-                                return `${context.label}: ${context.parsed || 0} (${percentage}%)`;
+                                const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
+                                return `${context.label}: ${value} (${percentage}%)`;
                               }
                             }
                           }
@@ -1036,9 +1039,10 @@ export function AdminStatistics() {
                         tooltip: {
                           callbacks: {
                             label: function(context: any) {
+                              const value = context.raw || context.parsed || 0;
                               const total = (context.dataset.data as number[]).reduce((a: number, b: number) => a + b, 0);
-                              const percentage = total > 0 && typeof context.parsed === 'number' ? ((context.parsed / total) * 100).toFixed(1) : '0.0';
-                              return `${context.parsed || 0} reports (${percentage}%)`;
+                              const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
+                              return `${value} reports (${percentage}%)`;
                             }
                           }
                         }
@@ -1175,7 +1179,8 @@ export function AdminStatistics() {
                           tooltip: {
                             callbacks: {
                               label: function(context: any) {
-                                const hours = typeof context.parsed === 'number' ? context.parsed.toFixed(1) : '0.0';
+                                const value = context.raw || context.parsed || 0;
+                                const hours = typeof value === 'number' ? value.toFixed(1) : '0.0';
                                 return `${hours} hours`;
                               }
                             }
@@ -1215,9 +1220,10 @@ export function AdminStatistics() {
                           tooltip: {
                             callbacks: {
                               label: function(context: any) {
+                                const value = context.raw || context.parsed || 0;
                                 const total = (context.dataset.data as number[]).reduce((a: number, b: number) => a + b, 0);
-                                const percentage = total > 0 && typeof context.parsed === 'number' ? ((context.parsed / total) * 100).toFixed(1) : '0.0';
-                                return `${context.parsed || 0} reports (${percentage}%)`;
+                                const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
+                                return `${value} reports (${percentage}%)`;
                               }
                             }
                           }
