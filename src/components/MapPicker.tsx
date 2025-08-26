@@ -5,6 +5,7 @@ import L from 'leaflet';
 import { MapPin, Loader2, Target, Crosshair } from 'lucide-react';
 import { 
   getEnhancedLocation, 
+  getFastLocation,
   GEOLOCATION_OPTIONS, 
   startLocationMonitoring as startLocationMonitoringLib,
   // formatLocation,
@@ -71,10 +72,10 @@ export function MapPicker({ onLocationSelect, initialLocation }: MapPickerProps)
     setError('');
 
     try {
-      // Use enhanced location service with high precision
-      const enhancedLocation = await getEnhancedLocation(GEOLOCATION_OPTIONS.HIGH_PRECISION);
+      // Use ultra-fast location service for immediate response
+      const enhancedLocation = await getFastLocation();
       
-      setLocationMethod(enhancedLocation.method === 'gps' ? 'High Accuracy GPS' : 'IP-based (approximate)');
+      setLocationMethod(enhancedLocation.method === 'gps' ? 'Fast GPS Location' : 'IP-based (approximate)');
       setIsHighAccuracyMode(enhancedLocation.method === 'gps');
       updatePosition(enhancedLocation);
       
@@ -85,6 +86,38 @@ export function MapPicker({ onLocationSelect, initialLocation }: MapPickerProps)
 
     } catch (error) {
       console.error('Error getting location:', error);
+      handleLocationError(error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Get location with high accuracy (slower but more precise)
+  const getAccurateLocation = async () => {
+    if (!("geolocation" in navigator)) {
+      setError('Geolocation is not supported by your browser. Please select a location manually on the map.');
+      setShowLocationButton(false);
+      return;
+    }
+
+    setIsLoading(true);
+    setError('');
+
+    try {
+      // Use high precision location service for maximum accuracy
+      const enhancedLocation = await getEnhancedLocation(GEOLOCATION_OPTIONS.HIGH_PRECISION);
+      
+      setLocationMethod(enhancedLocation.method === 'gps' ? 'High Accuracy GPS (Precise)' : 'IP-based (approximate)');
+      setIsHighAccuracyMode(enhancedLocation.method === 'gps');
+      updatePosition(enhancedLocation);
+      
+      // Start continuous monitoring for better precision if GPS is available
+      if (enhancedLocation.method === 'gps') {
+        startContinuousMonitoring();
+      }
+
+    } catch (error) {
+      console.error('Error getting accurate location:', error);
       handleLocationError(error);
     } finally {
       setIsLoading(false);
@@ -115,7 +148,7 @@ export function MapPicker({ onLocationSelect, initialLocation }: MapPickerProps)
           }
         }
       },
-      GEOLOCATION_OPTIONS.HIGH_PRECISION
+      GEOLOCATION_OPTIONS.ULTRA_FAST
     );
 
     // Store cleanup function
@@ -246,7 +279,7 @@ export function MapPicker({ onLocationSelect, initialLocation }: MapPickerProps)
             ) : (
               <Crosshair className="h-3 w-3" />
             )}
-            <span>{locationMethod}</span>
+            <span className="font-medium">{locationMethod}</span>
             {accuracy && (
               <span>• Accuracy: ±{Math.round(accuracy)}m</span>
             )}
@@ -320,18 +353,34 @@ export function MapPicker({ onLocationSelect, initialLocation }: MapPickerProps)
           )}
         </div>
         {showLocationButton && (
-          <button
-            onClick={getLocation}
-            disabled={isLoading}
-            className="absolute top-12 right-2 z-10 bg-white p-2 rounded-full shadow-md hover:bg-gray-50 disabled:opacity-50 transition-all duration-200"
-            title="Get my location with high precision"
-          >
-            {isLoading ? (
-              <Loader2 className="h-5 w-5 animate-spin" />
-            ) : (
-              <MapPin className="h-5 w-5" />
-            )}
-          </button>
+          <div className="absolute top-12 right-2 z-10 bg-white rounded-lg shadow-md p-2 space-y-2">
+            <button
+              onClick={getLocation}
+              disabled={isLoading}
+              className="w-full bg-blue-600 text-white px-3 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 transition-all duration-200 text-sm font-medium flex items-center justify-center space-x-2"
+              title="Get my location quickly (fastest option)"
+            >
+              {isLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <MapPin className="h-4 w-4" />
+              )}
+              <span>Fast Location</span>
+            </button>
+            <button
+              onClick={getAccurateLocation}
+              disabled={isLoading}
+              className="w-full bg-green-600 text-white px-3 py-2 rounded-md hover:bg-green-700 disabled:opacity-50 transition-all duration-200 text-sm font-medium flex items-center justify-center space-x-2"
+              title="Get my location with maximum accuracy (slower but more precise)"
+            >
+              {isLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Target className="h-4 w-4" />
+              )}
+              <span>Accurate Location</span>
+            </button>
+          </div>
         )}
         {/* Show accuracy circle when available */}
         {accuracy && accuracy > 0 && (
