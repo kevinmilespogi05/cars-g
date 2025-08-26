@@ -36,6 +36,18 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = ({
     };
   };
 
+  const isOtherParticipantBanned = (conversation: ChatConversation): boolean => {
+    if (!user) return false;
+    
+    const otherId = conversation.participant1_id === user.id 
+      ? conversation.participant2_id 
+      : conversation.participant1_id;
+    
+    // Check if the other participant is banned
+    const otherUser = profiles.find(p => p.id === otherId);
+    return otherUser ? otherUser.is_banned === true : false;
+  };
+
   const formatLastMessageTime = (timestamp: string) => {
     try {
       return formatDistanceToNow(new Date(timestamp), { addSuffix: true });
@@ -101,11 +113,18 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = ({
               {/* Conversation Info */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between">
-                  <h4 className={`font-semibold text-sm sm:text-base ${
-                    isSelected ? 'text-white' : 'text-gray-900'
-                  }`} style={{ wordBreak: 'break-word' }}>
-                    {otherUser?.username || 'Unknown User'}
-                  </h4>
+                  <div className="flex items-center space-x-2">
+                    <h4 className={`font-semibold text-sm sm:text-base ${
+                      isSelected ? 'text-white' : 'text-gray-900'
+                    }`} style={{ wordBreak: 'break-word' }}>
+                      {otherUser?.username || 'Unknown User'}
+                    </h4>
+                    {isOtherParticipantBanned(conversation) && (
+                      <svg className={`w-4 h-4 ${isSelected ? 'text-red-200' : 'text-red-500'}`} fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                    )}
+                  </div>
                   <span className={`text-xs ${
                     isSelected ? 'text-white/80' : 'text-gray-500'
                   }`}>
@@ -121,9 +140,10 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = ({
                   </p>
                 )}
 
-                {/* Unread indicator */}
-                {conversation.unread_count && conversation.unread_count > 0 && (
-                  <div className="flex items-center justify-between mt-2">
+                {/* Unread indicator and banned user indicator */}
+                <div className="flex items-center justify-between mt-2">
+                  {/* Unread count */}
+                  {conversation.unread_count && conversation.unread_count > 0 && (
                     <span className={`text-xs px-2 py-1 rounded-full ${
                       isSelected 
                         ? 'bg-white/20 text-white' 
@@ -131,8 +151,19 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = ({
                     }`}>
                       {conversation.unread_count} unread message{conversation.unread_count !== 1 ? 's' : ''}
                     </span>
-                  </div>
-                )}
+                  )}
+                  
+                  {/* Banned user indicator */}
+                  {isOtherParticipantBanned(conversation) && (
+                    <span className={`text-xs px-2 py-1 rounded-full ${
+                      isSelected 
+                        ? 'bg-red-500/20 text-red-200' 
+                        : 'bg-red-100 text-red-600'
+                    }`}>
+                      Banned User
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           </div>

@@ -267,8 +267,7 @@ export const Chat: React.FC = () => {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, username, email, avatar_url')
-        .eq('is_banned', false);
+        .select('id, username, email, avatar_url, is_banned');
 
       if (error) throw error;
       setProfiles(data || []);
@@ -292,6 +291,12 @@ export const Chat: React.FC = () => {
 
   const handleSendMessage = async (content: string, messageType: string): Promise<boolean> => {
     if (!selectedConversation || !user) return false;
+    
+    // Prevent sending messages to banned users
+    if (isOtherParticipantBanned(selectedConversation)) {
+      console.warn('Attempted to send message to banned user');
+      return false;
+    }
 
     try {
       // Create optimistic message
@@ -389,6 +394,18 @@ export const Chat: React.FC = () => {
     // Try to find the user in the profiles data
     const otherUser = profiles.find(p => p.id === otherId);
     return otherUser ? otherUser.username : `User ${otherId.slice(0, 8)}`;
+  };
+
+  const isOtherParticipantBanned = (conversation: ChatConversation): boolean => {
+    if (!user) return false;
+    
+    const otherId = conversation.participant1_id === user.id 
+      ? conversation.participant2_id 
+      : conversation.participant1_id;
+    
+    // Check if the other participant is banned
+    const otherUser = profiles.find(p => p.id === otherId);
+    return otherUser ? otherUser.is_banned === true : false;
   };
 
   const handleNewConversation = () => {
@@ -546,10 +563,21 @@ export const Chat: React.FC = () => {
                     {getOtherParticipantName(selectedConversation)}
                   </h2>
                   <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                    <span className="text-xs sm:text-sm text-gray-500">
-                      {isConnected ? 'Online' : 'Offline'}
-                    </span>
+                    {isOtherParticipantBanned(selectedConversation) ? (
+                      <>
+                        <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                        <span className="text-xs sm:text-sm text-red-600 font-medium">
+                          Banned User
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                        <span className="text-xs sm:text-sm text-gray-500">
+                          {isConnected ? 'Online' : 'Offline'}
+                        </span>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -603,15 +631,32 @@ export const Chat: React.FC = () => {
               )}
             </div>
 
-            {/* Chat Input */}
+            {/* Chat Input or Banned User Message */}
             <div className="flex-shrink-0">
-              <ChatInput
-                onSendMessage={handleSendMessage}
-                onTypingStart={handleTypingStart}
-                onTypingStop={handleTypingStop}
-                disabled={!isConnected || !isAuthenticated}
-                placeholder="Type a message..."
-              />
+              {isOtherParticipantBanned(selectedConversation) ? (
+                <div className="bg-red-50 border-t border-red-200 p-4">
+                  <div className="text-center">
+                    <div className="flex items-center justify-center space-x-2 text-red-700 mb-2">
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                      <span className="font-medium">User is Banned</span>
+                    </div>
+                    <p className="text-sm text-red-600">
+                      You cannot send messages to this user as they have been banned from the platform. 
+                      You can still view the conversation history, but new messages cannot be sent.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <ChatInput
+                  onSendMessage={handleSendMessage}
+                  onTypingStart={handleTypingStart}
+                  onTypingStop={handleTypingStop}
+                  disabled={!isConnected || !isAuthenticated}
+                  placeholder="Type a message..."
+                />
+              )}
             </div>
           </div>
         )}
