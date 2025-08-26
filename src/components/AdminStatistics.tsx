@@ -347,6 +347,7 @@ export function AdminStatistics() {
   };
 
   const formatTime = (milliseconds: number) => {
+    if (!milliseconds || isNaN(milliseconds)) return '0h 0m';
     const hours = Math.floor(milliseconds / (1000 * 60 * 60));
     const minutes = Math.floor((milliseconds % (1000 * 60 * 60)) / (1000 * 60));
     return `${hours}h ${minutes}m`;
@@ -411,11 +412,11 @@ export function AdminStatistics() {
   };
 
   const reportsByDayData = {
-    labels: statistics.reportsByDay.map(item => item.day.substring(0, 3)),
+    labels: (statistics.reportsByDay || []).map(item => item.day.substring(0, 3)),
     datasets: [
       {
         label: 'Reports',
-        data: statistics.reportsByDay.map(item => item.count),
+        data: (statistics.reportsByDay || []).map(item => item.count || 0),
         backgroundColor: 'rgba(16, 185, 129, 0.8)',
         borderColor: '#10b981',
         borderWidth: 2,
@@ -426,11 +427,11 @@ export function AdminStatistics() {
   };
 
   const reportsByMonthData = {
-    labels: statistics.reportsByMonth.map(item => item.month.substring(0, 3)),
+    labels: (statistics.reportsByMonth || []).map(item => item.month.substring(0, 3)),
     datasets: [
       {
         label: 'Reports',
-        data: statistics.reportsByMonth.map(item => item.count),
+        data: (statistics.reportsByMonth || []).map(item => item.count || 0),
         borderColor: '#8b5cf6',
         backgroundColor: 'rgba(139, 92, 246, 0.1)',
         fill: true,
@@ -447,7 +448,7 @@ export function AdminStatistics() {
     labels: ['Active Users', 'Banned Users'],
     datasets: [
       {
-        data: [statistics.activeUsers, statistics.bannedUsers],
+        data: [statistics.activeUsers || 0, statistics.bannedUsers || 0],
         backgroundColor: ['#10b981', '#ef4444'],
         borderColor: ['#059669', '#dc2626'],
         borderWidth: 2,
@@ -462,9 +463,9 @@ export function AdminStatistics() {
       {
         label: 'Resolution Time (hours)',
         data: [
-          statistics.averageResolutionTime / (1000 * 60 * 60),
-          statistics.fastestResolutionTime / (1000 * 60 * 60),
-          statistics.slowestResolutionTime / (1000 * 60 * 60)
+          (statistics.averageResolutionTime || 0) / (1000 * 60 * 60),
+          (statistics.fastestResolutionTime || 0) / (1000 * 60 * 60),
+          (statistics.slowestResolutionTime || 0) / (1000 * 60 * 60)
         ],
         backgroundColor: [
           'rgba(59, 130, 246, 0.8)',
@@ -484,9 +485,9 @@ export function AdminStatistics() {
       {
         label: 'Efficiency Rate',
         data: [
-          statistics.resolvedReports,
-          statistics.inProgressReports,
-          statistics.pendingReports
+          statistics.resolvedReports || 0,
+          statistics.inProgressReports || 0,
+          statistics.pendingReports || 0
         ],
         backgroundColor: [
           'rgba(16, 185, 129, 0.8)',
@@ -747,6 +748,18 @@ export function AdminStatistics() {
     );
   }
 
+  // Safety check for statistics object
+  if (!statistics || Object.keys(statistics).length === 0) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="text-center">
+          <AlertTriangle className="h-8 w-8 text-yellow-500 mx-auto mb-2" />
+          <p className="text-gray-600">No statistics data available</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full px-2 sm:px-4 lg:px-6">
       <div className="bg-white shadow sm:rounded-lg">
@@ -958,8 +971,8 @@ export function AdminStatistics() {
                             callbacks: {
                               label: function(context) {
                                 const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0);
-                                const percentage = ((context.parsed / total) * 100).toFixed(1);
-                                return `${context.label}: ${context.parsed} (${percentage}%)`;
+                                const percentage = total > 0 && typeof context.parsed === 'number' ? ((context.parsed / total) * 100).toFixed(1) : '0.0';
+                                return `${context.label}: ${context.parsed || 0} (${percentage}%)`;
                               }
                             }
                           }
@@ -990,8 +1003,8 @@ export function AdminStatistics() {
                             callbacks: {
                               label: function(context) {
                                 const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0);
-                                const percentage = ((context.parsed / total) * 100).toFixed(1);
-                                return `${context.label}: ${context.parsed} (${percentage}%)`;
+                                const percentage = total > 0 && typeof context.parsed === 'number' ? ((context.parsed / total) * 100).toFixed(1) : '0.0';
+                                return `${context.label}: ${context.parsed || 0} (${percentage}%)`;
                               }
                             }
                           }
@@ -1024,8 +1037,8 @@ export function AdminStatistics() {
                           callbacks: {
                             label: function(context: any) {
                               const total = (context.dataset.data as number[]).reduce((a: number, b: number) => a + b, 0);
-                              const percentage = ((context.parsed / total) * 100).toFixed(1);
-                              return `${context.parsed} reports (${percentage}%)`;
+                              const percentage = total > 0 && typeof context.parsed === 'number' ? ((context.parsed / total) * 100).toFixed(1) : '0.0';
+                              return `${context.parsed || 0} reports (${percentage}%)`;
                             }
                           }
                         }
@@ -1162,7 +1175,7 @@ export function AdminStatistics() {
                           tooltip: {
                             callbacks: {
                               label: function(context: any) {
-                                const hours = context.parsed.toFixed(1);
+                                const hours = typeof context.parsed === 'number' ? context.parsed.toFixed(1) : '0.0';
                                 return `${hours} hours`;
                               }
                             }
@@ -1203,8 +1216,8 @@ export function AdminStatistics() {
                             callbacks: {
                               label: function(context: any) {
                                 const total = (context.dataset.data as number[]).reduce((a: number, b: number) => a + b, 0);
-                                const percentage = ((context.parsed / total) * 100).toFixed(1);
-                                return `${context.parsed} reports (${percentage}%)`;
+                                const percentage = total > 0 && typeof context.parsed === 'number' ? ((context.parsed / total) * 100).toFixed(1) : '0.0';
+                                return `${context.parsed || 0} reports (${percentage}%)`;
                               }
                             }
                           }
@@ -1337,7 +1350,7 @@ export function AdminStatistics() {
           </div>
 
           {/* Top Locations */}
-          {statistics.reportsByLocation.length > 0 && (
+          {(statistics.reportsByLocation || []).length > 0 && (
             <div className="mt-6 sm:mt-8">
               <div className="bg-white overflow-hidden shadow rounded-lg">
                 <div className="p-4 sm:p-5">
@@ -1359,7 +1372,7 @@ export function AdminStatistics() {
                             <div className="w-20 bg-gray-200 rounded-full h-2">
                               <div
                                 className="bg-red-500 h-2 rounded-full"
-                                style={{ width: `${(item.count / Math.max(...statistics.reportsByLocation.map(r => r.count))) * 100}%` }}
+                                style={{ width: `${(item.count / Math.max(...(statistics.reportsByLocation || []).map(r => r.count || 0), 1)) * 100}%` }}
                               />
                             </div>
                             <span className="text-sm font-medium text-gray-900">{item.count}</span>
@@ -1395,11 +1408,11 @@ export function AdminStatistics() {
                   </div>
                   <div>
                     <p className="text-gray-600">Categories Found:</p>
-                    <p className="font-mono text-gray-800">{statistics.reportsByCategory.length}</p>
+                    <p className="font-mono text-gray-800">{(statistics.reportsByCategory || []).length}</p>
                   </div>
                   <div>
                     <p className="text-gray-600">Locations Found:</p>
-                    <p className="font-mono text-gray-800">{statistics.reportsByLocation.length}</p>
+                    <p className="font-mono text-gray-800">{(statistics.reportsByLocation || []).length}</p>
                   </div>
                   <div>
                     <p className="text-gray-600">Last Updated:</p>
