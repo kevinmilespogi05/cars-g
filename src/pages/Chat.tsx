@@ -27,6 +27,21 @@ export const Chat: React.FC = () => {
   const [showNewConversation, setShowNewConversation] = useState(false);
   const [showDemo, setShowDemo] = useState(false);
   const [profiles, setProfiles] = useState<any[]>([]);
+
+  // Helper function to sort conversations by last_message_at (newest first)
+  const sortConversations = (conversations: ChatConversation[]): ChatConversation[] => {
+    return conversations.sort((a, b) => {
+      // If both have last_message_at, sort by timestamp
+      if (a.last_message_at && b.last_message_at) {
+        return new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime();
+      }
+      // If only one has last_message_at, prioritize the one with a message
+      if (a.last_message_at && !b.last_message_at) return -1;
+      if (!a.last_message_at && b.last_message_at) return 1;
+      // If neither has last_message_at, sort by creation date (newest first)
+      return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+    });
+  };
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [showMobileConversationList, setShowMobileConversationList] = useState(true);
@@ -77,14 +92,17 @@ export const Chat: React.FC = () => {
       setMessages(prev => [...prev, message]);
     }
     
-    // Update conversation in list with new message
-    setConversations(prev => 
-      prev.map(conv => 
+    // Update conversation in list with new message and resort
+    setConversations(prev => {
+      const updatedConversations = prev.map(conv => 
         conv.id === message.conversation_id 
           ? { ...conv, last_message: message, last_message_at: message.created_at }
           : conv
-      )
-    );
+      );
+      
+      // Resort conversations by last_message_at (newest first)
+      return sortConversations(updatedConversations);
+    });
   }, [selectedConversation]);
 
   const handleUserTyping = useCallback((userId: string, username: string) => {
@@ -228,7 +246,10 @@ export const Chat: React.FC = () => {
     try {
       setLoading(true);
       const data = await ChatService.getConversations(user!.id);
-      setConversations(data);
+      
+      // Sort conversations by last_message_at (newest first)
+      const sortedConversations = sortConversations(data);
+      setConversations(sortedConversations);
       
       // Show demo if no conversations
       if (data.length === 0) {
@@ -292,14 +313,17 @@ export const Chat: React.FC = () => {
       // Add message immediately to UI (optimistic update)
       setMessages(prev => [...prev, optimisticMessage]);
       
-      // Update conversation list
-      setConversations(prev => 
-        prev.map(conv => 
+      // Update conversation list and resort
+      setConversations(prev => {
+        const updatedConversations = prev.map(conv => 
           conv.id === selectedConversation.id 
             ? { ...conv, last_message: optimisticMessage, last_message_at: optimisticMessage.created_at }
             : conv
-        )
-      );
+        );
+        
+        // Resort conversations by last_message_at (newest first)
+        return sortConversations(updatedConversations);
+      });
 
       // Send message through WebSocket
       sendMessage(selectedConversation.id, content, messageType);
@@ -372,8 +396,14 @@ export const Chat: React.FC = () => {
   };
 
   const handleConversationCreated = (conversation: ChatConversation) => {
-    // Add the new conversation to the list
-    setConversations(prev => [conversation, ...prev]);
+    // Add the new conversation to the list and resort
+    setConversations(prev => {
+      const updatedConversations = [conversation, ...prev];
+      
+      // Resort conversations by last_message_at (newest first)
+      return sortConversations(updatedConversations);
+    });
+    
     // Select the new conversation
     setSelectedConversation(conversation);
     // Hide mobile conversation list to show the chat
