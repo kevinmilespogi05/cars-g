@@ -27,7 +27,7 @@ export function Login() {
       await signIn(email, password);
       // Check if the user is an admin and redirect accordingly
       if (user?.role === 'admin') {
-        navigate('/admin', { replace: true });
+        navigate('/admin/map', { replace: true });
       } else {
         navigate(from, { replace: true });
       }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { FileText, Award, User, LogOut, Shield, Menu, X, ChevronDown, MessageCircle } from 'lucide-react';
+import { FileText, Award, User, LogOut, Shield, Menu, X, ChevronDown, MessageCircle, MapPin } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { supabase } from '../lib/supabase';
 
@@ -13,7 +13,6 @@ export function Navigation() {
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
 
-  // Handle scroll effect
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 10);
@@ -23,7 +22,6 @@ export function Navigation() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Handle click outside profile menu
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
@@ -35,11 +33,18 @@ export function Navigation() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const navItems = [
-    { path: '/reports', icon: FileText, label: 'Reports' },
-    { path: '/leaderboard', icon: Award, label: 'Leaderboard' },
-    { path: '/chat', icon: MessageCircle, label: 'Chat' }
-  ];
+  // Build navigation items depending on role.
+  const navItems = user?.role === 'admin'
+    ? [
+        { path: '/admin/map', icon: MapPin, label: 'Map View' },
+        { path: '/leaderboard', icon: Award, label: 'Leaderboard' },
+        { path: '/chat', icon: MessageCircle, label: 'Chat' }
+      ]
+    : [
+        { path: '/reports', icon: FileText, label: 'Reports' },
+        { path: '/leaderboard', icon: Award, label: 'Leaderboard' },
+        { path: '/chat', icon: MessageCircle, label: 'Chat' }
+      ];
 
   const isActive = (path: string) => {
     return location.pathname === path;
@@ -47,23 +52,15 @@ export function Navigation() {
 
   const handleLogout = async () => {
     try {
-      // Check if session is still valid before logout
       const { data: { session } } = await supabase.auth.getSession();
-      
       if (!session) {
-        // Session is already invalid, just clean up local state
-        console.log('Session already expired, cleaning up local state');
-        // Force cleanup by calling signOut which will handle local state
         await signOut();
         navigate('/login');
         return;
       }
-      
       await signOut();
       navigate('/login');
     } catch (error) {
-      console.error('Error signing out:', error);
-      // Force cleanup and redirect even if there's an error
       await signOut();
       navigate('/login');
     }
@@ -81,7 +78,7 @@ export function Navigation() {
         <div className="flex justify-between items-center">
           {/* Logo */}
           <Link 
-            to={user ? "/reports" : "/login"}
+            to={user ? (user.role === 'admin' ? '/admin/map' : '/reports') : '/login'}
             className="flex items-center space-x-2 text-white hover:text-gray-200 transition-colors"
           >
             <img 
@@ -113,8 +110,6 @@ export function Navigation() {
                 </Link>
               ))}
               
-          
-              
               {/* Desktop Profile Menu */}
               <div className="relative ml-4" ref={profileMenuRef}>
                 <button
@@ -130,7 +125,6 @@ export function Navigation() {
                   <ChevronDown className="h-4 w-4" />
                 </button>
 
-                {/* Profile Dropdown Menu */}
                 {isProfileMenuOpen && (
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 z-50">
                     <Link
@@ -182,21 +176,10 @@ export function Navigation() {
             </button>
           )}
 
-          {/* Login/Register Buttons for non-authenticated users */}
           {!user && (
             <div className="flex items-center space-x-4">
-              <Link
-                to="/login"
-                className="text-white hover:text-gray-200 transition-colors"
-              >
-                Login
-              </Link>
-              <Link
-                to="/register"
-                className="bg-white text-[#800000] px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors"
-              >
-                Sign Up
-              </Link>
+              <Link to="/login" className="text-white hover:text-gray-200 transition-colors">Login</Link>
+              <Link to="/register" className="bg-white text-[#800000] px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors">Sign Up</Link>
             </div>
           )}
         </div>
@@ -204,18 +187,9 @@ export function Navigation() {
         {/* Mobile Menu */}
         {user && isMobileMenuOpen && (
           <div className="md:hidden border-t border-[#f4f1ee] border-opacity-10 mt-2">
-            {/* Mobile Profile Section */}
             <div className="px-4 py-4 border-b border-[#f4f1ee] border-opacity-10">
-              <Link
-                to="/profile"
-                className="flex items-center space-x-3"
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                <img
-                  src={user.avatar_url || '/images/default-avatar.png'}
-                  alt="Profile"
-                  className="h-12 w-12 rounded-full object-cover"
-                />
+              <Link to="/profile" className="flex items-center space-x-3" onClick={() => setIsMobileMenuOpen(false)}>
+                <img src={user.avatar_url || '/images/default-avatar.png'} alt="Profile" className="h-12 w-12 rounded-full object-cover" />
                 <div>
                   <div className="text-white font-medium">{user.username}</div>
                   <div className="text-gray-300 text-sm">View Profile</div>
@@ -223,46 +197,40 @@ export function Navigation() {
               </Link>
             </div>
 
-            {/* Mobile Navigation Items */}
             <div className="px-2 py-3 space-y-1">
-              {navItems.map(({ path, icon: Icon, label }) => (
+              {(user.role === 'admin'
+                ? [
+                    { path: '/admin/map', icon: MapPin, label: 'Map View' },
+                    { path: '/leaderboard', icon: Award, label: 'Leaderboard' },
+                    { path: '/chat', icon: MessageCircle, label: 'Chat' }
+                  ]
+                : [
+                    { path: '/reports', icon: FileText, label: 'Reports' },
+                    { path: '/leaderboard', icon: Award, label: 'Leaderboard' },
+                    { path: '/chat', icon: MessageCircle, label: 'Chat' }
+                  ]
+              ).map(({ path, icon: Icon, label }) => (
                 <Link
                   key={path}
                   to={path}
-                  className={`
-                    flex items-center px-4 py-3 rounded-lg text-base font-medium
-                    ${isActive(path)
-                      ? 'text-white bg-[#fff7ed] bg-opacity-10'
-                      : 'text-white hover:bg-[#f4f1ee] hover:bg-opacity-10'
-                    }
-                  `}
+                  className={`flex items-center px-4 py-3 rounded-lg text-base font-medium ${
+                    isActive(path) ? 'text-white bg-[#fff7ed] bg-opacity-10' : 'text-white hover:bg-[#f4f1ee] hover:bg-opacity-10'
+                  }`}
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   <Icon className="h-6 w-6 mr-3" />
                   {label}
                 </Link>
               ))}
-              
-          
-              
+
               {user?.role === 'admin' && (
-                <Link
-                  to="/admin"
-                  className="flex items-center px-4 py-3 rounded-lg text-base font-medium text-white hover:bg-[#f4f1ee] hover:bg-opacity-10"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
+                <Link to="/admin" className="flex items-center px-4 py-3 rounded-lg text-base font-medium text-white hover:bg-[#f4f1ee] hover:bg-opacity-10" onClick={() => setIsMobileMenuOpen(false)}>
                   <Shield className="h-6 w-6 mr-3" />
                   Admin Dashboard
                 </Link>
               )}
-              
-              <button
-                onClick={() => {
-                  setIsMobileMenuOpen(false);
-                  handleLogout();
-                }}
-                className="flex items-center w-full px-4 py-3 rounded-lg text-base font-medium text-white hover:bg-[#f4f1ee] hover:bg-opacity-10"
-              >
+
+              <button onClick={() => { setIsMobileMenuOpen(false); handleLogout(); }} className="flex items-center w-full px-4 py-3 rounded-lg text-base font-medium text-white hover:bg-[#f4f1ee] hover:bg-opacity-10">
                 <LogOut className="h-6 w-6 mr-3" />
                 Log Out
               </button>

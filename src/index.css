@@ -2,6 +2,32 @@
 @import 'bootstrap/dist/css/bootstrap.min.css';
 @import 'bootstrap-icons/font/bootstrap-icons.css';
 
+/* Leaflet Maps */
+@import 'leaflet/dist/leaflet.css';
+
+/* Custom Map Marker Styles */
+.new-report-marker {
+  animation: pulse 2s infinite;
+}
+
+.report-marker {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.report-marker:hover {
+  transform: scale(1.1);
+  z-index: 1000;
+}
+
+/* Line clamp utility for text truncation */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

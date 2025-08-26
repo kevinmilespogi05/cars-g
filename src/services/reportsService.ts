@@ -8,6 +8,9 @@ export class ReportsServiceError extends Error {
   }
 }
 
+// Feature flags
+const ENABLE_CLIENT_SIDE_NOTIFICATIONS = false; // Disabled to avoid RLS 403s; use server-side trigger or function instead
+
 // Enhanced caching and performance optimizations
 const _profileCache = new Map<string, { username: string; avatar_url: string | null; lastUpdated: number }>();
 const _cacheExpiry = new Map<string, number>();
@@ -119,7 +122,7 @@ export const reportsService = {
     // Optimistic update - add to cache immediately
     const optimisticReport: Report = {
       id: `temp_${Date.now()}`,
-      ...reportData,
+      ...reportData as any,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       status: 'pending' as Report['status'],
@@ -127,14 +130,30 @@ export const reportsService = {
       comments: { count: 0 },
       is_liked: false,
       user_profile: _getCachedProfile(user.id) || { username: user.email?.split('@')[0] || 'User', avatar_url: null }
-    };
+    } as any;
 
     try {
-    const { data, error } = await supabase
-      .from('reports')
-        .insert([{ ...reportData, idempotency_key: reportData.idempotency_key }])
-      .select()
-      .single();
+      // Map client payload (location_lat/lng) to DB schema (location json)
+      const payload: any = {
+        user_id: (reportData as any).user_id || user.id,
+        title: (reportData as any).title,
+        description: (reportData as any).description,
+        category: (reportData as any).category,
+        priority: (reportData as any).priority,
+        location: {
+          lat: (reportData as any).location_lat,
+          lng: (reportData as any).location_lng,
+        },
+        location_address: (reportData as any).location_address,
+        images: (reportData as any).images || [],
+        // idempotency_key intentionally omitted: column not present in schema
+      };
+
+      const { data, error } = await supabase
+        .from('reports')
+        .insert([payload])
+        .select('id, user_id, title, description, category, priority, status, location, location_address, images, created_at, updated_at')
+        .single();
 
       if (error) throw error;
 
@@ -143,24 +162,26 @@ export const reportsService = {
         _cacheProfile(data.user_id, optimisticReport.user_profile!);
       }
 
-      // Create notification asynchronously
-    try {
-      await supabase.from('notifications').insert({
-        user_id: reportData.user_id,
-        title: 'Report Submitted',
-        message: `Your report "${reportData.title}" was submitted successfully.`,
-        type: 'success',
-        link: `/reports/${data.id}`,
-        read: false,
-      });
-    } catch (e) {
-      console.warn('Failed to create notification after report creation:', e);
-    }
+      // Create notification asynchronously (guarded by feature flag)
+      if (ENABLE_CLIENT_SIDE_NOTIFICATIONS) {
+        try {
+          await supabase.from('notifications').insert({
+            user_id: payload.user_id,
+            title: 'Report Submitted',
+            message: `Your report "${payload.title}" was submitted successfully.`,
+            type: 'success',
+            link: `/reports/${data.id}`,
+            read: false,
+          });
+        } catch (e) {
+          console.warn('Client-side notification insert failed:', e);
+        }
+      }
 
       // Check for achievements asynchronously
       try {
         const { checkAchievements } = await import('../lib/achievements');
-        const newAchievements = await checkAchievements(reportData.user_id);
+        const newAchievements = await checkAchievements(payload.user_id);
         if (newAchievements.length > 0) {
           console.log('New achievements unlocked:', newAchievements.map(a => a.title));
         }
@@ -168,13 +189,15 @@ export const reportsService = {
         console.warn('Failed to check achievements after report creation:', e);
       }
 
-    return {
-      ...data,
-      likes: { count: 0 },
-      comments: { count: 0 }
-    };
-    } catch (error) {
-      throw new ReportsServiceError(`Failed to create report: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      return {
+        ...data,
+        likes: { count: 0 },
+        comments: { count: 0 }
+      } as any;
+    } catch (error: any) {
+      // Surface Supabase error details when available
+      const message = error?.message || (error?.error_description) || 'Unknown error';
+      throw new ReportsServiceError(`Failed to create report: ${message}`);
     }
   },
 
@@ -480,6 +503,7 @@ export const reportsService = {
     status?: string;
     priority?: string;
     search?: string;
+    limit?: number;
   }): Promise<Report[]> {
     try {
       // Create cache key based on filters
@@ -503,16 +527,29 @@ export const reportsService = {
           comments:comments(count)
         `)
         .order('created_at', { ascending: false });
+      if (filters?.limit && Number.isFinite(filters.limit)) {
+        const end = Math.max(0, Math.floor(filters.limit) - 1);
+        query = (query as any).range(0, end);
+      }
 
       // Apply filters
       if (filters?.category && filters.category !== 'All') {
-        query = query.eq('category', filters.category.toLowerCase());
+        const normalizedCategory = (filters.category || '')
+          .toString()
+          .replace(/_/g, ' ')
+          .trim();
+        query = query.ilike('category', `%${normalizedCategory}%`);
       }
       if (filters?.status && filters.status !== 'All') {
-        query = query.eq('status', filters.status.toLowerCase().replace(' ', '_'));
+        const normalizedStatus = (filters.status || '')
+          .toString()
+          .trim()
+          .toLowerCase()
+          .replace(/\s+/g, '_');
+        query = query.ilike('status', normalizedStatus);
       }
       if (filters?.priority && filters.priority !== 'All') {
-        query = query.eq('priority', filters.priority.toLowerCase());
+        query = (query as any).ilike('priority', filters.priority.toLowerCase());
       }
       if (filters?.search) {
         query = query.or(`title.ilike.%${filters.search}%,description.ilike.%${filters.search}%`);
@@ -619,37 +656,28 @@ export const reportsService = {
     if (error) throw new ReportsServiceError(`Failed to update report: ${error.message}`);
     if (!data) throw new ReportsServiceError('Report not found');
 
-          // Notify report owner asynchronously
-    try {
-      const { data: reportOwner } = await supabase
-        .from('reports')
-        .select('user_id, title')
-        .eq('id', reportId)
-        .single();
+    // Notify report owner asynchronously (guarded by feature flag)
+    if (ENABLE_CLIENT_SIDE_NOTIFICATIONS) {
+      try {
+        const { data: reportOwner } = await supabase
+          .from('reports')
+          .select('user_id, title')
+          .eq('id', reportId)
+          .single();
 
-      if (reportOwner?.user_id) {
-        await supabase.from('notifications').insert({
-          user_id: reportOwner.user_id,
-          title: 'Report Status Updated',
-          message: `Your report "${reportOwner.title}" is now ${newStatus.replace('_', ' ')}.`,
-          type: newStatus === 'resolved' ? 'success' : (newStatus === 'rejected' ? 'warning' : 'info'),
-          link: `/reports/${reportId}`,
-          read: false,
-        });
-
-          // Check for achievements when status changes (especially for resolved reports)
-          try {
-            const { checkAchievements } = await import('../lib/achievements');
-            const newAchievements = await checkAchievements(reportOwner.user_id);
-            if (newAchievements.length > 0) {
-              console.log('New achievements unlocked after status update:', newAchievements.map(a => a.title));
-            }
-          } catch (e) {
-            console.warn('Failed to check achievements after status update:', e);
-          }
+        if (reportOwner?.user_id) {
+          await supabase.from('notifications').insert({
+            user_id: reportOwner.user_id,
+            title: 'Report Status Updated',
+            message: `Your report "${reportOwner.title}" is now ${newStatus.replace('_', ' ')}.`,
+            type: newStatus === 'resolved' ? 'success' : (newStatus === 'rejected' ? 'warning' : 'info'),
+            link: `/reports/${reportId}`,
+            read: false,
+          });
+        }
+      } catch (e) {
+        console.warn('Client-side notification insert failed:', e);
       }
-    } catch (e) {
-      console.warn('Failed to create notification after status update:', e);
     }
 
     return data;

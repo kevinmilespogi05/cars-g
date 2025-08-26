@@ -15,6 +15,7 @@ const AdminDashboard = lazy(() => import('../pages/AdminDashboard').then(module 
 const PrivacyPolicy = lazy(() => import('../pages/PrivacyPolicy').then(module => ({ default: module.PrivacyPolicy })));
 const Chat = lazy(() => import('../pages/Chat').then(module => ({ default: module.Chat })));
 const NetworkTest = lazy(() => import('../pages/NetworkTest').then(module => ({ default: module.NetworkTest })));
+const AdminMapDashboard = lazy(() => import('../components/AdminMapDashboard').then(module => ({ default: module.AdminMapDashboard })));
 
 export const publicRoutes: RouteObject[] = [
   {
@@ -78,5 +79,9 @@ export const adminRoutes: RouteObject[] = [
   {
     path: '/admin',
     element: <ProtectedRoute><AdminDashboard /></ProtectedRoute>
+  },
+  {
+    path: '/admin/map',
+    element: <ProtectedRoute><AdminMapDashboard /></ProtectedRoute>
   }
 ]; 

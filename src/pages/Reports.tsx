@@ -26,6 +26,8 @@ export function Reports() {
   const [imageErrors, setImageErrors] = useState<{ [key: string]: boolean }>({}); // Track image loading errors
   const [likeLoading, setLikeLoading] = useState<{ [key: string]: boolean }>({});
   const [likeDetailsModal, setLikeDetailsModal] = useState<{ isOpen: boolean; reportId: string; reportTitle: string } | null>(null);
+  const loadingRef = React.useRef(false);
+  const needsRefetchRef = React.useRef(false);
 
   useEffect(() => {
     // Wait for auth to be initialized before fetching reports
@@ -48,35 +50,55 @@ export function Reports() {
     };
     
     initializeAndFetch();
-  }, [filters, user]); // Add user as dependency
+  }, [user]); // run on mount and when user changes
+
+  // Debounced server-side filter changes
+  useEffect(() => {
+    const t = setTimeout(() => {
+      fetchReports();
+    }, 150);
+    return () => clearTimeout(t);
+  }, [filters]);
+
+  // Debounced server-side search
+  useEffect(() => {
+    const t = setTimeout(() => {
+      fetchReports();
+    }, 300);
+    return () => clearTimeout(t);
+  }, [searchTerm]);
 
   // Real-time subscriptions for live updates
   useEffect(() => {
     console.log('Setting up real-time subscriptions');
     
+    const matchesFilters = (r: any) => {
+      const categoryOk = filters.category === 'All' || (r.category || '').toLowerCase().includes(filters.category.toLowerCase().replace(/_/g, ' '));
+      const statusOk = filters.status === 'All' || (r.status || '').toLowerCase() === filters.status.toLowerCase().replace(/\s+/g, '_');
+      const priorityOk = filters.priority === 'All' || (r.priority || '').toLowerCase() === filters.priority.toLowerCase();
+      const searchOk = !searchTerm || ((r.title || '').toLowerCase().includes(searchTerm.toLowerCase()) || (r.description || '').toLowerCase().includes(searchTerm.toLowerCase()));
+      return categoryOk && statusOk && priorityOk && searchOk;
+    };
+    
     // Subscribe to new reports
     const reportsSubscription = reportsService.subscribeToReports((newReport) => {
       console.log('New report received:', newReport);
-      setReports(prev => {
-        // Check if report already exists
-        if (prev.some(r => r.id === newReport.id)) {
-          return prev;
-        }
-        // Add new report at the beginning
-        return [newReport, ...prev];
-      });
+      if (!matchesFilters(newReport)) return;
+      setReports(prev => (prev.some(r => r.id === newReport.id) ? prev : [newReport, ...prev]));
     });
 
     // Subscribe to report status changes
     const statusSubscription = reportsService.subscribeToReportStatusChanges((reportId, newStatus) => {
       console.log('Status change received for report:', reportId, 'new status:', newStatus);
-      setReports(prev => 
-        prev.map(report => 
-          report.id === reportId 
-            ? { ...report, status: newStatus as Report['status'] }
-            : report
-        )
-      );
+      setReports(prev => {
+        const exists = prev.some(r => r.id === reportId);
+        const next = prev.map(r => r.id === reportId ? { ...r, status: newStatus as Report['status'] } : r);
+        const updated = next.filter(matchesFilters);
+        if (!exists && updated.length === next.length) {
+          fetchReports();
+        }
+        return updated;
+      });
     });
 
     // Subscribe to likes changes with better error handling
@@ -91,11 +113,9 @@ export function Reports() {
             ? { 
                 ...report, 
                 likes: { count: likeCount }
-                // Don't update is_liked here - it should be updated by the handleLike function
-                // or by the initial fetchReports call
               }
             : report
-        );
+        ).filter(matchesFilters);
         console.log('Updated reports state:', updated);
         return updated;
       });
@@ -109,7 +129,7 @@ export function Reports() {
           report.id === reportId 
             ? { ...report, comments: { count: commentCount } }
             : report
-        )
+        ).filter(matchesFilters)
       );
     });
 
@@ -122,21 +142,27 @@ export function Reports() {
       if (likesSubscription) likesSubscription();
       if (commentsSubscription) commentsSubscription();
     };
-  }, [user]); // Add user as dependency so subscription updates when user changes
+  }, [user, filters, searchTerm]); // react to user, filters and search changes
 
   // Create a fallback image data URL
   const fallbackImageUrl = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiB2aWV3Qm94PSIwIDAgMjAwIDIwMCI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiNmMGYwZjAiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE2IiBmaWxsPSIjODg4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5JbWFnZSBub3QgYXZhaWxhYmxlPC90ZXh0Pjwvc3ZnPg==";
 
   const fetchReports = async () => {
     try {
+      if (loadingRef.current) {
+        needsRefetchRef.current = true;
+        return;
+      }
       setLoading(true);
+      loadingRef.current = true;
       
       // Use the optimized reports service
       const reportsData = await reportsService.getReports({
         category: filters.category,
         status: filters.status,
         priority: filters.priority,
-        search: searchTerm
+        search: searchTerm,
+        limit: 40
       });
 
       setReports(reportsData);
@@ -145,6 +171,12 @@ export function Reports() {
       // Could show error toast here
     } finally {
       setLoading(false);
+      loadingRef.current = false;
+      if (needsRefetchRef.current) {
+        needsRefetchRef.current = false;
+        // Run the latest params immediately
+        fetchReports();
+      }
     }
   };
 
@@ -236,17 +268,7 @@ export function Reports() {
     }
   };
 
-  const filteredReports = reports.filter(report => {
-    if (searchTerm) {
-      const searchLower = searchTerm.toLowerCase();
-      return (
-        report.title.toLowerCase().includes(searchLower) ||
-        report.description.toLowerCase().includes(searchLower) ||
-        report.category.toLowerCase().includes(searchLower)
-      );
-    }
-    return true;
-  });
+  const filteredReports = reports;
 
   if (loading && reports.length === 0) {
     return (

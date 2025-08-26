@@ -559,9 +559,14 @@ export function CreateReport() {
                   />
                   {location && (
                     <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
-                      <p className="text-sm text-green-800">
-                        <span className="font-medium">Selected:</span> {location.address || `${location.lat}, ${location.lng}`}
-                      </p>
+                      <div className="text-sm text-green-800">
+                        <p>
+                          <span className="font-medium">Selected:</span> {location.address || `${location.lat}, ${location.lng}`}
+                        </p>
+                        <p className="mt-1 text-green-900">
+                          <span className="font-medium">Lat/Lng:</span> {Number.isFinite(location.lat) ? location.lat.toFixed(6) : location.lat}, {Number.isFinite(location.lng) ? location.lng.toFixed(6) : location.lng}
+                        </p>
+                      </div>
                     </div>
                   )}
                 </div>

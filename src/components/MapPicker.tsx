@@ -418,6 +418,17 @@ export function MapPicker({ onLocationSelect, initialLocation }: MapPickerProps)
           setPosition(loc);
           reverseGeocode(loc);
         }} />
+        {/* Coordinate readout */}
+        <div className="absolute bottom-2 left-2 z-10 bg-white/95 backdrop-blur rounded-md shadow px-3 py-2 text-xs text-gray-800">
+          <div className="flex items-center gap-2">
+            <span className="font-medium">Lat:</span>
+            <span>{Number.isFinite(position.lat) ? position.lat.toFixed(6) : position.lat}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="font-medium">Lng:</span>
+            <span>{Number.isFinite(position.lng) ? position.lng.toFixed(6) : position.lng}</span>
+          </div>
+        </div>
       </MapContainer>
     </div>
   );
