@@ -210,7 +210,7 @@ function App() {
                   ))}
                 <Route
                   path="*"
-                  element={<Navigate to={isAuthenticated ? "/reports" : "/login"} replace />}
+                  element={<Navigate to={isAuthenticated ? (user?.role === 'admin' ? "/admin/map" : "/reports") : "/login"} replace />}
                 />
               </Routes>
             </Suspense>

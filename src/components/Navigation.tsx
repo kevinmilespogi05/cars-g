@@ -188,7 +188,11 @@ export function Navigation() {
         {user && isMobileMenuOpen && (
           <div className="md:hidden border-t border-[#f4f1ee] border-opacity-10 mt-2">
             <div className="px-4 py-4 border-b border-[#f4f1ee] border-opacity-10">
-              <Link to="/profile" className="flex items-center space-x-3" onClick={() => setIsMobileMenuOpen(false)}>
+              <Link 
+                to="/profile" 
+                className="flex items-center space-x-3" 
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
                 <img src={user.avatar_url || '/images/default-avatar.png'} alt="Profile" className="h-12 w-12 rounded-full object-cover" />
                 <div>
                   <div className="text-white font-medium">{user.username}</div>

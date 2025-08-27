@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { motion } from 'framer-motion';
@@ -7,7 +7,7 @@ import { LogIn, Mail, Lock, AlertCircle, CheckCircle, ShieldAlert } from 'lucide
 export function Login() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { signIn, signInWithGoogle, user } = useAuthStore();
+  const { signIn, signInWithGoogle, user, isAuthenticated } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -17,6 +17,13 @@ export function Login() {
   // Get the redirect path from location state or default to reports
   const from = (location.state as any)?.from?.pathname || '/reports';
   const message = (location.state as any)?.message as string | undefined;
+
+  // Redirect admin users if they're already authenticated
+  useEffect(() => {
+    if (isAuthenticated && user?.role === 'admin') {
+      navigate('/admin/map', { replace: true });
+    }
+  }, [isAuthenticated, user?.role, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

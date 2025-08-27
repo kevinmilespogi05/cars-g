@@ -44,15 +44,15 @@ export const publicRoutes: RouteObject[] = [
 export const protectedRoutes: RouteObject[] = [
   {
     path: '/reports',
-    element: <ProtectedRoute><Reports /></ProtectedRoute>
+    element: <ProtectedRoute adminRedirect={true}><Reports /></ProtectedRoute>
   },
   {
     path: '/reports/create',
-    element: <ProtectedRoute><CreateReport /></ProtectedRoute>
+    element: <ProtectedRoute adminRedirect={true}><CreateReport /></ProtectedRoute>
   },
   {
     path: '/reports/:id',
-    element: <ProtectedRoute><ReportDetail /></ProtectedRoute>
+    element: <ProtectedRoute adminRedirect={true}><ReportDetail /></ProtectedRoute>
   },
   {
     path: '/leaderboard',
@@ -68,7 +68,7 @@ export const protectedRoutes: RouteObject[] = [
   },
   {
     path: '/map-test',
-    element: <ProtectedRoute><MapTestPage /></ProtectedRoute>
+    element: <ProtectedRoute adminRedirect={true}><MapTestPage /></ProtectedRoute>
   },
   {
     path: '/chat',
@@ -76,7 +76,7 @@ export const protectedRoutes: RouteObject[] = [
   },
   {
     path: '/network-test',
-    element: <ProtectedRoute><NetworkTest /></ProtectedRoute>
+    element: <ProtectedRoute adminRedirect={true}><NetworkTest /></ProtectedRoute>
   }
 ];
 
