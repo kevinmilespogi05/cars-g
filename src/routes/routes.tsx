@@ -1,11 +1,14 @@
 import { lazy } from 'react';
 import { RouteObject } from 'react-router-dom';
 import { ProtectedRoute } from '../components/ProtectedRoute';
+import { PatrolRoute } from '../components/PatrolRoute';
 
 // Lazy load components
 const Login = lazy(() => import('../pages/Login').then(module => ({ default: module.Login })));
 const Register = lazy(() => import('../pages/Register').then(module => ({ default: module.Register })));
 const AdminLogin = lazy(() => import('../pages/AdminLogin').then(module => ({ default: module.AdminLogin })));
+const PatrolLogin = lazy(() => import('../pages/PatrolLogin').then(module => ({ default: module.PatrolLogin })));
+const PatrolDashboard = lazy(() => import('../pages/PatrolDashboard').then(module => ({ default: module.PatrolDashboard })));
 const AuthCallback = lazy(() => import('../pages/AuthCallback').then(module => ({ default: module.AuthCallback })));
 const Reports = lazy(() => import('../pages/Reports').then(module => ({ default: module.Reports })));
 const CreateReport = lazy(() => import('../pages/CreateReport').then(module => ({ default: module.CreateReport })));
@@ -31,6 +34,14 @@ export const publicRoutes: RouteObject[] = [
   {
     path: '/admin/login',
     element: <AdminLogin />
+  },
+  {
+    path: '/patrol/login',
+    element: <PatrolLogin />
+  },
+  {
+    path: '/patrol',
+    element: <PatrolRoute><PatrolDashboard /></PatrolRoute>
   },
   {
     path: '/register',

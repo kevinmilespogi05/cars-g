@@ -441,13 +441,13 @@ export const Chat: React.FC = () => {
     setMessages([]);
   };
 
-  if (!user) {
+  if (!user || user.role === 'patrol') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center p-8 bg-white rounded-lg shadow-lg">
           <MessageCircleIcon size={64} className="mx-auto text-gray-400 mb-4" />
-          <h2 className="text-2xl font-semibold text-gray-600 mb-2">Please log in to access chat</h2>
-          <p className="text-gray-500">You need to be authenticated to use the chat feature.</p>
+          <h2 className="text-2xl font-semibold text-gray-600 mb-2">Chat Unavailable</h2>
+          <p className="text-gray-500">{!user ? 'You need to be authenticated to use the chat feature.' : 'Patrol accounts cannot access chat.'}</p>
         </div>
       </div>
     );

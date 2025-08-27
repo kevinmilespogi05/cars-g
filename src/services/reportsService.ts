@@ -125,7 +125,7 @@ export const reportsService = {
       ...reportData as any,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
-      status: 'pending' as Report['status'],
+      status: 'verifying' as Report['status'],
       likes: { count: 0 },
       comments: { count: 0 },
       is_liked: false,
@@ -140,6 +140,7 @@ export const reportsService = {
         description: (reportData as any).description,
         category: (reportData as any).category,
         priority: (reportData as any).priority,
+        status: 'verifying',
         location: {
           lat: (reportData as any).location_lat,
           lng: (reportData as any).location_lng,
@@ -637,7 +638,7 @@ export const reportsService = {
     if (!user) throw new ReportsServiceError('User not authenticated');
 
     // Validate status
-    const validStatuses = ['pending', 'in_progress', 'resolved', 'rejected'] as const;
+    const validStatuses = ['verifying', 'pending', 'in_progress', 'resolved', 'rejected'] as const;
     if (!validStatuses.includes(newStatus as any)) {
       throw new ReportsServiceError(`Invalid status value: ${newStatus}`);
     }

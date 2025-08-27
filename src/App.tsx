@@ -192,7 +192,7 @@ function App() {
       <Providers>
         <div className="min-h-screen bg-gray-100">
           <Navigation />
-          <main className="pt-16 sm:pt-20">
+          <main className="pt-24 sm:pt-28">
             <Suspense fallback={<LoadingSpinner />}>
               <Routes>
                 {publicRoutes.map((route) => (
@@ -209,7 +209,7 @@ function App() {
                   ))}
                 <Route
                   path="*"
-                  element={<Navigate to={isAuthenticated ? (user?.role === 'admin' ? "/admin/map" : "/reports") : "/login"} replace />}
+                  element={<Navigate to={isAuthenticated ? (user?.role === 'admin' ? "/admin/map" : user?.role === 'patrol' ? '/patrol' : "/reports") : "/login"} replace />}
                 />
               </Routes>
             </Suspense>

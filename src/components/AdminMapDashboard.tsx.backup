@@ -20,8 +20,8 @@ import {
   Wrench,
   PanelLeftClose,
   PanelLeftOpen,
-  ChevronDown,
-  ChevronUp
+  ChevronUp,
+  ChevronDown
 } from 'lucide-react';
 import { Notification } from './Notification';
 
@@ -86,6 +86,8 @@ export function AdminMapDashboard() {
   const didFitBoundsRef = useRef(false);
   const [showMobileList, setShowMobileList] = useState(false);
   const [showSidenav, setShowSidenav] = useState(true);
+  const [showPatrolReports, setShowPatrolReports] = useState(true);
+  const [showAllReports, setShowAllReports] = useState(true);
   const [showReportModal, setShowReportModal] = useState(false);
   const [selectedReportForModal, setSelectedReportForModal] = useState<Report | null>(null);
   const [showImageModal, setShowImageModal] = useState(false);
@@ -93,10 +95,6 @@ export function AdminMapDashboard() {
   const [showClusterModal, setShowClusterModal] = useState(false);
   const [clusterReports, setClusterReports] = useState<Report[]>([]);
   const [clusterPosition, setClusterPosition] = useState<[number, number]>([0, 0]);
-  const [patrolReportsCollapsed, setPatrolReportsCollapsed] = useState(false);
-  const [mainReportsCollapsed, setMainReportsCollapsed] = useState(false);
-  const [mobilePatrolReportsCollapsed, setMobilePatrolReportsCollapsed] = useState(false);
-  const [mobileMainReportsCollapsed, setMobileMainReportsCollapsed] = useState(false);
 
   // Keyboard navigation for image modal
   useEffect(() => {
@@ -382,6 +380,50 @@ export function AdminMapDashboard() {
         return;
       }
 
+      // Debug: Check container dimensions
+      const rect = mapRef.current.getBoundingClientRect();
+      console.log('Map container dimensions:', rect.width, 'x', rect.height);
+      
+      // Also check the main content container
+      const mainContainer = mapRef.current.closest('.flex');
+      if (mainContainer) {
+        const mainRect = mainContainer.getBoundingClientRect();
+        console.log('Main content container dimensions:', mainRect.width, 'x', mainRect.height);
+      }
+      
+      // Force proper sizing regardless of current dimensions
+      console.log('Forcing map container to full size...');
+      
+      // Get parent container dimensions and force full viewport sizing
+      const parentContainer = mapRef.current.parentElement;
+      const mainContainer = mapRef.current.closest('.flex');
+      
+      // Calculate available space
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      const headerHeight = 112; // Approximate header height
+      const sidebarWidth = showSidenav ? 320 : 0; // Approximate sidebar width
+      
+      const availableWidth = viewportWidth - sidebarWidth;
+      const availableHeight = viewportHeight - headerHeight;
+      
+      console.log('Viewport dimensions:', viewportWidth, 'x', viewportHeight);
+      console.log('Available space for map:', availableWidth, 'x', availableHeight);
+      
+      // Force map container to take full available space
+      mapRef.current.style.position = 'absolute';
+      mapRef.current.style.top = '0';
+      mapRef.current.style.left = '0';
+      mapRef.current.style.right = '0';
+      mapRef.current.style.bottom = '0';
+      mapRef.current.style.width = `${availableWidth}px`;
+      mapRef.current.style.height = `${availableHeight}px`;
+      mapRef.current.style.minHeight = '400px';
+      mapRef.current.style.minWidth = '400px';
+      
+      // Small delay to ensure DOM update
+      await new Promise(resolve => setTimeout(resolve, 100));
+
       // Add Leaflet CSS on demand (helps cold-start)
       const existingCss = document.querySelector('link[data-leaflet]');
       if (!existingCss) {
@@ -478,6 +520,14 @@ export function AdminMapDashboard() {
       setMapError(null);
       isInitializing.current = false;
       console.log('Map initialized successfully');
+      
+      // Force map to redraw and invalidate size
+      setTimeout(() => {
+        if (mapInstance.current) {
+          mapInstance.current.invalidateSize();
+          console.log('Map invalidated and redrawn');
+        }
+      }, 100);
 
     } catch (error) {
       console.error('Error initializing map:', error);
@@ -1450,255 +1500,263 @@ export function AdminMapDashboard() {
       </div>
 
       {/* Main Content */}
-      <div className="flex h-[calc(100vh-112px)]">
+      <div className="flex h-[calc(100vh-112px)] relative" style={{ height: 'calc(100vh - 112px)', minHeight: '400px' }}>
         {/* Sidebar */}
-        <div className={`hidden md:flex bg-white border-r border-gray-200 overflow-y-auto relative z-10 flex-col transition-all duration-300 ${
+        <div className={`hidden md:flex bg-white border-r border-gray-200 overflow-y-auto relative z-10 flex-col transition-all duration-300 flex-shrink-0 ${
           showSidenav ? 'md:w-80 xl:w-96' : 'w-0'
         }`}>
           {/* Patrol Reports Section */}
-          <div className="sticky top-0 z-20 bg-orange-50 border-b border-orange-200 px-4 py-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
+          <div className="sticky top-0 z-20 bg-orange-50 border-b border-orange-200">
+            <button
+              onClick={() => setShowPatrolReports(!showPatrolReports)}
+              className="w-full px-4 py-3 flex items-center justify-between hover:bg-orange-100 transition-colors"
+            >
+              <div className="flex items-center gap-3">
                 <h3 className="text-lg font-bold text-orange-900">Patrol Reports</h3>
                 <span className="px-2 py-1 bg-orange-100 text-orange-800 text-xs font-medium rounded-full">
                   {reports.filter(r => r.status === 'awaiting_verification').length}
                 </span>
               </div>
-              <button
-                onClick={() => setPatrolReportsCollapsed(!patrolReportsCollapsed)}
-                className="p-1 hover:bg-orange-100 rounded transition-colors"
-                title={patrolReportsCollapsed ? "Expand Patrol Reports" : "Collapse Patrol Reports"}
-              >
-                {patrolReportsCollapsed ? (
-                  <ChevronDown className="w-5 h-5 text-orange-700" />
-                ) : (
-                  <ChevronUp className="w-5 h-5 text-orange-700" />
-                )}
-              </button>
-            </div>
-            <p className="text-sm text-orange-700 mt-1">Awaiting verification</p>
+              {showPatrolReports ? (
+                <ChevronUp className="w-5 h-5 text-orange-700" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-orange-700" />
+              )}
+            </button>
+            {showPatrolReports && (
+              <div className="px-4 pb-3">
+                <p className="text-sm text-orange-700">Awaiting verification</p>
+              </div>
+            )}
           </div>
           
           {/* Patrol Reports List */}
-          {!patrolReportsCollapsed && (
+          <div className={`overflow-hidden transition-all duration-300 ${showPatrolReports ? 'max-h-screen opacity-100' : 'max-h-0 opacity-0'}`}>
             <div className="p-4 border-b border-orange-200 bg-orange-25">
-              {reports.filter(r => r.status === 'awaiting_verification').length === 0 ? (
-                <div className="text-center py-4 text-orange-600">
-                  <Eye className="w-8 h-8 mx-auto mb-2 text-orange-400" />
-                  <p className="text-sm">No reports awaiting verification</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {reports
-                    .filter(r => r.status === 'awaiting_verification')
-                    .slice(0, 5)
-                    .map((report) => (
-                      <div
-                        key={report.id}
-                        onClick={() => focusReportOnMap(report)}
-                        className={`p-3 rounded-lg border cursor-pointer transition-all hover:shadow-md ${
-                          selectedReport?.id === report.id
-                            ? 'border-orange-500 bg-orange-100'
-                            : 'border-orange-200 hover:border-orange-300 bg-white'
-                        }`}
-                      >
-                        <div className="flex items-start justify-between mb-1">
-                          <h4 className="font-semibold text-gray-900 text-sm leading-tight line-clamp-2">
-                            {report.title}
-                          </h4>
-                          <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
-                            Verify
-                          </span>
-                        </div>
-                        <p className="text-xs text-gray-600 mb-2 line-clamp-2 leading-relaxed">
-                          {report.description}
-                        </p>
-                        <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
-                          <span className="truncate max-w-[60%] font-medium">{report.username}</span>
-                          <span className="font-medium">{new Date(report.created_at).toLocaleDateString()}</span>
-                        </div>
-                        
-                        {/* Quick Action Buttons */}
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleReportAction(report.id, 'resolved');
-                            }}
-                            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded border border-green-200 transition-colors"
-                            title="Approve and Resolve"
-                          >
-                            <Check className="w-3 h-3" />
-                            Approve
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleReportAction(report.id, 'rejected');
-                            }}
-                            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded border border-red-200 transition-colors"
-                            title="Reject"
-                          >
-                            <X className="w-3 h-3" />
-                            Reject
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedReportForModal(report);
-                              setShowReportModal(true);
-                            }}
-                            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded border border-blue-200 transition-colors"
-                            title="View Details"
-                          >
-                            <Eye className="w-3 h-3" />
-                            Details
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Main Reports Section */}
-          <div className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-gray-100 px-4 py-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-gray-900">All Reports</h3>
-              <button
-                onClick={() => setMainReportsCollapsed(!mainReportsCollapsed)}
-                className="p-1 hover:bg-gray-100 rounded transition-colors"
-                title={mainReportsCollapsed ? "Expand All Reports" : "Collapse All Reports"}
-              >
-                {mainReportsCollapsed ? (
-                  <ChevronDown className="w-5 h-5 text-gray-700" />
-                ) : (
-                  <ChevronUp className="w-5 h-5 text-gray-700" />
-                )}
-              </button>
-            </div>
-          </div>
-          {!mainReportsCollapsed && (
-            <div className="p-4">
-              {loading ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                </div>
-              ) : filteredReports.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <MapPin className="w-12 h-12 mx-auto mb-2 text-gray-300" />
-                  <p>No reports found</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {filteredReports.slice(0, 14).map((report) => (
+            {reports.filter(r => r.status === 'awaiting_verification').length === 0 ? (
+              <div className="text-center py-4 text-orange-600">
+                <Eye className="w-8 h-8 mx-auto mb-2 text-orange-400" />
+                <p className="text-sm">No reports awaiting verification</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {reports
+                  .filter(r => r.status === 'awaiting_verification')
+                  .slice(0, 5)
+                  .map((report) => (
                     <div
                       key={report.id}
                       onClick={() => focusReportOnMap(report)}
-                      className={`p-4 rounded-lg border cursor-pointer transition-all hover:shadow-md ${
+                      className={`p-3 rounded-lg border cursor-pointer transition-all hover:shadow-md ${
                         selectedReport?.id === report.id
-                          ? 'border-blue-500 bg-blue-50'
-                          : 'border-gray-200 hover:border-gray-300'
+                          ? 'border-orange-500 bg-orange-100'
+                          : 'border-orange-200 hover:border-orange-300 bg-white'
                       }`}
                     >
-                      <div className="flex items-start justify-between mb-1.5">
-                        <h4 className="font-semibold text-gray-900 text-base leading-tight line-clamp-2">
+                      <div className="flex items-start justify-between mb-1">
+                        <h4 className="font-semibold text-gray-900 text-sm leading-tight line-clamp-2">
                           {report.title}
                         </h4>
-                        <span className={`ml-3 px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(report.status)}`}>
-                          {report.status.replace('_', ' ')}
+                        <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                          Verify
                         </span>
                       </div>
-                      <p className="text-sm text-gray-700 mb-3 line-clamp-2 leading-relaxed">
+                      <p className="text-xs text-gray-600 mb-2 line-clamp-2 leading-relaxed">
                         {report.description}
                       </p>
-                      <div className="flex items-center justify-between text-sm text-gray-600 mb-3">
-                        <span className="truncate max-w-[55%] font-medium">{report.username}</span>
+                      <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
+                        <span className="truncate max-w-[60%] font-medium">{report.username}</span>
                         <span className="font-medium">{new Date(report.created_at).toLocaleDateString()}</span>
                       </div>
                       
-                      {/* Status Management Buttons */}
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {(['verifying','pending','in_progress','awaiting_verification','resolved','rejected'] as const)
-                          .filter(target => target !== report.status)
-                          .sort((a, b) => {
-                            // Preferred order depending on current status
-                            const orderMap: Record<typeof report.status, Record<string, number>> = {
-                              verifying: { pending: 0, in_progress: 1, awaiting_verification: 2, resolved: 3, rejected: 4, verifying: 99 },
-                              pending: { in_progress: 0, awaiting_verification: 1, resolved: 2, rejected: 3, pending: 99 },
-                              in_progress: { awaiting_verification: 0, resolved: 1, rejected: 2, pending: 3, in_progress: 99 },
-                              awaiting_verification: { resolved: 0, rejected: 1, pending: 2, in_progress: 3, awaiting_verification: 99 },
-                              resolved: { in_progress: 0, pending: 1, rejected: 2, resolved: 99 },
-                              rejected: { pending: 0, in_progress: 1, resolved: 2, rejected: 99 },
-                            } as any;
-                            return (orderMap[report.status] as any)[a] - (orderMap[report.status] as any)[b];
-                          })
-                          .map(target => (
-                            <button
-                              key={target}
-                              onClick={() => handleReportAction(report.id, target)}
-                              className={
-                                target === 'verifying'
-                                  ? 'inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-purple-800 bg-purple-50 hover:bg-purple-100 rounded-lg border border-purple-200 transition-colors'
-                                  : target === 'pending'
-                                  ? 'inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-yellow-800 bg-yellow-50 hover:bg-yellow-100 rounded-lg border border-yellow-200 transition-colors'
-                                  : target === 'in_progress'
-                                  ? 'inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition-colors'
-                                  : target === 'awaiting_verification'
-                                  ? 'inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-orange-700 bg-orange-50 hover:bg-orange-100 rounded-lg border border-orange-200 transition-colors'
-                                  : target === 'resolved'
-                                  ? 'inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg border border-green-200 transition-colors'
-                                  : 'inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-lg border border-red-200 transition-colors'
-                              }
-                              title={
-                                target === 'verifying'
-                                  ? 'Mark Verifying'
-                                  : target === 'pending'
-                                  ? 'Mark Pending'
-                                  : target === 'in_progress'
-                                  ? 'Mark In Progress'
-                                  : target === 'awaiting_verification'
-                                  ? 'Mark Awaiting Verification'
-                                  : target === 'resolved'
-                                  ? 'Mark Resolved'
-                                  : 'Reject'
-                              }
-                            >
-                              {target === 'resolved' ? (
-                                <Check className="w-4 h-4" />
-                              ) : target === 'rejected' ? (
-                                <X className="w-4 h-4" />
-                              ) : target === 'awaiting_verification' ? (
-                                <Eye className="w-4 h-4" />
-                              ) : (
-                                <Wrench className="w-4 h-4" />
-                              )}
-                              {target === 'verifying'
-                                ? 'Verifying'
-                                : target === 'pending'
-                                ? 'Pending'
-                                : target === 'in_progress'
-                                ? 'Progress'
-                                : target === 'awaiting_verification'
-                                ? 'Verify'
-                                : target === 'resolved'
-                                ? 'Resolved'
-                                : 'Reject'}
-                            </button>
-                          ))}
+                      {/* Quick Action Buttons */}
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleReportAction(report.id, 'resolved');
+                          }}
+                          className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded border border-green-200 transition-colors"
+                          title="Approve and Resolve"
+                        >
+                          <Check className="w-3 h-3" />
+                          Approve
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleReportAction(report.id, 'rejected');
+                          }}
+                          className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded border border-red-200 transition-colors"
+                          title="Reject"
+                        >
+                          <X className="w-3 h-3" />
+                          Reject
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedReportForModal(report);
+                            setShowReportModal(true);
+                          }}
+                          className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded border border-blue-200 transition-colors"
+                          title="View Details"
+                        >
+                          <Eye className="w-3 h-3" />
+                          Details
+                        </button>
                       </div>
                     </div>
                   ))}
-                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Main Reports Section */}
+          <div className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-gray-100">
+            <button
+              onClick={() => setShowAllReports(!showAllReports)}
+              className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
+            >
+              <h3 className="text-lg font-bold text-gray-900">All Reports</h3>
+              {showAllReports ? (
+                <ChevronUp className="w-5 h-5 text-gray-700" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-gray-700" />
               )}
-            </div>
-          )}
+            </button>
+          </div>
+          <div className={`overflow-hidden transition-all duration-300 ${showAllReports ? 'max-h-screen opacity-100' : 'max-h-0 opacity-0'}`}>
+            <div className="p-4">
+            {loading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              </div>
+            ) : filteredReports.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <MapPin className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                <p>No reports found</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {filteredReports.slice(0, 14).map((report) => (
+                  <div
+                    key={report.id}
+                    onClick={() => focusReportOnMap(report)}
+                    className={`p-4 rounded-lg border cursor-pointer transition-all hover:shadow-md ${
+                      selectedReport?.id === report.id
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between mb-1.5">
+                      <h4 className="font-semibold text-gray-900 text-base leading-tight line-clamp-2">
+                        {report.title}
+                      </h4>
+                      <span className={`ml-3 px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(report.status)}`}>
+                        {report.status.replace('_', ' ')}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-700 mb-3 line-clamp-2 leading-relaxed">
+                      {report.description}
+                    </p>
+                    <div className="flex items-center justify-between text-sm text-gray-600 mb-3">
+                      <span className="truncate max-w-[55%] font-medium">{report.username}</span>
+                      <span className="font-medium">{new Date(report.created_at).toLocaleDateString()}</span>
+                    </div>
+                    
+                    {/* Status Management Buttons */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {(['verifying','pending','in_progress','awaiting_verification','resolved','rejected'] as const)
+                        .filter(target => target !== report.status)
+                        .sort((a, b) => {
+                          // Preferred order depending on current status
+                          const orderMap: Record<typeof report.status, Record<string, number>> = {
+                            verifying: { pending: 0, in_progress: 1, awaiting_verification: 2, resolved: 3, rejected: 4, verifying: 99 },
+                            pending: { in_progress: 0, awaiting_verification: 1, resolved: 2, rejected: 3, pending: 99 },
+                            in_progress: { awaiting_verification: 0, resolved: 1, rejected: 2, pending: 3, in_progress: 99 },
+                            awaiting_verification: { resolved: 0, rejected: 1, pending: 2, in_progress: 3, awaiting_verification: 99 },
+                            resolved: { in_progress: 0, pending: 1, rejected: 2, resolved: 99 },
+                            rejected: { pending: 0, in_progress: 1, resolved: 2, rejected: 99 },
+                          } as any;
+                          return (orderMap[report.status] as any)[a] - (orderMap[report.status] as any)[b];
+                        })
+                        .map(target => (
+                          <button
+                            key={target}
+                            onClick={() => handleReportAction(report.id, target)}
+                            className={
+                              target === 'verifying'
+                                ? 'inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-purple-800 bg-purple-50 hover:bg-purple-100 rounded-lg border border-purple-200 transition-colors'
+                                : target === 'pending'
+                                ? 'inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-yellow-800 bg-yellow-50 hover:bg-yellow-100 rounded-lg border border-yellow-200 transition-colors'
+                                : target === 'in_progress'
+                                ? 'inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition-colors'
+                                : target === 'awaiting_verification'
+                                ? 'inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-orange-700 bg-orange-50 hover:bg-orange-100 rounded-lg border border-orange-200 transition-colors'
+                                : target === 'resolved'
+                                ? 'inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg border border-green-200 transition-colors'
+                                : 'inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-lg border border-red-200 transition-colors'
+                            }
+                            title={
+                              target === 'verifying'
+                                ? 'Mark Verifying'
+                                : target === 'pending'
+                                ? 'Mark Pending'
+                                : target === 'in_progress'
+                                ? 'Mark In Progress'
+                                : target === 'awaiting_verification'
+                                ? 'Mark Awaiting Verification'
+                                : target === 'resolved'
+                                ? 'Mark Resolved'
+                                : 'Reject'
+                            }
+                          >
+                            {target === 'resolved' ? (
+                              <Check className="w-4 h-4" />
+                            ) : target === 'rejected' ? (
+                              <X className="w-4 h-4" />
+                            ) : target === 'awaiting_verification' ? (
+                              <Eye className="w-4 h-4" />
+                            ) : (
+                              <Wrench className="w-4 h-4" />
+                            )}
+                            {target === 'verifying'
+                              ? 'Verifying'
+                              : target === 'pending'
+                              ? 'Pending'
+                              : target === 'in_progress'
+                              ? 'Progress'
+                              : target === 'awaiting_verification'
+                              ? 'Verify'
+                              : target === 'resolved'
+                              ? 'Resolved'
+                              : 'Reject'}
+                          </button>
+                        ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
+      </div>
 
         {/* Map */}
-        <div className={`relative z-0 transition-all duration-300 ${showSidenav ? 'flex-1' : 'w-full'}`}>
-          <div ref={mapRef} className="w-full h-full" />
+        <div className={`relative z-0 transition-all duration-300 ${showSidenav ? 'flex-1' : 'w-full'}`} style={{ height: '100%', minHeight: '400px', position: 'relative', flex: '1 1 0%', minWidth: '0' }}>
+          <div 
+            ref={mapRef} 
+            className="w-full h-full" 
+            style={{ 
+              backgroundColor: '#f8f9fa',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0
+            }} 
+          />
 
           {/* Floating toggle button when sidenav is hidden */}
           {!showSidenav && (
@@ -1882,6 +1940,7 @@ export function AdminMapDashboard() {
             </div>
           </div>
         </div>
+        </div>
       </div>
 
       {/* Mobile Slide-up List */}
@@ -1904,113 +1963,94 @@ export function AdminMapDashboard() {
             
             {/* Mobile Patrol Reports Section */}
             <div className="px-4 py-3 bg-orange-50 border-b border-orange-200">
-              <div className="flex items-center justify-between">
+              <button
+                onClick={() => setShowPatrolReports(!showPatrolReports)}
+                className="w-full flex items-center justify-between"
+              >
                 <div className="flex items-center gap-2">
                   <h3 className="text-sm font-semibold text-orange-900">Patrol Reports</h3>
                   <span className="px-2 py-1 bg-orange-100 text-orange-800 text-xs font-medium rounded-full">
                     {reports.filter(r => r.status === 'awaiting_verification').length}
                   </span>
                 </div>
-                <button
-                  onClick={() => setMobilePatrolReportsCollapsed(!mobilePatrolReportsCollapsed)}
-                  className="p-1 hover:bg-orange-100 rounded transition-colors"
-                  title={mobilePatrolReportsCollapsed ? "Expand Patrol Reports" : "Collapse Patrol Reports"}
-                >
-                  {mobilePatrolReportsCollapsed ? (
-                    <ChevronDown className="w-4 h-4 text-orange-700" />
-                  ) : (
-                    <ChevronUp className="w-4 h-4 text-orange-700" />
-                  )}
-                </button>
-              </div>
-              <p className="text-xs text-orange-700 mt-1">Awaiting verification</p>
+                {showPatrolReports ? (
+                  <ChevronUp className="w-4 h-4 text-orange-700" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-orange-700" />
+                )}
+              </button>
+              {showPatrolReports && (
+                <p className="text-xs text-orange-700 mt-2">Awaiting verification</p>
+              )}
             </div>
             
             {/* Mobile Patrol Reports List */}
-            {!mobilePatrolReportsCollapsed && (
+            {showPatrolReports && (
               <div className="px-4 py-3 border-b border-orange-200 bg-orange-25 max-h-40 overflow-y-auto">
                 {reports.filter(r => r.status === 'awaiting_verification').length === 0 ? (
-                  <div className="text-center py-2 text-orange-600">
-                    <Eye className="w-6 h-6 mx-auto mb-1 text-orange-400" />
-                    <p className="text-xs">No reports awaiting verification</p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {reports
-                      .filter(r => r.status === 'awaiting_verification')
-                      .slice(0, 3)
-                      .map((report) => (
-                        <div
-                          key={report.id}
-                          onClick={() => {
-                            focusReportOnMap(report);
-                            setShowMobileList(false);
-                          }}
-                          className="p-2 rounded-lg border border-orange-200 hover:border-orange-300 bg-white cursor-pointer"
-                        >
-                          <div className="flex items-start justify-between mb-1">
-                            <h4 className="font-medium text-gray-900 text-xs line-clamp-2">
-                              {report.title}
-                            </h4>
-                            <span className="ml-1 px-1 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
-                              Verify
-                            </span>
-                          </div>
-                          <p className="text-xs text-gray-600 mb-1 line-clamp-1">
-                            {report.description}
-                          </p>
-                          <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
-                            <span className="truncate max-w-[60%]">{report.username}</span>
-                            <span>{new Date(report.created_at).toLocaleDateString()}</span>
-                          </div>
-                          
-                          {/* Quick Action Buttons */}
-                          <div className="flex items-center gap-1">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleReportAction(report.id, 'resolved');
-                              }}
-                              className="inline-flex items-center gap-1 px-1 py-0.5 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded border border-green-200"
-                            >
-                              <Check className="w-3 h-3" />
-                              Approve
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleReportAction(report.id, 'rejected');
-                              }}
-                              className="inline-flex items-center gap-1 px-1 py-0.5 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded border border-red-200"
-                            >
-                              <X className="w-3 h-3" />
-                              Reject
-                            </button>
-                          </div>
+                <div className="text-center py-2 text-orange-600">
+                  <Eye className="w-6 h-6 mx-auto mb-1 text-orange-400" />
+                  <p className="text-xs">No reports awaiting verification</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {reports
+                    .filter(r => r.status === 'awaiting_verification')
+                    .slice(0, 3)
+                    .map((report) => (
+                      <div
+                        key={report.id}
+                        onClick={() => {
+                          focusReportOnMap(report);
+                          setShowMobileList(false);
+                        }}
+                        className="p-2 rounded-lg border border-orange-200 hover:border-orange-300 bg-white cursor-pointer"
+                      >
+                        <div className="flex items-start justify-between mb-1">
+                          <h4 className="font-medium text-gray-900 text-xs line-clamp-2">
+                            {report.title}
+                          </h4>
+                          <span className="ml-1 px-1 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                            Verify
+                          </span>
                         </div>
-                      ))}
-                  </div>
-                )}
-              </div>
-            )}
-            {/* Mobile Main Reports Section Header */}
-            <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-gray-900">All Reports</h3>
-                <button
-                  onClick={() => setMobileMainReportsCollapsed(!mobileMainReportsCollapsed)}
-                  className="p-1 hover:bg-gray-100 rounded transition-colors"
-                  title={mobileMainReportsCollapsed ? "Expand All Reports" : "Collapse All Reports"}
-                >
-                  {mobileMainReportsCollapsed ? (
-                    <ChevronDown className="w-4 h-4 text-gray-700" />
-                  ) : (
-                    <ChevronUp className="w-4 h-4 text-gray-700" />
-                  )}
-                </button>
-              </div>
+                        <p className="text-xs text-gray-600 mb-1 line-clamp-1">
+                          {report.description}
+                        </p>
+                        <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
+                          <span className="truncate max-w-[60%]">{report.username}</span>
+                          <span>{new Date(report.created_at).toLocaleDateString()}</span>
+                        </div>
+                        
+                        {/* Quick Action Buttons */}
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleReportAction(report.id, 'resolved');
+                            }}
+                            className="inline-flex items-center gap-1 px-1 py-0.5 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded border border-green-200"
+                          >
+                            <Check className="w-3 h-3" />
+                            Approve
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleReportAction(report.id, 'rejected');
+                            }}
+                            className="inline-flex items-center gap-1 px-1 py-0.5 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded border border-red-200"
+                          >
+                            <X className="w-3 h-3" />
+                            Reject
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              )}
             </div>
-            
+            )}
             {/* Mobile Filters */}
             <div className="px-4 pt-3 pb-1 border-b">
               <div className="flex items-center gap-2">
@@ -2039,104 +2079,116 @@ export function AdminMapDashboard() {
                 </select>
               </div>
             </div>
-            {!mobileMainReportsCollapsed && (
-              <div className="p-4">
-                {loading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                  </div>
-                ) : filteredReports.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    <MapPin className="w-12 h-12 mx-auto mb-2 text-gray-300" />
-                    <p>No reports found</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {filteredReports.map((report) => (
-                      <div
-                        key={report.id}
-                        onClick={() => {
-                          setShowMobileList(false);
-                          focusReportOnMap(report);
-                        }}
-                        className="p-3 rounded-lg border cursor-pointer transition-all hover:shadow-md border-gray-200 hover:border-gray-300"
-                      >
-                        <div className="flex items-start justify-between mb-2">
-                          <h4 className="font-medium text-gray-900 text-sm line-clamp-2">
-                            {report.title}
-                          </h4>
-                          <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(report.status)}`}>
-                            {report.status}
-                          </span>
-                        </div>
-                        <p className="text-xs text-gray-600 mb-2 line-clamp-2">{report.description}</p>
-                        <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
-                          <span>{report.username}</span>
-                          <span>{new Date(report.created_at).toLocaleDateString()}</span>
-                        </div>
-                        
-                        {/* Status Management Buttons - Mobile */}
-                        <div className="flex items-center gap-1 flex-wrap">
-                          {(['verifying','pending','in_progress','awaiting_verification','resolved','rejected'] as const)
-                            .filter(target => target !== report.status)
-                            .sort((a, b) => {
-                              // Preferred order depending on current status
-                              const orderMap: Record<typeof report.status, Record<string, number>> = {
-                                verifying: { pending: 0, in_progress: 1, awaiting_verification: 2, resolved: 3, rejected: 4, verifying: 99 },
-                                pending: { in_progress: 0, awaiting_verification: 1, resolved: 2, rejected: 3, pending: 99 },
-                                in_progress: { awaiting_verification: 0, resolved: 1, rejected: 2, pending: 3, in_progress: 99 },
-                                awaiting_verification: { resolved: 0, rejected: 1, pending: 2, in_progress: 3, awaiting_verification: 99 },
-                                resolved: { in_progress: 0, pending: 1, rejected: 2, resolved: 99 },
-                                rejected: { pending: 0, in_progress: 1, resolved: 2, rejected: 99 },
-                              } as any;
-                              return (orderMap[report.status] as any)[a] - (orderMap[report.status] as any)[b];
-                            })
-                            .map(target => (
-                              <button
-                                key={target}
-                                onClick={() => handleReportAction(report.id, target)}
-                                className={
-                                  target === 'pending'
-                                    ? 'inline-flex items-center gap-1 px-2 py-1 text-xs text-yellow-800 bg-yellow-50 hover:bg-yellow-100 rounded border border-yellow-200 transition-colors'
-                                    : target === 'in_progress'
-                                    ? 'inline-flex items-center gap-1 px-2 py-1 text-xs text-blue-700 bg-blue-50 hover:bg-blue-100 rounded border border-blue-200 transition-colors'
-                                    : target === 'resolved'
-                                    ? 'inline-flex items-center gap-1 px-2 py-1 text-xs text-green-700 bg-green-50 hover:bg-green-100 rounded border border-green-200 transition-colors'
-                                    : 'inline-flex items-center gap-1 px-2 py-1 text-xs text-red-700 bg-red-50 hover:bg-red-100 rounded border border-red-200 transition-colors'
-                                }
-                                title={
-                                  target === 'pending'
-                                    ? 'Mark Pending'
-                                    : target === 'in_progress'
-                                    ? 'Mark In Progress'
-                                    : target === 'resolved'
-                                    ? 'Mark Resolved'
-                                    : 'Reject'
-                                }
-                              >
-                                {target === 'resolved' ? (
-                                  <Check className="w-4 h-4" />
-                                ) : target === 'rejected' ? (
-                                  <X className="w-4 h-4" />
-                                ) : (
-                                  <Wrench className="w-4 h-4" />
-                                )}
-                                {target === 'pending'
-                                  ? 'Pending'
-                                  : target === 'in_progress'
-                                  ? 'Progress'
-                                  : target === 'resolved'
-                                  ? 'Resolved'
-                                  : 'Reject'}
-                              </button>
-                            ))}
-                        </div>
+            <div className="p-4">
+              {loading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                </div>
+              ) : filteredReports.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <MapPin className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                  <p>No reports found</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {filteredReports.map((report) => (
+                    <div
+                      key={report.id}
+                      onClick={() => {
+                        setShowMobileList(false);
+                        focusReportOnMap(report);
+                      }}
+                      className="p-3 rounded-lg border cursor-pointer transition-all hover:shadow-md border-gray-200 hover:border-gray-300"
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <h4 className="font-medium text-gray-900 text-sm line-clamp-2">
+                          {report.title}
+                        </h4>
+                        <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(report.status)}`}>
+                          {report.status}
+                        </span>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+                      <p className="text-xs text-gray-600 mb-2 line-clamp-2">{report.description}</p>
+                      <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
+                        <span>{report.username}</span>
+                        <span>{new Date(report.created_at).toLocaleDateString()}</span>
+                      </div>
+                      
+                      {/* Status Management Buttons - Mobile */}
+                      <div className="flex items-center gap-1 flex-wrap">
+                        {(['verifying','pending','in_progress','awaiting_verification','resolved','rejected'] as const)
+                          .filter(target => target !== report.status)
+                          .sort((a, b) => {
+                            // Preferred order depending on current status
+                            const orderMap: Record<typeof report.status, Record<string, number>> = {
+                              verifying: { pending: 0, in_progress: 1, awaiting_verification: 2, resolved: 3, rejected: 4, verifying: 99 },
+                              pending: { in_progress: 0, awaiting_verification: 1, resolved: 2, rejected: 3, pending: 99 },
+                              in_progress: { awaiting_verification: 0, resolved: 1, rejected: 2, pending: 3, in_progress: 99 },
+                              awaiting_verification: { resolved: 0, rejected: 1, pending: 2, in_progress: 3, awaiting_verification: 99 },
+                              resolved: { in_progress: 0, pending: 1, rejected: 2, resolved: 99 },
+                              rejected: { pending: 0, in_progress: 1, resolved: 2, rejected: 99 },
+                            } as any;
+                            return (orderMap[report.status] as any)[a] - (orderMap[report.status] as any)[b];
+                          })
+                          .map(target => (
+                            <button
+                              key={target}
+                              onClick={() => handleReportAction(report.id, target)}
+                              className={
+                                target === 'verifying'
+                                  ? 'inline-flex items-center gap-1 px-2 py-1 text-xs text-purple-800 bg-purple-50 hover:bg-purple-100 rounded border border-purple-200 transition-colors'
+                                  : target === 'pending'
+                                  ? 'inline-flex items-center gap-1 px-2 py-1 text-xs text-yellow-800 bg-yellow-50 hover:bg-yellow-100 rounded border border-yellow-200 transition-colors'
+                                  : target === 'in_progress'
+                                  ? 'inline-flex items-center gap-1 px-2 py-1 text-xs text-blue-700 bg-blue-50 hover:bg-blue-100 rounded border border-blue-200 transition-colors'
+                                  : target === 'awaiting_verification'
+                                  ? 'inline-flex items-center gap-1 px-2 py-1 text-xs text-orange-700 bg-orange-50 hover:bg-orange-100 rounded border border-orange-200 transition-colors'
+                                  : target === 'resolved'
+                                  ? 'inline-flex items-center gap-1 px-2 py-1 text-xs text-green-700 bg-green-50 hover:bg-green-100 rounded border border-green-200 transition-colors'
+                                  : 'inline-flex items-center gap-1 px-2 py-1 text-xs text-red-700 bg-red-50 hover:bg-red-100 rounded border border-red-200 transition-colors'
+                              }
+                              title={
+                                target === 'verifying'
+                                  ? 'Mark Verifying'
+                                  : target === 'pending'
+                                  ? 'Mark Pending'
+                                  : target === 'in_progress'
+                                  ? 'Mark In Progress'
+                                  : target === 'awaiting_verification'
+                                  ? 'Mark Awaiting Verification'
+                                  : target === 'resolved'
+                                  ? 'Mark Resolved'
+                                  : 'Reject'
+                              }
+                            >
+                              {target === 'resolved' ? (
+                                <Check className="w-4 h-4" />
+                              ) : target === 'rejected' ? (
+                                <X className="w-4 h-4" />
+                              ) : target === 'awaiting_verification' ? (
+                                <Eye className="w-4 h-4" />
+                              ) : (
+                                <Wrench className="w-4 h-4" />
+                              )}
+                              {target === 'verifying'
+                                ? 'Verifying'
+                                : target === 'pending'
+                                ? 'Pending'
+                                : target === 'in_progress'
+                                ? 'Progress'
+                                : target === 'awaiting_verification'
+                                ? 'Verify'
+                                : target === 'resolved'
+                                ? 'Resolved'
+                                : 'Reject'}
+                            </button>
+                          ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

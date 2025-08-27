@@ -73,8 +73,8 @@ export function LeaderboardPage() {
       const cachedData = cache[timeFrame];
       if (cachedData && Date.now() - cachedData.timestamp < CACHE_DURATION) {
         const filteredData = currentUser?.role === 'admin'
-          ? cachedData.data
-          : cachedData.data.filter(entry => entry.role !== 'admin');
+          ? cachedData.data.filter(entry => entry.role !== 'patrol')
+          : cachedData.data.filter(entry => entry.role !== 'admin' && entry.role !== 'patrol');
         setEntries(filteredData);
         setLoading(false);
         return;
@@ -84,8 +84,8 @@ export function LeaderboardPage() {
       
       // Filter out admin users if current user is not an admin
       const filteredData = currentUser?.role === 'admin'
-        ? data
-        : data.filter(entry => entry.role !== 'admin') || [];
+        ? data.filter((entry: any) => entry.role !== 'patrol')
+        : (data.filter((entry: any) => entry.role !== 'admin' && entry.role !== 'patrol') || []);
       
       // Add rank to filtered data (after filtering out admins)
       const rankedData = filteredData.map((entry, index) => ({
