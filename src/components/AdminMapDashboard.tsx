@@ -16,7 +16,8 @@ import {
   RefreshCw,
   Layers,
   ZoomIn,
-  ZoomOut
+  ZoomOut,
+  Wrench
 } from 'lucide-react';
 import { Notification } from './Notification';
 
@@ -44,6 +45,8 @@ interface MapMarker {
   position: [number, number];
   report: Report;
   isNew: boolean;
+  isCluster?: boolean;
+  clusterReports?: Report[];
 }
 
 export function AdminMapDashboard() {
@@ -78,6 +81,70 @@ export function AdminMapDashboard() {
   const updateTimerRef = useRef<any>(null);
   const didFitBoundsRef = useRef(false);
   const [showMobileList, setShowMobileList] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [selectedReportForModal, setSelectedReportForModal] = useState<Report | null>(null);
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [showClusterModal, setShowClusterModal] = useState(false);
+  const [clusterReports, setClusterReports] = useState<Report[]>([]);
+  const [clusterPosition, setClusterPosition] = useState<[number, number]>([0, 0]);
+
+  // Keyboard navigation for image modal
+  useEffect(() => {
+    if (!showImageModal || !selectedReportForModal?.images) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setShowImageModal(false);
+        setSelectedImage(null);
+      } else if (event.key === 'ArrowLeft') {
+        const currentIndex = selectedReportForModal.images.indexOf(selectedImage!);
+        const prevIndex = currentIndex > 0 ? currentIndex - 1 : selectedReportForModal.images.length - 1;
+        setSelectedImage(selectedReportForModal.images[prevIndex]);
+      } else if (event.key === 'ArrowRight') {
+        const currentIndex = selectedReportForModal.images.indexOf(selectedImage!);
+        const nextIndex = currentIndex < selectedReportForModal.images.length - 1 ? currentIndex + 1 : 0;
+        setSelectedImage(selectedReportForModal.images[nextIndex]);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [showImageModal, selectedImage, selectedReportForModal]);
+
+  // Group reports by location to handle overlapping markers
+  const groupReportsByLocation = (reports: Report[]): { [key: string]: Report[] } => {
+    const groups: { [key: string]: Report[] } = {};
+    const CLUSTER_THRESHOLD = 0.0001; // Very small distance for clustering (about 10 meters)
+    
+    reports.forEach(report => {
+      if (!report.location?.lat || !report.location?.lng) return;
+      
+      // Find if this report should be grouped with existing ones
+      let grouped = false;
+      for (const key in groups) {
+        const [lat, lng] = key.split(',').map(Number);
+        const distance = Math.sqrt(
+          Math.pow(report.location.lat - lat, 2) + 
+          Math.pow(report.location.lng - lng, 2)
+        );
+        
+        if (distance < CLUSTER_THRESHOLD) {
+          groups[key].push(report);
+          grouped = true;
+          break;
+        }
+      }
+      
+      // If not grouped, create new group
+      if (!grouped) {
+        const key = `${report.location.lat},${report.location.lng}`;
+        groups[key] = [report];
+      }
+    });
+    
+    return groups;
+  };
 
   // Treat a coordinate as invalid if missing, zero, or the common wrong default reused across reports
   const isInvalidLocation = (loc?: { lat: number; lng: number } | null): boolean => {
@@ -770,6 +837,11 @@ export function AdminMapDashboard() {
           : report
       )
     );
+
+    // Also update the map marker if the status changed
+    if (updatedReport.status) {
+      updateSpecificMarker(updatedReport.id, updatedReport.status);
+    }
   };
 
   const addNewMarker = async (report: Report) => {
@@ -811,7 +883,9 @@ export function AdminMapDashboard() {
             if (target) {
               ev.preventDefault();
               ev.stopPropagation();
-              try { navigate(`/reports/${report.id}`); } catch { window.location.assign(`/reports/${report.id}`); }
+              console.log('View full details clicked for report:', report.id);
+              setSelectedReportForModal(report);
+              setShowReportModal(true);
             }
           };
           popupEl.addEventListener('click', onClick);
@@ -869,64 +943,139 @@ export function AdminMapDashboard() {
         return matchesFilter && matchesSearch;
       });
 
-      // Create markers for filtered reports
-      const newMarkers: MapMarker[] = filteredReports
-        .filter(report => report.location?.lat && report.location?.lng)
-        .map(report => ({
-          id: report.id,
-          position: [report.location.lat, report.location.lng],
-          report,
-          isNew: false
-        }));
+      // Group reports by location to handle overlapping markers
+      const locationGroups = groupReportsByLocation(filteredReports);
+      
+      // Create markers for grouped reports
+      const newMarkers: MapMarker[] = [];
+      Object.entries(locationGroups).forEach(([locationKey, reports]) => {
+        const [lat, lng] = locationKey.split(',').map(Number);
+        
+        if (reports.length === 1) {
+          // Single report - create normal marker
+          newMarkers.push({
+            id: reports[0].id,
+            position: [lat, lng],
+            report: reports[0],
+            isNew: false
+          });
+        } else {
+          // Multiple reports - create cluster marker
+          newMarkers.push({
+            id: `cluster-${locationKey}`,
+            position: [lat, lng],
+            report: reports[0], // Use first report for display, but store all in a special way
+            isNew: false,
+            isCluster: true,
+            clusterReports: reports
+          } as any);
+        }
+      });
 
       setMapMarkers(newMarkers);
 
                     // Add markers to map
        newMarkers.forEach(markerData => {
          try {
-           const markerColor = getMarkerColor(markerData.report.status, markerData.report.priority);
-           const markerIcon = getMarkerIcon(markerData.report.status, markerData.report.priority);
+           let marker;
            
-           const marker = L.marker(markerData.position, {
-             icon: L.divIcon({
-               className: 'report-marker',
-               html: `
-                 <div class="relative group">
-                   <div class="w-8 h-8 ${markerColor} rounded-full border-3 border-white shadow-lg cursor-pointer flex items-center justify-center text-white font-bold text-sm hover:scale-110 transition-transform duration-200">
-                     ${markerIcon}
+           if (markerData.isCluster && markerData.clusterReports) {
+             // Create cluster marker
+             const clusterCount = markerData.clusterReports.length;
+             marker = L.marker(markerData.position, {
+               icon: L.divIcon({
+                 className: 'report-marker cluster-marker',
+                 html: `
+                   <div class="relative group">
+                     <div class="w-10 h-10 bg-purple-500 rounded-full border-3 border-white shadow-lg cursor-pointer flex items-center justify-center text-white font-bold text-sm hover:scale-110 transition-transform duration-200">
+                       ${clusterCount}
+                     </div>
+                     <div class="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-5 border-r-5 border-t-5 border-transparent border-t-purple-500"></div>
+                     <div class="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
+                       ${clusterCount} reports at this location
+                     </div>
                    </div>
-                   <div class="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-${markerColor.replace('bg-', '')}"></div>
-                   <div class="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
-                     ${markerData.report.title.substring(0, 20)}${markerData.report.title.length > 20 ? '...' : ''}
+                 `,
+                 iconSize: [40, 40],
+                 iconAnchor: [20, 40]
+               })
+             });
+           } else {
+             // Create normal single report marker
+             const markerColor = getMarkerColor(markerData.report.status, markerData.report.priority);
+             const markerIcon = getMarkerIcon(markerData.report.status, markerData.report.priority);
+             
+             marker = L.marker(markerData.position, {
+               icon: L.divIcon({
+                 className: 'report-marker',
+                 html: `
+                   <div class="relative group">
+                     <div class="w-8 h-8 ${markerColor} rounded-full border-3 border-white shadow-lg cursor-pointer flex items-center justify-center text-white font-bold text-sm hover:scale-110 transition-transform duration-200">
+                       ${markerIcon}
+                     </div>
+                     <div class="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-${markerColor.replace('bg-', '')}"></div>
+                     <div class="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
+                       ${markerData.report.title.substring(0, 20)}${markerData.report.title.length > 20 ? '...' : ''}
+                     </div>
                    </div>
-                 </div>
-               `,
-               iconSize: [32, 32],
-               iconAnchor: [16, 32]
-             })
-           });
+                 `,
+                 iconSize: [32, 32],
+                 iconAnchor: [16, 32]
+               })
+             });
+           }
 
            // Add popup
-           marker.bindPopup(createMarkerPopup(markerData.report));
-           // Wire up navigation when popup opens (use delegation and clean up on close)
-           marker.on('popupopen', (e: any) => {
-             try {
-               const popupEl = e?.popup?.getElement?.() || marker.getPopup()?.getElement?.();
-               if (!popupEl) return;
-               const onClick = (ev: Event) => {
-                 const target = (ev.target as HTMLElement | null)?.closest?.('[data-view-details]');
-                 if (target) {
-                   ev.preventDefault();
-                   ev.stopPropagation();
-                   try { navigate(`/reports/${markerData.report.id}`); } catch { window.location.assign(`/reports/${markerData.report.id}`); }
-                 }
-               };
-               popupEl.addEventListener('click', onClick);
-               marker.once('popupclose', () => {
-                 try { popupEl.removeEventListener('click', onClick); } catch {}
-               });
-             } catch {}
-           });
+           if (markerData.isCluster && markerData.clusterReports) {
+             marker.bindPopup(createClusterPopup(markerData.clusterReports));
+           } else {
+             marker.bindPopup(createMarkerPopup(markerData.report));
+           }
+                        // Wire up navigation when popup opens (use delegation and clean up on close)
+             marker.on('popupopen', (e: any) => {
+               try {
+                 const popupEl = e?.popup?.getElement?.() || marker.getPopup()?.getElement?.();
+                 if (!popupEl) return;
+                 
+                 // Add click handler for the popup buttons
+                 const onClick = (ev: Event) => {
+                   const viewDetailsTarget = (ev.target as HTMLElement | null)?.closest?.('[data-view-details]');
+                   const viewClusterTarget = (ev.target as HTMLElement | null)?.closest?.('[data-view-cluster]');
+                   
+                   if (viewDetailsTarget) {
+                     ev.preventDefault();
+                     ev.stopPropagation();
+                     console.log('View full details clicked for report:', markerData.report.id);
+                     
+                     // Open modal instead of navigating
+                     setSelectedReportForModal(markerData.report);
+                     setShowReportModal(true);
+                   } else if (viewClusterTarget && markerData.isCluster && markerData.clusterReports) {
+                     ev.preventDefault();
+                     ev.stopPropagation();
+                     console.log('View cluster clicked for reports at location');
+                     
+                     // Open cluster modal
+                     setClusterReports(markerData.clusterReports);
+                     setClusterPosition(markerData.position);
+                     setShowClusterModal(true);
+                   }
+                 };
+                 
+                 popupEl.addEventListener('click', onClick);
+                 
+                 // Clean up event listener when popup closes
+                 marker.once('popupclose', () => {
+                   try { 
+                     popupEl.removeEventListener('click', onClick); 
+                   } catch (error) {
+                     console.log('Error removing event listener:', error);
+                   }
+                 });
+               } catch (error) {
+                 console.error('Error setting up popup click handler:', error);
+               }
+             });
 
            // Add click event
            marker.on('click', () => {
@@ -982,6 +1131,48 @@ export function AdminMapDashboard() {
     return '📍';
   };
 
+  const createClusterPopup = (reports: Report[]): string => {
+    const totalReports = reports.length;
+    const statusCounts = reports.reduce((acc, report) => {
+      acc[report.status] = (acc[report.status] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+    
+    return `
+      <div class="p-3 min-w-[280px] max-w-[350px]">
+        <div class="flex items-center gap-2 mb-3">
+          <div class="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
+            ${totalReports}
+          </div>
+          <div class="flex-1">
+            <div class="font-semibold text-gray-900 text-sm">Multiple Reports</div>
+            <div class="text-xs text-gray-500">Same location</div>
+          </div>
+        </div>
+        
+        <div class="mb-3">
+          <div class="text-xs text-gray-600 mb-2"><strong>Status Summary:</strong></div>
+          <div class="flex flex-wrap gap-1">
+            ${Object.entries(statusCounts).map(([status, count]) => `
+              <span class="px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(status)}">
+                ${status.replace('_', ' ')}: ${count}
+              </span>
+            `).join('')}
+          </div>
+        </div>
+        
+        <div class="text-xs text-gray-500 mb-3">
+          <div><strong>Location:</strong> ${reports[0].location_address}</div>
+          <div><strong>Total Reports:</strong> ${totalReports}</div>
+        </div>
+        
+        <button data-view-cluster class="mt-2 w-full text-center text-sm text-purple-600 hover:text-purple-700 font-semibold border-t pt-2 cursor-pointer hover:bg-purple-50 rounded px-2 py-1 transition-colors">
+          View all reports →
+        </button>
+      </div>
+    `;
+  };
+
   const createMarkerPopup = (report: Report): string => {
     const statusIcon = getMarkerIcon(report.status, report.priority);
     return `
@@ -1003,8 +1194,8 @@ export function AdminMapDashboard() {
           <div><strong>Reporter:</strong> ${report.username}</div>
           <div><strong>Date:</strong> ${new Date(report.created_at).toLocaleDateString()}</div>
         </div>
-        <button data-view-details class="mt-1 w-full text-center text-xs text-blue-600 hover:text-blue-700 font-medium border-t pt-2">
-          View full details
+        <button data-view-details data-report-id="${report.id}" class="mt-2 w-full text-center text-sm text-blue-600 hover:text-blue-700 font-semibold border-t pt-2 cursor-pointer hover:bg-blue-50 rounded px-2 py-1 transition-colors">
+          View full details →
         </button>
       </div>
     `;
@@ -1029,23 +1220,77 @@ export function AdminMapDashboard() {
     }
   };
 
-  const handleReportAction = async (reportId: string, action: 'approve' | 'reject' | 'resolve') => {
-    try {
-      let newStatus: Report['status'];
-      switch (action) {
-        case 'approve':
-          newStatus = 'in_progress';
-          break;
-        case 'reject':
-          newStatus = 'rejected';
-          break;
-        case 'resolve':
-          newStatus = 'resolved';
-          break;
-        default:
-          return;
-      }
+  const updateSpecificMarker = async (reportId: string, newStatus: Report['status']) => {
+    console.log('updateSpecificMarker called:', reportId, newStatus);
+    
+    if (!mapInstance.current || !markersLayer.current) {
+      console.log('Map or markers layer not ready');
+      return;
+    }
 
+    try {
+      const L = await import('leaflet');
+      
+      // Find the existing marker
+      const existingMarker = markerRefs.current.get(reportId);
+      if (!existingMarker) {
+        console.log('Marker not found in refs:', reportId);
+        return;
+      }
+      
+      console.log('Found existing marker, updating...');
+
+      // Find the report data
+      const report = reports.find(r => r.id === reportId);
+      if (!report) return;
+
+      // Get new marker color and icon based on new status
+      const markerColor = getMarkerColor(newStatus, report.priority);
+      const markerIcon = getMarkerIcon(newStatus, report.priority);
+
+      // Create new marker icon with updated status
+      const newIcon = L.divIcon({
+        className: 'report-marker',
+        html: `
+          <div class="relative group">
+            <div class="w-8 h-8 ${markerColor} rounded-full border-3 border-white shadow-lg cursor-pointer flex items-center justify-center text-white font-bold text-sm hover:scale-110 transition-transform duration-200">
+              ${markerIcon}
+            </div>
+            <div class="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-${markerColor.replace('bg-', '')}"></div>
+            <div class="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
+              ${report.title.substring(0, 20)}${report.title.length > 20 ? '...' : ''}
+            </div>
+          </div>
+        `,
+        iconSize: [32, 32],
+        iconAnchor: [16, 32]
+      });
+
+      // Instead of recreating, let's try a different approach - force a complete map refresh
+      console.log('Forcing map marker refresh...');
+      
+      // Remove the old marker
+      existingMarker.remove();
+      markerRefs.current.delete(reportId);
+      
+      // Force the map to refresh all markers
+      setTimeout(() => {
+        console.log('Refreshing map markers...');
+        updateMapMarkers();
+      }, 200);
+      
+      console.log('Marker refresh scheduled');
+
+      // Note: Animation will be handled by the map refresh
+      console.log('Animation will be handled by map refresh');
+
+    } catch (error) {
+      console.error('Error updating marker:', error);
+    }
+  };
+
+  const handleReportAction = async (reportId: string, newStatus: Report['status']) => {
+    try {
       const { error } = await supabase
         .from('reports')
         .update({ status: newStatus })
@@ -1053,7 +1298,12 @@ export function AdminMapDashboard() {
 
       if (error) throw error;
 
-      showNotification(`Report ${action}d successfully`, 'success');
+      const actionText = newStatus === 'in_progress' ? 'approved' : 
+                        newStatus === 'resolved' ? 'resolved' : 
+                        newStatus === 'rejected' ? 'rejected' : 
+                        'updated';
+      
+      showNotification(`Report ${actionText} successfully`, 'success');
       
       // Update local state
       setReports(prev => 
@@ -1064,14 +1314,20 @@ export function AdminMapDashboard() {
         )
       );
 
+      // Update the specific marker on the map to reflect the new status
+      // Use a small delay to ensure state update is complete
+      setTimeout(() => {
+        updateSpecificMarker(reportId, newStatus);
+      }, 100);
+
       // Close selected report if it was the one updated
       if (selectedReport?.id === reportId) {
         setSelectedReport(null);
       }
 
     } catch (error) {
-      console.error(`Error ${action}ing report:`, error);
-      showNotification(`Failed to ${action} report`, 'error');
+      console.error(`Error updating report status:`, error);
+      showNotification(`Failed to update report status`, 'error');
     }
   };
 
@@ -1339,7 +1595,7 @@ export function AdminMapDashboard() {
         {/* Sidebar */}
         <div className="hidden md:flex md:w-80 xl:w-96 bg-white border-l border-gray-200 overflow-y-auto relative z-10 flex-col">
           <div className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-gray-100 px-4 py-3">
-            <h3 className="text-base font-semibold text-gray-900">Recent Reports</h3>
+            <h3 className="text-lg font-bold text-gray-900">Recent Reports</h3>
           </div>
           <div className="p-4">
             {loading ? (
@@ -1352,31 +1608,86 @@ export function AdminMapDashboard() {
                 <p>No reports found</p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {filteredReports.slice(0, 14).map((report) => (
                   <div
                     key={report.id}
                     onClick={() => focusReportOnMap(report)}
-                    className={`p-3 rounded-lg border cursor-pointer transition-all hover:shadow-md ${
+                    className={`p-4 rounded-lg border cursor-pointer transition-all hover:shadow-md ${
                       selectedReport?.id === report.id
                         ? 'border-blue-500 bg-blue-50'
                         : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
                     <div className="flex items-start justify-between mb-1.5">
-                      <h4 className="font-medium text-gray-900 text-sm leading-snug line-clamp-2">
+                      <h4 className="font-semibold text-gray-900 text-base leading-tight line-clamp-2">
                         {report.title}
                       </h4>
-                      <span className={`ml-2 px-2 py-0.5 rounded-full text-[10px] ${getStatusColor(report.status)}`}>
-                        {report.status}
+                      <span className={`ml-3 px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(report.status)}`}>
+                        {report.status.replace('_', ' ')}
                       </span>
                     </div>
-                    <p className="text-xs text-gray-600 mb-2 line-clamp-2 leading-relaxed">
+                    <p className="text-sm text-gray-700 mb-3 line-clamp-2 leading-relaxed">
                       {report.description}
                     </p>
-                    <div className="flex items-center justify-between text-[11px] text-gray-500">
-                      <span className="truncate max-w-[55%]">{report.username}</span>
-                      <span>{new Date(report.created_at).toLocaleDateString()}</span>
+                    <div className="flex items-center justify-between text-sm text-gray-600 mb-3">
+                      <span className="truncate max-w-[55%] font-medium">{report.username}</span>
+                      <span className="font-medium">{new Date(report.created_at).toLocaleDateString()}</span>
+                    </div>
+                    
+                    {/* Status Management Buttons */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {(['pending','in_progress','resolved','rejected'] as const)
+                        .filter(target => target !== report.status)
+                        .sort((a, b) => {
+                          // Preferred order depending on current status
+                          const orderMap: Record<typeof report.status, Record<string, number>> = {
+                            pending: { in_progress: 0, resolved: 1, rejected: 2, pending: 99 },
+                            in_progress: { resolved: 0, rejected: 1, pending: 2, in_progress: 99 },
+                            resolved: { in_progress: 0, pending: 1, rejected: 2, resolved: 99 },
+                            rejected: { pending: 0, in_progress: 1, resolved: 2, rejected: 99 },
+                          } as any;
+                          return (orderMap[report.status] as any)[a] - (orderMap[report.status] as any)[b];
+                        })
+                        .map(target => (
+                          <button
+                            key={target}
+                            onClick={() => handleReportAction(report.id, target)}
+                            className={
+                              target === 'pending'
+                                ? 'inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-yellow-800 bg-yellow-50 hover:bg-yellow-100 rounded-lg border border-yellow-200 transition-colors'
+                                : target === 'in_progress'
+                                ? 'inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition-colors'
+                                : target === 'resolved'
+                                ? 'inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg border border-green-200 transition-colors'
+                                : 'inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-lg border border-red-200 transition-colors'
+                            }
+                            title={
+                              target === 'pending'
+                                ? 'Mark Pending'
+                                : target === 'in_progress'
+                                ? 'Mark In Progress'
+                                : target === 'resolved'
+                                ? 'Mark Resolved'
+                                : 'Reject'
+                            }
+                          >
+                            {target === 'resolved' ? (
+                              <Check className="w-4 h-4" />
+                            ) : target === 'rejected' ? (
+                              <X className="w-4 h-4" />
+                            ) : (
+                              <Wrench className="w-4 h-4" />
+                            )}
+                            {target === 'pending'
+                              ? 'Pending'
+                              : target === 'in_progress'
+                              ? 'Progress'
+                              : target === 'resolved'
+                              ? 'Resolved'
+                              : 'Reject'}
+                          </button>
+                        ))}
                     </div>
                   </div>
                 ))}
@@ -1459,14 +1770,397 @@ export function AdminMapDashboard() {
                         </span>
                       </div>
                       <p className="text-xs text-gray-600 mb-2 line-clamp-2">{report.description}</p>
-                      <div className="flex items-center justify-between text-xs text-gray-500">
+                      <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
                         <span>{report.username}</span>
                         <span>{new Date(report.created_at).toLocaleDateString()}</span>
+                      </div>
+                      
+                      {/* Status Management Buttons - Mobile */}
+                      <div className="flex items-center gap-1 flex-wrap">
+                        {(['pending','in_progress','resolved','rejected'] as const)
+                          .filter(target => target !== report.status)
+                          .sort((a, b) => {
+                            // Preferred order depending on current status
+                            const orderMap: Record<typeof report.status, Record<string, number>> = {
+                              pending: { in_progress: 0, resolved: 1, rejected: 2, pending: 99 },
+                              in_progress: { resolved: 0, rejected: 1, pending: 2, in_progress: 99 },
+                              resolved: { in_progress: 0, pending: 1, rejected: 2, resolved: 99 },
+                              rejected: { pending: 0, in_progress: 1, resolved: 2, rejected: 99 },
+                            } as any;
+                            return (orderMap[report.status] as any)[a] - (orderMap[report.status] as any)[b];
+                          })
+                          .map(target => (
+                            <button
+                              key={target}
+                              onClick={() => handleReportAction(report.id, target)}
+                              className={
+                                target === 'pending'
+                                  ? 'inline-flex items-center gap-1 px-2 py-1 text-xs text-yellow-800 bg-yellow-50 hover:bg-yellow-100 rounded border border-yellow-200 transition-colors'
+                                  : target === 'in_progress'
+                                  ? 'inline-flex items-center gap-1 px-2 py-1 text-xs text-blue-700 bg-blue-50 hover:bg-blue-100 rounded border border-blue-200 transition-colors'
+                                  : target === 'resolved'
+                                  ? 'inline-flex items-center gap-1 px-2 py-1 text-xs text-green-700 bg-green-50 hover:bg-green-100 rounded border border-green-200 transition-colors'
+                                  : 'inline-flex items-center gap-1 px-2 py-1 text-xs text-red-700 bg-red-50 hover:bg-red-100 rounded border border-red-200 transition-colors'
+                              }
+                              title={
+                                target === 'pending'
+                                  ? 'Mark Pending'
+                                  : target === 'in_progress'
+                                  ? 'Mark In Progress'
+                                  : target === 'resolved'
+                                  ? 'Mark Resolved'
+                                  : 'Reject'
+                              }
+                            >
+                              {target === 'resolved' ? (
+                                <Check className="w-4 h-4" />
+                              ) : target === 'rejected' ? (
+                                <X className="w-4 h-4" />
+                              ) : (
+                                <Wrench className="w-4 h-4" />
+                              )}
+                              {target === 'pending'
+                                ? 'Pending'
+                                : target === 'in_progress'
+                                ? 'Progress'
+                                : target === 'resolved'
+                                ? 'Resolved'
+                                : 'Reject'}
+                            </button>
+                          ))}
                       </div>
                     </div>
                   ))}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Report Details Modal */}
+      {showReportModal && selectedReportForModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10002] p-4">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h2 className="text-xl font-bold text-gray-900">{selectedReportForModal.title}</h2>
+              <button
+                onClick={() => {
+                  setShowReportModal(false);
+                  setSelectedReportForModal(null);
+                }}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 space-y-4">
+              {/* Issue Description */}
+              <div>
+                <h3 className="text-sm font-medium text-gray-500 mb-1">Issue Description</h3>
+                <p className="text-gray-900">{selectedReportForModal.description}</p>
+              </div>
+
+              {/* Category and Priority */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500 mb-1">Category</h3>
+                  <span className="inline-block px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm">
+                    {selectedReportForModal.category}
+                  </span>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500 mb-1">Priority</h3>
+                  <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getPriorityColor(selectedReportForModal.priority)}`}>
+                    {selectedReportForModal.priority}
+                  </span>
+                </div>
+              </div>
+
+              {/* Status */}
+              <div>
+                <h3 className="text-sm font-medium text-gray-500 mb-1">Status</h3>
+                <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(selectedReportForModal.status)}`}>
+                  {selectedReportForModal.status.replace('_', ' ')}
+                </span>
+              </div>
+
+              {/* Reporter Info */}
+              <div>
+                <h3 className="text-sm font-medium text-gray-500 mb-1">Reported By</h3>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold">
+                    {selectedReportForModal.username.charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900">{selectedReportForModal.username}</p>
+                    <p className="text-sm text-gray-500">
+                      {new Date(selectedReportForModal.created_at).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Location */}
+              <div>
+                <h3 className="text-sm font-medium text-gray-500 mb-1">Location</h3>
+                <div className="flex items-center gap-2 text-gray-900">
+                  <MapPin className="w-4 h-4 text-gray-400" />
+                  <span>{selectedReportForModal.location_address}</span>
+                </div>
+              </div>
+
+              {/* Images */}
+              {selectedReportForModal.images && selectedReportForModal.images.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500 mb-3">IMAGES</h3>
+                  <div className="grid grid-cols-3 gap-2">
+                    {selectedReportForModal.images.map((image, index) => (
+                      <img
+                        key={index}
+                        src={image}
+                        alt={`Report image ${index + 1}`}
+                        className="w-full h-20 object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-80 transition-opacity"
+                        onClick={() => {
+                          setSelectedImage(image);
+                          setShowImageModal(true);
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex justify-end gap-3 p-6 border-t border-gray-200">
+              <button
+                onClick={() => {
+                  setShowReportModal(false);
+                  setSelectedReportForModal(null);
+                }}
+                className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Full-Screen Image Modal */}
+      {showImageModal && selectedImage && (
+        <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-[10003] p-4">
+          <div className="relative max-w-[95vw] max-h-[95vh]">
+            {/* Close Button */}
+            <button
+              onClick={() => {
+                setShowImageModal(false);
+                setSelectedImage(null);
+              }}
+              className="absolute -top-12 right-0 text-white hover:text-gray-300 transition-colors z-10"
+            >
+              <X className="w-8 h-8" />
+            </button>
+            
+            {/* Image */}
+            <img
+              src={selectedImage}
+              alt="Full size report image"
+              className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+            />
+            
+            {/* Navigation Arrows (if multiple images) */}
+            {selectedReportForModal?.images && selectedReportForModal.images.length > 1 && (
+              <>
+                {/* Previous Button */}
+                <button
+                  onClick={() => {
+                    const currentIndex = selectedReportForModal.images.indexOf(selectedImage);
+                    const prevIndex = currentIndex > 0 ? currentIndex - 1 : selectedReportForModal.images.length - 1;
+                    setSelectedImage(selectedReportForModal.images[prevIndex]);
+                  }}
+                  className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 hover:bg-opacity-70 text-white p-2 rounded-full transition-all hover:scale-110"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                
+                {/* Next Button */}
+                <button
+                  onClick={() => {
+                    const currentIndex = selectedReportForModal.images.indexOf(selectedImage);
+                    const nextIndex = currentIndex < selectedReportForModal.images.length - 1 ? currentIndex + 1 : 0;
+                    setSelectedImage(selectedReportForModal.images[nextIndex]);
+                  }}
+                  className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 hover:bg-opacity-70 text-white p-2 rounded-full transition-all hover:scale-110"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+                
+                {/* Image Counter */}
+                <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-50 text-white px-3 py-1 rounded-full text-sm">
+                  {selectedReportForModal.images.indexOf(selectedImage) + 1} / {selectedReportForModal.images.length}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Cluster Reports Modal */}
+      {showClusterModal && clusterReports.length > 0 && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10002] p-4">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">Reports at Same Location</h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  {clusterReports.length} reports at {clusterReports[0]?.location_address}
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowClusterModal(false);
+                  setClusterReports([]);
+                }}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6">
+              <div className="grid gap-4">
+                {clusterReports.map((report, index) => (
+                  <div key={report.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-gray-900 text-lg mb-1">{report.title}</h3>
+                        <p className="text-gray-700 mb-2">{report.description}</p>
+                      </div>
+                      <div className="flex flex-col items-end gap-2 ml-4">
+                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(report.status)}`}>
+                          {report.status.replace('_', ' ')}
+                        </span>
+                        <span className={`px-3 py-1 rounded-full text-sm font-medium ${getPriorityColor(report.priority)}`}>
+                          {report.priority}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4 mb-3 text-sm">
+                      <div>
+                        <span className="text-gray-500">Category:</span>
+                        <span className="ml-2 text-gray-900">{report.category}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Reporter:</span>
+                        <span className="ml-2 text-gray-900">{report.username}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Date:</span>
+                        <span className="ml-2 text-gray-900">
+                          {new Date(report.created_at).toLocaleString()}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-gray-500">Location:</span>
+                        <span className="ml-2 text-gray-900">{report.location_address}</span>
+                      </div>
+                    </div>
+
+                    {/* Status Management Buttons */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {(['pending','in_progress','resolved','rejected'] as const)
+                        .filter(target => target !== report.status)
+                        .sort((a, b) => {
+                          const orderMap: Record<typeof report.status, Record<string, number>> = {
+                            pending: { in_progress: 0, resolved: 1, rejected: 2, pending: 99 },
+                            in_progress: { resolved: 0, rejected: 1, pending: 2, in_progress: 99 },
+                            resolved: { in_progress: 0, pending: 1, rejected: 2, resolved: 99 },
+                            rejected: { pending: 0, in_progress: 1, resolved: 2, rejected: 99 },
+                          } as any;
+                          return (orderMap[report.status] as any)[a] - (orderMap[report.status] as any)[b];
+                        })
+                        .map(target => (
+                          <button
+                            key={target}
+                            onClick={() => handleReportAction(report.id, target)}
+                            className={
+                              target === 'pending'
+                                ? 'inline-flex items-center gap-1 px-3 py-2 text-sm text-yellow-800 bg-yellow-50 hover:bg-yellow-100 rounded border border-yellow-200 transition-colors'
+                                : target === 'in_progress'
+                                ? 'inline-flex items-center gap-1 px-3 py-2 text-sm text-blue-700 bg-blue-50 hover:bg-blue-100 rounded border border-blue-200 transition-colors'
+                                : target === 'resolved'
+                                ? 'inline-flex items-center gap-1 px-3 py-2 text-sm text-green-700 bg-green-50 hover:bg-green-100 rounded border border-green-200 transition-colors'
+                                : 'inline-flex items-center gap-1 px-3 py-2 text-sm text-red-700 bg-red-50 hover:bg-red-100 rounded border border-red-200 transition-colors'
+                            }
+                            title={
+                              target === 'pending'
+                                ? 'Mark Pending'
+                                : target === 'in_progress'
+                                ? 'Mark In Progress'
+                                : target === 'resolved'
+                                ? 'Mark Resolved'
+                                : 'Reject'
+                            }
+                          >
+                            {target === 'resolved' ? (
+                              <Check className="w-4 h-4" />
+                            ) : target === 'rejected' ? (
+                              <X className="w-4 h-4" />
+                            ) : (
+                              <Wrench className="w-4 h-4" />
+                            )}
+                            {target === 'pending'
+                              ? 'Pending'
+                              : target === 'in_progress'
+                              ? 'Progress'
+                              : target === 'resolved'
+                              ? 'Resolved'
+                              : 'Reject'}
+                          </button>
+                        ))}
+                    </div>
+
+                    {/* View Full Details Button */}
+                    <div className="mt-3 pt-3 border-t border-gray-100">
+                      <button
+                        onClick={() => {
+                          setSelectedReportForModal(report);
+                          setShowReportModal(true);
+                          setShowClusterModal(false);
+                        }}
+                        className="text-blue-600 hover:text-blue-700 font-medium text-sm hover:underline"
+                      >
+                        View full details →
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex justify-end gap-3 p-6 border-t border-gray-200">
+              <button
+                onClick={() => {
+                  setShowClusterModal(false);
+                  setClusterReports([]);
+                }}
+                className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>

@@ -52,7 +52,7 @@ export const protectedRoutes: RouteObject[] = [
   },
   {
     path: '/reports/:id',
-    element: <ProtectedRoute adminRedirect={true}><ReportDetail /></ProtectedRoute>
+    element: <ProtectedRoute><ReportDetail /></ProtectedRoute>
   },
   {
     path: '/leaderboard',
