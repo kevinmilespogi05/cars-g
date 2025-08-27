@@ -20,3 +20,7 @@ services:
         value: https://cars-g.vercel.app
     healthCheckPath: /health
     autoDeploy: true 
+  - type: cron
+    name: cars-g-keepalive
+    schedule: "*/5 * * * *"
+    command: curl -fsS "https://cars-g-api.onrender.com/health" || true
