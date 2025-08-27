@@ -107,44 +107,43 @@ function App() {
 
 
 
-  // Mobile-specific fixes to prevent refresh loops
+  // Mobile-specific fixes to prevent refresh loops (prod only and when offline)
   useEffect(() => {
-    // Detect if running on mobile device
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    
-    if (isMobile) {
-      console.log('Mobile device detected, applying mobile-specific fixes');
-      
-      // Prevent infinite refresh loops on mobile
+    const isBypass = new URLSearchParams(window.location.search).has('bypassFix');
+
+    // Only run this guard in production, on mobile, when offline, and not explicitly bypassed
+    if (import.meta.env.PROD && isMobile && !navigator.onLine && !isBypass) {
+      console.log('Mobile device offline detected, applying refresh-loop guard');
+
+      const now = Date.now();
+      const lastTs = parseInt(sessionStorage.getItem('refreshTs') || '0');
       let refreshCount = parseInt(sessionStorage.getItem('refreshCount') || '0');
+      const withinWindow = now - lastTs < 60 * 1000; // 1 minute window
       const maxRefreshes = 3;
-      
+
+      refreshCount = withinWindow ? refreshCount + 1 : 1;
+      sessionStorage.setItem('refreshCount', refreshCount.toString());
+      sessionStorage.setItem('refreshTs', now.toString());
+
       if (refreshCount >= maxRefreshes) {
-        console.warn('Too many refreshes detected on mobile, clearing session storage');
+        console.warn('Too many refreshes while offline on mobile; redirecting to fix page');
+        // Clear volatile state only
         sessionStorage.clear();
-        localStorage.removeItem('supabase.auth.token');
-        refreshCount = 0;
-        
-        // Redirect to fix page if too many refreshes
+        try { localStorage.removeItem('supabase.auth.token'); } catch {}
+
         if (window.location.pathname !== '/fix-offline.html') {
           window.location.href = '/fix-offline.html';
           return;
         }
       }
-      
-      sessionStorage.setItem('refreshCount', (refreshCount + 1).toString());
-      
-      // Reset refresh count after 5 minutes
-      setTimeout(() => {
-        sessionStorage.removeItem('refreshCount');
-      }, 5 * 60 * 1000);
-      
-      // Disable aggressive service worker updates on mobile
+
+      // Reduce SW aggressiveness when offline
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.addEventListener('message', (event) => {
-          if (event.data && event.data.type === 'SKIP_WAITING') {
-            console.log('Preventing automatic service worker update on mobile');
-            event.preventDefault();
+          if ((event as any).data && (event as any).data.type === 'SKIP_WAITING') {
+            console.log('Preventing automatic service worker update while offline on mobile');
+            event.preventDefault?.();
           }
         });
       }

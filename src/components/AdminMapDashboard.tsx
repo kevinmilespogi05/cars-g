@@ -1366,14 +1366,7 @@ export function AdminMapDashboard() {
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
               <span className="hidden sm:inline">Refresh</span>
             </button>
-            <button
-              onClick={refreshMap}
-              className="inline-flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-              title="Refresh map if there are display issues"
-            >
-              <Layers className="w-4 h-4" />
-              <span className="hidden sm:inline">Map</span>
-            </button>
+            {/* Removed the extra Map refresh button as requested */}
           </div>
         </div>
 
@@ -1435,7 +1428,7 @@ export function AdminMapDashboard() {
           <div ref={mapRef} className="w-full h-full" />
 
           {/* Mobile tools */}
-          <div className="md:hidden absolute bottom-4 right-4 flex items-center gap-2">
+          <div className="md:hidden absolute right-4 top-1/2 -translate-y-1/2 flex flex-col gap-2 z-[1003]">
             <button
               onClick={() => mapInstance.current?.zoomIn()}
               className="p-2 bg-white rounded-full shadow-lg"
@@ -1456,6 +1449,18 @@ export function AdminMapDashboard() {
               title="Open Reports"
             >
               <MapPin className="w-4 h-4 text-gray-700" />
+            </button>
+          </div>
+
+          {/* Mobile recent reports teaser bar */}
+          <div className="md:hidden fixed left-0 right-0 bottom-0 z-[9996] px-3 pb-[env(safe-area-inset-bottom)]">
+            <button
+              onClick={() => setShowMobileList(true)}
+              className="w-full flex items-center justify-between px-4 py-3 bg-white rounded-t-xl shadow-[0_-6px_20px_rgba(0,0,0,0.15)] border border-gray-200"
+              aria-label="Open recent reports"
+            >
+              <span className="text-sm font-semibold text-gray-800">Recent Reports</span>
+              <span className="text-xs text-gray-500">{filteredReports?.length ?? 0}</span>
             </button>
           </div>
           
@@ -1569,7 +1574,7 @@ export function AdminMapDashboard() {
           </div>
 
           {/* Map Legend */}
-          <div className="absolute bottom-4 left-4 bg-white/90 backdrop-blur rounded-lg shadow-lg p-3 min-w-[180px] z-10">
+          <div className="absolute top-4 left-4 bg-white/90 backdrop-blur rounded-lg shadow-lg p-3 min-w-[180px] z-[1002]">
             <h3 className="text-sm font-medium text-gray-700 mb-2">Map Legend</h3>
             <div className="space-y-1 text-xs">
               <div className="flex items-center gap-2">
@@ -1699,12 +1704,12 @@ export function AdminMapDashboard() {
 
       {/* Mobile Slide-up List */}
       {showMobileList && (
-        <div className="md:hidden fixed inset-0 z-[9998]">
+        <div className="md:hidden fixed inset-0 z-[9999]">
           <div
             className="absolute inset-0 bg-black/40"
             onClick={() => setShowMobileList(false)}
           />
-          <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl max-h-[70vh] overflow-y-auto">
+          <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl max-h-[80vh] overflow-y-auto pb-[env(safe-area-inset-bottom)]">
             <div className="p-4 border-b flex items-center justify-between">
               <h3 className="text-base font-semibold text-gray-900">Recent Reports</h3>
               <button

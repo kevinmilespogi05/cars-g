@@ -32,12 +32,15 @@ export function Login() {
 
     try {
       await signIn(email, password);
-      // Check if the user is an admin and redirect accordingly
-      if (user?.role === 'admin') {
-        navigate('/admin/map', { replace: true });
-      } else {
-        navigate(from, { replace: true });
+      // Use fresh state to determine role
+      const freshUser = useAuthStore.getState().user;
+      if (freshUser?.role === 'admin') {
+        // Prevent admins from using User Login
+        await useAuthStore.getState().signOut();
+        setError('Admin accounts must use the Admin Login.');
+        return;
       }
+      navigate(from, { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to sign in');
     } finally {
