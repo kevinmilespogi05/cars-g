@@ -1620,46 +1620,51 @@ export function AdminMapDashboard() {
                       
                       {/* Status Management Buttons */}
                       <div className="flex items-center gap-2 flex-wrap">
-                        {(['verifying','pending','in_progress','awaiting_verification','resolved','rejected'] as const)
-                          .filter(target => target !== report.status)
-                          .sort((a, b) => {
-                            // Preferred order depending on current status
-                            const orderMap: Record<typeof report.status, Record<string, number>> = {
-                              verifying: { pending: 0, in_progress: 1, awaiting_verification: 2, resolved: 3, rejected: 4, verifying: 99 },
-                              pending: { in_progress: 0, awaiting_verification: 1, resolved: 2, rejected: 3, pending: 99 },
-                              in_progress: { awaiting_verification: 0, resolved: 1, rejected: 2, pending: 3, in_progress: 99 },
-                              awaiting_verification: { resolved: 0, rejected: 1, pending: 2, in_progress: 3, awaiting_verification: 99 },
-                              resolved: { in_progress: 0, pending: 1, rejected: 2, resolved: 99 },
-                              rejected: { pending: 0, in_progress: 1, resolved: 2, rejected: 99 },
-                            } as any;
-                            return (orderMap[report.status] as any)[a] - (orderMap[report.status] as any)[b];
-                          })
-                          .map(target => (
+                        {(() => {
+                          // Define smart next actions based on current status
+                          const getNextActions = (currentStatus: typeof report.status) => {
+                            switch (currentStatus) {
+                              case 'pending':
+                                return ['in_progress', 'rejected']; // Start work or reject
+                              case 'in_progress':
+                                return ['awaiting_verification', 'resolved']; // Submit for verification or mark resolved
+                              case 'awaiting_verification':
+                                return ['resolved', 'rejected']; // Approve or reject
+                              case 'verifying':
+                                return ['pending', 'in_progress']; // Move to pending or start work
+                              case 'resolved':
+                                return ['in_progress']; // Reopen if needed
+                              case 'rejected':
+                                return ['pending']; // Reopen if needed
+                              default:
+                                return ['pending', 'in_progress'];
+                            }
+                          };
+
+                          const nextActions = getNextActions(report.status);
+                          
+                          return nextActions.map(target => (
                             <button
                               key={target}
                               onClick={() => handleReportAction(report.id, target)}
                               className={
-                                target === 'verifying'
-                                  ? 'inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-purple-800 bg-purple-50 hover:bg-purple-100 rounded-lg border border-purple-200 transition-colors'
-                                  : target === 'pending'
-                                  ? 'inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-yellow-800 bg-yellow-50 hover:bg-yellow-100 rounded-lg border border-yellow-200 transition-colors'
+                                target === 'pending'
+                                  ? 'inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-yellow-800 bg-yellow-50 hover:bg-yellow-100 rounded-lg border border-yellow-200 transition-colors'
                                   : target === 'in_progress'
-                                  ? 'inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition-colors'
+                                  ? 'inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition-colors'
                                   : target === 'awaiting_verification'
-                                  ? 'inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-orange-700 bg-orange-50 hover:bg-orange-100 rounded-lg border border-orange-200 transition-colors'
+                                  ? 'inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-orange-700 bg-orange-50 hover:bg-orange-100 rounded-lg border border-orange-200 transition-colors'
                                   : target === 'resolved'
-                                  ? 'inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg border border-green-200 transition-colors'
-                                  : 'inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-lg border border-red-200 transition-colors'
+                                  ? 'inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg border border-green-200 transition-colors'
+                                  : 'inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-lg border border-red-200 transition-colors'
                               }
                               title={
-                                target === 'verifying'
-                                  ? 'Mark Verifying'
-                                  : target === 'pending'
+                                target === 'pending'
                                   ? 'Mark Pending'
                                   : target === 'in_progress'
                                   ? 'Mark In Progress'
                                   : target === 'awaiting_verification'
-                                  ? 'Mark Awaiting Verification'
+                                  ? 'Submit for Verification'
                                   : target === 'resolved'
                                   ? 'Mark Resolved'
                                   : 'Reject'
@@ -1674,9 +1679,7 @@ export function AdminMapDashboard() {
                               ) : (
                                 <Wrench className="w-4 h-4" />
                               )}
-                              {target === 'verifying'
-                                ? 'Verifying'
-                                : target === 'pending'
+                              {target === 'pending'
                                 ? 'Pending'
                                 : target === 'in_progress'
                                 ? 'Progress'
@@ -1686,7 +1689,8 @@ export function AdminMapDashboard() {
                                 ? 'Resolved'
                                 : 'Reject'}
                             </button>
-                          ))}
+                          ));
+                        })()}
                       </div>
                     </div>
                   ))}
@@ -2076,60 +2080,78 @@ export function AdminMapDashboard() {
                         </div>
                         
                         {/* Status Management Buttons - Mobile */}
-                        <div className="flex items-center gap-1 flex-wrap">
-                          {(['verifying','pending','in_progress','awaiting_verification','resolved','rejected'] as const)
-                            .filter(target => target !== report.status)
-                            .sort((a, b) => {
-                              // Preferred order depending on current status
-                              const orderMap: Record<typeof report.status, Record<string, number>> = {
-                                verifying: { pending: 0, in_progress: 1, awaiting_verification: 2, resolved: 3, rejected: 4, verifying: 99 },
-                                pending: { in_progress: 0, awaiting_verification: 1, resolved: 2, rejected: 3, pending: 99 },
-                                in_progress: { awaiting_verification: 0, resolved: 1, rejected: 2, pending: 3, in_progress: 99 },
-                                awaiting_verification: { resolved: 0, rejected: 1, pending: 2, in_progress: 3, awaiting_verification: 99 },
-                                resolved: { in_progress: 0, pending: 1, rejected: 2, resolved: 99 },
-                                rejected: { pending: 0, in_progress: 1, resolved: 2, rejected: 99 },
-                              } as any;
-                              return (orderMap[report.status] as any)[a] - (orderMap[report.status] as any)[b];
-                            })
-                            .map(target => (
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {(() => {
+                            // Define smart next actions based on current status
+                            const getNextActions = (currentStatus: typeof report.status) => {
+                              switch (currentStatus) {
+                                case 'pending':
+                                  return ['in_progress', 'rejected']; // Start work or reject
+                                case 'in_progress':
+                                  return ['awaiting_verification', 'resolved']; // Submit for verification or mark resolved
+                                case 'awaiting_verification':
+                                  return ['resolved', 'rejected']; // Approve or reject
+                                case 'verifying':
+                                  return ['pending', 'in_progress']; // Move to pending or start work
+                                case 'resolved':
+                                  return ['in_progress']; // Reopen if needed
+                                case 'rejected':
+                                  return ['pending']; // Reopen if needed
+                                default:
+                                  return ['pending', 'in_progress'];
+                              }
+                            };
+
+                            const nextActions = getNextActions(report.status);
+                            
+                            return nextActions.map(target => (
                               <button
                                 key={target}
                                 onClick={() => handleReportAction(report.id, target)}
                                 className={
                                   target === 'pending'
-                                    ? 'inline-flex items-center gap-1 px-2 py-1 text-xs text-yellow-800 bg-yellow-50 hover:bg-yellow-100 rounded border border-yellow-200 transition-colors'
+                                    ? 'inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-yellow-800 bg-yellow-50 hover:bg-yellow-100 rounded border border-yellow-200 transition-colors'
                                     : target === 'in_progress'
-                                    ? 'inline-flex items-center gap-1 px-2 py-1 text-xs text-blue-700 bg-blue-50 hover:bg-blue-100 rounded border border-blue-200 transition-colors'
+                                    ? 'inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded border border-blue-200 transition-colors'
+                                    : target === 'awaiting_verification'
+                                    ? 'inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-orange-700 bg-orange-50 hover:bg-orange-100 rounded border border-orange-200 transition-colors'
                                     : target === 'resolved'
-                                    ? 'inline-flex items-center gap-1 px-2 py-1 text-xs text-green-700 bg-green-50 hover:bg-green-100 rounded border border-green-200 transition-colors'
-                                    : 'inline-flex items-center gap-1 px-2 py-1 text-xs text-red-700 bg-red-50 hover:bg-red-100 rounded border border-red-200 transition-colors'
+                                    ? 'inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded border border-green-200 transition-colors'
+                                    : 'inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded border border-red-200 transition-colors'
                                 }
                                 title={
                                   target === 'pending'
                                     ? 'Mark Pending'
                                     : target === 'in_progress'
                                     ? 'Mark In Progress'
+                                    : target === 'awaiting_verification'
+                                    ? 'Submit for Verification'
                                     : target === 'resolved'
                                     ? 'Mark Resolved'
                                     : 'Reject'
                                 }
                               >
                                 {target === 'resolved' ? (
-                                  <Check className="w-4 h-4" />
+                                  <Check className="w-3 h-3" />
                                 ) : target === 'rejected' ? (
-                                  <X className="w-4 h-4" />
+                                  <X className="w-3 h-3" />
+                                ) : target === 'awaiting_verification' ? (
+                                  <Eye className="w-3 h-3" />
                                 ) : (
-                                  <Wrench className="w-4 h-4" />
+                                  <Wrench className="w-3 h-3" />
                                 )}
                                 {target === 'pending'
                                   ? 'Pending'
                                   : target === 'in_progress'
                                   ? 'Progress'
+                                  : target === 'awaiting_verification'
+                                  ? 'Verify'
                                   : target === 'resolved'
                                   ? 'Resolved'
                                   : 'Reject'}
                               </button>
-                            ))}
+                            ));
+                          })()}
                         </div>
                       </div>
                     ))}
