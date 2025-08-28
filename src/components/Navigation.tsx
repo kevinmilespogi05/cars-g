@@ -11,7 +11,9 @@ export function Navigation() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [isMobileLoginOpen, setIsMobileLoginOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
+  const mobileLoginRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -26,6 +28,9 @@ export function Navigation() {
     const handleClickOutside = (event: MouseEvent) => {
       if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
         setIsProfileMenuOpen(false);
+      }
+      if (mobileLoginRef.current && !mobileLoginRef.current.contains(event.target as Node)) {
+        setIsMobileLoginOpen(false);
       }
     };
 
@@ -181,10 +186,54 @@ export function Navigation() {
           )}
 
           {!user && (
-            <div className="flex items-center space-x-4">
-              <Link to="/login" className="text-white hover:text-gray-200 transition-colors">User Login</Link>
-              <Link to="/patrol/login" className="text-white hover:text-gray-200 transition-colors">Patrol Login</Link>
-              <Link to="/admin/login" className="text-white hover:text-gray-200 transition-colors">Admin Login</Link>
+            <div className="flex items-center">
+              {/* Desktop: Show all three login options */}
+              <div className="hidden md:flex items-center space-x-4">
+                <Link to="/login" className="text-white hover:text-gray-200 transition-colors px-3 py-2 rounded-lg hover:bg-[#f4f1ee] hover:bg-opacity-10">User Login</Link>
+                <Link to="/patrol/login" className="text-white hover:text-gray-200 transition-colors px-3 py-2 rounded-lg hover:bg-[#f4f1ee] hover:bg-opacity-10">Patrol Login</Link>
+                <Link to="/admin/login" className="text-white hover:text-gray-200 transition-colors px-3 py-2 rounded-lg hover:bg-[#f4f1ee] hover:bg-opacity-10">Admin Login</Link>
+              </div>
+              
+              {/* Mobile: Show a single "Login" button that opens a dropdown */}
+              <div className="md:hidden relative" ref={mobileLoginRef}>
+                <button
+                  onClick={() => setIsMobileLoginOpen(!isMobileLoginOpen)}
+                  className="flex items-center space-x-2 px-4 py-2 rounded-lg text-white hover:bg-[#f4f1ee] hover:bg-opacity-10 transition-colors border border-white border-opacity-20"
+                >
+                  <span className="text-sm font-medium">Login</span>
+                  <ChevronDown className="h-4 w-4" />
+                </button>
+                
+                {/* Mobile Login Dropdown */}
+                {isMobileLoginOpen && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 z-50 border border-gray-200">
+                    <Link
+                      to="/login"
+                      className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      onClick={() => setIsMobileLoginOpen(false)}
+                    >
+                      <User className="h-4 w-4 mr-3 text-gray-500" />
+                      User Login
+                    </Link>
+                    <Link
+                      to="/patrol/login"
+                      className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      onClick={() => setIsMobileLoginOpen(false)}
+                    >
+                      <MapPin className="h-4 w-4 mr-3 text-gray-500" />
+                      Patrol Login
+                    </Link>
+                    <Link
+                      to="/admin/login"
+                      className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                      onClick={() => setIsMobileLoginOpen(false)}
+                    >
+                      <Shield className="h-4 w-4 mr-3 text-gray-500" />
+                      Admin Login
+                    </Link>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
