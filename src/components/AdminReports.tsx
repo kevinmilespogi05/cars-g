@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { Search, Filter, CheckCircle2, XCircle, Wrench, RefreshCw, Eye, Trash2, User2, Calendar, MapPin, X } from 'lucide-react';
+import { Search, Filter, CheckCircle2, XCircle, Wrench, RefreshCw, Eye, Trash2, User2, Calendar, MapPin, X, Navigation } from 'lucide-react';
 import { reportsService } from '../services/reportsService';
 import type { Report } from '../types';
 import { supabase } from '../lib/supabase';
@@ -332,6 +332,62 @@ export function AdminReports() {
                     <div className="mt-1 flex items-center gap-2 text-sm text-gray-800">
                       <MapPin className="w-4 h-4 text-green-600" />
                       <span>{selectedReport.location_address}</span>
+                    </div>
+                    <div className="mt-2 flex gap-2">
+                      <button
+                        onClick={() => {
+                          // Detect platform and use appropriate navigation method
+                          const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                          const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                          const isAndroid = /Android/.test(navigator.userAgent);
+                          
+                          const destination = selectedReport.location_address || '';
+                          
+                          // Create navigation URLs for different platforms
+                          let navigationUrl = '';
+                          
+                          if (isIOS) {
+                            // iOS: Use Apple Maps or Google Maps app
+                            navigationUrl = `https://maps.apple.com/?daddr=${encodeURIComponent(destination)}&dirflg=d`;
+                          } else if (isAndroid) {
+                            // Android: Try Google Maps app with intent
+                            navigationUrl = `intent://maps.google.com/maps?daddr=${encodeURIComponent(destination)}&dirflg=d#Intent;scheme=https;package=com.google.android.apps.maps;end`;
+                          } else {
+                            // Desktop/Web: Use Google Maps web with navigation mode
+                            navigationUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}&travelmode=driving&dir_action=navigate&nav=1`;
+                          }
+                          
+                          // Open the appropriate navigation URL
+                          if (isAndroid) {
+                            // For Android, try to open the app, fallback to web
+                            try {
+                              window.location.href = navigationUrl;
+                              // Fallback to web version
+                              setTimeout(() => {
+                                window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}&travelmode=driving&dir_action=navigate&nav=1`, '_blank');
+                              }, 2000);
+                            } catch (error) {
+                              window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}&travelmode=driving&dir_action=navigate&nav=1`, '_blank');
+                            }
+                          } else {
+                            // For iOS and desktop, open directly
+                            window.open(navigationUrl, '_blank');
+                          }
+                        }}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700"
+                      >
+                        <Navigation className="w-3 h-3" />
+                        Navigate to Location
+                      </button>
+                      <a
+                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedReport.location_address || '')}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-600 text-white text-xs rounded-lg hover:bg-gray-700"
+                      >
+                        <MapPin className="w-3 h-3" />
+                        Open in Maps
+                      </a>
                     </div>
                   </div>
                 )}

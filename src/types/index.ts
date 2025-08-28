@@ -164,3 +164,10 @@ export interface Comment {
   is_liked?: boolean;
   replies?: CommentReply[];
 }
+
+// Google Maps Types
+declare global {
+  interface Window {
+    google: typeof google;
+  }
+}
