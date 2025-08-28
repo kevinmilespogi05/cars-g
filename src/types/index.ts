@@ -20,11 +20,13 @@ export interface Report {
   location_address: string;
   images?: string[];
   user_id: string;
+  patrol_user_id?: string | null;
   created_at: string;
   updated_at: string;
   likes?: { count: number };
   comments?: { count: number };
   user_profile?: { username: string; avatar_url: string | null };
+  patrol_profile?: { username: string; avatar_url: string | null };
   is_liked?: boolean;
 }
 

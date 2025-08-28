@@ -4,6 +4,7 @@ import { reportsService } from '../services/reportsService';
 import type { Report } from '../types';
 import { supabase } from '../lib/supabase';
 import { FocusTrap } from './FocusTrap';
+import { awardPoints } from '../lib/points';
 
 type StatusFilter = 'All' | 'pending' | 'in_progress' | 'resolved' | 'rejected';
 
@@ -65,8 +66,112 @@ export function AdminReports() {
 
   const filtered = useMemo(() => reports, [reports]);
 
+  const givePatrolRewards = async (patrolUserId: string, priority: string) => {
+    try {
+      // Calculate rewards based on priority
+      let points = 0;
+      
+      switch (priority) {
+        case 'low':
+          points = 5;
+          break;
+        case 'medium':
+          points = 15;
+          break;
+        case 'high':
+          points = 30;
+          break;
+        default:
+          points = 10;
+      }
+
+      // Update patrol officer's stats in the database
+      const { error: statsError } = await supabase
+        .from('user_stats')
+        .upsert({
+          user_id: patrolUserId,
+          total_points: points,
+          reports_resolved: 1,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id'
+        });
+
+      if (statsError) {
+        console.error('Error updating patrol stats:', statsError);
+        // Try alternative approach if RPC functions don't exist
+        const { data: currentStats } = await supabase
+          .from('user_stats')
+          .select('total_points, reports_resolved')
+          .eq('user_id', patrolUserId)
+          .single();
+
+        if (currentStats) {
+          const { error: updateError } = await supabase
+            .from('user_stats')
+            .update({
+              total_points: (currentStats.total_points || 0) + points,
+              reports_resolved: (currentStats.reports_resolved || 0) + 1,
+              updated_at: new Date().toISOString()
+            })
+            .eq('user_id', patrolUserId);
+
+          if (updateError) {
+            console.error('Error updating patrol stats (fallback):', updateError);
+          }
+        } else {
+          // Create new stats record if none exists
+          const { error: insertError } = await supabase
+            .from('user_stats')
+            .insert({
+              user_id: patrolUserId,
+              total_points: points,
+              reports_resolved: 1,
+              updated_at: new Date().toISOString()
+            });
+
+          if (insertError) {
+            console.error('Error creating patrol stats:', insertError);
+          }
+        }
+      }
+
+      console.log(`Patrol officer rewarded: +${points} points`);
+
+    } catch (error) {
+      console.error('Error giving patrol rewards:', error);
+    }
+  };
+
+  const giveReporterRewards = async (reporterUserId: string, reportId: string) => {
+    try {
+      // Award points to the reporter using the existing points system
+      const pointsAwarded = await awardPoints(reporterUserId, 'REPORT_RESOLVED', reportId);
+      
+      console.log(`Reporter rewarded: +${pointsAwarded} points`);
+
+    } catch (error) {
+      console.error('Error giving reporter rewards:', error);
+    }
+  };
+
   const updateStatus = async (reportId: string, newStatus: Report['status']) => {
     try {
+      // Get the current report to check if we're moving from in_progress to resolved
+      const currentReport = reports.find(r => r.id === reportId);
+      const isCompletingReport = currentReport?.status === 'in_progress' && newStatus === 'resolved';
+
+      // If completing a report (moving from in_progress to resolved), give rewards to both patrol officer and reporter
+      if (isCompletingReport) {
+        // Give rewards to patrol officer if assigned
+        if (currentReport?.patrol_user_id) {
+          await givePatrolRewards(currentReport.patrol_user_id, currentReport.priority);
+        }
+        
+        // Give rewards to the reporter
+        await giveReporterRewards(currentReport.user_id, reportId);
+      }
+
       setReports(prev => prev.map(r => r.id === reportId ? { ...r, status: newStatus } : r));
       await reportsService.updateReportStatus(reportId, newStatus);
     } catch (e) {
@@ -213,13 +318,18 @@ export function AdminReports() {
                   .filter(target => target !== r.status)
                   .sort((a, b) => {
                     // Preferred order depending on current status
-                    const orderMap: Record<typeof r.status, Record<string, number>> = {
+                    const orderMap: Record<string, Record<string, number>> = {
                       pending: { in_progress: 0, resolved: 1, rejected: 2, pending: 99 },
                       in_progress: { resolved: 0, rejected: 1, pending: 2, in_progress: 99 },
                       resolved: { in_progress: 0, pending: 1, rejected: 2, resolved: 99 },
                       rejected: { pending: 0, in_progress: 1, resolved: 2, rejected: 99 },
-                    } as any;
-                    return (orderMap[r.status] as any)[a] - (orderMap[r.status] as any)[b];
+                    };
+                    
+                    // Default to pending order if status is undefined or unknown
+                    const currentStatus = r.status || 'pending';
+                    const statusOrder = orderMap[currentStatus] || orderMap.pending;
+                    
+                    return (statusOrder[a] || 99) - (statusOrder[b] || 99);
                   })
                   .map(target => (
                     <button

@@ -51,6 +51,7 @@ export function Navigation() {
       ]
     : [
         { path: '/reports', icon: FileText, label: 'Reports' },
+        { path: '/verification-reports', icon: Shield, label: 'Verification' },
         { path: '/leaderboard', icon: Award, label: 'Leaderboard' },
         { path: '/chat', icon: MessageCircle, label: 'Chat' }
       ];
@@ -264,6 +265,7 @@ export function Navigation() {
                   ]
                 : [
                     { path: '/reports', icon: FileText, label: 'Reports' },
+                    { path: '/verification-reports', icon: Shield, label: 'Verification' },
                     { path: '/leaderboard', icon: Award, label: 'Leaderboard' },
                     { path: '/chat', icon: MessageCircle, label: 'Chat' }
                   ]

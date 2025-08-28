@@ -547,7 +547,7 @@ export const reportsService = {
           .trim()
           .toLowerCase()
           .replace(/\s+/g, '_');
-        query = query.ilike('status', normalizedStatus);
+        query = query.eq('status', normalizedStatus);
       }
       if (filters?.priority && filters.priority !== 'All') {
         query = (query as any).ilike('priority', filters.priority.toLowerCase());

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
+import { awardPoints } from '../lib/points';
 import { 
   MapPin, 
   AlertTriangle, 
@@ -21,7 +22,9 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  ShieldCheck,
+  History
 } from 'lucide-react';
 import { Notification } from './Notification';
 
@@ -30,7 +33,7 @@ interface Report {
   title: string;
   description: string;
   category: string;
-  status: 'verifying' | 'pending' | 'in_progress' | 'awaiting_verification' | 'resolved' | 'rejected';
+  status: 'verifying' | 'pending' | 'in_progress' | 'resolved' | 'rejected';
   priority: 'low' | 'medium' | 'high';
   location: {
     lat: number;
@@ -42,6 +45,8 @@ interface Report {
   username: string;
   avatar_url: string | null;
   images: string[];
+  patrol_user_id?: string | null;
+  patrol_username?: string | null;
 }
 
 interface MapMarker {
@@ -573,6 +578,7 @@ export function AdminMapDashboard() {
           location_address,
           created_at,
           user_id,
+          patrol_user_id,
           images
         `)
         .order('created_at', { ascending: false })
@@ -580,20 +586,26 @@ export function AdminMapDashboard() {
 
       if (reportsError) throw reportsError;
 
-      // Try to get usernames for all user_ids from profiles table
+      // Try to get usernames for all user_ids and patrol_user_ids from profiles table
       let userMap = new Map();
+      let patrolUserMap = new Map();
       const userIds = [...new Set((reportsData || []).map(report => report.user_id))];
+      const patrolUserIds = [...new Set((reportsData || []).map(report => report.patrol_user_id).filter(Boolean))];
       
-      if (userIds.length > 0) {
+      if (userIds.length > 0 || patrolUserIds.length > 0) {
         try {
+          const allUserIds = [...userIds, ...patrolUserIds];
           const { data: profilesData, error: profilesError } = await supabase
             .from('profiles')
             .select('id, username')
-            .in('id', userIds);
+            .in('id', allUserIds);
 
           if (!profilesError && profilesData) {
             profilesData.forEach(profile => {
               userMap.set(profile.id, profile.username);
+              if (patrolUserIds.includes(profile.id)) {
+                patrolUserMap.set(profile.id, profile.username);
+              }
             });
           }
         } catch (error) {
@@ -616,81 +628,46 @@ export function AdminMapDashboard() {
         return {
           ...report,
           username: userMap.get(report.user_id) || `User ${report.user_id.slice(0, 8)}`,
+          patrol_username: report.patrol_user_id ? (patrolUserMap.get(report.patrol_user_id) || `Patrol ${report.patrol_user_id.slice(0, 8)}`) : null,
           avatar_url: null,
           location
         } as Report;
       });
 
-      // If no reports found, add some demo data for testing
-      if (formattedReports.length === 0) {
-        const demoReports: Report[] = [
-          {
-            id: 'demo-1',
-            title: 'Blocked Drainage at West Avenue',
-            description: 'After recent heavy rains, the drainage system along West Avenue near the elementary school has been clogged with debris and leaves. Water accumulates on the street, making it difficult for pedestrians and increasing the risk of flooding during the next storm.',
-            category: 'public services',
-            status: 'resolved',
-            priority: 'medium',
-            location: { lat: 14.8386, lng: 120.1881 },
-            location_address: 'Del Pilar Street, San Roque, Castillejos, Zambales, Central Luzon, 2208, Philippines',
-            created_at: new Date(Date.now() - 86400000).toISOString(),
-            user_id: 'demo-user-1',
-            username: 'User demo-user-1',
-            avatar_url: null,
-            images: ['https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=300&fit=crop']
-          },
-          {
-            id: 'demo-2',
-            title: 'Pothole on Santiago Road',
-            description: 'A deep pothole has formed in the middle of Santiago Road near the public market, making it dangerous for vehicles and pedestrians.',
-            category: 'Infrastructure',
-            status: 'rejected',
-            priority: 'medium',
-            location: { lat: 14.8406, lng: 120.1901 },
-            location_address: 'Santiago Road, San Roque, Castillejos, Zambales, Central Luzon, 2208, Philippines',
-            created_at: new Date(Date.now() - 172800000).toISOString(),
-            user_id: 'demo-user-2',
-            username: 'User demo-user-2',
-            avatar_url: null,
-            images: []
-          },
-          {
-            id: 'demo-3',
-            title: 'Overflowing Garbage Bins in Riverside Park',
-            description: 'The garbage bins in Riverside Park have not been emptied for more than five days, causing an unpleasant smell and attracting stray animals.',
-            category: 'environmental',
-            status: 'in_progress',
-            priority: 'high',
-            location: { lat: 14.8386, lng: 120.1881 },
-            location_address: 'Pamatawan Bridge, Zambales Highway, Cawag, Pamatawan, Subic, Zambales, Central Luzon, 2208, Philippines',
-            created_at: new Date(Date.now() - 259200000).toISOString(),
-            user_id: 'demo-user-3',
-            username: 'User demo-user-3',
-            avatar_url: null,
-            images: []
-          },
-          {
-            id: 'demo-4',
-            title: 'Broken Street light',
-            description: 'The streetlight on the corner of Main Avenue and Rivera Street has been out for over a week, making the area unsafe at night.',
-            category: 'Utilities',
-            status: 'rejected',
-            priority: 'high',
-            location: { lat: 14.8426, lng: 120.1921 },
-            location_address: 'Main Avenue and Rivera Street, San Roque, Castillejos, Zambales, Central Luzon, 2208, Philippines',
-            created_at: new Date(Date.now() - 345600000).toISOString(),
-            user_id: 'demo-user-4',
-            username: 'User demo-user-4',
-            avatar_url: null,
-            images: []
-          }
-        ];
-        setReports(demoReports);
-      } else {
-        setReports(formattedReports);
-        // Cache for next visit for instant paint
-        try { sessionStorage.setItem('admin_map_reports_v1', JSON.stringify({ data: formattedReports, ts: Date.now() })); } catch {}
+            // Get patrol officers from profiles table
+      let patrolOfficers: { id: string; username: string }[] = [];
+      try {
+        const { data: patrolData, error: patrolError } = await supabase
+          .from('profiles')
+          .select('id, username')
+          .eq('role', 'patrol');
+
+        if (!patrolError && patrolData) {
+          patrolOfficers = patrolData;
+        }
+      } catch (error) {
+        console.log('Error fetching patrol officers:', error);
       }
+
+      // Add patrol officer information to reports that are in progress but don't have patrol_user_id
+      const updatedReports = formattedReports.map(report => {
+        if (report.status === 'in_progress' && !report.patrol_user_id) {
+          // Assign a random patrol officer to reports in progress
+          if (patrolOfficers.length > 0) {
+            const randomPatrol = patrolOfficers[Math.floor(Math.random() * patrolOfficers.length)];
+            return {
+              ...report,
+              patrol_user_id: randomPatrol.id,
+              patrol_username: randomPatrol.username
+            };
+          }
+        }
+        return report;
+      });
+      
+      setReports(updatedReports);
+      // Cache for next visit for instant paint
+      try { sessionStorage.setItem('admin_map_reports_v1', JSON.stringify({ data: updatedReports, ts: Date.now() })); } catch {}
     } catch (error) {
       console.error('Error fetching reports:', error);
       showNotification('Failed to fetch reports', 'error');
@@ -1304,11 +1281,115 @@ export function AdminMapDashboard() {
     }
   };
 
+  const givePatrolRewards = async (patrolUserId: string, priority: string) => {
+    try {
+      // Calculate rewards based on priority
+      let points = 0;
+      
+      switch (priority) {
+        case 'low':
+          points = 5;
+          break;
+        case 'medium':
+          points = 15;
+          break;
+        case 'high':
+          points = 30;
+          break;
+        default:
+          points = 10;
+      }
+
+      // Update patrol officer's stats in the database
+      const { error: statsError } = await supabase
+        .from('user_stats')
+        .upsert({
+          user_id: patrolUserId,
+          total_points: points,
+          reports_resolved: 1,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id'
+        });
+
+      if (statsError) {
+        console.error('Error updating patrol stats:', statsError);
+        // Try alternative approach if RPC functions don't exist
+        const { data: currentStats } = await supabase
+          .from('user_stats')
+          .select('total_points, reports_resolved')
+          .eq('user_id', patrolUserId)
+          .single();
+
+        if (currentStats) {
+          const { error: updateError } = await supabase
+            .from('user_stats')
+            .update({
+              total_points: (currentStats.total_points || 0) + points,
+              reports_resolved: (currentStats.reports_resolved || 0) + 1,
+              updated_at: new Date().toISOString()
+            })
+            .eq('user_id', patrolUserId);
+
+          if (updateError) {
+            console.error('Error updating patrol stats (fallback):', updateError);
+          }
+        } else {
+          // Create new stats record if none exists
+          const { error: insertError } = await supabase
+            .from('user_stats')
+            .insert({
+              user_id: patrolUserId,
+              total_points: points,
+              reports_resolved: 1,
+              updated_at: new Date().toISOString()
+            });
+
+          if (insertError) {
+            console.error('Error creating patrol stats:', insertError);
+          }
+        }
+      }
+
+      // Show reward notification
+      showNotification(`Patrol officer rewarded: +${points} points`, 'success');
+
+    } catch (error) {
+      console.error('Error giving patrol rewards:', error);
+      showNotification('Failed to give patrol rewards', 'error');
+    }
+  };
+
+  const giveReporterRewards = async (reporterUserId: string, reportId: string) => {
+    try {
+      // Award points to the reporter using the existing points system
+      const pointsAwarded = await awardPoints(reporterUserId, 'REPORT_RESOLVED', reportId);
+      
+      // Show reward notification
+      showNotification(`Reporter rewarded: +${pointsAwarded} points`, 'success');
+
+    } catch (error) {
+      console.error('Error giving reporter rewards:', error);
+      showNotification('Failed to give reporter rewards', 'error');
+    }
+  };
+
   const handleReportAction = async (reportId: string, newStatus: Report['status']) => {
     try {
-      // Get the current report to check if we're moving from awaiting_verification to resolved
+      // Get the current report to check if we're moving from in_progress to resolved
       const currentReport = reports.find(r => r.id === reportId);
-      const isVerifyingReport = currentReport?.status === 'awaiting_verification' && newStatus === 'resolved';
+      const isCompletingReport = currentReport?.status === 'in_progress' && newStatus === 'resolved';
+
+      // If completing a report (moving from in_progress to resolved), give rewards to both patrol officer and reporter
+      if (isCompletingReport) {
+        // Give rewards to patrol officer if assigned
+        if (currentReport?.patrol_user_id) {
+          await givePatrolRewards(currentReport.patrol_user_id, currentReport.priority);
+        }
+        
+        // Give rewards to the reporter
+        await giveReporterRewards(currentReport.user_id, reportId);
+      }
 
       const { error } = await supabase
         .from('reports')
@@ -1318,9 +1399,8 @@ export function AdminMapDashboard() {
       if (error) throw error;
 
       const actionText = newStatus === 'in_progress' ? 'approved' : 
-                        newStatus === 'resolved' ? (isVerifyingReport ? 'verified and resolved' : 'resolved') : 
+                        newStatus === 'resolved' ? (isCompletingReport ? 'completed and resolved' : 'resolved') : 
                         newStatus === 'rejected' ? 'rejected' : 
-                        newStatus === 'awaiting_verification' ? 'marked for verification' :
                         'updated';
       
       showNotification(`Report ${actionText} successfully`, 'success');
@@ -1352,6 +1432,9 @@ export function AdminMapDashboard() {
   };
 
   const filteredReports = reports.filter(report => {
+    // Exclude resolved reports from the main view - they go to history
+    if (report.status === 'resolved') return false;
+    
     const matchesFilter = filter === 'all' || report.status === filter;
     const matchesSearch = searchTerm === '' || 
       report.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -1364,84 +1447,113 @@ export function AdminMapDashboard() {
   return (
     <div className="h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b border-gray-200 px-4 sm:px-6 py-3">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 truncate">Admin Map Dashboard</h1>
-            <p className="text-xs sm:text-sm text-gray-600">Real-time monitoring of reports and locations</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowSidenav(!showSidenav)}
-              className="inline-flex items-center gap-2 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-            >
-              {showSidenav ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeftOpen className="w-4 h-4" />}
-              <span className="hidden sm:inline">{showSidenav ? 'Hide' : 'Show'} Reports</span>
-            </button>
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className="inline-flex items-center gap-2 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-            >
-              <Filter className="w-4 h-4" />
-              <span className="hidden sm:inline">Filters</span>
-            </button>
-            <button
-              onClick={fetchReports}
-              disabled={loading}
-              className="inline-flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              <span className="hidden sm:inline">Refresh</span>
-            </button>
+      <div className="bg-white shadow-sm border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-3">
+                <div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center">
+                  <Layers className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold text-gray-900">Admin Map Dashboard</h1>
+                  <p className="text-sm text-gray-500">Real-time monitoring of reports and locations</p>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={() => setShowSidenav(!showSidenav)}
+                className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+              >
+                {showSidenav ? <PanelLeftClose className="w-4 h-4 mr-2" /> : <PanelLeftOpen className="w-4 h-4 mr-2" />}
+                <span className="hidden sm:inline">{showSidenav ? 'Hide' : 'Show'} Reports</span>
+              </button>
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+              >
+                <Filter className="w-4 h-4 mr-2" />
+                <span className="hidden sm:inline">Filters</span>
+              </button>
+              <button
+                onClick={() => {
+                  const resolvedReports = reports.filter(r => r.status === 'resolved');
+                  const queryParams = new URLSearchParams();
+                  resolvedReports.forEach((report, index) => {
+                    queryParams.append(`report_${index}`, JSON.stringify(report));
+                  });
+                  window.location.href = `/admin/history?${queryParams.toString()}`;
+                }}
+                className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors relative"
+              >
+                <History className="w-4 h-4 mr-2" />
+                <span className="hidden sm:inline">History</span>
+                {reports.filter(r => r.status === 'resolved').length > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-green-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                    {reports.filter(r => r.status === 'resolved').length}
+                  </span>
+                )}
+              </button>
+              <button
+                onClick={fetchReports}
+                disabled={loading}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors"
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">Refresh</span>
+              </button>
+            </div>
           </div>
         </div>
 
         {/* Filters */}
         {showFilters && (
-          <div className="mt-3 p-4 bg-gray-50 rounded-lg">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Search</label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Search reports..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
+          <div className="border-t border-gray-200 bg-gray-50">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Search Reports</label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Search by title, description, or location..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                    />
+                  </div>
                 </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Status Filter</label>
-                <select
-                  value={filter}
-                  onChange={(e) => setFilter(e.target.value as any)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="all">All Statuses</option>
-                  <option value="verifying">Verifying</option>
-                  <option value="pending">Pending</option>
-                  <option value="in_progress">In Progress</option>
-                  <option value="awaiting_verification">Awaiting Verification</option>
-                  <option value="resolved">Resolved</option>
-                  <option value="rejected">Rejected</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Real-Time</label>
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="realTimeToggle"
-                    checked={realTimeEnabled}
-                    onChange={(e) => setRealTimeEnabled(e.target.checked)}
-                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                  />
-                  <label htmlFor="realTimeToggle" className="text-sm text-gray-700">
-                    Enable real-time updates
-                  </label>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Status Filter</label>
+                  <select
+                    value={filter}
+                    onChange={(e) => setFilter(e.target.value as any)}
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="verifying">Verifying</option>
+                    <option value="pending">Pending</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="awaiting_verification">Awaiting Verification</option>
+                    <option value="rejected">Rejected</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Real-Time Updates</label>
+                  <div className="flex items-center space-x-3">
+                    <input
+                      type="checkbox"
+                      id="realTimeToggle"
+                      checked={realTimeEnabled}
+                      onChange={(e) => setRealTimeEnabled(e.target.checked)}
+                      className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 border-gray-300"
+                    />
+                    <label htmlFor="realTimeToggle" className="text-sm text-gray-700">
+                      Enable real-time updates
+                    </label>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1456,90 +1568,113 @@ export function AdminMapDashboard() {
           showSidenav ? 'md:w-80 xl:w-96' : 'w-0'
         }`}>
           {/* Patrol Reports Section */}
-          <div className="sticky top-0 z-20 bg-orange-50 border-b border-orange-200 px-4 py-3">
+          <div className="sticky top-0 z-20 bg-gradient-to-r from-orange-50 to-amber-50 border-b border-orange-200 px-6 py-4">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <h3 className="text-lg font-bold text-orange-900">Patrol Reports</h3>
+              <div className="flex items-center space-x-3">
+                <div className="h-8 w-8 rounded-lg bg-orange-500 flex items-center justify-center">
+                  <ShieldCheck className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Patrol Reports</h3>
+                  <p className="text-sm text-gray-600">In progress</p>
+                </div>
                 <span className="px-2 py-1 bg-orange-100 text-orange-800 text-xs font-medium rounded-full">
-                  {reports.filter(r => r.status === 'awaiting_verification').length}
+                  {reports.filter(r => r.status === 'in_progress').length}
                 </span>
               </div>
               <button
                 onClick={() => setPatrolReportsCollapsed(!patrolReportsCollapsed)}
-                className="p-1 hover:bg-orange-100 rounded transition-colors"
+                className="p-2 hover:bg-orange-100 rounded-lg transition-colors"
                 title={patrolReportsCollapsed ? "Expand Patrol Reports" : "Collapse Patrol Reports"}
               >
                 {patrolReportsCollapsed ? (
-                  <ChevronDown className="w-5 h-5 text-orange-700" />
+                  <ChevronDown className="w-5 h-5 text-gray-600" />
                 ) : (
-                  <ChevronUp className="w-5 h-5 text-orange-700" />
+                  <ChevronUp className="w-5 h-5 text-gray-600" />
                 )}
               </button>
             </div>
-            <p className="text-sm text-orange-700 mt-1">Awaiting verification</p>
           </div>
           
           {/* Patrol Reports List */}
           {!patrolReportsCollapsed && (
-            <div className="p-4 border-b border-orange-200 bg-orange-25">
-              {reports.filter(r => r.status === 'awaiting_verification').length === 0 ? (
-                <div className="text-center py-4 text-orange-600">
-                  <Eye className="w-8 h-8 mx-auto mb-2 text-orange-400" />
-                  <p className="text-sm">No reports awaiting verification</p>
+            <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-orange-50 to-amber-50">
+              {reports.filter(r => r.status === 'in_progress').length === 0 ? (
+                <div className="text-center py-8">
+                  <div className="mx-auto h-12 w-12 text-gray-400 mb-4">
+                    <Eye className="h-12 w-12" />
+                  </div>
+                  <h3 className="text-sm font-medium text-gray-900 mb-1">No reports in progress</h3>
+                  <p className="text-sm text-gray-500">All patrol reports have been processed</p>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-4">
                   {reports
-                    .filter(r => r.status === 'awaiting_verification')
+                    .filter(r => r.status === 'in_progress')
                     .slice(0, 5)
                     .map((report) => (
                       <div
                         key={report.id}
                         onClick={() => focusReportOnMap(report)}
-                        className={`p-3 rounded-lg border cursor-pointer transition-all hover:shadow-md ${
+                        className={`p-4 rounded-xl border cursor-pointer transition-all hover:shadow-md ${
                           selectedReport?.id === report.id
-                            ? 'border-orange-500 bg-orange-100'
-                            : 'border-orange-200 hover:border-orange-300 bg-white'
+                            ? 'border-blue-500 bg-blue-50'
+                            : 'border-gray-200 hover:border-gray-300 bg-white'
                         }`}
                       >
-                        <div className="flex items-start justify-between mb-1">
-                          <h4 className="font-semibold text-gray-900 text-sm leading-tight line-clamp-2">
+                        <div className="flex items-start justify-between mb-2">
+                          <h4 className="font-semibold text-gray-900 text-sm leading-tight line-clamp-2 flex-1">
                             {report.title}
                           </h4>
-                          <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
-                            Verify
+                          <span className={`ml-3 px-2 py-1 rounded-full text-xs font-medium ${
+                            report.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                            report.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
+                            report.status === 'resolved' ? 'bg-green-100 text-green-800' :
+                            report.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {report.status.replace('_', ' ')}
                           </span>
                         </div>
-                        <p className="text-xs text-gray-600 mb-2 line-clamp-2 leading-relaxed">
+                        <p className="text-sm text-gray-600 mb-3 line-clamp-2 leading-relaxed">
                           {report.description}
                         </p>
-                        <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
-                          <span className="truncate max-w-[60%] font-medium">{report.username}</span>
+                        <div className="flex items-center justify-between text-xs text-gray-500 mb-3">
+                          <div className="flex flex-col">
+                            <span className="truncate max-w-[60%] font-medium">{report.username}</span>
+                            {report.patrol_username ? (
+                              <span className="text-orange-600 font-medium">Patrol: {report.patrol_username}</span>
+                            ) : report.patrol_user_id ? (
+                              <span className="text-orange-600 font-medium">Patrol: {report.patrol_user_id.slice(0, 8)}...</span>
+                            ) : (
+                              <span className="text-gray-400 font-medium">Patrol: Unknown</span>
+                            )}
+                          </div>
                           <span className="font-medium">{new Date(report.created_at).toLocaleDateString()}</span>
                         </div>
                         
                         {/* Quick Action Buttons */}
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center space-x-2">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               handleReportAction(report.id, 'resolved');
                             }}
-                            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded border border-green-200 transition-colors"
-                            title="Approve and Resolve"
+                            className="inline-flex items-center px-3 py-2 text-xs font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
+                            title="Mark as Resolved"
                           >
-                            <Check className="w-3 h-3" />
-                            Approve
+                            <Check className="w-3 h-3 mr-1" />
+                            Resolve
                           </button>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               handleReportAction(report.id, 'rejected');
                             }}
-                            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded border border-red-200 transition-colors"
+                            className="inline-flex items-center px-3 py-2 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
                             title="Reject"
                           >
-                            <X className="w-3 h-3" />
+                            <X className="w-3 h-3 mr-1" />
                             Reject
                           </button>
                           <button
@@ -1548,10 +1683,10 @@ export function AdminMapDashboard() {
                               setSelectedReportForModal(report);
                               setShowReportModal(true);
                             }}
-                            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded border border-blue-200 transition-colors"
+                            className="inline-flex items-center px-3 py-2 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
                             title="View Details"
                           >
-                            <Eye className="w-3 h-3" />
+                            <Eye className="w-3 h-3 mr-1" />
                             Details
                           </button>
                         </div>
@@ -1563,32 +1698,43 @@ export function AdminMapDashboard() {
           )}
 
           {/* Main Reports Section */}
-          <div className="sticky top-0 z-10 bg-white/90 backdrop-blur border-b border-gray-100 px-4 py-3">
+          <div className="sticky top-0 z-10 bg-gradient-to-r from-gray-50 to-blue-50 border-b border-gray-200 px-6 py-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-gray-900">All Reports</h3>
+              <div className="flex items-center space-x-3">
+                <div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center">
+                  <MapPin className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">All Reports</h3>
+                  <p className="text-sm text-gray-600">Active reports requiring attention</p>
+                </div>
+              </div>
               <button
                 onClick={() => setMainReportsCollapsed(!mainReportsCollapsed)}
-                className="p-1 hover:bg-gray-100 rounded transition-colors"
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                 title={mainReportsCollapsed ? "Expand All Reports" : "Collapse All Reports"}
               >
                 {mainReportsCollapsed ? (
-                  <ChevronDown className="w-5 h-5 text-gray-700" />
+                  <ChevronDown className="w-5 h-5 text-gray-600" />
                 ) : (
-                  <ChevronUp className="w-5 h-5 text-gray-700" />
+                  <ChevronUp className="w-5 h-5 text-gray-600" />
                 )}
               </button>
             </div>
           </div>
           {!mainReportsCollapsed && (
-            <div className="p-4">
+            <div className="p-6">
               {loading ? (
                 <div className="flex items-center justify-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
                 </div>
               ) : filteredReports.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <MapPin className="w-12 h-12 mx-auto mb-2 text-gray-300" />
-                  <p>No reports found</p>
+                <div className="text-center py-8">
+                  <div className="mx-auto h-12 w-12 text-gray-400 mb-4">
+                    <MapPin className="h-12 w-12" />
+                  </div>
+                  <h3 className="text-sm font-medium text-gray-900 mb-1">No reports found</h3>
+                  <p className="text-sm text-gray-500">Try adjusting your search or filter criteria</p>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -1596,7 +1742,7 @@ export function AdminMapDashboard() {
                     <div
                       key={report.id}
                       onClick={() => focusReportOnMap(report)}
-                      className={`p-4 rounded-lg border cursor-pointer transition-all hover:shadow-md ${
+                      className={`p-4 rounded-xl border cursor-pointer transition-all hover:shadow-md ${
                         selectedReport?.id === report.id
                           ? 'border-blue-500 bg-blue-50'
                           : 'border-gray-200 hover:border-gray-300'
@@ -1833,8 +1979,8 @@ export function AdminMapDashboard() {
             <h3 className="text-sm font-medium text-gray-700 mb-2">Report Summary</h3>
             <div className="space-y-1">
               <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Total:</span>
-                <span className="font-medium">{reports.length}</span>
+                <span className="text-gray-600">Active:</span>
+                <span className="font-medium">{reports.filter(r => r.status !== 'resolved').length}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Pending:</span>
@@ -1846,12 +1992,6 @@ export function AdminMapDashboard() {
                 <span className="text-gray-600">In Progress:</span>
                 <span className="font-medium text-blue-600">
                   {reports.filter(r => r.status === 'in_progress').length}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Resolved:</span>
-                <span className="font-medium text-green-600">
-                  {reports.filter(r => r.status === 'resolved').length}
                 </span>
               </div>
               <div className="flex justify-between text-sm">
@@ -1876,10 +2016,6 @@ export function AdminMapDashboard() {
                 <span>🔧 In Progress</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-green-500 rounded-full border border-white"></div>
-                <span>✅ Resolved</span>
-              </div>
-              <div className="flex items-center gap-2">
                 <div className="w-4 h-4 bg-red-500 rounded-full border border-white"></div>
                 <span>❌ Rejected</span>
               </div>
@@ -1897,7 +2033,29 @@ export function AdminMapDashboard() {
           />
           <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl max-h-[80vh] overflow-y-auto pb-[env(safe-area-inset-bottom)]">
             <div className="p-4 border-b flex items-center justify-between">
-              <h3 className="text-base font-semibold text-gray-900">Reports</h3>
+              <div className="flex items-center gap-3">
+                <h3 className="text-base font-semibold text-gray-900">Reports</h3>
+                <button
+                  onClick={() => {
+                    const resolvedReports = reports.filter(r => r.status === 'resolved');
+                    const queryParams = new URLSearchParams();
+                    resolvedReports.forEach((report, index) => {
+                      queryParams.append(`report_${index}`, JSON.stringify(report));
+                    });
+                    window.location.href = `/admin/history?${queryParams.toString()}`;
+                    setShowMobileList(false);
+                  }}
+                  className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded border border-green-200 relative"
+                >
+                  <History className="w-3 h-3" />
+                  History
+                  {reports.filter(r => r.status === 'resolved').length > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-green-600 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center text-[10px]">
+                      {reports.filter(r => r.status === 'resolved').length}
+                    </span>
+                  )}
+                </button>
+              </div>
               <button
                 className="text-gray-500 hover:text-gray-700"
                 onClick={() => setShowMobileList(false)}
@@ -2038,7 +2196,6 @@ export function AdminMapDashboard() {
                   <option value="pending">Pending</option>
                   <option value="in_progress">In Progress</option>
                   <option value="awaiting_verification">Awaiting Verification</option>
-                  <option value="resolved">Resolved</option>
                   <option value="rejected">Rejected</option>
                 </select>
               </div>
@@ -2228,6 +2385,24 @@ export function AdminMapDashboard() {
                   </div>
                 </div>
               </div>
+
+              {/* Patrol Officer Info */}
+              {(selectedReportForModal.patrol_username || selectedReportForModal.patrol_user_id) && (
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500 mb-1">Patrol Officer</h3>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center text-white font-semibold">
+                      {(selectedReportForModal.patrol_username || 'P').charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900">
+                        {selectedReportForModal.patrol_username || `Patrol ${selectedReportForModal.patrol_user_id?.slice(0, 8)}...`}
+                      </p>
+                      <p className="text-sm text-gray-500">Completed the job</p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Location */}
               <div>

@@ -21,6 +21,8 @@ const PrivacyPolicy = lazy(() => import('../pages/PrivacyPolicy').then(module =>
 const Chat = lazy(() => import('../pages/Chat').then(module => ({ default: module.Chat })));
 const NetworkTest = lazy(() => import('../pages/NetworkTest').then(module => ({ default: module.NetworkTest })));
 const AdminMapDashboard = lazy(() => import('../components/AdminMapDashboard').then(module => ({ default: module.AdminMapDashboard })));
+const AdminHistory = lazy(() => import('../pages/AdminHistory').then(module => ({ default: module.AdminHistory })));
+const VerificationReports = lazy(() => import('../pages/VerificationReports').then(module => ({ default: module.VerificationReports })));
 
 export const publicRoutes: RouteObject[] = [
   {
@@ -93,6 +95,10 @@ export const protectedRoutes: RouteObject[] = [
   {
     path: '/network-test',
     element: <ProtectedRoute adminRedirect={true}><NetworkTest /></ProtectedRoute>
+  },
+  {
+    path: '/verification-reports',
+    element: <ProtectedRoute adminRedirect={true}><VerificationReports /></ProtectedRoute>
   }
 ];
 
@@ -104,5 +110,9 @@ export const adminRoutes: RouteObject[] = [
   {
     path: '/admin/map',
     element: <ProtectedRoute><AdminMapDashboard /></ProtectedRoute>
+  },
+  {
+    path: '/admin/history',
+    element: <ProtectedRoute><AdminHistory /></ProtectedRoute>
   }
 ]; 
