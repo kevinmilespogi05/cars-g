@@ -65,10 +65,13 @@ export function PatrolDashboard() {
   // Load patrol statistics from database
   const loadPatrolStats = async () => {
     try {
+      if (!user?.id) return;
+
       const { data, error } = await supabase
         .from('reports')
         .select('priority, status')
-        .eq('status', 'resolved');
+        .eq('status', 'resolved')
+        .eq('patrol_user_id', user.id);
       
       if (error) throw error;
 
@@ -193,8 +196,9 @@ export function PatrolDashboard() {
     const inProgress = reports.filter(r => r.status === 'in_progress').length;
     const awaitingVerification = reports.filter(r => r.status === 'awaiting_verification').length;
     const resolved = reports.filter(r => r.status === 'resolved').length;
-    return { total, pending, inProgress, awaitingVerification, resolved };
-  }, [reports]);
+    const myResolved = patrolStats.totalCompleted; // Reports resolved by this patrol officer
+    return { total, pending, inProgress, awaitingVerification, resolved, myResolved };
+  }, [reports, patrolStats.totalCompleted]);
 
   const acceptJob = async (reportId: string) => {
     if (!user?.id) return;
@@ -373,8 +377,8 @@ export function PatrolDashboard() {
                 <CheckCircle2 className="h-8 w-8 text-emerald-600" />
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Resolved</p>
-                <p className="text-2xl font-bold text-gray-900">{totals.resolved}</p>
+                <p className="text-sm font-medium text-gray-500">My Resolved</p>
+                <p className="text-2xl font-bold text-gray-900">{totals.myResolved}</p>
               </div>
             </div>
           </div>
@@ -390,6 +394,12 @@ export function PatrolDashboard() {
               <div>
                 <h2 className="text-lg font-semibold text-gray-900">Level {patrolStats.currentLevel}</h2>
                 <p className="text-sm text-gray-500">{patrolStats.totalExperience} XP • {patrolStats.experienceToNext - patrolStats.totalExperience} XP to next level</p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 px-3 py-1 bg-emerald-100 rounded-full">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                <span className="text-sm font-medium text-emerald-800">{totals.myResolved} Reports Resolved</span>
               </div>
             </div>
           </div>

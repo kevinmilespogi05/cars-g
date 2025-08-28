@@ -17,6 +17,7 @@ export function VerificationReports() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState({
     category: 'All',
+    status: 'All',
     priority: 'All',
   });
   const [selectedImage, setSelectedImage] = useState<{ url: string; index: number } | null>(null);
@@ -66,24 +67,37 @@ export function VerificationReports() {
     console.log('Setting up real-time subscriptions for verification reports');
     
     const matchesFilters = (r: any) => {
-      if (r.status !== 'awaiting_verification') return false;
-      const categoryOk = filters.category === 'All' || (r.category || '').toLowerCase().includes(filters.category.toLowerCase().replace(/_/g, ' '));
-      const priorityOk = filters.priority === 'All' || (r.priority || '').toLowerCase() === filters.priority.toLowerCase();
-      const searchOk = !searchTerm || ((r.title || '').toLowerCase().includes(searchTerm.toLowerCase()) || (r.description || '').toLowerCase().includes(searchTerm.toLowerCase()));
-      return categoryOk && priorityOk && searchOk;
+      // Only show reports that are verifying or awaiting verification
+      if (r.status !== 'verifying' && r.status !== 'awaiting_verification') return false;
+      
+      // Add null checks for all properties
+      const categoryOk = !filters.category || filters.category === 'All' || 
+        (r.category && r.category.toLowerCase().includes((filters.category || '').toLowerCase().replace(/_/g, ' ')));
+      
+      const statusOk = !filters.status || filters.status === 'All' || 
+        (r.status && r.status.toLowerCase() === (filters.status || '').toLowerCase().replace(/\s+/g, '_'));
+      
+      const priorityOk = !filters.priority || filters.priority === 'All' || 
+        (r.priority && r.priority.toLowerCase() === (filters.priority || '').toLowerCase());
+      
+      const searchOk = !searchTerm || 
+        (r.title && r.title.toLowerCase().includes(searchTerm.toLowerCase())) || 
+        (r.description && r.description.toLowerCase().includes(searchTerm.toLowerCase()));
+      
+      return categoryOk && statusOk && priorityOk && searchOk;
     };
     
     const reportsSubscription = reportsService.subscribeToReports((newReport) => {
       console.log('New verification report received:', newReport);
-      // Only add reports that are awaiting verification
-      if (newReport.status !== 'awaiting_verification') return;
+      // Only add reports that are verifying or awaiting verification
+      if (newReport.status !== 'verifying' && newReport.status !== 'awaiting_verification') return;
       if (!matchesFilters(newReport)) return;
       setReports(prev => (prev.some(r => r.id === newReport.id) ? prev : [newReport, ...prev]));
     });
 
     const statusSubscription = reportsService.subscribeToReportStatusChanges((reportId, newStatus) => {
       console.log('Status change received for verification report:', reportId, 'new status:', newStatus);
-      if (newStatus !== 'awaiting_verification') {
+      if (newStatus !== 'verifying' && newStatus !== 'awaiting_verification') {
         setReports(prev => prev.filter(r => r.id !== reportId));
       } else {
         setReports(prev => {
@@ -130,11 +144,11 @@ export function VerificationReports() {
     };
   }, [user, filters, searchTerm]);
 
-  // Clean up any reports that don't have awaiting_verification status
+  // Clean up any reports that don't have verifying or awaiting_verification status
   useEffect(() => {
-    const hasInvalidReports = reports.some(report => report.status !== 'awaiting_verification');
+    const hasInvalidReports = reports.some(report => report.status !== 'verifying' && report.status !== 'awaiting_verification');
     if (hasInvalidReports) {
-      setReports(prev => prev.filter(report => report.status === 'awaiting_verification'));
+      setReports(prev => prev.filter(report => report.status === 'verifying' || report.status === 'awaiting_verification'));
     }
   });
 
@@ -149,17 +163,17 @@ export function VerificationReports() {
       setLoading(true);
       loadingRef.current = true;
       
-      // Fetch only reports with 'awaiting_verification' status
+      // Fetch reports with 'verifying' or 'awaiting_verification' status
       const reportsData = await reportsService.getReports({
         category: filters.category,
-        status: 'awaiting_verification',
+        status: filters.status === 'All' ? undefined : filters.status,
         priority: filters.priority,
         search: searchTerm,
         limit: 40
       });
 
-      // Double-check: filter to ensure only awaiting_verification reports are shown
-      const filteredReportsData = reportsData.filter(report => report.status === 'awaiting_verification');
+      // Double-check: filter to ensure only verifying or awaiting_verification reports are shown
+      const filteredReportsData = reportsData.filter(report => report.status === 'verifying' || report.status === 'awaiting_verification');
 
       setReports(filteredReportsData);
     } catch (error) {
@@ -226,8 +240,27 @@ export function VerificationReports() {
     }
   };
 
-  // Ensure only awaiting_verification reports are shown
-  const filteredReports = reports.filter(report => report.status === 'awaiting_verification');
+  // Filter reports based on current filters and search
+  const filteredReports = reports.filter(report => {
+    // Only show reports that are verifying or awaiting verification
+    if (report.status !== 'verifying' && report.status !== 'awaiting_verification') return false;
+    
+    // Add null checks for all properties
+    const categoryOk = !filters.category || filters.category === 'All' || 
+      (report.category && report.category.toLowerCase().includes((filters.category || '').toLowerCase().replace(/_/g, ' ')));
+    
+    const statusOk = !filters.status || filters.status === 'All' || 
+      (report.status && report.status.toLowerCase() === (filters.status || '').toLowerCase().replace(/\s+/g, '_'));
+    
+    const priorityOk = !filters.priority || filters.priority === 'All' || 
+      (report.priority && report.priority.toLowerCase() === (filters.priority || '').toLowerCase());
+    
+    const searchOk = !searchTerm || 
+      (report.title && report.title.toLowerCase().includes(searchTerm.toLowerCase())) || 
+      (report.description && report.description.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+    return categoryOk && statusOk && priorityOk && searchOk;
+  });
 
   if (loading && reports.length === 0) {
     return (
@@ -251,7 +284,7 @@ export function VerificationReports() {
             </div>
             <div>
               <h1 className="text-xl sm:text-2xl font-bold text-[#800000]">Verification Reports</h1>
-              <p className="text-sm text-gray-600">Reports awaiting verification from patrol officers</p>
+              <p className="text-sm text-gray-600">Reports being verified or awaiting verification from patrol officers</p>
             </div>
           </div>
           <button
@@ -295,6 +328,16 @@ export function VerificationReports() {
               </select>
 
               <select
+                value={filters.status}
+                onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
+                className="px-2.5 py-2 text-sm border border-gray-200 rounded-md focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white"
+              >
+                <option value="All">All Statuses</option>
+                <option value="verifying">Verifying</option>
+                <option value="awaiting_verification">Awaiting Verification</option>
+              </select>
+
+              <select
                 value={filters.priority}
                 onChange={(e) => setFilters(prev => ({ ...prev, priority: e.target.value }))}
                 className="px-2.5 py-2 text-sm border border-gray-200 rounded-md focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white"
@@ -313,9 +356,9 @@ export function VerificationReports() {
             <div className="text-gray-400 mb-3">
               <Shield className="h-12 w-12 mx-auto" />
             </div>
-            <h3 className="text-base font-medium text-gray-900 mb-2">No reports awaiting verification</h3>
+            <h3 className="text-base font-medium text-gray-900 mb-2">No verification reports found</h3>
             <p className="text-sm text-gray-500">
-              {searchTerm || filters.category !== 'All' || filters.priority !== 'All'
+              {searchTerm || filters.category !== 'All' || filters.status !== 'All' || filters.priority !== 'All'
                 ? 'Try adjusting your search or filters'
                 : 'All reports have been verified or are in progress!'
               }
@@ -373,8 +416,14 @@ export function VerificationReports() {
                     <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium ${getPriorityColor(report.priority)}`}>
                       {report.priority}
                     </span>
-                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
-                      {report.status}
+                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium ${
+                      report.status === 'verifying' ? 'bg-purple-100 text-purple-800' :
+                      report.status === 'awaiting_verification' ? 'bg-orange-100 text-orange-800' :
+                      'bg-gray-100 text-gray-800'
+                    }`}>
+                      {report.status === 'verifying' ? 'Verifying' : 
+                       report.status === 'awaiting_verification' ? 'Awaiting Verification' :
+                       report.status.replace('_', ' ')}
                     </span>
                   </div>
 

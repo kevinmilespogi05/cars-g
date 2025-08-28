@@ -73,8 +73,9 @@ export function Reports() {
     console.log('Setting up real-time subscriptions');
     
     const matchesFilters = (r: any) => {
-      // Always exclude awaiting_verification reports from the main reports view
-      if (r.status === 'awaiting_verification') return false;
+      // Always exclude verifying and awaiting_verification reports from the main reports view
+      // These should be handled on the verification page
+      if (r.status === 'verifying' || r.status === 'awaiting_verification') return false;
       
       const categoryOk = filters.category === 'All' || (r.category || '').toLowerCase().includes(filters.category.toLowerCase().replace(/_/g, ' '));
       const statusOk = filters.status === 'All' || (r.status || '').toLowerCase() === filters.status.toLowerCase().replace(/\s+/g, '_');
@@ -96,8 +97,8 @@ export function Reports() {
       setReports(prev => {
         const exists = prev.some(r => r.id === reportId);
         
-        // If status changes to awaiting_verification, remove it from main reports view
-        if (newStatus === 'awaiting_verification') {
+        // If status changes to verifying or awaiting_verification, remove it from main reports view
+        if (newStatus === 'verifying' || newStatus === 'awaiting_verification') {
           return prev.filter(r => r.id !== reportId);
         }
         
@@ -174,8 +175,9 @@ export function Reports() {
         limit: 40
       });
 
-      // Filter out awaiting_verification reports from the main reports view
-      const filteredReportsData = reportsData.filter(report => report.status !== 'awaiting_verification');
+      // Filter out verifying and awaiting_verification reports from the main reports view
+      // These should be handled on the verification page
+      const filteredReportsData = reportsData.filter(report => report.status !== 'verifying' && report.status !== 'awaiting_verification');
 
       setReports(filteredReportsData);
     } catch (error) {
