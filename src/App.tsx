@@ -1,5 +1,5 @@
 import React, { useEffect, useState, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Navigation } from './components/Navigation';
 import { Home } from './pages/Home';
 import { Reports } from './pages/Reports';
@@ -85,25 +85,14 @@ const ErrorFallback = ({ error, resetErrorBoundary }: { error: Error; resetError
   </div>
 );
 
-function App() {
-  const { initialize, isAuthenticated, user } = useAuthStore();
-  const [isInitialized, setIsInitialized] = useState(false);
+function AppContent() {
+  const { isAuthenticated, user } = useAuthStore();
+  const location = useLocation();
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const { notifications, removeNotification } = useAchievementNotifications();
 
-  useEffect(() => {
-    const init = async () => {
-      try {
-        await initialize();
-        await initializeAchievements();
-      } catch (error) {
-        console.error('Error initializing auth:', error);
-      } finally {
-        setIsInitialized(true);
-      }
-    };
-    init();
-  }, [initialize]);
+  // Check if we're on the landing page
+  const isLandingPage = location.pathname === '/' && !isAuthenticated;
 
 
 
@@ -167,18 +156,13 @@ function App() {
     };
   }, []);
 
-
-
-  if (!isInitialized) {
-    return <LoadingSpinner />;
-  }
-
   return (
     <ErrorBoundary>
       <Providers>
         <div className="min-h-screen bg-gray-100">
-          <Navigation />
-          <main className="pt-24 sm:pt-28">
+          {/* Only show Navigation on non-landing pages */}
+          {!isLandingPage && <Navigation />}
+          <main className={isLandingPage ? 'pt-0' : 'pt-24 sm:pt-28'}>
             <Suspense fallback={<LoadingSpinner />}>
               <Routes>
                 {publicRoutes.map((route) => (
@@ -232,6 +216,31 @@ function App() {
       </Providers>
     </ErrorBoundary>
   );
+}
+
+function App() {
+  const { initialize } = useAuthStore();
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  useEffect(() => {
+    const init = async () => {
+      try {
+        await initialize();
+        await initializeAchievements();
+      } catch (error) {
+        console.error('Error initializing auth:', error);
+      } finally {
+        setIsInitialized(true);
+      }
+    };
+    init();
+  }, [initialize]);
+
+  if (!isInitialized) {
+    return <LoadingSpinner />;
+  }
+
+  return <AppContent />;
 }
 
 export default App;

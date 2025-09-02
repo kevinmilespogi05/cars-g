@@ -4,6 +4,7 @@ import { ProtectedRoute } from '../components/ProtectedRoute';
 import { PatrolRoute } from '../components/PatrolRoute';
 
 // Lazy load components
+const LandingPage = lazy(() => import('../pages/LandingPage').then(module => ({ default: module.LandingPage })));
 const Login = lazy(() => import('../pages/Login').then(module => ({ default: module.Login })));
 const Register = lazy(() => import('../pages/Register').then(module => ({ default: module.Register })));
 const AdminLogin = lazy(() => import('../pages/AdminLogin').then(module => ({ default: module.AdminLogin })));
@@ -27,7 +28,11 @@ const VerificationReports = lazy(() => import('../pages/VerificationReports').th
 export const publicRoutes: RouteObject[] = [
   {
     path: '/',
-    element: <Login />
+    element: <LandingPage />
+  },
+  {
+    path: '/landing',
+    element: <LandingPage />
   },
   {
     path: '/login',
