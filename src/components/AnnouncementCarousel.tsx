@@ -191,57 +191,71 @@ export function AnnouncementCarousel({ className = '' }: AnnouncementCarouselPro
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
         >
-          <div className="flex items-start gap-3">
-            <div className="flex-shrink-0 mt-0.5">
+          <div className="space-y-3">
+            {/* Header with priority */}
+            <div className="flex items-center gap-2">
               {getPriorityIcon(currentAnnouncement.priority)}
+              <h3 className="font-semibold text-gray-900 text-base">
+                {currentAnnouncement.title}
+              </h3>
+              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getPriorityColor(currentAnnouncement.priority)}`}>
+                {currentAnnouncement.priority}
+              </span>
             </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-2">
-                <h3 className="font-semibold text-gray-900 text-sm">
-                  {currentAnnouncement.title}
-                </h3>
-                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getPriorityColor(currentAnnouncement.priority)}`}>
-                  {currentAnnouncement.priority}
-                </span>
-              </div>
               
-              {/* Image display */}
-              {currentAnnouncement.image_url && (
-                <div className="mb-3">
-                  <img
-                    src={currentAnnouncement.image_url}
-                    alt={currentAnnouncement.title}
-                    className="w-full h-32 object-cover rounded-lg border border-gray-200"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.style.display = 'none';
-                    }}
-                  />
+            {/* Image display */}
+            {currentAnnouncement.image_url && (
+              <div className="relative w-full h-48 sm:h-56 md:h-64 overflow-hidden rounded-lg border border-gray-200 bg-gray-100">
+                <img
+                  src={currentAnnouncement.image_url}
+                  alt={currentAnnouncement.title}
+                  className="w-full h-full object-contain bg-white"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    // Show a placeholder when image fails to load
+                    const container = target.parentElement;
+                    if (container) {
+                      container.innerHTML = `
+                        <div class="w-full h-full flex items-center justify-center bg-gray-100 text-gray-500">
+                          <div class="text-center">
+                            <svg class="w-12 h-12 mx-auto mb-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                            </svg>
+                            <p class="text-sm">Image unavailable</p>
+                          </div>
+                        </div>
+                      `;
+                    }
+                  }}
+                />
+              </div>
+            )}
+            
+            {/* Content */}
+            <p className="text-gray-700 text-sm leading-relaxed">
+              {currentAnnouncement.content}
+            </p>
+            
+            {/* Footer */}
+            <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+              <span className="text-xs text-gray-500">
+                {new Date(currentAnnouncement.created_at).toLocaleDateString()}
+              </span>
+              {announcements.length > 1 && (
+                <div className="flex items-center gap-1">
+                  {announcements.map((_, index) => (
+                    <button
+                      key={index}
+                      onClick={() => setCurrentIndex(index)}
+                      className={`w-2 h-2 rounded-full transition-colors ${
+                        index === currentIndex ? 'bg-blue-500' : 'bg-gray-300'
+                      }`}
+                      aria-label={`Go to announcement ${index + 1}`}
+                    />
+                  ))}
                 </div>
               )}
-              
-              <p className="text-gray-700 text-sm leading-relaxed">
-                {currentAnnouncement.content}
-              </p>
-              <div className="flex items-center justify-between mt-3">
-                <span className="text-xs text-gray-500">
-                  {new Date(currentAnnouncement.created_at).toLocaleDateString()}
-                </span>
-                {announcements.length > 1 && (
-                  <div className="flex items-center gap-1">
-                    {announcements.map((_, index) => (
-                      <button
-                        key={index}
-                        onClick={() => setCurrentIndex(index)}
-                        className={`w-2 h-2 rounded-full transition-colors ${
-                          index === currentIndex ? 'bg-blue-500' : 'bg-gray-300'
-                        }`}
-                        aria-label={`Go to announcement ${index + 1}`}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
             </div>
           </div>
         </div>
