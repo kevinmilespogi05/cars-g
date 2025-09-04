@@ -5,6 +5,7 @@ import type { Report } from '../types';
 import { useAuthStore } from '../store/authStore';
 import { reportsService } from '../services/reportsService';
 import { cloudinary } from '../lib/cloudinary';
+import { AnnouncementCarousel } from '../components/AnnouncementCarousel';
 
 
 export function PatrolDashboard() {
@@ -321,6 +322,8 @@ export function PatrolDashboard() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Announcements Section */}
+        <AnnouncementCarousel />
         {/* Stats Overview */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
           <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">

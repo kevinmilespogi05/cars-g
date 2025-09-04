@@ -6,19 +6,21 @@ import {
   BarChart3, 
   Settings, 
   LayoutDashboard,
-  FileText
+  FileText,
+  Megaphone
 } from 'lucide-react';
 import { UserManagement } from '../components/UserManagement';
 import { AdminStatistics } from '../components/AdminStatistics';
 import { AdminSettings } from '../components/AdminSettings';
 import { Notification } from '../components/Notification';
 import { AdminReports } from '../components/AdminReports';
+import { AnnouncementManagement } from '../components/AnnouncementManagement';
 
 export function AdminDashboard() {
   const { user } = useAuthStore();
   const navigate = useNavigate();
 
-  const [activeSection, setActiveSection] = useState<'reports' | 'users' | 'stats' | 'settings'>('reports');
+  const [activeSection, setActiveSection] = useState<'reports' | 'users' | 'stats' | 'settings' | 'announcements'>('reports');
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   useEffect(() => {
@@ -32,7 +34,7 @@ export function AdminDashboard() {
   }: {
     icon: any;
     label: string;
-    value: 'reports' | 'users' | 'stats' | 'settings';
+    value: 'reports' | 'users' | 'stats' | 'settings' | 'announcements';
   }) => (
     <button
       onClick={() => setActiveSection(value)}
@@ -65,6 +67,7 @@ export function AdminDashboard() {
             <TabButton icon={FileText} label="Reports" value="reports" />
             <TabButton icon={Users} label="Users" value="users" />
             <TabButton icon={BarChart3} label="Statistics" value="stats" />
+            <TabButton icon={Megaphone} label="Announcements" value="announcements" />
             <TabButton icon={Settings} label="Settings" value="settings" />
           </div>
         </div>
@@ -86,6 +89,11 @@ export function AdminDashboard() {
           {activeSection === 'stats' && (
             <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3 md:p-4">
               <AdminStatistics />
+            </div>
+          )}
+          {activeSection === 'announcements' && (
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3 md:p-4">
+              <AnnouncementManagement />
             </div>
           )}
           {activeSection === 'settings' && (

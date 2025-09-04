@@ -6,6 +6,7 @@ import { Report } from '../types';
 import { reportsService } from '../services/reportsService';
 import { supabase } from '../lib/supabase';
 import { LikeDetailsModal } from '../components/LikeDetailsModal';
+import { AnnouncementCarousel } from '../components/AnnouncementCarousel';
 
 const CATEGORIES = ['All', 'Infrastructure', 'Safety', 'Environmental', 'Public Services', 'Other'];
 const STATUSES = ['All', 'Pending', 'In Progress', 'Resolved', 'Rejected'];
@@ -298,6 +299,8 @@ export function Reports() {
   return (
     <div className="min-h-[100dvh] bg-gray-50 reports-page">
       <div className="w-full px-3 sm:px-4 lg:px-6 py-4 sm:py-6">
+        {/* Announcements Section */}
+        <AnnouncementCarousel />
         {/* Header Section - More compact */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
@@ -312,7 +315,7 @@ export function Reports() {
           </div>
           <Link
             to="/reports/create"
-            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-primary-color text-white px-3 py-2 rounded-md shadow-md shadow-sm hover:bg-primary-dark transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-color text-sm font-medium"
+            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-primary-color text-white px-3 py-2 rounded-md shadow-sm hover:bg-primary-dark transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-color text-sm font-medium"
           >
             <Plus className="h-4 w-4" />
             <span>Create New Report</span>

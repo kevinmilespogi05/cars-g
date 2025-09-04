@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { FileText, Award, User, LogOut, Shield, Menu, X, ChevronDown, MessageCircle, MapPin } from 'lucide-react';
+import { FileText, Award, User, LogOut, Shield, Menu, X, ChevronDown, MessageCircle, MapPin, Megaphone } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { supabase } from '../lib/supabase';
 
@@ -42,16 +42,19 @@ export function Navigation() {
   const navItems = user?.role === 'admin'
     ? [
         { path: '/admin/map', icon: MapPin, label: 'Map View' },
+        { path: '/announcements', icon: Megaphone, label: 'Announcements' },
         { path: '/leaderboard', icon: Award, label: 'Leaderboard' },
         { path: '/chat', icon: MessageCircle, label: 'Chat' }
       ]
     : user?.role === 'patrol'
     ? [
-        { path: '/patrol', icon: MapPin, label: 'Patrol' }
+        { path: '/patrol', icon: MapPin, label: 'Patrol' },
+        { path: '/announcements', icon: Megaphone, label: 'Announcements' }
       ]
     : [
         { path: '/reports', icon: FileText, label: 'Reports' },
         { path: '/verification-reports', icon: Shield, label: 'Verification' },
+        { path: '/announcements', icon: Megaphone, label: 'Announcements' },
         { path: '/leaderboard', icon: Award, label: 'Leaderboard' },
         { path: '/chat', icon: MessageCircle, label: 'Chat' }
       ];

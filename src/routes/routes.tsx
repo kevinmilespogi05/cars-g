@@ -24,6 +24,7 @@ const NetworkTest = lazy(() => import('../pages/NetworkTest').then(module => ({ 
 const AdminMapDashboard = lazy(() => import('../components/AdminMapDashboard').then(module => ({ default: module.AdminMapDashboard })));
 const AdminHistory = lazy(() => import('../pages/AdminHistory').then(module => ({ default: module.AdminHistory })));
 const VerificationReports = lazy(() => import('../pages/VerificationReports').then(module => ({ default: module.VerificationReports })));
+const Announcements = lazy(() => import('../pages/Announcements').then(module => ({ default: module.Announcements })));
 
 export const publicRoutes: RouteObject[] = [
   {
@@ -104,6 +105,10 @@ export const protectedRoutes: RouteObject[] = [
   {
     path: '/verification-reports',
     element: <ProtectedRoute adminRedirect={true}><VerificationReports /></ProtectedRoute>
+  },
+  {
+    path: '/announcements',
+    element: <ProtectedRoute><Announcements /></ProtectedRoute>
   }
 ];
 

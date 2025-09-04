@@ -253,52 +253,52 @@ export function AdminReports() {
           <div className="p-6 text-center text-gray-500">No reports found</div>
         ) : (
           filtered.map((r) => (
-            <div key={r.id} className="p-4">
+            <div key={r.id} className="p-3 sm:p-4">
               {/* Header row: title + badges + right actions */}
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="font-medium text-gray-900 truncate">{r.title}</h3>
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${r.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : r.status === 'in_progress' ? 'bg-blue-100 text-blue-800' : r.status === 'resolved' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{r.status.replace('_', ' ')}</span>
+              <div className="flex items-start justify-between gap-2 sm:gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                    <h3 className="font-medium text-gray-900 truncate text-sm sm:text-base">{r.title}</h3>
+                    <span className={`text-xs px-1.5 py-0.5 rounded-full ${r.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : r.status === 'in_progress' ? 'bg-blue-100 text-blue-800' : r.status === 'resolved' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{r.status.replace('_', ' ')}</span>
                     {r.priority && (
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${r.priority === 'high' ? 'bg-red-100 text-red-800' : r.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>{r.priority}</span>
+                      <span className={`text-xs px-1.5 py-0.5 rounded-full ${r.priority === 'high' ? 'bg-red-100 text-red-800' : r.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>{r.priority}</span>
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-1 sm:gap-2 shrink-0">
                   <button
                     onClick={() => handleView(r)}
-                    className="p-2 rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50"
+                    className="p-1.5 sm:p-2 rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50"
                     title="View"
                     aria-label="View"
                   >
-                    <Eye className="w-4 h-4" />
+                    <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   </button>
                   <button
                     onClick={() => handleDelete(r.id)}
-                    className="p-2 rounded-md border border-red-200 text-red-600 hover:bg-red-50"
+                    className="p-1.5 sm:p-2 rounded-md border border-red-200 text-red-600 hover:bg-red-50"
                     title="Delete"
                     aria-label="Delete"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   </button>
                 </div>
               </div>
 
               {/* Description (improved readability) */}
-              <p className="text-base md:text-[1rem] text-gray-800 leading-relaxed mt-2">
+              <p className="text-sm sm:text-base text-gray-800 leading-relaxed mt-2 line-clamp-2 sm:line-clamp-none">
                 {r.description}
               </p>
 
               {/* Meta info */}
-              <div className="mt-2 text-xs text-gray-600 flex items-center gap-4 flex-wrap">
+              <div className="mt-2 text-xs text-gray-600 flex items-center gap-3 sm:gap-4 flex-wrap">
                 <span className="flex items-center gap-1.5">
                   {r.user_profile?.avatar_url ? (
-                    <img src={r.user_profile.avatar_url} alt={r.user_profile.username || 'User'} className="w-4.5 h-4.5 sm:w-5 sm:h-5 rounded-full object-cover" />
+                    <img src={r.user_profile.avatar_url} alt={r.user_profile.username || 'User'} className="w-4 h-4 sm:w-5 sm:h-5 rounded-full object-cover flex-shrink-0" />
                   ) : (
-                    <User2 className="w-3.5 h-3.5 text-gray-500" />
+                    <User2 className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
                   )}
-                  {r.user_profile?.username || 'Unknown'}
+                  <span className="truncate max-w-[120px] sm:max-w-none">{r.user_profile?.username || 'Unknown'}</span>
                 </span>
                 <span className="flex items-center gap-1.5">
                   <Calendar className="w-3.5 h-3.5 text-gray-500" />
@@ -313,7 +313,7 @@ export function AdminReports() {
               </div>
 
               {/* Actions row */}
-              <div className="mt-3 flex items-center gap-2 flex-wrap">
+              <div className="mt-3 flex items-center gap-1.5 sm:gap-2 flex-wrap">
                 {(['pending','in_progress','resolved','rejected'] as const)
                   .filter(target => target !== r.status)
                   .sort((a, b) => {
@@ -337,12 +337,12 @@ export function AdminReports() {
                       onClick={() => updateStatus(r.id, target)}
                       className={
                         target === 'pending'
-                          ? 'inline-flex items-center gap-1 px-3 py-1.5 text-yellow-800 bg-yellow-50 hover:bg-yellow-100 rounded border border-yellow-200'
+                          ? 'inline-flex items-center gap-1 px-2 sm:px-3 py-1 sm:py-1.5 text-yellow-800 bg-yellow-50 hover:bg-yellow-100 rounded border border-yellow-200 text-xs sm:text-sm'
                           : target === 'in_progress'
-                          ? 'inline-flex items-center gap-1 px-3 py-1.5 text-blue-700 bg-blue-50 hover:bg-blue-100 rounded border border-blue-200'
+                          ? 'inline-flex items-center gap-1 px-2 sm:px-3 py-1 sm:py-1.5 text-blue-700 bg-blue-50 hover:bg-blue-100 rounded border border-blue-200 text-xs sm:text-sm'
                           : target === 'resolved'
-                          ? 'inline-flex items-center gap-1 px-3 py-1.5 text-green-700 bg-green-50 hover:bg-green-100 rounded border border-green-200'
-                          : 'inline-flex items-center gap-1 px-3 py-1.5 text-red-700 bg-red-50 hover:bg-red-100 rounded border border-red-200'
+                          ? 'inline-flex items-center gap-1 px-2 sm:px-3 py-1 sm:py-1.5 text-green-700 bg-green-50 hover:bg-green-100 rounded border border-green-200 text-xs sm:text-sm'
+                          : 'inline-flex items-center gap-1 px-2 sm:px-3 py-1 sm:py-1.5 text-red-700 bg-red-50 hover:bg-red-100 rounded border border-red-200 text-xs sm:text-sm'
                       }
                       title={
                         target === 'pending'
@@ -355,19 +355,30 @@ export function AdminReports() {
                       }
                     >
                       {target === 'resolved' ? (
-                        <CheckCircle2 className="w-4 h-4" />
+                        <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                       ) : target === 'rejected' ? (
-                        <XCircle className="w-4 h-4" />
+                        <XCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                       ) : (
-                        <Wrench className="w-4 h-4" />
+                        <Wrench className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                       )}
-                      {target === 'pending'
-                        ? 'Mark Pending'
-                        : target === 'in_progress'
-                        ? 'Mark In Progress'
-                        : target === 'resolved'
-                        ? 'Mark Resolved'
-                        : 'Mark Rejected'}
+                      <span className="hidden sm:inline">
+                        {target === 'pending'
+                          ? 'Mark Pending'
+                          : target === 'in_progress'
+                          ? 'Mark In Progress'
+                          : target === 'resolved'
+                          ? 'Mark Resolved'
+                          : 'Mark Rejected'}
+                      </span>
+                      <span className="sm:hidden">
+                        {target === 'pending'
+                          ? 'Pending'
+                          : target === 'in_progress'
+                          ? 'Progress'
+                          : target === 'resolved'
+                          ? 'Resolved'
+                          : 'Rejected'}
+                      </span>
                     </button>
                   ))}
               </div>
