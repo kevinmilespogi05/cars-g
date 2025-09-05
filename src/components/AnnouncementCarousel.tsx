@@ -192,6 +192,12 @@ export function AnnouncementCarousel({ className = '' }: AnnouncementCarouselPro
           onTouchEnd={handleTouchEnd}
         >
           <div className="space-y-3">
+            {/* Announcement title label */}
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] tracking-wide font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
+                ANNOUNCEMENT
+              </span>
+            </div>
             {/* Header with priority */}
             <div className="flex items-center gap-2">
               {getPriorityIcon(currentAnnouncement.priority)}
