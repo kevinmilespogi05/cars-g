@@ -11,9 +11,10 @@ interface LikeDetailsModalProps {
   commentId?: string;
   replyId?: string;
   contextLabel?: string;
+  refreshTrigger?: number;
 }
 
-export function LikeDetailsModal({ isOpen, onClose, reportId, reportTitle, commentId, replyId, contextLabel }: LikeDetailsModalProps) {
+export function LikeDetailsModal({ isOpen, onClose, reportId, reportTitle, commentId, replyId, contextLabel, refreshTrigger }: LikeDetailsModalProps) {
   const [likeDetails, setLikeDetails] = useState<LikeDetail[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -21,7 +22,7 @@ export function LikeDetailsModal({ isOpen, onClose, reportId, reportTitle, comme
   useEffect(() => {
     if (!isOpen) return;
     fetchLikeDetails();
-  }, [isOpen, reportId, commentId, replyId]);
+  }, [isOpen, reportId, commentId, replyId, refreshTrigger]);
 
   const fetchLikeDetails = async () => {
     setLoading(true);

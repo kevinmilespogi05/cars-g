@@ -21,9 +21,10 @@ import { initializeAchievements } from './lib/initAchievements';
 import { Providers } from './components/Providers';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { publicRoutes, protectedRoutes, adminRoutes } from './routes/routes';
+import { publicRoutes, protectedRoutes, adminRoutes, patrolRoutes } from './routes/routes';
 import { PWAPrompt } from './components/PWAPrompt';
 import { NetworkStatus } from './components/NetworkStatus';
+import { WelcomeGuide } from './components/WelcomeGuide';
 
 import { usePushNotifications } from './hooks/usePushNotifications';
 import { PerformanceMonitor } from './components/PerformanceMonitor';
@@ -90,11 +91,21 @@ function AppContent() {
   const location = useLocation();
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const { notifications, removeNotification } = useAchievementNotifications();
+  const [showWelcomeGuide, setShowWelcomeGuide] = useState(false);
 
   // Check if we're on the landing page
   const isLandingPage = location.pathname === '/' && !isAuthenticated;
 
-
+  // Show welcome guide for new users
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      const hasSeenWelcome = localStorage.getItem('hasSeenWelcome');
+      if (!hasSeenWelcome) {
+        setShowWelcomeGuide(true);
+        localStorage.setItem('hasSeenWelcome', 'true');
+      }
+    }
+  }, [isAuthenticated, user]);
 
   // Mobile-specific fixes to prevent refresh loops (prod only and when offline)
   useEffect(() => {
@@ -177,6 +188,11 @@ function AppContent() {
                   adminRoutes.map((route) => (
                     <Route key={route.path} {...route} />
                   ))}
+                {isAuthenticated &&
+                  user?.role === 'patrol' &&
+                  patrolRoutes.map((route) => (
+                    <Route key={route.path} {...route} />
+                  ))}
                 <Route
                   path="*"
                   element={<Navigate to={isAuthenticated ? (user?.role === 'admin' ? "/admin/map" : user?.role === 'patrol' ? '/patrol' : "/reports") : "/login"} replace />}
@@ -184,8 +200,6 @@ function AppContent() {
               </Routes>
             </Suspense>
           </main>
-          
-
           
           {/* Network Status Indicator */}
           {!isOnline && (
@@ -211,6 +225,13 @@ function AppContent() {
               onClose={() => removeNotification(notification.id)}
             />
           ))}
+
+          {/* Welcome Guide */}
+          <WelcomeGuide
+            isOpen={showWelcomeGuide}
+            onClose={() => setShowWelcomeGuide(false)}
+            userRole={user?.role}
+          />
         </div>
         <Analytics />
       </Providers>

@@ -11,9 +11,7 @@ export function Navigation() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
-  const [isMobileLoginOpen, setIsMobileLoginOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
-  const mobileLoginRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -29,35 +27,35 @@ export function Navigation() {
       if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
         setIsProfileMenuOpen(false);
       }
-      if (mobileLoginRef.current && !mobileLoginRef.current.contains(event.target as Node)) {
-        setIsMobileLoginOpen(false);
-      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Build navigation items depending on role.
-  const navItems = user?.role === 'admin'
-    ? [
-        { path: '/admin/map', icon: MapPin, label: 'Map View' },
-        { path: '/announcements', icon: Megaphone, label: 'Announcements' },
-        { path: '/leaderboard', icon: Award, label: 'Leaderboard' },
-        { path: '/chat', icon: MessageCircle, label: 'Chat' }
-      ]
-    : user?.role === 'patrol'
-    ? [
-        { path: '/patrol', icon: MapPin, label: 'Patrol' },
-        { path: '/announcements', icon: Megaphone, label: 'Announcements' }
-      ]
-    : [
-        { path: '/reports', icon: FileText, label: 'Reports' },
-        { path: '/verification-reports', icon: Shield, label: 'Verification' },
-        { path: '/announcements', icon: Megaphone, label: 'Announcements' },
+  // Simplified navigation items - show only the most important ones
+  const getNavItems = () => {
+    if (user?.role === 'admin') {
+      return [
+        { path: '/admin/map', icon: MapPin, label: 'Map' },
         { path: '/leaderboard', icon: Award, label: 'Leaderboard' },
         { path: '/chat', icon: MessageCircle, label: 'Chat' }
       ];
+    } else if (user?.role === 'patrol') {
+      return [
+        // Patrol users don't need navigation items since they're already on their dashboard
+        // and can't access chat
+      ];
+    } else {
+      return [
+        { path: '/reports', icon: FileText, label: 'Reports' },
+        { path: '/leaderboard', icon: Award, label: 'Leaderboard' },
+        { path: '/chat', icon: MessageCircle, label: 'Chat' }
+      ];
+    }
+  };
+
+  const navItems = getNavItems();
 
   const isActive = (path: string) => {
     return location.pathname === path;
@@ -65,12 +63,6 @@ export function Navigation() {
 
   const handleLogout = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        await signOut();
-        navigate('/login');
-        return;
-      }
       await signOut();
       navigate('/login');
     } catch (error) {
@@ -83,15 +75,15 @@ export function Navigation() {
     <nav 
       className={`fixed w-full z-50 transition-all duration-300 ${
         isScrolled 
-          ? 'bg-[#800000] shadow-md py-2' 
-          : 'bg-[#800000]/90 backdrop-blur-sm py-4'
+          ? 'bg-[#800000] shadow-lg py-2' 
+          : 'bg-[#800000] backdrop-blur-sm py-4'
       }`}
     >
       <div className="container">
         <div className="flex justify-between items-center">
           {/* Logo */}
           <Link 
-            to={user ? (user.role === 'admin' ? '/admin/map' : '/reports') : '/login'}
+            to={user ? (user.role === 'admin' ? '/admin/map' : user.role === 'patrol' ? '/patrol' : '/reports') : '/login'}
             className="flex items-center space-x-2 text-white hover:text-gray-200 transition-colors"
           >
             <img 
@@ -104,21 +96,21 @@ export function Navigation() {
 
           {/* Desktop Navigation */}
           {user && (
-            <div className="hidden md:flex md:items-center md:space-x-1">
+            <div className="hidden md:flex md:items-center md:space-x-2">
               {navItems.map(({ path, icon: Icon, label }) => (
                 <Link
                   key={path}
                   to={path}
                   className={`
-                    inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium 
-                    transition-all duration-200 hover:scale-105
+                    inline-flex items-center px-4 py-2 rounded-lg text-sm font-semibold 
+                    transition-all duration-200 hover:scale-105 shadow-sm
                     ${isActive(path)
-                      ? 'text-white bg-[#fff7ed] bg-opacity-10' 
-                      : 'text-white hover:text-gray-200 hover:bg-[#f4f1ee] hover:bg-opacity-10'
+                      ? 'text-[#800000] bg-white shadow-md' 
+                      : 'text-white hover:text-white hover:bg-white hover:bg-opacity-20 hover:shadow-md'
                     }
                   `}
                 >
-                  <Icon className="h-5 w-5 mr-2" />
+                  <Icon className="h-4 w-4 mr-2" />
                   {label}
                 </Link>
               ))}
@@ -127,7 +119,7 @@ export function Navigation() {
               <div className="relative ml-4" ref={profileMenuRef}>
                 <button
                   onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-                  className="flex items-center space-x-2 px-4 py-2 rounded-lg text-white hover:bg-[#f4f1ee] hover:bg-opacity-10 transition-colors"
+                  className="flex items-center space-x-2 px-3 py-2 rounded-lg text-white hover:bg-white hover:bg-opacity-20 transition-colors shadow-sm hover:shadow-md"
                 >
                   <img
                     src={user.avatar_url || '/images/default-avatar.png'}
@@ -178,7 +170,7 @@ export function Navigation() {
           {user && (
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="md:hidden p-2 rounded-lg text-white hover:bg-[#f4f1ee] hover:bg-opacity-10 transition-colors"
+              className="md:hidden p-2 rounded-lg text-white hover:bg-white hover:bg-opacity-20 transition-colors shadow-sm hover:shadow-md"
               aria-label="Toggle menu"
             >
               {isMobileMenuOpen ? (
@@ -190,62 +182,21 @@ export function Navigation() {
           )}
 
           {!user && (
-            <div className="flex items-center">
-              {/* Desktop: Show all three login options */}
-              <div className="hidden md:flex items-center space-x-4">
-                <Link to="/login" className="text-white hover:text-gray-200 transition-colors px-3 py-2 rounded-lg hover:bg-[#f4f1ee] hover:bg-opacity-10">User Login</Link>
-                <Link to="/patrol/login" className="text-white hover:text-gray-200 transition-colors px-3 py-2 rounded-lg hover:bg-[#f4f1ee] hover:bg-opacity-10">Patrol Login</Link>
-                <Link to="/admin/login" className="text-white hover:text-gray-200 transition-colors px-3 py-2 rounded-lg hover:bg-[#f4f1ee] hover:bg-opacity-10">Admin Login</Link>
-              </div>
-              
-              {/* Mobile: Show a single "Login" button that opens a dropdown */}
-              <div className="md:hidden relative" ref={mobileLoginRef}>
-                <button
-                  onClick={() => setIsMobileLoginOpen(!isMobileLoginOpen)}
-                  className="flex items-center space-x-2 px-4 py-2 rounded-lg text-white hover:bg-[#f4f1ee] hover:bg-opacity-10 transition-colors border border-white border-opacity-20"
-                >
-                  <span className="text-sm font-medium">Login</span>
-                  <ChevronDown className="h-4 w-4" />
-                </button>
-                
-                {/* Mobile Login Dropdown */}
-                {isMobileLoginOpen && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-2 z-50 border border-gray-200">
-                    <Link
-                      to="/login"
-                      className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                      onClick={() => setIsMobileLoginOpen(false)}
-                    >
-                      <User className="h-4 w-4 mr-3 text-gray-500" />
-                      User Login
-                    </Link>
-                    <Link
-                      to="/patrol/login"
-                      className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                      onClick={() => setIsMobileLoginOpen(false)}
-                    >
-                      <MapPin className="h-4 w-4 mr-3 text-gray-500" />
-                      Patrol Login
-                    </Link>
-                    <Link
-                      to="/admin/login"
-                      className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                      onClick={() => setIsMobileLoginOpen(false)}
-                    >
-                      <Shield className="h-4 w-4 mr-3 text-gray-500" />
-                      Admin Login
-                    </Link>
-                  </div>
-                )}
-              </div>
+            <div className="flex items-center space-x-4">
+              <Link to="/login" className="text-white hover:text-white transition-colors px-4 py-2 rounded-lg hover:bg-white hover:bg-opacity-20 font-medium shadow-sm hover:shadow-md">
+                Sign In
+              </Link>
+              <Link to="/register" className="bg-white text-[#800000] px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors font-semibold shadow-md hover:shadow-lg">
+                Get Started
+              </Link>
             </div>
           )}
         </div>
 
         {/* Mobile Menu */}
         {user && isMobileMenuOpen && (
-          <div className="md:hidden border-t border-[#f4f1ee] border-opacity-10 mt-2">
-            <div className="px-4 py-4 border-b border-[#f4f1ee] border-opacity-10">
+          <div className="md:hidden border-t border-white border-opacity-20 mt-2">
+            <div className="px-4 py-4 border-b border-white border-opacity-20">
               <Link 
                 to="/profile" 
                 className="flex items-center space-x-3" 
@@ -260,24 +211,12 @@ export function Navigation() {
             </div>
 
             <div className="px-2 py-3 space-y-1">
-              {(user.role === 'admin'
-                ? [
-                    { path: '/admin/map', icon: MapPin, label: 'Map View' },
-                    { path: '/leaderboard', icon: Award, label: 'Leaderboard' },
-                    { path: '/chat', icon: MessageCircle, label: 'Chat' }
-                  ]
-                : [
-                    { path: '/reports', icon: FileText, label: 'Reports' },
-                    { path: '/verification-reports', icon: Shield, label: 'Verification' },
-                    { path: '/leaderboard', icon: Award, label: 'Leaderboard' },
-                    { path: '/chat', icon: MessageCircle, label: 'Chat' }
-                  ]
-              ).map(({ path, icon: Icon, label }) => (
+              {navItems.map(({ path, icon: Icon, label }) => (
                 <Link
                   key={path}
                   to={path}
                   className={`flex items-center px-4 py-3 rounded-lg text-base font-medium ${
-                    isActive(path) ? 'text-white bg-[#fff7ed] bg-opacity-10' : 'text-white hover:bg-[#f4f1ee] hover:bg-opacity-10'
+                    isActive(path) ? 'text-white bg-white bg-opacity-20' : 'text-white hover:bg-white hover:bg-opacity-10'
                   }`}
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
@@ -287,13 +226,13 @@ export function Navigation() {
               ))}
 
               {user?.role === 'admin' && (
-                <Link to="/admin" className="flex items-center px-4 py-3 rounded-lg text-base font-medium text-white hover:bg-[#f4f1ee] hover:bg-opacity-10" onClick={() => setIsMobileMenuOpen(false)}>
+                <Link to="/admin" className="flex items-center px-4 py-3 rounded-lg text-base font-medium text-white hover:bg-white hover:bg-opacity-10" onClick={() => setIsMobileMenuOpen(false)}>
                   <Shield className="h-6 w-6 mr-3" />
                   Admin Dashboard
                 </Link>
               )}
 
-              <button onClick={() => { setIsMobileMenuOpen(false); handleLogout(); }} className="flex items-center w-full px-4 py-3 rounded-lg text-base font-medium text-white hover:bg-[#f4f1ee] hover:bg-opacity-10">
+              <button onClick={() => { setIsMobileMenuOpen(false); handleLogout(); }} className="flex items-center w-full px-4 py-3 rounded-lg text-base font-medium text-white hover:bg-white hover:bg-opacity-10">
                 <LogOut className="h-6 w-6 mr-3" />
                 Log Out
               </button>

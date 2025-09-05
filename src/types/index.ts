@@ -28,6 +28,28 @@ export interface Report {
   user_profile?: { username: string; avatar_url: string | null };
   patrol_profile?: { username: string; avatar_url: string | null };
   is_liked?: boolean;
+  // Ticketing system fields
+  case_number?: string;
+  priority_level?: number; // 1-5 scale, 5 = highest
+  assigned_group?: 'Engineering Group' | 'Field Group' | 'Maintenance Group' | 'Other';
+  assigned_patroller_name?: string;
+  can_cancel?: boolean;
+  comment_count?: number;
+}
+
+export interface ReportComment {
+  id: string;
+  report_id: string;
+  user_id: string;
+  comment: string;
+  comment_type: 'comment' | 'status_update' | 'assignment' | 'resolution';
+  created_at: string;
+  updated_at: string;
+  user_profile?: { username: string; avatar_url: string | null };
+  likes_count?: number;
+  is_liked?: boolean;
+  replies_count?: number;
+  replies?: CommentReply[];
 }
 
 export interface LeaderboardEntry {

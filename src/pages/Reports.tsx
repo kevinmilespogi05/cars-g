@@ -1,12 +1,35 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Plus, Search, Filter, MapPin, Calendar, User, Heart, MessageCircle, Eye, Clock, CheckCircle, XCircle, AlertTriangle, Loader2, X, Shield } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { 
+  Plus, 
+  Search, 
+  Filter, 
+  MapPin, 
+  Clock, 
+  CheckCircle, 
+  AlertCircle, 
+  FileText,
+  TrendingUp,
+  Users,
+  Award,
+  Loader2,
+  Heart,
+  MessageCircle,
+  Eye,
+  X,
+  Shield,
+  Calendar,
+  XCircle,
+  Hash
+} from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
-import { Report } from '../types';
-import { reportsService } from '../services/reportsService';
 import { supabase } from '../lib/supabase';
-import { LikeDetailsModal } from '../components/LikeDetailsModal';
+import { QuickActions } from '../components/QuickActions';
+import { reportsService } from '../services/reportsService';
 import { AnnouncementCarousel } from '../components/AnnouncementCarousel';
+import { LikeDetailsModal } from '../components/LikeDetailsModal';
+import { Report } from '../types';
 
 const CATEGORIES = ['All', 'Infrastructure', 'Safety', 'Environmental', 'Public Services', 'Other'];
 const STATUSES = ['All', 'Pending', 'In Progress', 'Resolved', 'Rejected'];
@@ -245,7 +268,7 @@ export function Reports() {
       case 'pending':
         return <Clock className="w-4 h-4 text-yellow-500" />;
       case 'in_progress':
-        return <AlertTriangle className="w-4 h-4 text-blue-500" />;
+        return <AlertCircle className="w-4 h-4 text-blue-500" />;
       case 'resolved':
         return <CheckCircle className="w-4 h-4 text-green-500" />;
       case 'rejected':
@@ -320,6 +343,53 @@ export function Reports() {
             <Plus className="h-4 w-4" />
             <span>Create New Report</span>
           </Link>
+        </div>
+
+        {/* Quick Actions */}
+        <div className="mb-8">
+          <QuickActions />
+        </div>
+
+        {/* Status Quick Links */}
+        <div className="bg-white rounded-lg shadow-sm p-4 mb-4 border border-gray-100">
+          <h3 className="text-sm font-medium text-gray-900 mb-3">Quick Status Filters</h3>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setFilters(prev => ({ ...prev, status: 'Pending' }))}
+              className="flex items-center gap-2 px-3 py-2 text-sm bg-yellow-100 text-yellow-800 rounded-md hover:bg-yellow-200 transition-colors"
+            >
+              <Clock className="h-4 w-4" />
+              <span>Pending</span>
+            </button>
+            <button
+              onClick={() => setFilters(prev => ({ ...prev, status: 'In Progress' }))}
+              className="flex items-center gap-2 px-3 py-2 text-sm bg-blue-100 text-blue-800 rounded-md hover:bg-blue-200 transition-colors"
+            >
+              <AlertCircle className="h-4 w-4" />
+              <span>In Progress</span>
+            </button>
+            <button
+              onClick={() => setFilters(prev => ({ ...prev, status: 'Resolved' }))}
+              className="flex items-center gap-2 px-3 py-2 text-sm bg-green-100 text-green-800 rounded-md hover:bg-green-200 transition-colors"
+            >
+              <CheckCircle className="h-4 w-4" />
+              <span>Resolved</span>
+            </button>
+            <button
+              onClick={() => setFilters(prev => ({ ...prev, status: 'Rejected' }))}
+              className="flex items-center gap-2 px-3 py-2 text-sm bg-red-100 text-red-800 rounded-md hover:bg-red-200 transition-colors"
+            >
+              <XCircle className="h-4 w-4" />
+              <span>Rejected</span>
+            </button>
+            <button
+              onClick={() => setFilters(prev => ({ ...prev, status: 'All' }))}
+              className="flex items-center gap-2 px-3 py-2 text-sm bg-gray-100 text-gray-800 rounded-md hover:bg-gray-200 transition-colors"
+            >
+              <Filter className="h-4 w-4" />
+              <span>All Reports</span>
+            </button>
+          </div>
         </div>
 
         {/* Search and Filters Section - More compact and user-friendly */}
@@ -423,6 +493,14 @@ export function Reports() {
                   <h3 className="font-semibold text-gray-900 text-sm leading-tight line-clamp-1 mb-2">
                     {report.title}
                   </h3>
+                  
+                  {/* Case Number */}
+                  {report.case_number && (
+                    <div className="flex items-center text-xs text-gray-500 mb-2">
+                      <Hash className="h-3 w-3 mr-1" />
+                      <span>Case #{report.case_number}</span>
+                    </div>
+                  )}
 
                   {/* Description - Shorter, more readable */}
                   <p className="text-gray-600 text-xs leading-relaxed line-clamp-2 mb-3">
@@ -443,7 +521,7 @@ export function Reports() {
                   {/* Meta Information - More compact layout */}
                   <div className="flex items-center justify-between text-xs text-gray-500 mb-2.5">
                     <div className="flex items-center gap-1">
-                      <User className="h-3 w-3" />
+                      <Users className="h-3 w-3" />
                       <span className="truncate max-w-[80px]">{report.user_profile?.username || 'Anonymous'}</span>
                     </div>
                     <div className="flex items-center gap-1 text-gray-400">

@@ -7,8 +7,6 @@ import { PatrolRoute } from '../components/PatrolRoute';
 const LandingPage = lazy(() => import('../pages/LandingPage').then(module => ({ default: module.LandingPage })));
 const Login = lazy(() => import('../pages/Login').then(module => ({ default: module.Login })));
 const Register = lazy(() => import('../pages/Register').then(module => ({ default: module.Register })));
-const AdminLogin = lazy(() => import('../pages/AdminLogin').then(module => ({ default: module.AdminLogin })));
-const PatrolLogin = lazy(() => import('../pages/PatrolLogin').then(module => ({ default: module.PatrolLogin })));
 const PatrolDashboard = lazy(() => import('../pages/PatrolDashboard').then(module => ({ default: module.PatrolDashboard })));
 const AuthCallback = lazy(() => import('../pages/AuthCallback').then(module => ({ default: module.AuthCallback })));
 const Reports = lazy(() => import('../pages/Reports').then(module => ({ default: module.Reports })));
@@ -16,11 +14,9 @@ const CreateReport = lazy(() => import('../pages/CreateReport').then(module => (
 const ReportDetail = lazy(() => import('../pages/ReportDetail').then(module => ({ default: module.ReportDetail })));
 const LeaderboardPage = lazy(() => import('../pages/LeaderboardPage').then(module => ({ default: module.LeaderboardPage })));
 const Profile = lazy(() => import('../pages/Profile').then(module => ({ default: module.Profile })));
-const MapTestPage = lazy(() => import('../pages/MapTestPage').then(module => ({ default: module.MapTestPage })));
 const AdminDashboard = lazy(() => import('../pages/AdminDashboard').then(module => ({ default: module.AdminDashboard })));
 const PrivacyPolicy = lazy(() => import('../pages/PrivacyPolicy').then(module => ({ default: module.PrivacyPolicy })));
 const Chat = lazy(() => import('../pages/Chat').then(module => ({ default: module.Chat })));
-const NetworkTest = lazy(() => import('../pages/NetworkTest').then(module => ({ default: module.NetworkTest })));
 const AdminMapDashboard = lazy(() => import('../components/AdminMapDashboard').then(module => ({ default: module.AdminMapDashboard })));
 const AdminHistory = lazy(() => import('../pages/AdminHistory').then(module => ({ default: module.AdminHistory })));
 const VerificationReports = lazy(() => import('../pages/VerificationReports').then(module => ({ default: module.VerificationReports })));
@@ -40,18 +36,6 @@ export const publicRoutes: RouteObject[] = [
     element: <Login />
   },
   {
-    path: '/admin/login',
-    element: <AdminLogin />
-  },
-  {
-    path: '/patrol/login',
-    element: <PatrolLogin />
-  },
-  {
-    path: '/patrol',
-    element: <PatrolRoute><PatrolDashboard /></PatrolRoute>
-  },
-  {
     path: '/register',
     element: <Register />
   },
@@ -68,11 +52,11 @@ export const publicRoutes: RouteObject[] = [
 export const protectedRoutes: RouteObject[] = [
   {
     path: '/reports',
-    element: <ProtectedRoute adminRedirect={true}><Reports /></ProtectedRoute>
+    element: <ProtectedRoute adminRedirect={true} patrolRedirect={true}><Reports /></ProtectedRoute>
   },
   {
     path: '/reports/create',
-    element: <ProtectedRoute adminRedirect={true}><CreateReport /></ProtectedRoute>
+    element: <ProtectedRoute adminRedirect={true} patrolRedirect={true}><CreateReport /></ProtectedRoute>
   },
   {
     path: '/reports/:id',
@@ -91,24 +75,23 @@ export const protectedRoutes: RouteObject[] = [
     element: <ProtectedRoute><Profile /></ProtectedRoute>
   },
   {
-    path: '/map-test',
-    element: <ProtectedRoute adminRedirect={true}><MapTestPage /></ProtectedRoute>
-  },
-  {
     path: '/chat',
     element: <ProtectedRoute><Chat /></ProtectedRoute>
   },
   {
-    path: '/network-test',
-    element: <ProtectedRoute adminRedirect={true}><NetworkTest /></ProtectedRoute>
-  },
-  {
     path: '/verification-reports',
-    element: <ProtectedRoute adminRedirect={true}><VerificationReports /></ProtectedRoute>
+    element: <ProtectedRoute adminRedirect={true} patrolRedirect={true}><VerificationReports /></ProtectedRoute>
   },
   {
     path: '/announcements',
     element: <ProtectedRoute><Announcements /></ProtectedRoute>
+  }
+];
+
+export const patrolRoutes: RouteObject[] = [
+  {
+    path: '/patrol',
+    element: <PatrolRoute><PatrolDashboard /></PatrolRoute>
   }
 ];
 

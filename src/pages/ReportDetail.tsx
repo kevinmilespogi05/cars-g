@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { MapPin, Heart, MessageCircle, Send, Loader2, ChevronLeft, ChevronRight, ArrowLeft, X, Reply } from 'lucide-react';
+import { MapPin, Heart, MessageCircle, Send, Loader2, ChevronLeft, ChevronRight, ArrowLeft, X, Reply, Hash, User, Users, ShieldCheck, ChevronDown, ChevronUp } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
 import { LikeDetailsModal } from '../components/LikeDetailsModal';
-import { Comment, CommentReply } from '../types';
+import { Comment, CommentReply, ReportComment } from '../types';
 import { reportsService } from '../services/reportsService';
+import { CommentsService } from '../services/commentsService';
 import { ReplyThread } from '../components/ReplyThread';
 
 interface Report {
@@ -25,6 +26,13 @@ interface Report {
   likes_count: number;
   comments_count: number;
   is_liked: boolean;
+  // Ticketing system fields
+  case_number?: string;
+  priority_level?: number;
+  assigned_group?: string;
+  assigned_patroller_name?: string;
+  patrol_user_id?: string;
+  can_cancel?: boolean;
 }
 
 export function ReportDetail() {
@@ -35,16 +43,19 @@ export function ReportDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
+  const [reportComments, setReportComments] = useState<ReportComment[]>([]);
   const [commentContent, setCommentContent] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
   const [likeLoading, setLikeLoading] = useState(false);
   const [selectedImage, setSelectedImage] = useState<{ url: string; index: number } | null>(null);
   const [likeDetailsModal, setLikeDetailsModal] = useState<any>(null);
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
+  const [expandedCommentReplies, setExpandedCommentReplies] = useState<{ [key: string]: boolean }>({});
   const [replyContent, setReplyContent] = useState('');
   const [submittingReply, setSubmittingReply] = useState(false);
   const [commentLikeLoading, setCommentLikeLoading] = useState<{ [key: string]: boolean }>({});
   const [nestedReplyForms, setNestedReplyForms] = useState<{ [key: string]: { content: string; submitting: boolean } }>({});
+  const [isCommentsCollapsed, setIsCommentsCollapsed] = useState(false);
 
   // Create a fallback image data URL
   const fallbackImageUrl = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiB2aWV3Qm94PSIwIDAgMjAwIDIwMCI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiNmMGYwZjAiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE2IiBmaWxsPSIjODg4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5JbWFnZSBub3QgYXZhaWxhYmxlPC90ZXh0Pjwvc3ZnPg==";
@@ -81,6 +92,7 @@ export function ReportDetail() {
     if (id) {
       fetchReport();
       fetchComments();
+      fetchReportComments();
     }
   }, [id]);
 
@@ -139,6 +151,15 @@ export function ReportDetail() {
       console.error('Error fetching report:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchReportComments = async () => {
+    try {
+      const commentsData = await CommentsService.getComments(id!);
+      setReportComments(commentsData);
+    } catch (error) {
+      console.error('Error fetching report comments:', error);
     }
   };
 
@@ -293,22 +314,11 @@ export function ReportDetail() {
     setSubmittingComment(true);
     try {
       console.log('Submitting comment for report:', report.id);
-      const { error } = await supabase
-        .from('comments')
-        .insert({
-          report_id: report.id,
-          user_id: user.id,
-          content: commentContent.trim()
-        });
-
-      if (error) {
-        console.error('Supabase error:', error);
-        throw error;
-      }
-
+      // Only add to report comments system (unified system)
+      const newComment = await CommentsService.addComment(report.id, commentContent.trim(), 'comment');
+      setReportComments(prev => [...prev, newComment]);
+      
       console.log('Comment submitted successfully');
-      // Refresh comments and update comment count
-      await fetchComments();
       
       // Update the report's comment count
       setReport(prev => prev ? {
@@ -335,7 +345,7 @@ export function ReportDetail() {
     try {
       const isLiked = await reportsService.toggleCommentLike(commentId);
       
-      // Update the comment's like status and count
+      // Update both regular comments and report comments
       setComments(prev => 
         prev.map(comment => 
           comment.id === commentId 
@@ -349,6 +359,14 @@ export function ReportDetail() {
             : comment
         )
       );
+
+      setReportComments(prev => CommentsService.updateCommentLikeCount(prev, commentId, isLiked));
+
+      // If the like details modal is open for this comment, refresh it
+      if (likeDetailsModal?.isOpen && likeDetailsModal?.commentId === commentId) {
+        // Trigger a refresh of the like details modal
+        setLikeDetailsModal(prev => ({ ...prev, refreshTrigger: Date.now() }));
+      }
     } catch (error) {
       console.error('Error toggling comment like:', error);
       alert('Failed to like/unlike comment. Please try again.');
@@ -372,12 +390,24 @@ export function ReportDetail() {
     try {
       const reply = await reportsService.addCommentReply(commentId, replyContent.trim());
       
-      // Add the reply to the comment
+      // Add the reply to both regular comments and report comments
       setComments(prev => 
         prev.map(comment => 
           comment.id === commentId 
             ? { 
                 ...comment, 
+                replies: [...(comment.replies || []), reply],
+                replies_count: (comment.replies_count || 0) + 1
+              }
+            : comment
+        )
+      );
+
+      setReportComments(prev => 
+        prev.map(comment => 
+          comment.id === commentId 
+            ? {
+                ...comment,
                 replies: [...(comment.replies || []), reply],
                 replies_count: (comment.replies_count || 0) + 1
               }
@@ -471,74 +501,72 @@ export function ReportDetail() {
 
     setCommentLikeLoading(prev => ({ ...prev, [replyId]: true }));
     try {
-      // Optimistic update
+      // Optimistic update (both regular comments and report comments trees)
       let previousState: CommentReply | null = null;
-      setComments(prev => 
-        prev.map(comment => {
-          const updateReplyLikes = (replies: CommentReply[]): CommentReply[] => {
-            return replies.map(reply => {
-              if (reply.id === replyId) {
-                previousState = { ...reply };
-                const nextLiked = !reply.is_liked;
-                const nextCount = nextLiked ? (reply.likes_count || 0) + 1 : Math.max(0, (reply.likes_count || 0) - 1);
-                return { ...reply, is_liked: nextLiked, likes_count: nextCount };
-              }
-              if (reply.replies) {
-                return { ...reply, replies: updateReplyLikes(reply.replies) };
-              }
-              return reply;
-            });
-          };
 
-          return {
-            ...comment,
-            replies: updateReplyLikes(comment.replies || [])
-          };
-        })
-      );
+      const applyOptimistic = (tree: CommentReply[]): CommentReply[] => {
+        const updateReplyLikes = (replies: CommentReply[]): CommentReply[] => {
+          return replies.map(reply => {
+            if (reply.id === replyId) {
+              previousState = previousState || { ...reply };
+              const nextLiked = !reply.is_liked;
+              const nextCount = nextLiked ? (reply.likes_count || 0) + 1 : Math.max(0, (reply.likes_count || 0) - 1);
+              return { ...reply, is_liked: nextLiked, likes_count: nextCount };
+            }
+            if (reply.replies) {
+              return { ...reply, replies: updateReplyLikes(reply.replies) };
+            }
+            return reply;
+          });
+        };
+        return updateReplyLikes(tree || []);
+      };
+
+      setComments(prev => prev.map(comment => ({ ...comment, replies: applyOptimistic(comment.replies || []) })));
+      setReportComments(prev => prev.map(comment => ({ ...comment, replies: applyOptimistic(comment.replies || []) })));
 
       // Call API
       const isLiked = await reportsService.toggleReplyLike(replyId);
-      // If server result disagrees with optimistic toggle, adjust
+      // If server/local result disagrees with optimistic toggle, adjust
       if (previousState && previousState.is_liked === isLiked) {
         // No change needed
       } else if (previousState) {
-        setComments(prev => 
-          prev.map(comment => {
-            const fixReplies = (replies: CommentReply[]): CommentReply[] => {
-              return replies.map(reply => {
-                if (reply.id === replyId) {
-                  const nextCount = isLiked ? (previousState!.likes_count || 0) + 1 : Math.max(0, (previousState!.likes_count || 0) - 1);
-                  return { ...reply, is_liked: isLiked, likes_count: nextCount };
-                }
-                if (reply.replies) return { ...reply, replies: fixReplies(reply.replies) };
-                return reply;
-              });
-            };
-            return { ...comment, replies: fixReplies(comment.replies || []) };
-          })
-        );
+        const applyFix = (tree: CommentReply[]): CommentReply[] => {
+          const fixReplies = (replies: CommentReply[]): CommentReply[] => {
+            return replies.map(reply => {
+              if (reply.id === replyId) {
+                const nextCount = isLiked ? (previousState!.likes_count || 0) + 1 : Math.max(0, (previousState!.likes_count || 0) - 1);
+                return { ...reply, is_liked: isLiked, likes_count: nextCount };
+              }
+              if (reply.replies) return { ...reply, replies: fixReplies(reply.replies) };
+              return reply;
+            });
+          };
+          return fixReplies(tree || []);
+        };
+        setComments(prev => prev.map(comment => ({ ...comment, replies: applyFix(comment.replies || []) })));
+        setReportComments(prev => prev.map(comment => ({ ...comment, replies: applyFix(comment.replies || []) })));
       }
     } catch (error) {
       console.error('Error toggling reply like:', error);
       alert('Failed to like/unlike reply. Please try again.');
       // Rollback optimistic update
-      setComments(prev => 
-        prev.map(comment => {
-          const rollback = (replies: CommentReply[]): CommentReply[] => {
-            return replies.map(reply => {
-              if (reply.id === replyId) {
-                const nextLiked = !reply.is_liked;
-                const nextCount = nextLiked ? (reply.likes_count || 0) + 1 : Math.max(0, (reply.likes_count || 0) - 1);
-                return { ...reply, is_liked: nextLiked, likes_count: nextCount };
-              }
-              if (reply.replies) return { ...reply, replies: rollback(reply.replies) };
-              return reply;
-            });
-          };
-          return { ...comment, replies: rollback(comment.replies || []) };
-        })
-      );
+      const applyRollback = (tree: CommentReply[]): CommentReply[] => {
+        const rollback = (replies: CommentReply[]): CommentReply[] => {
+          return replies.map(reply => {
+            if (reply.id === replyId) {
+              const nextLiked = !reply.is_liked;
+              const nextCount = nextLiked ? (reply.likes_count || 0) + 1 : Math.max(0, (reply.likes_count || 0) - 1);
+              return { ...reply, is_liked: nextLiked, likes_count: nextCount };
+            }
+            if (reply.replies) return { ...reply, replies: rollback(reply.replies) };
+            return reply;
+          });
+        };
+        return rollback(tree || []);
+      };
+      setComments(prev => prev.map(comment => ({ ...comment, replies: applyRollback(comment.replies || []) })));
+      setReportComments(prev => prev.map(comment => ({ ...comment, replies: applyRollback(comment.replies || []) })));
     } finally {
       setCommentLikeLoading(prev => ({ ...prev, [replyId]: false }));
     }
@@ -619,6 +647,23 @@ export function ReportDetail() {
           <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getPriorityColor(report.priority)}`}>
             {report.priority}
           </span>
+          {report.case_number && (
+            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+              <Hash className="h-3 w-3 mr-1" />
+              #{report.case_number}
+            </span>
+          )}
+          {report.priority_level && (
+            <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+              report.priority_level >= 5 ? 'bg-red-100 text-red-800' :
+              report.priority_level >= 4 ? 'bg-orange-100 text-orange-800' :
+              report.priority_level >= 3 ? 'bg-yellow-100 text-yellow-800' :
+              report.priority_level >= 2 ? 'bg-blue-100 text-blue-800' :
+              'bg-green-100 text-green-800'
+            }`}>
+              Level {report.priority_level}
+            </span>
+          )}
         </div>
 
         <p className="text-gray-700 mb-4 whitespace-pre-wrap">{report.description}</p>
@@ -627,6 +672,56 @@ export function ReportDetail() {
           <MapPin className="h-4 w-4 mr-1.5 flex-shrink-0 text-gray-700" />
           <span>{report.location_address}</span>
         </div>
+
+        {/* Ticketing Information */}
+        {(report.case_number || report.priority_level || report.assigned_group || report.assigned_patroller_name) && (
+          <div className="bg-gray-50 rounded-lg p-4 mb-6">
+            <h3 className="text-sm font-medium text-gray-900 mb-3">Case Information</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {report.case_number && (
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Case Number</p>
+                  <p className="text-sm text-gray-900 flex items-center">
+                    <Hash className="h-4 w-4 mr-1" />
+                    #{report.case_number}
+                  </p>
+                </div>
+              )}
+              {report.priority_level && (
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Priority Level</p>
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    report.priority_level >= 5 ? 'bg-red-100 text-red-800' :
+                    report.priority_level >= 4 ? 'bg-orange-100 text-orange-800' :
+                    report.priority_level >= 3 ? 'bg-yellow-100 text-yellow-800' :
+                    report.priority_level >= 2 ? 'bg-blue-100 text-blue-800' :
+                    'bg-green-100 text-green-800'
+                  }`}>
+                    Level {report.priority_level} (5 = Highest)
+                  </span>
+                </div>
+              )}
+              {report.assigned_group && (
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Assigned Group</p>
+                  <p className="text-sm text-gray-900 flex items-center">
+                    <Users className="h-4 w-4 mr-1" />
+                    {report.assigned_group}
+                  </p>
+                </div>
+              )}
+              {report.assigned_patroller_name && (
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Assigned Patroller</p>
+                  <p className="text-sm text-gray-900 flex items-center">
+                    <ShieldCheck className="h-4 w-4 mr-1" />
+                    {report.assigned_patroller_name}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Images */}
         {report.images && report.images.length > 0 && (
@@ -716,153 +811,252 @@ export function ReportDetail() {
 
       {/* Comments Section */}
       <div className="mt-8">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Comments</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold text-gray-900 flex items-center">
+            <MessageCircle className="h-5 w-5 mr-2" />
+            Comments & Updates
+          </h2>
+          <button
+            onClick={() => setIsCommentsCollapsed(!isCommentsCollapsed)}
+            className="flex items-center space-x-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+          >
+            <span>{isCommentsCollapsed ? 'Show' : 'Hide'}</span>
+            {isCommentsCollapsed ? (
+              <ChevronDown className="h-4 w-4" />
+            ) : (
+              <ChevronUp className="h-4 w-4" />
+            )}
+          </button>
+        </div>
 
-        {/* Comment Form */}
-        {user && (
-          <form onSubmit={handleSubmitComment} className="mb-6">
-            <textarea
-              value={commentContent}
-              onChange={(e) => setCommentContent(e.target.value)}
-              placeholder="Write a comment..."
-              className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-primary-color focus:border-primary-color text-base bg-white text-gray-900 placeholder-gray-400 resize-none"
-              rows={3}
-            />
-            <div className="mt-2 flex justify-end">
-              <button
-                type="submit"
-                disabled={submittingComment || !commentContent.trim()}
-                className="px-4 py-2 bg-primary-color text-white rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {submittingComment ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                ) : (
-                  'Post Comment'
-                )}
-              </button>
+        {/* Collapsible Comment Content */}
+        {!isCommentsCollapsed && (
+          <>
+            {/* Comment Form */}
+            {user && (
+              <form onSubmit={handleSubmitComment} className="mb-6">
+                <textarea
+                  value={commentContent}
+                  onChange={(e) => setCommentContent(e.target.value)}
+                  placeholder="Write a comment..."
+                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-primary-color focus:border-primary-color text-base bg-white text-gray-900 placeholder-gray-400 resize-none"
+                  rows={3}
+                />
+                <div className="mt-2 flex justify-end">
+                  <button
+                    type="submit"
+                    disabled={submittingComment || !commentContent.trim()}
+                    className="px-4 py-2 bg-primary-color text-white rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {submittingComment ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      'Post Comment'
+                    )}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* Merged Comments Section */}
+            <div className="space-y-4">
+              {/* All Comments - Case Updates first, then user comments */}
+              {reportComments.length > 0 && (
+                <div className="space-y-3">
+                  {reportComments.map((comment) => {
+                    // Determine if this is a patrol comment or user comment
+                    const isPatrolComment = comment.comment_type !== 'comment';
+                    
+                    return (
+                      <div key={comment.id} className={`rounded-lg p-4 border-l-4 ${
+                        isPatrolComment 
+                          ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-500 shadow-md' 
+                          : 'bg-white shadow-sm border-gray-100 border-l-gray-300'
+                      }`}>
+                        <div className="flex items-start space-x-3">
+                          <div className="flex-shrink-0">
+                            {isPatrolComment ? (
+                              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg">
+                                <ShieldCheck className="h-5 w-5 text-white" />
+                              </div>
+                            ) : (
+                              <img
+                                className="h-8 w-8 rounded-full object-cover border-2 border-gray-200 shadow-sm"
+                                src={comment.user_profile?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(comment.user_profile?.username || 'Unknown')}`}
+                                alt={comment.user_profile?.username || 'Unknown'}
+                              />
+                            )}
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-2 mb-2">
+                              <span className={`text-sm font-semibold ${
+                                isPatrolComment ? 'text-blue-900' : 'text-gray-900'
+                              }`}>
+                                {comment.user_profile?.username || 'Unknown'}
+                              </span>
+                              {isPatrolComment && (
+                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold uppercase tracking-wide ${
+                                  comment.comment_type === 'status_update' ? 'bg-blue-200 text-blue-900' :
+                                  comment.comment_type === 'assignment' ? 'bg-purple-200 text-purple-900' :
+                                  comment.comment_type === 'resolution' ? 'bg-green-200 text-green-900' :
+                                  'bg-gray-200 text-gray-900'
+                                }">
+                                  {comment.comment_type.replace('_', ' ')}
+                                </span>
+                              )}
+                              <span className={`text-xs ${
+                                isPatrolComment ? 'text-blue-600' : 'text-gray-500'
+                              }`}>
+                                {new Date(comment.created_at).toLocaleString()}
+                              </span>
+                              {isPatrolComment && (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                  <ShieldCheck className="h-3 w-3 mr-1" />
+                                  OFFICIAL
+                                </span>
+                              )}
+                            </div>
+                            <div className={`rounded-lg p-3 ${
+                              isPatrolComment 
+                                ? 'bg-white/70 border border-blue-200' 
+                                : 'bg-gray-50'
+                            }`}>
+                              <p className={`text-sm ${
+                                isPatrolComment ? 'text-blue-900 font-medium' : 'text-gray-700'
+                              }`}>
+                                {comment.comment}
+                              </p>
+                            </div>
+                            
+                            {/* Comment Actions */}
+                            <div className="flex items-center gap-4 mt-3">
+                              <button
+                                onClick={() => handleCommentLike(comment.id)}
+                                disabled={likeLoading}
+                                className={`flex items-center gap-1 text-sm transition-colors ${
+                                  comment.is_liked ? 'text-red-500' : 'text-gray-500 hover:text-red-500'
+                                }`}
+                              >
+                                {likeLoading ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Heart className={`h-4 w-4 ${comment.is_liked ? 'fill-current' : ''}`} />
+                                )}
+                                <span
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if ((comment.likes_count || 0) > 0) {
+                                      setLikeDetailsModal({
+                                        isOpen: true,
+                                        commentId: comment.id,
+                                        // Ensure we fetch comment like details (not report likes)
+                                        reportId: '',
+                                        reportTitle: report.title
+                                      });
+                                    }
+                                  }}
+                                  className={(comment.likes_count || 0) > 0 ? 'cursor-pointer' : ''}
+                                >
+                                  {comment.likes_count || 0}
+                                </span>
+                              </button>
+                              
+                              <button
+                                onClick={() => setReplyingTo(replyingTo === comment.id ? null : comment.id)}
+                                className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+                              >
+                                <Reply className="h-4 w-4" />
+                                <span>Reply</span>
+                                {comment.replies_count > 0 && (
+                                  <span className="text-xs">({comment.replies_count})</span>
+                                )}
+                              </button>
+                            </div>
+
+                            {/* Reply Form */}
+                            {replyingTo === comment.id && (
+                              <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+                                <textarea
+                                  value={replyContent}
+                                  onChange={(e) => setReplyContent(e.target.value)}
+                                  placeholder="Write a reply..."
+                                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-primary-color focus:border-primary-color text-sm bg-white text-gray-900 placeholder-gray-400 resize-none"
+                                  rows={2}
+                                />
+                                <div className="mt-2 flex justify-end gap-2">
+                                  <button
+                                    onClick={() => {
+                                      setReplyingTo(null);
+                                      setReplyContent('');
+                                    }}
+                                    className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button
+                                    onClick={() => handleReply(comment.id)}
+                                    disabled={submittingReply || !replyContent.trim()}
+                                    className="px-3 py-1 bg-primary-color text-white text-sm rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    {submittingReply ? (
+                                      <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                      'Reply'
+                                    )}
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Replies */}
+                            {comment.replies && comment.replies.length > 0 && (
+                              <div className="mt-3">
+                                <button
+                                  onClick={() => setExpandedCommentReplies(prev => ({ ...prev, [comment.id]: !prev[comment.id] }))}
+                                  className="text-xs text-gray-600 hover:text-gray-800"
+                                >
+                                  {expandedCommentReplies[comment.id] ? 'Hide replies' : `Show ${comment.replies.length} repl${comment.replies.length === 1 ? 'y' : 'ies'}`}
+                                </button>
+                                {expandedCommentReplies[comment.id] && (
+                                  <div className="mt-2">
+                                    <ReplyThread
+                                      replies={comment.replies}
+                                      commentId={comment.id}
+                                      onLike={handleReplyLike}
+                                      onReply={handleNestedReply}
+                                      likeLoading={commentLikeLoading}
+                                      nestedReplyForms={nestedReplyForms}
+                                      setNestedReplyForms={setNestedReplyForms}
+                                      maxDepth={5}
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-          </form>
+          </>
         )}
 
-        {/* Comments List */}
-        <div className="space-y-4">
-          {comments.map((comment) => (
-            <div key={comment.id} className="bg-white rounded-lg p-4 shadow-sm border border-gray-100">
-              <div className="flex items-start gap-3">
-                <img
-                  className="h-8 w-8 rounded-full object-cover border border-gray-200"
-                  src={comment.user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(comment.user.username)}`}
-                  alt={comment.user.username}
-                />
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-gray-900">{comment.user.username}</span>
-                    <span className="text-xs text-gray-700">
-                      {new Date(comment.created_at).toLocaleString()}
-                    </span>
-                  </div>
-                  <p className="mt-1 text-sm text-gray-700 whitespace-pre-wrap">{comment.content}</p>
-                  
-                  {/* Comment Actions */}
-                  <div className="flex items-center gap-4 mt-3">
-                    <button
-                      onClick={() => handleCommentLike(comment.id)}
-                      disabled={commentLikeLoading[comment.id]}
-                      className={`flex items-center gap-1 text-sm transition-colors ${
-                        comment.is_liked ? 'text-red-500' : 'text-gray-500 hover:text-red-500'
-                      }`}
-                    >
-                      {commentLikeLoading[comment.id] ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Heart className={`h-4 w-4 ${comment.is_liked ? 'fill-current' : ''}`} />
-                      )}
-                      <span
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if ((comment.likes_count || 0) > 0) {
-                            setLikeDetailsModal({
-                              isOpen: true,
-                              // @ts-ignore
-                              commentId: comment.id,
-                              reportId: '' as any,
-                              reportTitle: ''
-                            } as any);
-                          }
-                        }}
-                        className={(comment.likes_count || 0) > 0 ? 'cursor-pointer' : ''}
-                      >
-                        {comment.likes_count || 0}
-                      </span>
-                    </button>
-                    
-                    <button
-                      onClick={() => setReplyingTo(replyingTo === comment.id ? null : comment.id)}
-                      className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 transition-colors"
-                    >
-                      <Reply className="h-4 w-4" />
-                      <span>Reply</span>
-                      {comment.replies_count > 0 && (
-                        <span className="text-xs">({comment.replies_count})</span>
-                      )}
-                    </button>
-                  </div>
-
-                  {/* Reply Form */}
-                  {replyingTo === comment.id && (
-                    <div className="mt-3 p-3 bg-gray-50 rounded-lg">
-                      <textarea
-                        value={replyContent}
-                        onChange={(e) => setReplyContent(e.target.value)}
-                        placeholder="Write a reply..."
-                        className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-primary-color focus:border-primary-color text-sm bg-white text-gray-900 placeholder-gray-400 resize-none"
-                        rows={2}
-                      />
-                      <div className="mt-2 flex justify-end gap-2">
-                        <button
-                          onClick={() => {
-                            setReplyingTo(null);
-                            setReplyContent('');
-                          }}
-                          className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800 transition-colors"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={() => handleReply(comment.id)}
-                          disabled={submittingReply || !replyContent.trim()}
-                          className="px-3 py-1 bg-primary-color text-white text-sm rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {submittingReply ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            'Reply'
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Replies */}
-                  {comment.replies && comment.replies.length > 0 && (
-                    <div className="mt-3">
-                      <ReplyThread
-                        replies={comment.replies}
-                        commentId={comment.id}
-                        onLike={handleReplyLike}
-                        onReply={handleNestedReply}
-                        likeLoading={commentLikeLoading}
-                        nestedReplyForms={nestedReplyForms}
-                        setNestedReplyForms={setNestedReplyForms}
-                        maxDepth={5}
-                      />
-                    </div>
-                  )}
-                </div>
+        {/* Collapsed State Summary */}
+        {isCommentsCollapsed && (
+          <div className="bg-gray-50 rounded-lg p-4 text-center">
+            <div className="flex items-center justify-center space-x-4 text-sm text-gray-600">
+              <div className="flex items-center space-x-1">
+                <MessageCircle className="h-4 w-4 text-blue-600" />
+                <span>{reportComments.length} Comments & Updates</span>
               </div>
             </div>
-          ))}
-        </div>
+            <p className="text-xs text-gray-500 mt-2">Click "Show" to view all comments</p>
+          </div>
+        )}
+
       </div>
 
       {/* Image Modal */}
@@ -925,6 +1119,7 @@ export function ReportDetail() {
           reportTitle={likeDetailsModal.reportTitle}
           commentId={likeDetailsModal.commentId}
           replyId={likeDetailsModal.replyId}
+          refreshTrigger={likeDetailsModal.refreshTrigger}
           contextLabel={
             likeDetailsModal.replyId ? 'People who liked this reply' :
             likeDetailsModal.commentId ? 'People who liked this comment' :

@@ -147,13 +147,17 @@ export const reportsService = {
         },
         location_address: (reportData as any).location_address,
         images: (reportData as any).images || [],
+        // Ticketing system fields
+        priority_level: (reportData as any).priority_level || 3,
+        assigned_group: (reportData as any).assigned_group || null,
+        can_cancel: (reportData as any).can_cancel !== false, // Default to true
         // idempotency_key intentionally omitted: column not present in schema
       };
 
       const { data, error } = await supabase
         .from('reports')
         .insert([payload])
-        .select('id, user_id, title, description, category, priority, status, location, location_address, images, created_at, updated_at')
+        .select('id, user_id, title, description, category, priority, status, location, location_address, images, created_at, updated_at, case_number, priority_level, assigned_group, assigned_patroller_name, can_cancel')
         .single();
 
       if (error) throw error;
@@ -205,6 +209,60 @@ export const reportsService = {
   // Fetch replies for a comment with nested replies and like info
   async getCommentReplies(commentId: string, maxDepth: number = 5): Promise<CommentReply[]> {
     try {
+      // Always load simulated (report comment) replies from localStorage first
+      const repliesKey = 'report_comment_replies';
+      const stored = JSON.parse(localStorage.getItem(repliesKey) || '{}');
+
+      const rawReplies = Array.isArray(stored[commentId]) ? stored[commentId] : [];
+
+      // Build like maps for mock replies
+      const allLikes = JSON.parse(localStorage.getItem('report_comment_reply_all_likes') || '{}');
+      const { data: { user } } = await supabase.auth.getUser();
+
+      // Ensure profiles are cached for mock replies
+      const mockUserIds = [...new Set(rawReplies.map((r: any) => r.user_id))];
+      const uncachedMock = mockUserIds.filter(id => !_getCachedProfile(id));
+      if (uncachedMock.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, username, avatar_url')
+          .in('id', uncachedMock);
+        (profiles || []).forEach(p => _cacheProfile(p.id, { username: p.username, avatar_url: p.avatar_url }));
+      }
+
+      const mapLikes = (replyId: string) => {
+        let count = 0;
+        Object.keys(allLikes).forEach(uid => {
+          if (allLikes[uid] && allLikes[uid][replyId]) count++;
+        });
+        const isLiked = user ? !!(allLikes[user.id] && allLikes[user.id][replyId]) : false;
+        return { count, isLiked };
+      };
+
+      const buildMockTree = (list: any[], depth: number): CommentReply[] => {
+        return (list || []).map((r: any) => {
+          const profile = _getCachedProfile(r.user_id) || { username: 'User', avatar_url: null };
+          const likeInfo = mapLikes(r.id);
+          const nested = r.replies ? buildMockTree(r.replies, depth + 1) : [];
+          return {
+            id: r.id,
+            parent_comment_id: r.parent_comment_id || undefined,
+            parent_reply_id: r.parent_reply_id || undefined,
+            user_id: r.user_id,
+            content: r.content,
+            created_at: r.created_at,
+            updated_at: r.updated_at,
+            user: { username: profile.username, avatar_url: profile.avatar_url },
+            replies: nested,
+            reply_depth: depth,
+            likes_count: likeInfo.count,
+            is_liked: likeInfo.isLiked
+          } as CommentReply;
+        });
+      };
+
+      const mockReplies = buildMockTree(rawReplies, 0);
+
       const { data: rootReplies, error } = await supabase
         .from('comment_replies')
         .select('*')
@@ -271,7 +329,10 @@ export const reportsService = {
         return result;
       };
 
-      return await hydrateReplies(rootReplies || [], 0);
+      // Merge DB replies (if any) with mock replies from localStorage
+      const dbReplies = await hydrateReplies(rootReplies || [], 0);
+      // Prefer to show DB replies first, then mock replies
+      return [...dbReplies, ...mockReplies];
     } catch (error) {
       throw new ReportsServiceError(`Failed to get comment replies: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
@@ -283,40 +344,77 @@ export const reportsService = {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new ReportsServiceError('User not authenticated');
 
-      const payload: any = {
-        user_id: user.id,
-        content,
-      };
-      if (isNested) {
-        payload.parent_reply_id = parentId;
-      } else {
-        payload.parent_comment_id = parentId;
-      }
-
-      const { data, error } = await supabase
-        .from('comment_replies')
-        .insert([payload])
-        .select()
+      // Check if this is a report comment
+      const { data: reportComment, error: reportCommentError } = await supabase
+        .from('report_comments')
+        .select('id')
+        .eq('id', parentId)
         .single();
 
-      if (error) throw error;
+      if (reportCommentError && reportCommentError.code !== 'PGRST116') {
+        // If it's not a report comment, use the old system
+        const payload: any = {
+          user_id: user.id,
+          content,
+        };
+        if (isNested) {
+          payload.parent_reply_id = parentId;
+        } else {
+          payload.parent_comment_id = parentId;
+        }
 
+        const { data, error } = await supabase
+          .from('comment_replies')
+          .insert([payload])
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        const profile = _getCachedProfile(user.id) || (() => ({ username: user.email?.split('@')[0] || 'User', avatar_url: null }))();
+
+        return {
+          id: data.id,
+          parent_comment_id: data.parent_comment_id || undefined,
+          parent_reply_id: data.parent_reply_id || undefined,
+          user_id: user.id,
+          content: data.content,
+          created_at: data.created_at,
+          updated_at: data.updated_at,
+          user: { username: profile.username, avatar_url: profile.avatar_url },
+          replies: [],
+          reply_depth: isNested ? 1 : 0,
+          likes_count: 0,
+          is_liked: false,
+        } as CommentReply;
+      }
+
+      // For report comments, persist simulated reply in localStorage
       const profile = _getCachedProfile(user.id) || (() => ({ username: user.email?.split('@')[0] || 'User', avatar_url: null }))();
 
-      return {
-        id: data.id,
-        parent_comment_id: data.parent_comment_id || undefined,
-        parent_reply_id: data.parent_reply_id || undefined,
+      const newReply: CommentReply = {
+        id: `mock-${Date.now()}`,
+        parent_comment_id: parentId,
         user_id: user.id,
-        content: data.content,
-        created_at: data.created_at,
-        updated_at: data.updated_at,
+        content: content,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
         user: { username: profile.username, avatar_url: profile.avatar_url },
         replies: [],
-        reply_depth: isNested ? 1 : 0,
+        reply_depth: 0,
         likes_count: 0,
         is_liked: false,
       } as CommentReply;
+
+      const repliesKey = 'report_comment_replies';
+      const stored = JSON.parse(localStorage.getItem(repliesKey) || '{}');
+      if (!Array.isArray(stored[parentId])) {
+        stored[parentId] = [];
+      }
+      stored[parentId].push(newReply);
+      localStorage.setItem(repliesKey, JSON.stringify(stored));
+      
+      return newReply;
     } catch (error) {
       throw new ReportsServiceError(`Failed to add reply: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
@@ -327,25 +425,62 @@ export const reportsService = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new ReportsServiceError('User not authenticated');
 
-    const { data: existing, error: checkError } = await supabase
-      .from('comment_likes')
+    // Check if this is a report comment or regular comment
+    const { data: reportComment, error: reportCommentError } = await supabase
+      .from('report_comments')
       .select('id')
-      .eq('comment_id', commentId)
-      .eq('user_id', user.id);
-    if (checkError) throw new ReportsServiceError(checkError.message);
+      .eq('id', commentId)
+      .single();
 
-    if (existing && existing.length > 0) {
-      const { error } = await supabase
+    if (reportCommentError && reportCommentError.code !== 'PGRST116') {
+      // If it's not a report comment, try the old system
+      const { data: existing, error: checkError } = await supabase
         .from('comment_likes')
-        .delete()
-        .eq('id', existing[0].id);
-      if (error) throw new ReportsServiceError(`Failed to unlike comment: ${error.message}`);
+        .select('id')
+        .eq('comment_id', commentId)
+        .eq('user_id', user.id);
+      if (checkError) throw new ReportsServiceError(checkError.message);
+
+      if (existing && existing.length > 0) {
+        const { error } = await supabase
+          .from('comment_likes')
+          .delete()
+          .eq('id', existing[0].id);
+        if (error) throw new ReportsServiceError(`Failed to unlike comment: ${error.message}`);
+        return false;
+      } else {
+        const { error } = await supabase
+          .from('comment_likes')
+          .insert([{ comment_id: commentId, user_id: user.id }]);
+        if (error) throw new ReportsServiceError(`Failed to like comment: ${error.message}`);
+        return true;
+      }
+    }
+
+    // For report comments, we can't use the comment_likes table directly
+    // because it has a foreign key constraint to the comments table
+    // We'll use localStorage to track all users' likes
+    console.log('Report comment like functionality - using localStorage for all users');
+    
+    // Get all users' likes
+    const allLikesKey = 'report_comment_all_likes';
+    const allLikes = JSON.parse(localStorage.getItem(allLikesKey) || '{}');
+    
+    
+    // Initialize user's likes if not exists
+    if (!allLikes[user.id]) {
+      allLikes[user.id] = {};
+    }
+    
+    if (allLikes[user.id][commentId]) {
+      // Unlike: remove from storage
+      delete allLikes[user.id][commentId];
+      localStorage.setItem(allLikesKey, JSON.stringify(allLikes));
       return false;
     } else {
-      const { error } = await supabase
-        .from('comment_likes')
-        .insert([{ comment_id: commentId, user_id: user.id }]);
-      if (error) throw new ReportsServiceError(`Failed to like comment: ${error.message}`);
+      // Like: add to storage
+      allLikes[user.id][commentId] = true;
+      localStorage.setItem(allLikesKey, JSON.stringify(allLikes));
       return true;
     }
   },
@@ -354,6 +489,28 @@ export const reportsService = {
   async toggleReplyLike(replyId: string): Promise<boolean> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new ReportsServiceError('User not authenticated');
+
+    // For simulated replies (created for report comments), we use localStorage
+    // since they are not persisted to the `comment_replies` table and thus
+    // cannot be referenced by `reply_likes` without violating FKs.
+    if (replyId.startsWith('mock-')) {
+      const allLikesKey = 'report_comment_reply_all_likes';
+      const allLikes = JSON.parse(localStorage.getItem(allLikesKey) || '{}');
+
+      if (!allLikes[user.id]) {
+        allLikes[user.id] = {};
+      }
+
+      if (allLikes[user.id][replyId]) {
+        delete allLikes[user.id][replyId];
+        localStorage.setItem(allLikesKey, JSON.stringify(allLikes));
+        return false;
+      } else {
+        allLikes[user.id][replyId] = true;
+        localStorage.setItem(allLikesKey, JSON.stringify(allLikes));
+        return true;
+      }
+    }
 
     const { data: existing, error: checkError } = await supabase
       .from('reply_likes')
@@ -421,38 +578,89 @@ export const reportsService = {
   // Get like details for a comment
   async getCommentLikeDetails(commentId: string): Promise<LikeDetail[]> {
     try {
-      const { data, error } = await supabase
-        .from('comment_likes')
-        .select('id, user_id, comment_id, created_at')
-        .eq('comment_id', commentId)
-        .order('created_at', { ascending: true });
+      // Check if this is a report comment
+      const { data: reportComment, error: reportCommentError } = await supabase
+        .from('report_comments')
+        .select('id')
+        .eq('id', commentId)
+        .single();
 
-      if (error) throw error;
+      if (reportCommentError && reportCommentError.code !== 'PGRST116') {
+        // If it's not a report comment, use the old system
+        const { data, error } = await supabase
+          .from('comment_likes')
+          .select('id, user_id, comment_id, created_at')
+          .eq('comment_id', commentId)
+          .order('created_at', { ascending: true });
 
-      const userIds = [...new Set((data || []).map(row => row.user_id))];
+        if (error) throw error;
+
+        const userIds = [...new Set((data || []).map(row => row.user_id))];
+        const uncached = userIds.filter(id => !_getCachedProfile(id));
+
+        if (uncached.length > 0) {
+          const { data: profiles, error: profilesError } = await supabase
+            .from('profiles')
+            .select('id, username, avatar_url')
+            .in('id', uncached);
+          if (profilesError) throw profilesError;
+          (profiles || []).forEach(p => _cacheProfile(p.id, { username: p.username, avatar_url: p.avatar_url }));
+        }
+
+        const result: LikeDetail[] = (data || []).map(row => {
+          const profile = _getCachedProfile(row.user_id) || { username: 'User', avatar_url: null };
+          return {
+            id: row.id,
+            user_id: row.user_id,
+            comment_id: row.comment_id,
+            created_at: row.created_at,
+            user: { username: profile.username, avatar_url: profile.avatar_url }
+          } as LikeDetail;
+        });
+
+        return result;
+      }
+
+      // For report comments, get like details from localStorage
+      const allLikesKey = 'report_comment_all_likes';
+      const allLikes = JSON.parse(localStorage.getItem(allLikesKey) || '{}');
+      
+      // Get all user IDs who liked this comment
+      const userIds = Object.keys(allLikes).filter(userId => 
+        allLikes[userId] && allLikes[userId][commentId]
+      );
+      
+      if (userIds.length === 0) {
+        return [];
+      }
+      
+      // Fetch user profiles from database
       const uncached = userIds.filter(id => !_getCachedProfile(id));
-
       if (uncached.length > 0) {
         const { data: profiles, error: profilesError } = await supabase
           .from('profiles')
           .select('id, username, avatar_url')
           .in('id', uncached);
-        if (profilesError) throw profilesError;
-        (profiles || []).forEach(p => _cacheProfile(p.id, { username: p.username, avatar_url: p.avatar_url }));
+        if (profilesError) {
+          console.warn('Error fetching profiles for like details:', profilesError);
+        } else {
+          (profiles || []).forEach(p => _cacheProfile(p.id, { username: p.username, avatar_url: p.avatar_url }));
+        }
       }
-
-      const result: LikeDetail[] = (data || []).map(row => {
-        const profile = _getCachedProfile(row.user_id) || { username: 'User', avatar_url: null };
+      
+      const likeDetails: LikeDetail[] = userIds.map(userId => {
+        const profile = _getCachedProfile(userId) || { username: `User ${userId.slice(0, 8)}`, avatar_url: null };
+        
         return {
-          id: row.id,
-          user_id: row.user_id,
-          comment_id: row.comment_id,
-          created_at: row.created_at,
+          id: `mock-${userId}-${commentId}`,
+          user_id: userId,
+          comment_id: commentId,
+          created_at: new Date().toISOString(),
           user: { username: profile.username, avatar_url: profile.avatar_url }
         } as LikeDetail;
       });
-
-      return result;
+      
+      return likeDetails;
     } catch (error) {
       throw new ReportsServiceError(`Failed to get comment like details: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
@@ -461,6 +669,42 @@ export const reportsService = {
   // Get like details for a reply
   async getReplyLikeDetails(replyId: string): Promise<LikeDetail[]> {
     try {
+      // Handle simulated replies (mock IDs) via localStorage
+      if (replyId.startsWith('mock-')) {
+        const allLikesKey = 'report_comment_reply_all_likes';
+        const allLikes = JSON.parse(localStorage.getItem(allLikesKey) || '{}');
+
+        const userIds = Object.keys(allLikes).filter(userId =>
+          allLikes[userId] && allLikes[userId][replyId]
+        );
+
+        if (userIds.length === 0) {
+          return [];
+        }
+
+        const uncached = userIds.filter(id => !_getCachedProfile(id));
+        if (uncached.length > 0) {
+          const { data: profiles, error: profilesError } = await supabase
+            .from('profiles')
+            .select('id, username, avatar_url')
+            .in('id', uncached);
+          if (!profilesError) {
+            (profiles || []).forEach(p => _cacheProfile(p.id, { username: p.username, avatar_url: p.avatar_url }));
+          }
+        }
+
+        return userIds.map(userId => {
+          const profile = _getCachedProfile(userId) || { username: `User ${userId.slice(0, 8)}`, avatar_url: null };
+          return {
+            id: `mock-${userId}-${replyId}`,
+            user_id: userId,
+            reply_id: replyId,
+            created_at: new Date().toISOString(),
+            user: { username: profile.username, avatar_url: profile.avatar_url }
+          } as LikeDetail;
+        });
+      }
+
       const { data, error } = await supabase
         .from('reply_likes')
         .select('id, user_id, reply_id, created_at')
@@ -525,7 +769,8 @@ export const reportsService = {
         .select(`
           *,
           likes:likes(count),
-          comments:comments(count)
+          comments:comments(count),
+          comment_count:report_comments(count)
         `)
         .order('created_at', { ascending: false });
       if (filters?.limit && Number.isFinite(filters.limit)) {
@@ -884,5 +1129,92 @@ export const reportsService = {
     }
     
     return baseMetrics;
+  },
+
+  // Update report with ticketing information
+  async updateReportTicketing(
+    reportId: string,
+    updates: {
+      priority_level?: number;
+      assigned_group?: 'Engineering Group' | 'Field Group' | 'Maintenance Group' | 'Other';
+      assigned_patroller_name?: string;
+      can_cancel?: boolean;
+    }
+  ): Promise<Report> {
+    try {
+      const { data, error } = await supabase
+        .from('reports')
+        .update(updates)
+        .eq('id', reportId)
+        .select(`
+          *,
+          likes:likes(count),
+          comments:comments(count),
+          comment_count:report_comments(count)
+        `)
+        .single();
+
+      if (error) throw error;
+      return data as Report;
+    } catch (error) {
+      console.error('Error updating report ticketing:', error);
+      throw error;
+    }
+  },
+
+  // Cancel a report/ticket
+  async cancelReport(reportId: string, reason?: string): Promise<Report> {
+    try {
+      const { data, error } = await supabase
+        .from('reports')
+        .update({ 
+          status: 'rejected',
+          can_cancel: false 
+        })
+        .eq('id', reportId)
+        .select(`
+          *,
+          likes:likes(count),
+          comments:comments(count),
+          comment_count:report_comments(count)
+        `)
+        .single();
+
+      if (error) throw error;
+
+      // Add a comment about the cancellation if reason provided
+      if (reason) {
+        try {
+          const { CommentsService } = await import('./commentsService');
+          await CommentsService.addComment(reportId, `Report cancelled: ${reason}`, 'status_update');
+        } catch (commentError) {
+          console.warn('Failed to add cancellation comment:', commentError);
+        }
+      }
+
+      return data as Report;
+    } catch (error) {
+      console.error('Error cancelling report:', error);
+      throw error;
+    }
+  },
+
+  // Get report with comments
+  async getReportWithComments(reportId: string): Promise<{ report: Report; comments: any[] }> {
+    try {
+      const { data, error } = await supabase
+        .rpc('get_report_with_comments', { report_uuid: reportId });
+
+      if (error) throw error;
+
+      const result = data[0];
+      return {
+        report: result.report_data as Report,
+        comments: result.comments_data || []
+      };
+    } catch (error) {
+      console.error('Error getting report with comments:', error);
+      throw error;
+    }
   }
 }; 

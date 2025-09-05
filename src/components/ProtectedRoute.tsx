@@ -4,9 +4,10 @@ import { useAuthStore } from '../store/authStore';
 interface ProtectedRouteProps {
   children: React.ReactNode;
   adminRedirect?: boolean; // New prop to indicate if admin users should be redirected
+  patrolRedirect?: boolean; // New prop to indicate if patrol users should be redirected
 }
 
-export function ProtectedRoute({ children, adminRedirect = false }: ProtectedRouteProps) {
+export function ProtectedRoute({ children, adminRedirect = false, patrolRedirect = false }: ProtectedRouteProps) {
   const { isAuthenticated, user } = useAuthStore();
   const location = useLocation();
 
@@ -29,6 +30,11 @@ export function ProtectedRoute({ children, adminRedirect = false }: ProtectedRou
   // Redirect admin users to admin/map if this route is meant for regular users
   if (adminRedirect && user?.role === 'admin') {
     return <Navigate to="/admin/map" replace />;
+  }
+
+  // Redirect patrol users to patrol dashboard if this route is meant for regular users
+  if (patrolRedirect && user?.role === 'patrol') {
+    return <Navigate to="/patrol" replace />;
   }
 
   return <>{children}</>;
