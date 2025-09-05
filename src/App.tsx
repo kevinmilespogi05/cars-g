@@ -1,25 +1,11 @@
 import React, { useEffect, useState, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Navigation } from './components/Navigation';
-import { Home } from './pages/Home';
-import { Reports } from './pages/Reports';
-import { CreateReport } from './pages/CreateReport';
-import { ReportDetail } from './pages/ReportDetail';
-import { Leaderboard } from './pages/Leaderboard';
-import { Profile } from './pages/Profile';
-import { IssueReportForm } from './components/IssueReportForm';
-import { MapTestPage } from './pages/MapTestPage';
-import { LeaderboardPage } from './pages/LeaderboardPage';
 import { useAuthStore } from './store/authStore';
-import { ProtectedRoute } from './components/ProtectedRoute';
-import { Login } from './pages/Login';
-import { Register } from './pages/Register';
-import { AdminDashboard } from './pages/AdminDashboard';
-import { PrivacyPolicy } from './pages/PrivacyPolicy';
 import { Analytics } from "@vercel/analytics/react";
 import { initializeAchievements } from './lib/initAchievements';
 import { Providers } from './components/Providers';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { publicRoutes, protectedRoutes, adminRoutes, patrolRoutes } from './routes/routes';
 import { PWAPrompt } from './components/PWAPrompt';
@@ -29,7 +15,6 @@ import { WelcomeGuide } from './components/WelcomeGuide';
 import { usePushNotifications } from './hooks/usePushNotifications';
 import { PerformanceMonitor } from './components/PerformanceMonitor';
 import { useAchievementNotifications, AchievementNotification } from './components/AchievementNotification';
-import { supabase } from './lib/supabase';
 
 // Configure future flags for React Router v7
 const routerConfig = {

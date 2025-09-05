@@ -336,61 +336,14 @@ export function Reports() {
               <span>Verification Reports</span>
             </Link>
           </div>
-          <Link
-            to="/reports/create"
-            className="w-full sm:w-auto flex items-center justify-center gap-2 bg-primary-color text-white px-3 py-2 rounded-md shadow-sm hover:bg-primary-dark transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-color text-sm font-medium"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Create New Report</span>
-          </Link>
         </div>
 
         {/* Quick Actions */}
         <div className="mb-8">
-          <QuickActions />
+          <QuickActions hideEmergencyActions />
         </div>
 
-        {/* Status Quick Links */}
-        <div className="bg-white rounded-lg shadow-sm p-4 mb-4 border border-gray-100">
-          <h3 className="text-sm font-medium text-gray-900 mb-3">Quick Status Filters</h3>
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => setFilters(prev => ({ ...prev, status: 'Pending' }))}
-              className="flex items-center gap-2 px-3 py-2 text-sm bg-yellow-100 text-yellow-800 rounded-md hover:bg-yellow-200 transition-colors"
-            >
-              <Clock className="h-4 w-4" />
-              <span>Pending</span>
-            </button>
-            <button
-              onClick={() => setFilters(prev => ({ ...prev, status: 'In Progress' }))}
-              className="flex items-center gap-2 px-3 py-2 text-sm bg-blue-100 text-blue-800 rounded-md hover:bg-blue-200 transition-colors"
-            >
-              <AlertCircle className="h-4 w-4" />
-              <span>In Progress</span>
-            </button>
-            <button
-              onClick={() => setFilters(prev => ({ ...prev, status: 'Resolved' }))}
-              className="flex items-center gap-2 px-3 py-2 text-sm bg-green-100 text-green-800 rounded-md hover:bg-green-200 transition-colors"
-            >
-              <CheckCircle className="h-4 w-4" />
-              <span>Resolved</span>
-            </button>
-            <button
-              onClick={() => setFilters(prev => ({ ...prev, status: 'Rejected' }))}
-              className="flex items-center gap-2 px-3 py-2 text-sm bg-red-100 text-red-800 rounded-md hover:bg-red-200 transition-colors"
-            >
-              <XCircle className="h-4 w-4" />
-              <span>Rejected</span>
-            </button>
-            <button
-              onClick={() => setFilters(prev => ({ ...prev, status: 'All' }))}
-              className="flex items-center gap-2 px-3 py-2 text-sm bg-gray-100 text-gray-800 rounded-md hover:bg-gray-200 transition-colors"
-            >
-              <Filter className="h-4 w-4" />
-              <span>All Reports</span>
-            </button>
-          </div>
-        </div>
+        {/* Status Quick Links removed as requested */}
 
         {/* Search and Filters Section - More compact and user-friendly */}
         <div className="bg-white rounded-lg shadow-sm p-3 mb-4 border border-gray-100">

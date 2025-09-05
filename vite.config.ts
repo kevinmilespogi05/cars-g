@@ -21,7 +21,7 @@ export default defineConfig({
         runtimeCaching: [
           {
             // Opportunistic map tiles caching (OpenStreetMap)
-            urlPattern: /^https:\/\/\{s\}\.tile\.openstreetmap\.org\//,
+            urlPattern: /^https:\/\/(?:[a-c])\.tile\.openstreetmap\.org\//,
             handler: 'StaleWhileRevalidate',
             options: {
               cacheName: 'osm-tiles-cache',

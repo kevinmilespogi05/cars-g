@@ -831,6 +831,7 @@ export function AdminMapDashboard() {
   };
 
   const addNewMarker = async (report: Report) => {
+    if (report.status === 'resolved') return; // Do not add resolved reports to the map
     if (!mapInstance.current || !markersLayer.current || !report.location?.lat || !report.location?.lng) return;
 
     try {
@@ -920,6 +921,8 @@ export function AdminMapDashboard() {
 
       // Filter reports based on current filter and search
       const filteredReports = reports.filter(report => {
+        // Always exclude resolved reports from the map
+        if (report.status === 'resolved') return false;
         const matchesFilter = filter === 'all' || report.status === filter;
         const matchesSearch = searchTerm === '' || 
           report.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -1236,6 +1239,15 @@ export function AdminMapDashboard() {
       const report = reports.find(r => r.id === reportId);
       if (!report) return;
 
+      // If report becomes resolved, remove it from the map and refs
+      if (newStatus === 'resolved') {
+        try {
+          existingMarker.remove();
+        } catch {}
+        markerRefs.current.delete(reportId);
+        return;
+      }
+
       // Get new marker color and icon based on new status
       const markerColor = getMarkerColor(newStatus, report.priority);
       const markerIcon = getMarkerIcon(newStatus, report.priority);
@@ -1507,6 +1519,37 @@ export function AdminMapDashboard() {
                 <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
                 <span className="hidden sm:inline">Refresh</span>
               </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Quick Filter Chips */}
+        <div className="border-t border-gray-100 bg-white">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 overflow-x-auto">
+            <div className="flex items-center gap-2 min-w-max">
+              {([
+                { key: 'all', label: 'All' },
+                { key: 'pending', label: 'Pending' },
+                { key: 'in_progress', label: 'In Progress' },
+                { key: 'awaiting_verification', label: 'Awaiting Verification' },
+                { key: 'rejected', label: 'Rejected' }
+              ] as Array<{ key: 'all' | Report['status']; label: string }>).map(({ key, label }) => {
+                const nonResolved = reports.filter(r => r.status !== 'resolved');
+                const count = key === 'all' ? nonResolved.length : nonResolved.filter(r => r.status === key).length;
+                const isActive = filter === key;
+                return (
+                  <button
+                    key={key}
+                    onClick={() => setFilter(key)}
+                    className={`${isActive ? 'bg-blue-600 text-white' : 'bg-white text-gray-700'} inline-flex items-center gap-2 px-3 py-1.5 border ${isActive ? 'border-blue-600' : 'border-gray-300'} rounded-full text-sm transition-colors hover:bg-gray-50`}
+                    title={`Filter: ${label}`}
+                    aria-pressed={isActive}
+                  >
+                    <span>{label}</span>
+                    <span className={`${isActive ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-700'} text-xs px-2 py-0.5 rounded-full`} aria-label={`${label} count`}>{count}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -1977,6 +2020,21 @@ export function AdminMapDashboard() {
             >
               <MapPin className="w-4 h-4 text-gray-700" />
             </button>
+            <button
+              onClick={() => {
+                try {
+                  if (mapInstance.current) {
+                    mapInstance.current.setView(mapCenter, 14);
+                  }
+                } catch (error) {
+                  console.log('Error resetting view:', error);
+                }
+              }}
+              className="p-2 bg-white/90 backdrop-blur rounded-lg shadow-lg hover:bg-white transition-colors"
+              title="Reset View"
+            >
+              <RefreshCw className="w-4 h-4 text-gray-700" />
+            </button>
           </div>
 
           {/* Stats Overlay */}
@@ -2009,19 +2067,27 @@ export function AdminMapDashboard() {
           </div>
 
           {/* Map Legend */}
-          <div className="absolute top-4 left-4 bg-white/90 backdrop-blur rounded-lg shadow-lg p-3 min-w-[180px] z-[1002]">
+          <div className="absolute top-4 left-4 bg-white/90 backdrop-blur rounded-lg shadow-lg p-3 min-w-[200px] z-[1002]">
             <h3 className="text-sm font-medium text-gray-700 mb-2">Map Legend</h3>
             <div className="space-y-1 text-xs">
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-yellow-500 rounded-full border border-white"></div>
-                <span>⏳ Pending</span>
+                <div className="w-4 h-4 rounded-full border border-white bg-yellow-500"></div>
+                <span>Pending</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 bg-red-500 rounded-full border border-white"></div>
-                <span>❌ Rejected</span>
+                <div className="w-4 h-4 rounded-full border border-white bg-blue-500"></div>
+                <span>In Progress</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded-full border border-white bg-orange-500"></div>
+                <span>Awaiting Verification</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded-full border border-white bg-red-500"></div>
+                <span>Rejected</span>
               </div>
               <div className="text-xs text-gray-500 mt-2 pt-2 border-t border-gray-200">
-                <span>🔧 Patrol reports shown in sidebar</span>
+                <span>Patrol reports are highlighted in the sidebar</span>
               </div>
             </div>
           </div>
