@@ -199,7 +199,7 @@ export function AnnouncementCarousel({ className = '' }: AnnouncementCarouselPro
               </span>
             </div>
             {/* Header with priority */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-baseline gap-2">
               {getPriorityIcon(currentAnnouncement.priority)}
               <h3 className="font-semibold text-gray-900 text-base">
                 {currentAnnouncement.title}
@@ -239,7 +239,7 @@ export function AnnouncementCarousel({ className = '' }: AnnouncementCarouselPro
             )}
             
             {/* Content */}
-            <p className="text-gray-700 text-sm leading-relaxed">
+            <p className="text-gray-700 text-sm leading-relaxed font-bold">
               {currentAnnouncement.content}
             </p>
             
