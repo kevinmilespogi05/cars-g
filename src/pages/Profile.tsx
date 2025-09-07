@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../store/authStore';
-import { Award, MapPin, Star, Edit2, Save, X, Camera, Shield, Bell, Lock, Calendar, Eye, CheckCircle, AlertCircle } from 'lucide-react';
+import { Award, MapPin, Star, Edit2, Save, X, Camera, Shield, Bell, Lock, Calendar, Eye, CheckCircle, AlertCircle, Search, Filter, X as XIcon } from 'lucide-react';
 import { AchievementsPanel } from '../components/AchievementsPanel';
 import { AvatarSelector } from '../components/AvatarSelector';
 import { supabase } from '../lib/supabase';
@@ -61,6 +61,83 @@ export function Profile() {
   const [deleteTarget, setDeleteTarget] = useState<Report | null>(null);
   const [deleteSuccess, setDeleteSuccess] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  
+  // Search and filter state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [priorityFilter, setPriorityFilter] = useState('');
+  const [filteredReports, setFilteredReports] = useState<Report[]>([]);
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'in_progress':
+        return 'bg-blue-100 text-blue-800';
+      case 'resolved':
+        return 'bg-green-100 text-green-800';
+      case 'rejected':
+        return 'bg-red-100 text-red-800';
+      case 'verifying':
+        return 'bg-purple-100 text-purple-800';
+      case 'awaiting_verification':
+        return 'bg-orange-100 text-orange-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'high':
+        return 'bg-red-100 text-red-800';
+      case 'medium':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'low':
+        return 'bg-green-100 text-green-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  // Filter reports based on search query and filters
+  const applyFilters = () => {
+    let filtered = myReports;
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(report => 
+        report.title.toLowerCase().includes(query) ||
+        report.description.toLowerCase().includes(query)
+      );
+    }
+
+    // Apply status filter
+    if (statusFilter) {
+      filtered = filtered.filter(report => report.status === statusFilter);
+    }
+
+    // Apply priority filter
+    if (priorityFilter) {
+      filtered = filtered.filter(report => report.priority === priorityFilter);
+    }
+
+    setFilteredReports(filtered);
+  };
+
+  // Clear all filters
+  const clearFilters = () => {
+    setSearchQuery('');
+    setStatusFilter('');
+    setPriorityFilter('');
+    setFilteredReports(myReports);
+  };
+
+  // Apply filters whenever search query or filters change
+  useEffect(() => {
+    applyFilters();
+  }, [searchQuery, statusFilter, priorityFilter, myReports]);
 
   useEffect(() => {
     if (isOwnProfile) {
@@ -417,13 +494,92 @@ export function Profile() {
                 {isOwnProfile ? 'My Reports' : `${user?.username || 'User'}'s Reports`}
               </h3>
             </div>
+            
+            {/* Search and Filter Controls */}
+            {myReports.length > 0 && (
+              <div className="mb-6 space-y-4">
+                {/* Search Bar */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <input
+                    type="text"
+                    placeholder="Search reports by title or description..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                
+                {/* Filter Controls */}
+                <div className="flex flex-wrap gap-3">
+                  {/* Status Filter */}
+                  <div className="flex items-center gap-2">
+                    <Filter className="h-4 w-4 text-gray-500" />
+                    <select
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value)}
+                      className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    >
+                      <option value="">All Statuses</option>
+                      <option value="pending">Pending</option>
+                      <option value="in_progress">In Progress</option>
+                      <option value="resolved">Resolved</option>
+                      <option value="rejected">Rejected</option>
+                      <option value="verifying">Verifying</option>
+                      <option value="awaiting_verification">Awaiting Verification</option>
+                    </select>
+                  </div>
+                  
+                  {/* Priority Filter */}
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={priorityFilter}
+                      onChange={(e) => setPriorityFilter(e.target.value)}
+                      className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                    >
+                      <option value="">All Priorities</option>
+                      <option value="high">High</option>
+                      <option value="medium">Medium</option>
+                      <option value="low">Low</option>
+                    </select>
+                  </div>
+                  
+                  {/* Clear Filters Button */}
+                  {(searchQuery || statusFilter || priorityFilter) && (
+                    <button
+                      onClick={clearFilters}
+                      className="flex items-center gap-1 px-3 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      <XIcon className="h-4 w-4" />
+                      Clear Filters
+                    </button>
+                  )}
+                </div>
+                
+                {/* Results Count */}
+                <div className="text-sm text-gray-600">
+                  Showing {filteredReports.length} of {myReports.length} reports
+                </div>
+              </div>
+            )}
             {loadingMyReports ? (
               <p className="text-gray-600">Loading reports…</p>
             ) : myReports.length === 0 ? (
               <p className="text-gray-600">No reports yet.</p>
+            ) : filteredReports.length === 0 ? (
+              <div className="text-center py-8">
+                <Search className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-600">No reports match your search criteria.</p>
+                <button
+                  onClick={clearFilters}
+                  className="mt-2 text-blue-600 hover:text-blue-800 text-sm"
+                >
+                  Clear filters to see all reports
+                </button>
+              </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {myReports.map((report) => (
+                {filteredReports.map((report) => (
                   <div
                     key={report.id}
                     className="bg-white rounded-lg border border-gray-200 hover:shadow-md transition-shadow cursor-pointer"
@@ -442,9 +598,16 @@ export function Profile() {
                       <h4 className="font-semibold text-gray-900 line-clamp-1">{report.title}</h4>
                       <p className="text-sm text-gray-600 line-clamp-2 mt-1">{report.description}</p>
                       <div className="flex items-center justify-between text-xs text-gray-500 mt-3">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-gray-100 capitalize">
-                          {report.status.replace('_', ' ')}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium capitalize ${getStatusColor(report.status)}`}>
+                            {report.status.replace('_', ' ')}
+                          </span>
+                          {report.priority && (
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getPriorityColor(report.priority)}`}>
+                              {report.priority}
+                            </span>
+                          )}
+                        </div>
                         <span className="inline-flex items-center gap-1">
                           <Calendar className="h-3 w-3" />
                           {new Date(report.created_at).toLocaleString()}
