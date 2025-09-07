@@ -309,9 +309,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Contact
 
-**Kevin** - [GitHub](https://github.com/yourusername) - [LinkedIn](https://linkedin.com/in/yourprofile)
+**Kevin** - [GitHub](https://github.com/kevinmilespogi05) - [LinkedIn](https://www.linkedin.com/in/kevin-miles-julhusin-970354370/)
 
-**Project Link:** [https://github.com/yourusername/cars-g](https://github.com/yourusername/cars-g)
+**Project Link:** [https://github.com/kevinmilespogi05/cars-g](https://github.com/kevinmilespogi05/cars-g)
 
 ---
 
