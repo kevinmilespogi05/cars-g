@@ -2,18 +2,20 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { motion } from 'framer-motion';
-import { LogIn, Mail, Lock, AlertCircle, CheckCircle, ShieldAlert, User, Shield, MapPin } from 'lucide-react';
+import { LogIn, Mail, Lock, AlertCircle, CheckCircle, ShieldAlert, User, Shield, MapPin, UserCheck } from 'lucide-react';
 
 export function Login() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { signIn, signInWithGoogle, user, isAuthenticated } = useAuthStore();
+  const { signIn, signInWithUsername, signInWithGoogle, user, isAuthenticated } = useAuthStore();
   const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSocialLoading, setIsSocialLoading] = useState<'google' | null>(null);
   const [selectedRole, setSelectedRole] = useState<'user' | 'patrol' | 'admin'>('user');
+  const [loginType, setLoginType] = useState<'email' | 'username'>('email');
 
   // Get the redirect path from location state or default to reports
   const from = (location.state as any)?.from?.pathname || '/reports';
@@ -38,7 +40,13 @@ export function Login() {
     setIsLoading(true);
 
     try {
-      await signIn(email, password);
+      // Use the appropriate login method based on login type
+      if (loginType === 'email') {
+        await signIn(email, password);
+      } else {
+        await signInWithUsername(username, password);
+      }
+      
       // Use fresh state to determine role
       const freshUser = useAuthStore.getState().user;
       
@@ -178,25 +186,67 @@ export function Login() {
             </motion.div>
           )}
 
-          {/* Email Field */}
+          {/* Login Type Toggle */}
+          <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
+            <button
+              type="button"
+              onClick={() => setLoginType('email')}
+              className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors ${
+                loginType === 'email'
+                  ? 'bg-white text-primary-color shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <div className="flex items-center justify-center space-x-2">
+                <Mail className="h-4 w-4" />
+                <span>Email</span>
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setLoginType('username')}
+              className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors ${
+                loginType === 'username'
+                  ? 'bg-white text-primary-color shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <div className="flex items-center justify-center space-x-2">
+                <UserCheck className="h-4 w-4" />
+                <span>Username</span>
+              </div>
+            </button>
+          </div>
+
+          {/* Email/Username Field */}
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-              Email address
+            <label htmlFor={loginType} className="block text-sm font-medium text-gray-700 mb-2">
+              {loginType === 'email' ? 'Email address' : 'Username'}
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Mail className="h-5 w-5 text-gray-400" />
+                {loginType === 'email' ? (
+                  <Mail className="h-5 w-5 text-gray-400" />
+                ) : (
+                  <UserCheck className="h-5 w-5 text-gray-400" />
+                )}
               </div>
               <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
+                id={loginType}
+                name={loginType}
+                type={loginType === 'email' ? 'email' : 'text'}
+                autoComplete={loginType === 'email' ? 'email' : 'username'}
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                value={loginType === 'email' ? email : username}
+                onChange={(e) => {
+                  if (loginType === 'email') {
+                    setEmail(e.target.value);
+                  } else {
+                    setUsername(e.target.value);
+                  }
+                }}
                 className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-color focus:border-transparent transition-colors"
-                placeholder="Enter your email"
+                placeholder={loginType === 'email' ? 'Enter your email' : 'Enter your username'}
               />
             </div>
           </div>

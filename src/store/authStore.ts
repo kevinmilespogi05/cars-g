@@ -9,6 +9,7 @@ interface AuthState {
   isAuthenticated: boolean;
   setUser: (user: User | null) => void;
   signIn: (email: string, password: string) => Promise<void>;
+  signInWithUsername: (username: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, username: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signInWithFacebook: () => Promise<void>;
@@ -291,6 +292,85 @@ export const useAuthStore = create<AuthState>((set) => ({
       // Handle specific Supabase errors
       if (error.message?.includes('Invalid login credentials')) {
         throw new Error('Invalid email or password. Please try again.');
+      }
+      
+      if (error.message?.includes('Email not confirmed')) {
+        throw new Error('Please check your email and confirm your account before signing in.');
+      }
+      
+      if (error.message?.includes('Too many requests')) {
+        throw new Error('Too many login attempts. Please wait a moment and try again.');
+      }
+      
+      // Generic error fallback
+      throw new Error(error.message || 'Failed to sign in. Please try again.');
+    }
+  },
+
+  signInWithUsername: async (username: string, password: string) => {
+    try {
+      // Force online status in development
+      const isDevelopment = process.env.NODE_ENV === 'development' || 
+                           window.location.hostname === 'localhost' || 
+                           window.location.hostname === '127.0.0.1';
+      
+      if (isDevelopment) {
+        // Force browser to think it's online
+        window.dispatchEvent(new Event('online'));
+        Object.defineProperty(navigator, 'onLine', {
+          writable: true,
+          value: true
+        });
+      }
+
+      // First, look up the user by username to get their email
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('email')
+        .eq('username', username)
+        .single();
+
+      if (profileError || !profile) {
+        throw new Error('Invalid username or password. Please try again.');
+      }
+
+      // Now use the email to sign in
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: profile.email,
+        password,
+      });
+      
+      if (error) throw error;
+      
+      if (data.user) {
+        const { data: fullProfile, error: fullProfileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', data.user.id)
+          .single();
+          
+        if (fullProfileError) throw fullProfileError;
+
+        // Initialize user stats if they don't exist
+        await initializeUserStats(data.user.id);
+          
+        set({ 
+          user: { ...fullProfile, email: data.user.email },
+          isAuthenticated: true,
+        });
+      }
+    } catch (error: any) {
+      // Enhanced error handling for network issues
+      if (error.message?.includes('Failed to fetch') || 
+          error.message?.includes('net::ERR_INTERNET_DISCONNECTED') ||
+          error.message?.includes('NetworkError') ||
+          !navigator.onLine) {
+        throw new Error('No internet connection. Please check your network and try again.');
+      }
+      
+      // Handle specific Supabase errors
+      if (error.message?.includes('Invalid login credentials')) {
+        throw new Error('Invalid username or password. Please try again.');
       }
       
       if (error.message?.includes('Email not confirmed')) {
