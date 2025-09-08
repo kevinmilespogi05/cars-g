@@ -115,7 +115,8 @@ export function ReportDetail() {
         .select(`
           *,
           likes:likes(count),
-          comments:comments(count)
+          comments:comments(count),
+          report_comments:report_comments(count)
         `)
         .eq('id', id)
         .single();
@@ -144,7 +145,7 @@ export function ReportDetail() {
         ...reportData,
         user: profileData,
         likes_count: reportData.likes?.[0]?.count || 0,
-        comments_count: reportData.comments?.[0]?.count || 0,
+        comments_count: (reportData.comments?.[0]?.count || 0) + (reportData.report_comments?.[0]?.count || 0),
         is_liked: userLikes && userLikes.length > 0
       });
     } catch (error) {
@@ -320,10 +321,10 @@ export function ReportDetail() {
       
       console.log('Comment submitted successfully');
       
-      // Update the report's comment count
+      // Update the report's comment count (legacy + new)
       setReport(prev => prev ? {
         ...prev,
-        comments_count: prev.comments_count + 1
+        comments_count: (prev.comments_count || 0) + 1
       } : null);
       
       setCommentContent('');
@@ -600,6 +601,22 @@ export function ReportDetail() {
     }
   };
 
+  const getServiceLevelText = (level: number) => {
+    switch (level) {
+      case 5:
+        return 'Total loss of service';
+      case 4:
+        return 'Reduction of service';
+      case 3:
+        return "Can continue work but can't complete most tasks";
+      case 2:
+        return 'Service workaround available';
+      case 1:
+      default:
+        return 'Minor inconvenience';
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -626,7 +643,7 @@ export function ReportDetail() {
   }
 
   return (
-    <div className="w-full max-w-3xl mx-auto px-3 sm:px-4 py-6 sm:py-8">
+    <div className="w-full max-w-7xl mx-auto px-3 sm:px-4 py-6 sm:py-8">
       {/* Back Button */}
       <button
         onClick={() => navigate('/reports')}
@@ -636,389 +653,108 @@ export function ReportDetail() {
         Back to Reports
       </button>
 
-      {/* Report Content */}
-      <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-        <h1 className="text-2xl font-bold text-gray-900 mb-4">{report.title}</h1>
-        
-        <div className="flex flex-wrap gap-2 mb-4">
-          <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(report.status)}`}>
-            {report.status.replace('_', ' ')}
-          </span>
-          <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getPriorityColor(report.priority)}`}>
-            {report.priority}
-          </span>
-          {report.case_number && (
-            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-              <Hash className="h-3 w-3 mr-1" />
-              #{report.case_number}
-            </span>
-          )}
-          {report.priority_level && (
-            <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
-              report.priority_level >= 5 ? 'bg-red-100 text-red-800' :
-              report.priority_level >= 4 ? 'bg-orange-100 text-orange-800' :
-              report.priority_level >= 3 ? 'bg-yellow-100 text-yellow-800' :
-              report.priority_level >= 2 ? 'bg-blue-100 text-blue-800' :
-              'bg-green-100 text-green-800'
-            }`}>
-              Level {report.priority_level}
-            </span>
-          )}
-        </div>
-
-        <p className="text-gray-700 mb-4 whitespace-pre-wrap">{report.description}</p>
-
-        <div className="flex items-center text-sm text-gray-700 mb-6">
-          <MapPin className="h-4 w-4 mr-1.5 flex-shrink-0 text-gray-700" />
-          <span>{report.location_address}</span>
-        </div>
-
-        {/* Ticketing Information */}
-        {(report.case_number || report.priority_level || report.assigned_group || report.assigned_patroller_name) && (
-          <div className="bg-gray-50 rounded-lg p-4 mb-6">
-            <h3 className="text-sm font-medium text-gray-900 mb-3">Case Information</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {report.case_number && (
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Case Number</p>
-                  <p className="text-sm text-gray-900 flex items-center">
-                    <Hash className="h-4 w-4 mr-1" />
-                    #{report.case_number}
-                  </p>
-                </div>
-              )}
-              {report.priority_level && (
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Priority Level</p>
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    report.priority_level >= 5 ? 'bg-red-100 text-red-800' :
-                    report.priority_level >= 4 ? 'bg-orange-100 text-orange-800' :
-                    report.priority_level >= 3 ? 'bg-yellow-100 text-yellow-800' :
-                    report.priority_level >= 2 ? 'bg-blue-100 text-blue-800' :
-                    'bg-green-100 text-green-800'
-                  }`}>
-                    Level {report.priority_level} (5 = Highest)
-                  </span>
-                </div>
-              )}
-              {report.assigned_group && (
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Assigned Group</p>
-                  <p className="text-sm text-gray-900 flex items-center">
-                    <Users className="h-4 w-4 mr-1" />
-                    {report.assigned_group}
-                  </p>
-                </div>
-              )}
-              {report.assigned_patroller_name && (
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Assigned Patroller</p>
-                  <p className="text-sm text-gray-900 flex items-center">
-                    <ShieldCheck className="h-4 w-4 mr-1" />
-                    {report.assigned_patroller_name}
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Images */}
-        {report.images && report.images.length > 0 && (
-          <div className="mb-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-3">Images</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-              {report.images.map((image, index) => (
-                <div
-                  key={index}
-                  className="relative aspect-square cursor-pointer overflow-hidden bg-gray-100 rounded-lg"
-                  onClick={() => setSelectedImage({ url: image, index })}
-                >
-                  <img
-                    src={getImageUrl(image)}
-                    alt={`Report image ${index + 1}`}
-                    className="absolute inset-0 h-full w-full object-cover rounded-lg border border-gray-200"
-                    loading="eager"
-                    decoding="sync"
-                    fetchpriority="high"
-                    referrerPolicy="no-referrer"
-                    crossOrigin="anonymous"
-                    onError={(e) => {
-                      console.error(`Failed to load image: ${image}`);
-                      const imgElement = e.target as HTMLImageElement;
-                      imgElement.src = fallbackImageUrl;
-                    }}
-                    style={{ backgroundColor: '#f0f0f0' }}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* User Info and Interactions */}
-        <div className="flex items-center justify-between border-t border-gray-100 pt-4">
-          <div className="flex items-center gap-3">
-            <img
-              className="h-10 w-10 rounded-full object-cover border border-gray-200"
-              src={report.user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(report.user.username)}`}
-              alt={report.user.username}
-            />
-            <div>
-              <div className="text-sm font-medium text-gray-900">{report.user.username}</div>
-              <p className="text-xs text-gray-700">{new Date(report.created_at).toLocaleString()}</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-1.5">
+      {/* 3-column layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mt-0">
+        {/* Left: Comments */}
+        <aside className="lg:col-span-3 order-1">
+          <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 sticky top-24 max-h-[calc(100vh-8rem)] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-900 flex items-center">
+                <MessageCircle className="h-5 w-5 mr-2" />
+                Comments & Updates
+              </h2>
               <button
-                onClick={handleLike}
-                disabled={likeLoading}
-                className={`text-sm ${
-                  report.is_liked ? 'text-red-500' : 'text-gray-700 hover:text-red-500'
-                } transition-colors`}
+                onClick={() => setIsCommentsCollapsed(!isCommentsCollapsed)}
+                className="flex items-center space-x-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
               >
-                <Heart className={`h-5 w-5 ${report.is_liked ? 'fill-current' : ''}`} />
-              </button>
-              <button
-                onClick={() => {
-                  if (report.likes_count > 0) {
-                    setLikeDetailsModal({
-                      isOpen: true,
-                      reportId: report.id,
-                      reportTitle: report.title
-                    });
-                  }
-                }}
-                className={`text-sm transition-colors ${
-                  report.likes_count > 0
-                    ? 'text-gray-700 hover:text-gray-900 cursor-pointer'
-                    : 'text-gray-400 cursor-default'
-                }`}
-                disabled={report.likes_count === 0}
-              >
-                {report.likes_count}
+                <span>{isCommentsCollapsed ? 'Show' : 'Hide'}</span>
+                {isCommentsCollapsed ? (
+                  <ChevronDown className="h-4 w-4" />
+                ) : (
+                  <ChevronUp className="h-4 w-4" />
+                )}
               </button>
             </div>
-            <div className="flex items-center gap-1.5 text-sm text-gray-700">
-              <MessageCircle className="h-5 w-5" />
-              <span>{report.comments_count}</span>
-            </div>
-          </div>
-        </div>
-      </div>
 
-      {/* Comments Section */}
-      <div className="mt-8">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-gray-900 flex items-center">
-            <MessageCircle className="h-5 w-5 mr-2" />
-            Comments & Updates
-          </h2>
-          <button
-            onClick={() => setIsCommentsCollapsed(!isCommentsCollapsed)}
-            className="flex items-center space-x-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
-          >
-            <span>{isCommentsCollapsed ? 'Show' : 'Hide'}</span>
-            {isCommentsCollapsed ? (
-              <ChevronDown className="h-4 w-4" />
-            ) : (
-              <ChevronUp className="h-4 w-4" />
-            )}
-          </button>
-        </div>
+            {!isCommentsCollapsed && (
+              <>
+                {user && (
+                  <form onSubmit={handleSubmitComment} className="mb-4">
+                    <textarea
+                      value={commentContent}
+                      onChange={(e) => setCommentContent(e.target.value)}
+                      placeholder="Write a comment..."
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-primary-color focus:border-primary-color text-sm bg-white text-gray-900 placeholder-gray-400 resize-none"
+                      rows={3}
+                    />
+                    <div className="mt-2 flex justify-end">
+                      <button
+                        type="submit"
+                        disabled={submittingComment || !commentContent.trim()}
+                        className="px-3 py-1.5 bg-primary-color text-white rounded-md hover:bg-primary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                      >
+                        {submittingComment ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Post'}
+                      </button>
+                    </div>
+                  </form>
+                )}
 
-        {/* Collapsible Comment Content */}
-        {!isCommentsCollapsed && (
-          <>
-            {/* Comment Form */}
-            {user && (
-              <form onSubmit={handleSubmitComment} className="mb-6">
-                <textarea
-                  value={commentContent}
-                  onChange={(e) => setCommentContent(e.target.value)}
-                  placeholder="Write a comment..."
-                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-primary-color focus:border-primary-color text-base bg-white text-gray-900 placeholder-gray-400 resize-none"
-                  rows={3}
-                />
-                <div className="mt-2 flex justify-end">
-                  <button
-                    type="submit"
-                    disabled={submittingComment || !commentContent.trim()}
-                    className="px-4 py-2 bg-primary-color text-white rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {submittingComment ? (
-                      <Loader2 className="h-5 w-5 animate-spin" />
-                    ) : (
-                      'Post Comment'
-                    )}
-                  </button>
-                </div>
-              </form>
-            )}
-
-            {/* Merged Comments Section */}
-            <div className="space-y-4">
-              {/* All Comments - Case Updates first, then user comments */}
-              {reportComments.length > 0 && (
                 <div className="space-y-3">
                   {reportComments.map((comment) => {
-                    // Determine if this is a patrol comment or user comment
                     const isPatrolComment = comment.comment_type !== 'comment';
-                    
                     return (
-                      <div key={comment.id} className={`rounded-lg p-4 border-l-4 ${
+                      <div key={comment.id} className={`rounded-lg p-3 border-l-4 ${
                         isPatrolComment 
-                          ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-500 shadow-md' 
+                          ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-500 shadow' 
                           : 'bg-white shadow-sm border-gray-100 border-l-gray-300'
                       }`}>
                         <div className="flex items-start space-x-3">
                           <div className="flex-shrink-0">
                             {isPatrolComment ? (
-                              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg">
-                                <ShieldCheck className="h-5 w-5 text-white" />
+                              <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow">
+                                <ShieldCheck className="h-4 w-4 text-white" />
                               </div>
                             ) : (
                               <img
-                                className="h-8 w-8 rounded-full object-cover border-2 border-gray-200 shadow-sm"
+                                className="h-7 w-7 rounded-full object-cover border border-gray-200"
                                 src={comment.user_profile?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(comment.user_profile?.username || 'Unknown')}`}
                                 alt={comment.user_profile?.username || 'Unknown'}
                               />
                             )}
                           </div>
                           <div className="flex-1">
-                            <div className="flex items-center space-x-2 mb-2">
-                              <span className={`text-sm font-semibold ${
-                                isPatrolComment ? 'text-blue-900' : 'text-gray-900'
-                              }`}>
-                                {comment.user_profile?.username || 'Unknown'}
-                              </span>
-                              {isPatrolComment && (
-                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold uppercase tracking-wide ${
-                                  comment.comment_type === 'status_update' ? 'bg-blue-200 text-blue-900' :
-                                  comment.comment_type === 'assignment' ? 'bg-purple-200 text-purple-900' :
-                                  comment.comment_type === 'resolution' ? 'bg-green-200 text-green-900' :
-                                  'bg-gray-200 text-gray-900'
-                                }">
-                                  {comment.comment_type.replace('_', ' ')}
-                                </span>
-                              )}
-                              <span className={`text-xs ${
-                                isPatrolComment ? 'text-blue-600' : 'text-gray-500'
-                              }`}>
-                                {new Date(comment.created_at).toLocaleString()}
-                              </span>
-                              {isPatrolComment && (
-                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                  <ShieldCheck className="h-3 w-3 mr-1" />
-                                  OFFICIAL
-                                </span>
-                              )}
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className={`text-sm font-medium ${isPatrolComment ? 'text-blue-900' : 'text-gray-900'}`}>{comment.user_profile?.username || 'Unknown'}</span>
+                              <span className="text-[11px] text-gray-500">{new Date(comment.created_at).toLocaleString()}</span>
                             </div>
-                            <div className={`rounded-lg p-3 ${
-                              isPatrolComment 
-                                ? 'bg-white/70 border border-blue-200' 
-                                : 'bg-gray-50'
-                            }`}>
-                              <p className={`text-sm ${
-                                isPatrolComment ? 'text-blue-900 font-medium' : 'text-gray-700'
-                              }`}>
-                                {comment.comment}
-                              </p>
-                            </div>
-                            
-                            {/* Comment Actions */}
-                            <div className="flex items-center gap-4 mt-3">
-                              <button
-                                onClick={() => handleCommentLike(comment.id)}
-                                disabled={likeLoading}
-                                className={`flex items-center gap-1 text-sm transition-colors ${
-                                  comment.is_liked ? 'text-red-500' : 'text-gray-500 hover:text-red-500'
-                                }`}
-                              >
-                                {likeLoading ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <Heart className={`h-4 w-4 ${comment.is_liked ? 'fill-current' : ''}`} />
-                                )}
-                                <span
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    if ((comment.likes_count || 0) > 0) {
-                                      setLikeDetailsModal({
-                                        isOpen: true,
-                                        commentId: comment.id,
-                                        // Ensure we fetch comment like details (not report likes)
-                                        reportId: '',
-                                        reportTitle: report.title
-                                      });
-                                    }
-                                  }}
-                                  className={(comment.likes_count || 0) > 0 ? 'cursor-pointer' : ''}
-                                >
-                                  {comment.likes_count || 0}
-                                </span>
+                            <p className={`text-sm ${isPatrolComment ? 'text-blue-900' : 'text-gray-700'}`}>{comment.comment}</p>
+                            <div className="flex items-center gap-3 mt-2 text-xs text-gray-600">
+                              <button onClick={() => handleCommentLike(comment.id)} disabled={likeLoading} className={`flex items-center gap-1 ${comment.is_liked ? 'text-red-500' : 'hover:text-red-500'}`}>
+                                {likeLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Heart className={`h-3 w-3 ${comment.is_liked ? 'fill-current' : ''}`} />}
+                                <span>{comment.likes_count || 0}</span>
                               </button>
-                              
-                              <button
-                                onClick={() => setReplyingTo(replyingTo === comment.id ? null : comment.id)}
-                                className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700 transition-colors"
-                              >
-                                <Reply className="h-4 w-4" />
-                                <span>Reply</span>
-                                {comment.replies_count > 0 && (
-                                  <span className="text-xs">({comment.replies_count})</span>
-                                )}
+                              <button onClick={() => setReplyingTo(replyingTo === comment.id ? null : comment.id)} className="flex items-center gap-1 hover:text-gray-800">
+                                <Reply className="h-3 w-3" />
+                                Reply
+                                {comment.replies_count > 0 && <span>({comment.replies_count})</span>}
                               </button>
                             </div>
-
-                            {/* Reply Form */}
                             {replyingTo === comment.id && (
-                              <div className="mt-3 p-3 bg-gray-50 rounded-lg">
-                                <textarea
-                                  value={replyContent}
-                                  onChange={(e) => setReplyContent(e.target.value)}
-                                  placeholder="Write a reply..."
-                                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-primary-color focus:border-primary-color text-sm bg-white text-gray-900 placeholder-gray-400 resize-none"
-                                  rows={2}
-                                />
+                              <div className="mt-2 p-2 bg-gray-50 rounded">
+                                <textarea value={replyContent} onChange={(e) => setReplyContent(e.target.value)} rows={2} className="w-full px-2 py-1 border border-gray-200 rounded text-sm" placeholder="Write a reply..." />
                                 <div className="mt-2 flex justify-end gap-2">
-                                  <button
-                                    onClick={() => {
-                                      setReplyingTo(null);
-                                      setReplyContent('');
-                                    }}
-                                    className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800 transition-colors"
-                                  >
-                                    Cancel
-                                  </button>
-                                  <button
-                                    onClick={() => handleReply(comment.id)}
-                                    disabled={submittingReply || !replyContent.trim()}
-                                    className="px-3 py-1 bg-primary-color text-white text-sm rounded-lg hover:bg-primary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                  >
-                                    {submittingReply ? (
-                                      <Loader2 className="h-4 w-4 animate-spin" />
-                                    ) : (
-                                      'Reply'
-                                    )}
-                                  </button>
+                                  <button onClick={() => { setReplyingTo(null); setReplyContent(''); }} className="px-2 py-1 text-xs text-gray-600">Cancel</button>
+                                  <button onClick={() => handleReply(comment.id)} disabled={submittingReply || !replyContent.trim()} className="px-2 py-1 text-xs bg-primary-color text-white rounded disabled:opacity-50">{submittingReply ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Reply'}</button>
                                 </div>
                               </div>
                             )}
-
-                            {/* Replies */}
                             {comment.replies && comment.replies.length > 0 && (
-                              <div className="mt-3">
-                                <button
-                                  onClick={() => setExpandedCommentReplies(prev => ({ ...prev, [comment.id]: !prev[comment.id] }))}
-                                  className="text-xs text-gray-600 hover:text-gray-800"
-                                >
+                              <div className="mt-2">
+                                <button onClick={() => setExpandedCommentReplies(prev => ({ ...prev, [comment.id]: !prev[comment.id] }))} className="text-[11px] text-gray-600 hover:text-gray-800">
                                   {expandedCommentReplies[comment.id] ? 'Hide replies' : `Show ${comment.replies.length} repl${comment.replies.length === 1 ? 'y' : 'ies'}`}
                                 </button>
                                 {expandedCommentReplies[comment.id] && (
-                                  <div className="mt-2">
+                                  <div className="mt-1">
                                     <ReplyThread
                                       replies={comment.replies}
                                       commentId={comment.id}
@@ -1039,24 +775,107 @@ export function ReportDetail() {
                     );
                   })}
                 </div>
-              )}
-            </div>
-          </>
-        )}
+              </>
+            )}
 
-        {/* Collapsed State Summary */}
-        {isCommentsCollapsed && (
-          <div className="bg-gray-50 rounded-lg p-4 text-center">
-            <div className="flex items-center justify-center space-x-4 text-sm text-gray-600">
-              <div className="flex items-center space-x-1">
-                <MessageCircle className="h-4 w-4 text-blue-600" />
-                <span>{reportComments.length} Comments & Updates</span>
+            {isCommentsCollapsed && (
+              <div className="bg-gray-50 rounded-lg p-4 text-center">
+                <div className="flex items-center justify-center space-x-4 text-sm text-gray-600">
+                  <div className="flex items-center space-x-1">
+                    <MessageCircle className="h-4 w-4 text-blue-600" />
+                    <span>{reportComments.length} Comments & Updates</span>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">Click "Show" to view all comments</p>
+              </div>
+            )}
+          </div>
+        </aside>
+
+        {/* Center: Main content */}
+        <main className="lg:col-span-6 order-2">
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+            <h1 className="text-2xl font-bold text-gray-900 mb-3">{report.title}</h1>
+            <p className="text-sm text-gray-500 mb-4">Reported by <span className="font-medium text-gray-700">{report.user.username}</span> • {new Date(report.created_at).toLocaleString()}</p>
+
+            <p className="text-gray-700 mb-4 whitespace-pre-wrap">{report.description}</p>
+            <div className="flex items-center text-sm text-gray-700 mb-6"><MapPin className="h-4 w-4 mr-1.5 flex-shrink-0 text-gray-700" /><span>{report.location_address}</span></div>
+
+            {report.images && report.images.length > 0 && (
+              <div className="mt-6">
+                <h2 className="text-lg font-semibold text-gray-900 mb-3">Images</h2>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                  {report.images.map((image, index) => (
+                    <div key={index} className="relative aspect-square cursor-pointer overflow-hidden bg-gray-100 rounded-lg" onClick={() => setSelectedImage({ url: image, index })}>
+                      <img src={getImageUrl(image)} alt={`Report image ${index + 1}`} className="absolute inset-0 h-full w-full object-cover rounded-lg border border-gray-200" loading="eager" decoding="sync" fetchpriority="high" referrerPolicy="no-referrer" crossOrigin="anonymous" onError={(e) => { console.error(`Failed to load image: ${image}`); const imgElement = e.target as HTMLImageElement; imgElement.src = fallbackImageUrl; }} style={{ backgroundColor: '#f0f0f0' }} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between border-t border-gray-100 pt-4 mt-6">
+              <div className="flex items-center gap-3">
+                <img className="h-10 w-10 rounded-full object-cover border border-gray-200" src={report.user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(report.user.username)}`} alt={report.user.username} />
+                <div>
+                  <div className="text-sm font-medium text-gray-900">{report.user.username}</div>
+                  <p className="text-xs text-gray-700">{new Date(report.created_at).toLocaleString()}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-1.5">
+                  <button onClick={handleLike} disabled={likeLoading} className={`text-sm ${report.is_liked ? 'text-red-500' : 'text-gray-700 hover:text-red-500'} transition-colors`}>
+                    <Heart className={`h-5 w-5 ${report.is_liked ? 'fill-current' : ''}`} />
+                  </button>
+                  <button onClick={() => { if (report.likes_count > 0) { setLikeDetailsModal({ isOpen: true, reportId: report.id, reportTitle: report.title }); } }} className={`text-sm transition-colors ${report.likes_count > 0 ? 'text-gray-700 hover:text-gray-900 cursor-pointer' : 'text-gray-400 cursor-default'}`} disabled={report.likes_count === 0}>
+                    {report.likes_count}
+                  </button>
+                </div>
+                <div className="flex items-center gap-1.5 text-sm text-gray-700"><MessageCircle className="h-5 w-5" /><span>{report.comments_count}</span></div>
               </div>
             </div>
-            <p className="text-xs text-gray-500 mt-2">Click "Show" to view all comments</p>
           </div>
-        )}
+        </main>
 
+        {/* Right: Case Info */}
+        <aside className="lg:col-span-3 order-3">
+          {(report.case_number || report.priority_level || report.assigned_group || report.assigned_patroller_name) && (
+            <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 sticky top-24 max-h-[calc(100vh-8rem)] overflow-y-auto">
+              <h3 className="text-sm font-semibold text-gray-900 mb-3">Case Information</h3>
+              <div className="space-y-3">
+                {/* Status & Priority badges moved here */}
+                <div className="flex flex-wrap gap-2">
+                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(report.status)}`}>{report.status.replace('_', ' ')}</span>
+                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getPriorityColor(report.priority)}`}>{report.priority}</span>
+                  {typeof report.priority_level === 'number' && (
+                    <span title={getServiceLevelText(report.priority_level)} className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${report.priority_level >= 5 ? 'bg-red-100 text-red-800' : report.priority_level >= 4 ? 'bg-orange-100 text-orange-800' : report.priority_level >= 3 ? 'bg-yellow-100 text-yellow-800' : report.priority_level >= 2 ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}`}>
+                      Level {report.priority_level} · {getServiceLevelText(report.priority_level)}
+                    </span>
+                  )}
+                </div>
+                {report.case_number && (
+                  <div>
+                    <p className="text-xs font-medium text-gray-500">Case Number</p>
+                    <p className="text-sm text-gray-900 flex items-center"><Hash className="h-4 w-4 mr-1" />#{report.case_number}</p>
+                  </div>
+                )}
+                {/* Service level is already shown in badges above to avoid duplication */}
+                {report.assigned_group && (
+                  <div>
+                    <p className="text-xs font-medium text-gray-500">Assigned Group</p>
+                    <p className="text-sm text-gray-900 flex items-center"><Users className="h-4 w-4 mr-1" />{report.assigned_group}</p>
+                  </div>
+                )}
+                {report.assigned_patroller_name && (
+                  <div>
+                    <p className="text-xs font-medium text-gray-500">Assigned Patroller</p>
+                    <p className="text-sm text-gray-900 flex items-center"><ShieldCheck className="h-4 w-4 mr-1" />{report.assigned_patroller_name}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </aside>
       </div>
 
       {/* Image Modal */}

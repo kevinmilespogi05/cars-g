@@ -148,7 +148,8 @@ export const reportsService = {
         location_address: (reportData as any).location_address,
         images: (reportData as any).images || [],
         // Ticketing system fields
-        priority_level: (reportData as any).priority_level || 3,
+        // Do not default to 3; let it be explicitly set later
+        priority_level: (reportData as any).priority_level ?? null,
         assigned_group: (reportData as any).assigned_group || null,
         can_cancel: (reportData as any).can_cancel !== false, // Default to true
         // idempotency_key intentionally omitted: column not present in schema
@@ -862,7 +863,8 @@ export const reportsService = {
         user_profile: profilesMap.get(report.user_id),
         is_liked: likedReportIds.has(report.id),
         likes: { count: report.likes?.[0]?.count || 0 },
-        comments: { count: report.comments?.[0]?.count || 0 }
+        // Normalize comment count: sum legacy `comments` and new `report_comments`
+        comments: { count: (report.comments?.[0]?.count || 0) + (report.comment_count?.[0]?.count || 0) }
       }));
 
       // Cache the result
@@ -1073,32 +1075,49 @@ export const reportsService = {
     });
   },
 
-  // Subscribe to comments changes with optimized counting
+  // Subscribe to comments changes with optimized counting (legacy and new tables)
   subscribeToCommentsChanges(callback: (reportId: string, commentCount: number) => void) {
-    return _createSubscription('comments_changes', [
-        {
-          event: '*',
-          schema: 'public',
-          table: 'comments',
-      }
+    // Create two subscriptions but funnel updates through the same debounced key
+    const unsubscribeLegacy = _createSubscription('comments_changes', [
+      { event: '*', schema: 'public', table: 'comments' }
     ], async (payload) => {
-      _debouncedUpdate(`comments_${payload.new?.report_id || payload.old?.report_id}`, async () => {
+      const reportId = payload.new?.report_id || payload.old?.report_id;
+      if (!reportId) return;
+      _debouncedUpdate(`comments_${reportId}`, async () => {
         try {
-          const reportId = payload.new?.report_id || payload.old?.report_id;
-          if (!reportId) return;
-
-              // Get updated comment count
-              const { count } = await supabase
-                .from('comments')
-                .select('*', { count: 'exact', head: true })
-            .eq('report_id', reportId);
-
-          callback(reportId, count || 0);
-          } catch (error) {
-            console.error('Error in comments subscription:', error);
+          const [{ count: legacyCount }, { count: newCount }] = await Promise.all([
+            supabase.from('comments').select('*', { count: 'exact', head: true }).eq('report_id', reportId),
+            supabase.from('report_comments').select('*', { count: 'exact', head: true }).eq('report_id', reportId)
+          ] as any);
+          callback(reportId, (legacyCount || 0) + (newCount || 0));
+        } catch (error) {
+          console.error('Error in comments subscription (legacy):', error);
         }
       });
     });
+
+    const unsubscribeNew = _createSubscription('report_comments_changes', [
+      { event: '*', schema: 'public', table: 'report_comments' }
+    ], async (payload) => {
+      const reportId = payload.new?.report_id || payload.old?.report_id;
+      if (!reportId) return;
+      _debouncedUpdate(`comments_${reportId}`, async () => {
+        try {
+          const [{ count: legacyCount }, { count: newCount }] = await Promise.all([
+            supabase.from('comments').select('*', { count: 'exact', head: true }).eq('report_id', reportId),
+            supabase.from('report_comments').select('*', { count: 'exact', head: true }).eq('report_id', reportId)
+          ] as any);
+          callback(reportId, (legacyCount || 0) + (newCount || 0));
+        } catch (error) {
+          console.error('Error in comments subscription (new):', error);
+        }
+      });
+    });
+
+    return () => {
+      if (typeof unsubscribeLegacy === 'function') unsubscribeLegacy();
+      if (typeof unsubscribeNew === 'function') unsubscribeNew();
+    };
   },
 
   // Clear all caches

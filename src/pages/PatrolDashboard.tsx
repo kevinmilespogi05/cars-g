@@ -18,6 +18,7 @@ export function PatrolDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
+  const [priorityLevelInput, setPriorityLevelInput] = useState<number | ''>('');
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'in_progress' | 'awaiting_verification'>('all');
@@ -232,6 +233,15 @@ export function PatrolDashboard() {
     loadAllReportsStats();
   }, [filterStatus]);
 
+  // Sync priority level input when modal opens/changes selection
+  useEffect(() => {
+    if (selectedReport) {
+      setPriorityLevelInput(typeof selectedReport.priority_level === 'number' ? selectedReport.priority_level : '');
+    } else {
+      setPriorityLevelInput('');
+    }
+  }, [selectedReport]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return reports;
@@ -296,6 +306,14 @@ export function PatrolDashboard() {
         .eq('id', reportId);
         
       if (error) throw error;
+
+      // Log acceptance in comments
+      try {
+        const { CommentsService } = await import('../services/commentsService');
+        await CommentsService.addComment(reportId, `Job accepted by ${patrollerName}`, 'assignment');
+      } catch (logErr) {
+        console.warn('Failed to log acceptance comment:', logErr);
+      }
       
       await loadReports();
       await loadAllReportsStats();
@@ -319,6 +337,22 @@ export function PatrolDashboard() {
       case 'rejected': return 'Rejected';
       case 'verifying': return 'Verifying';
       default: return String(status || '').replace('_',' ');
+    }
+  };
+
+  const getServiceLevelText = (level: number) => {
+    switch (level) {
+      case 5:
+        return 'Total loss of service';
+      case 4:
+        return 'Reduction of service';
+      case 3:
+        return "Can continue work but can't complete most tasks";
+      case 2:
+        return 'Service workaround available';
+      case 1:
+      default:
+        return 'Minor inconvenience';
     }
   };
 
@@ -370,6 +404,9 @@ export function PatrolDashboard() {
     if (selectedCaseReport?.id === updatedReport.id) {
       setSelectedCaseReport(updatedReport);
     }
+    if (selectedReport?.id === updatedReport.id) {
+      setSelectedReport(updatedReport);
+    }
   };
 
   const handleAssignToGroup = async (reportId: string, group: string) => {
@@ -409,6 +446,14 @@ export function PatrolDashboard() {
         .eq('id', reportId);
       if (error) throw error;
 
+      // Log cancellation/unaccept in comments
+      try {
+        const { CommentsService } = await import('../services/commentsService');
+        await CommentsService.addComment(reportId, 'Job acceptance cancelled', 'status_update');
+      } catch (logErr) {
+        console.warn('Failed to log unaccept comment:', logErr);
+      }
+
       await loadReports();
       await loadAllReportsStats();
       setSelectedReport(null);
@@ -424,6 +469,14 @@ export function PatrolDashboard() {
   const handleSetPriority = async (reportId: string, priorityLevel: number) => {
     try {
       setActionLoading(true);
+      // Optimistic local update for immediate feedback
+      setReports(prev => prev.map(r => r.id === reportId ? ({ ...r, priority_level: priorityLevel } as Report) : r));
+      if (selectedReport?.id === reportId) {
+        setSelectedReport({ ...selectedReport, priority_level: priorityLevel });
+      }
+      if (selectedCaseReport?.id === reportId) {
+        setSelectedCaseReport({ ...selectedCaseReport, priority_level: priorityLevel });
+      }
       const updatedReport = await reportsService.updateReportTicketing(reportId, {
         priority_level: priorityLevel
       });
@@ -435,6 +488,8 @@ export function PatrolDashboard() {
     } catch (error) {
       console.error('Error setting priority:', error);
       alert('Failed to set priority. Please try again.');
+      // Re-sync from server on failure
+      await loadReports();
     } finally {
       setActionLoading(false);
     }
@@ -669,14 +724,14 @@ export function PatrolDashboard() {
                           </span>
                         )}
                         {report.priority_level && (
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          <span title={getServiceLevelText(report.priority_level)} className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                             report.priority_level >= 5 ? 'bg-red-100 text-red-800' :
                             report.priority_level >= 4 ? 'bg-orange-100 text-orange-800' :
                             report.priority_level >= 3 ? 'bg-yellow-100 text-yellow-800' :
                             report.priority_level >= 2 ? 'bg-blue-100 text-blue-800' :
                             'bg-green-100 text-green-800'
                           }`}>
-                            Level {report.priority_level}
+                            Level {report.priority_level} · {getServiceLevelText(report.priority_level)}
                           </span>
                         )}
                       </div>
@@ -775,14 +830,14 @@ export function PatrolDashboard() {
                         </span>
                       )}
                       {selectedReport.priority_level && (
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full font-medium ${
+                        <span title={getServiceLevelText(selectedReport.priority_level)} className={`inline-flex items-center px-2.5 py-0.5 rounded-full font-medium ${
                           selectedReport.priority_level >= 5 ? 'bg-red-100 text-red-800' :
                           selectedReport.priority_level >= 4 ? 'bg-orange-100 text-orange-800' :
                           selectedReport.priority_level >= 3 ? 'bg-yellow-100 text-yellow-800' :
                           selectedReport.priority_level >= 2 ? 'bg-blue-100 text-blue-800' :
                           'bg-green-100 text-green-800'
                         }`}>
-                          Level {selectedReport.priority_level}
+                          Level {selectedReport.priority_level} · {getServiceLevelText(selectedReport.priority_level)}
                         </span>
                       )}
                     </div>
@@ -863,18 +918,43 @@ export function PatrolDashboard() {
                       )}
                       {selectedReport.priority_level && (
                         <div>
-                          <p className="text-sm font-medium text-gray-500">Priority Level</p>
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          <p className="text-sm font-medium text-gray-500">Service Level</p>
+                          <span title={getServiceLevelText(selectedReport.priority_level)} className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                             selectedReport.priority_level >= 5 ? 'bg-red-100 text-red-800' :
                             selectedReport.priority_level >= 4 ? 'bg-orange-100 text-orange-800' :
                             selectedReport.priority_level >= 3 ? 'bg-yellow-100 text-yellow-800' :
                             selectedReport.priority_level >= 2 ? 'bg-blue-100 text-blue-800' :
                             'bg-green-100 text-green-800'
                           }`}>
-                            Level {selectedReport.priority_level} (5 = Highest)
+                            Level {selectedReport.priority_level} · {getServiceLevelText(selectedReport.priority_level)}
                           </span>
                         </div>
                       )}
+                      {/* Set/Update Service Level */}
+                      <div>
+                        <p className="text-sm font-medium text-gray-500">Set Service Level</p>
+                        <div className="flex items-center gap-2">
+                          <select
+                            value={priorityLevelInput}
+                            onChange={(e) => setPriorityLevelInput(e.target.value === '' ? '' : Number(e.target.value))}
+                            className="px-2.5 py-1 border border-gray-300 rounded-md text-sm"
+                          >
+                            <option value="">Not set</option>
+                            <option value={1}>1 - Minor inconvenience</option>
+                            <option value={2}>2 - Workaround available</option>
+                            <option value={3}>3 - Limited work</option>
+                            <option value={4}>4 - Reduction of service</option>
+                            <option value={5}>5 - Total loss</option>
+                          </select>
+                          <button
+                            onClick={() => selectedReport && priorityLevelInput !== '' && handleSetPriority(selectedReport.id, Number(priorityLevelInput))}
+                            disabled={priorityLevelInput === '' || actionLoading}
+                            className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
+                          >
+                            {actionLoading ? 'Saving…' : 'Save'}
+                          </button>
+                        </div>
+                      </div>
                       {selectedReport.assigned_group && (
                         <div>
                           <p className="text-sm font-medium text-gray-500">Assigned Group</p>

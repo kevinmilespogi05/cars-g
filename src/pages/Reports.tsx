@@ -31,6 +31,12 @@ import { AnnouncementCarousel } from '../components/AnnouncementCarousel';
 import { LikeDetailsModal } from '../components/LikeDetailsModal';
 import { Report } from '../types';
 
+// LGU Footer details – update these to your LGU specifics
+const LGU_NAME = 'Your Local Government Unit';
+const LGU_ADDRESS = 'Your LGU Address, City, Province, Country';
+const LGU_FACEBOOK_URL = 'https://facebook.com/your-lgu-page';
+const LGU_GOOGLE_MAPS_URL = 'https://maps.google.com/?q=Your+LGU+Address';
+
 const CATEGORIES = ['All', 'Infrastructure', 'Safety', 'Environmental', 'Public Services', 'Other'];
 const STATUSES = ['All', 'Pending', 'In Progress', 'Resolved', 'Rejected'];
 const PRIORITIES = ['All', 'Low', 'Medium', 'High'];
@@ -320,11 +326,52 @@ export function Reports() {
   }
 
   return (
+    <>
     <div className="min-h-[100dvh] bg-gray-50 reports-page">
-      <div className="w-full px-3 sm:px-4 lg:px-6 py-4 sm:py-6">
-        {/* Announcements Section */}
-        <AnnouncementCarousel />
-        {/* Header Section - More compact */}
+      <div className="w-full px-3 sm:px-4 lg:px-6 py-4 sm:py-6 max-w-7xl mx-auto">
+        {/* Announcements with right-side Emergency Contacts only for this section */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6">
+          <div className="lg:col-span-8">
+            <AnnouncementCarousel />
+          </div>
+          <aside className="lg:col-span-4">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+              <h3 className="text-sm font-semibold text-gray-900 mb-3">Emergency Contacts</h3>
+              <ul className="space-y-3 text-sm">
+                <li className="flex items-start justify-between">
+                  <div>
+                    <p className="font-medium text-gray-900">Emergency Hotline</p>
+                    <p className="text-gray-500">For immediate assistance</p>
+                  </div>
+                  <a href="tel:911" className="text-red-600 hover:text-red-700 font-semibold">911</a>
+                </li>
+                <li className="flex items-start justify-between">
+                  <div>
+                    <p className="font-medium text-gray-900">Police</p>
+                    <p className="text-gray-500">Non-emergency</p>
+                  </div>
+                  <a href="tel:117" className="text-red-600 hover:text-red-700 font-semibold">117</a>
+                </li>
+                <li className="flex items-start justify-between">
+                  <div>
+                    <p className="font-medium text-gray-900">Fire Department</p>
+                    <p className="text-gray-500">Report fires and hazards</p>
+                  </div>
+                  <a href="tel:160" className="text-red-600 hover:text-red-700 font-semibold">160</a>
+                </li>
+                <li className="flex items-start justify-between">
+                  <div>
+                    <p className="font-medium text-gray-900">Ambulance</p>
+                    <p className="text-gray-500">Medical emergencies</p>
+                  </div>
+                  <a href="tel:16911" className="text-red-600 hover:text-red-700 font-semibold">16911</a>
+                </li>
+              </ul>
+            </div>
+          </aside>
+        </div>
+
+        {/* Header Section */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
             <h1 className="text-xl sm:text-2xl font-bold text-[#800000]">Reports</h1>
@@ -343,10 +390,8 @@ export function Reports() {
           <QuickActions hideEmergencyActions />
         </div>
 
-        {/* Status Quick Links removed as requested */}
-
-        {/* Search and Filters Section - More compact and user-friendly */}
-        <div className="bg-white rounded-lg shadow-sm p-3 mb-4 border border-gray-100">
+        {/* Search and Filters Section */}
+        <div className="bg-white rounded-lg shadow-sm p-4 mb-4 border border-gray-100">
           <div className="flex flex-col sm:flex-row gap-3">
             {/* Search */}
             <div className="flex-1">
@@ -362,7 +407,7 @@ export function Reports() {
               </div>
             </div>
 
-            {/* Filters - More compact and touch-friendly */}
+            {/* Filters */}
             <div className="flex flex-wrap gap-2">
               <select
                 value={filters.category}
@@ -397,7 +442,7 @@ export function Reports() {
           </div>
         </div>
 
-        {/* Reports Grid */}
+        {/* Reports Grid - restored to fuller layout */}
         {filteredReports.length === 0 ? (
           <div className="text-center py-8">
             <div className="text-gray-400 mb-3">
@@ -412,16 +457,15 @@ export function Reports() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredReports.map((report) => (
               <div
                 key={report.id}
                 className="bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer border border-gray-100 hover:border-gray-200"
                 onClick={() => navigate(`/reports/${report.id}`)}
               >
-                {/* Report Images - Much smaller and more compact */}
                 {report.images && report.images.length > 0 && !imageErrors[report.id] ? (
-                  <div className="relative h-32 overflow-hidden rounded-t-lg">
+                  <div className="relative h-40 overflow-hidden rounded-t-lg">
                     <img
                       src={report.images[0]}
                       alt={report.title}
@@ -435,82 +479,73 @@ export function Reports() {
                     )}
                   </div>
                 ) : (
-                  <div className="h-32 bg-gradient-to-br from-gray-50 to-gray-100 rounded-t-lg flex items-center justify-center">
-                    <MapPin className="h-8 w-8 text-gray-400" />
+                  <div className="h-40 bg-gradient-to-br from-gray-50 to-gray-100 rounded-t-lg flex items-center justify-center">
+                    <MapPin className="h-10 w-10 text-gray-400" />
                   </div>
                 )}
 
-                {/* Report Content - More compact padding and typography */}
-                <div className="p-3">
-                  {/* Title - Single line with better typography */}
-                  <h3 className="font-semibold text-gray-900 text-sm leading-tight line-clamp-1 mb-2">
+                <div className="p-4">
+                  <h3 className="font-semibold text-gray-900 text-base leading-tight line-clamp-1 mb-2">
                     {report.title}
                   </h3>
-                  
-                  {/* Case Number */}
+
                   {report.case_number && (
-                    <div className="flex items-center text-xs text-gray-500 mb-2">
-                      <Hash className="h-3 w-3 mr-1" />
+                    <div className="flex items-center text-sm text-gray-500 mb-2">
+                      <Hash className="h-4 w-4 mr-1" />
                       <span>Case #{report.case_number}</span>
                     </div>
                   )}
 
-                  {/* Description - Shorter, more readable */}
-                  <p className="text-gray-600 text-xs leading-relaxed line-clamp-2 mb-3">
+                  <p className="text-gray-600 text-sm leading-relaxed line-clamp-3 mb-3">
                     {report.description}
                   </p>
 
-                  {/* Status and Priority - More compact badges */}
-                  <div className="flex items-center gap-1.5 mb-2.5">
-                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(report.status)}`}>
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(report.status)}`}>
                       {getStatusIcon(report.status)}
                       <span className="ml-1 text-xs">{report.status.replace('_', ' ')}</span>
                     </span>
-                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium ${getPriorityColor(report.priority)}`}>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getPriorityColor(report.priority)}`}>
                       {report.priority}
                     </span>
                   </div>
 
-                  {/* Meta Information - More compact layout */}
-                  <div className="flex items-center justify-between text-xs text-gray-500 mb-2.5">
-                    <div className="flex items-center gap-1">
-                      <Users className="h-3 w-3" />
-                      <span className="truncate max-w-[80px]">{report.user_profile?.username || 'Anonymous'}</span>
+                  <div className="flex items-center justify-between text-sm text-gray-500 mb-3">
+                    <div className="flex items-center gap-1.5">
+                      <Users className="h-4 w-4" />
+                      <span className="truncate max-w-[120px]">{report.user_profile?.username || 'Anonymous'}</span>
                     </div>
-                    <div className="flex items-center gap-1 text-gray-400">
-                      <Calendar className="h-3 w-3" />
-                      <span className="text-xs">{new Date(report.created_at).toLocaleDateString()}</span>
+                    <div className="flex items-center gap-1.5 text-gray-400">
+                      <Calendar className="h-4 w-4" />
+                      <span>{new Date(report.created_at).toLocaleDateString()}</span>
                     </div>
                   </div>
 
-                  {/* Actions - More compact and touch-friendly */}
-                  <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                  <div className="flex items-center justify-between pt-3 border-t border-gray-100">
                     <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleLike(report.id);
-                          }}
-                          disabled={likeLoading[report.id]}
-                          className="flex items-center gap-1 text-xs transition-colors hover:text-red-500"
-                        >
-                          {likeLoading[report.id] ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-500" />
-                          ) : (
-                            <Heart 
-                              className={`h-3.5 w-3.5 transition-all duration-200 ${
-                                report.is_liked 
-                                  ? 'fill-red-500 text-red-500' 
-                                  : 'fill-none text-gray-500 hover:text-red-500'
-                              }`} 
-                            />
-                          )}
-                          <span className="text-xs text-gray-600">{report.likes?.count || 0}</span>
-                        </button>
-                      </div>
-                      <div className="flex items-center gap-1 text-xs text-gray-500">
-                        <MessageCircle className="h-3.5 w-3.5" />
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleLike(report.id);
+                        }}
+                        disabled={likeLoading[report.id]}
+                        className="flex items-center gap-1.5 text-sm transition-colors hover:text-red-500"
+                      >
+                        {likeLoading[report.id] ? (
+                          <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
+                        ) : (
+                          <Heart 
+                            className={`h-4 w-4 transition-all duration-200 ${
+                              report.is_liked 
+                                ? 'fill-red-500 text-red-500' 
+                                : 'fill-none text-gray-500 hover:text-red-500'
+                            }`} 
+                          />
+                        )}
+                        <span className="text-sm text-gray-600">{report.likes?.count || 0}</span>
+                      </button>
+                      <div className="flex items-center gap-1.5 text-sm text-gray-500">
+                        <MessageCircle className="h-4 w-4" />
                         <span>{report.comments?.count || 0}</span>
                       </div>
                     </div>
@@ -519,10 +554,10 @@ export function Reports() {
                         e.stopPropagation();
                         navigate(`/reports/${report.id}`);
                       }}
-                      className="text-primary-color hover:text-primary-dark transition-colors p-1 rounded hover:bg-gray-50"
+                      className="text-primary-color hover:text-primary-dark transition-colors p-1.5 rounded hover:bg-gray-50"
                       title="View details"
                     >
-                      <Eye className="h-3.5 w-3.5" />
+                      <Eye className="h-4 w-4" />
                     </button>
                   </div>
                 </div>
@@ -561,5 +596,19 @@ export function Reports() {
         />
       )}
     </div>
+    {/* LGU Footer */}
+    <footer className="mt-8 border-t border-gray-200 bg-white/70">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-6 text-sm text-gray-700 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div>
+          <p className="font-semibold text-gray-900">{LGU_NAME}</p>
+          <p className="text-gray-600">{LGU_ADDRESS}</p>
+        </div>
+        <div className="flex items-center gap-4">
+          <a href={LGU_FACEBOOK_URL} target="_blank" rel="noreferrer" className="text-blue-600 hover:text-blue-700 underline">Facebook Page</a>
+          <a href={LGU_GOOGLE_MAPS_URL} target="_blank" rel="noreferrer" className="text-green-700 hover:text-green-800 underline">View on Google Maps</a>
+        </div>
+      </div>
+    </footer>
+    </>
   );
 }

@@ -126,6 +126,22 @@ export function CaseInfo({ report, onUpdate, onClose, isPatrolView = false }: Ca
     return 'text-green-600 bg-green-100';
   };
 
+  const getServiceLevelText = (level: number) => {
+    switch (level) {
+      case 5:
+        return 'Total loss of service';
+      case 4:
+        return 'Reduction of service';
+      case 3:
+        return "Can continue work but can't complete most tasks";
+      case 2:
+        return 'Service workaround available';
+      case 1:
+      default:
+        return 'Minor inconvenience';
+    }
+  };
+
   const getCommentTypeIcon = (type: string) => {
     switch (type) {
       case 'status_update': return <Clock className="h-4 w-4" />;
@@ -178,11 +194,18 @@ export function CaseInfo({ report, onUpdate, onClose, isPatrolView = false }: Ca
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
               <div className="space-y-3">
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Priority Level</label>
-                  <div className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPriorityColor(report.priority_level || 3)}`}>
-                    <AlertTriangle className="h-3 w-3 mr-1" />
-                    Level {report.priority_level || 3} (5 = Highest)
-                  </div>
+                  <label className="text-sm font-medium text-gray-500">Service Level</label>
+                  {typeof report.priority_level === 'number' ? (
+                    <div
+                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPriorityColor(report.priority_level)}`}
+                      title={getServiceLevelText(report.priority_level)}
+                    >
+                      <AlertTriangle className="h-3 w-3 mr-1" />
+                      Level {report.priority_level} · {getServiceLevelText(report.priority_level)}
+                    </div>
+                  ) : (
+                    <div className="text-xs text-gray-500">Not set</div>
+                  )}
                 </div>
                 
                 <div>
