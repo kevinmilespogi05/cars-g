@@ -365,7 +365,6 @@ export function CreateReport() {
                 type="file"
                 multiple
                 accept="image/*"
-                capture="environment"
                 onChange={handleImageUpload}
                 className="hidden"
                 disabled={remainingSlots <= 0}

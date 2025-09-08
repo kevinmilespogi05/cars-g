@@ -158,7 +158,10 @@ function AppContent() {
         <div className="min-h-screen bg-gray-100">
           {/* Only show Navigation on non-landing pages */}
           {!isLandingPage && <Navigation />}
-          <main className={isLandingPage ? 'pt-0' : 'pt-24 sm:pt-28'}>
+          <main className={isLandingPage ? 'pt-0' : 'pt-20 sm:pt-24'}>
+            {!isLandingPage && (
+              <div className="sticky top-0 z-40 h-6 -mt-6 bg-gradient-to-b from-[#800000] to-transparent pointer-events-none" />
+            )}
             <Suspense fallback={<LoadingSpinner />}>
               <Routes>
                 {publicRoutes.map((route) => (

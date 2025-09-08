@@ -643,7 +643,7 @@ export function ReportDetail() {
   }
 
   return (
-    <div className="w-full max-w-7xl mx-auto px-3 sm:px-4 py-6 sm:py-8">
+    <div className="w-full max-w-screen-2xl mx-auto px-3 sm:px-4 py-6 sm:py-8">
       {/* Back Button */}
       <button
         onClick={() => navigate('/reports')}
@@ -793,7 +793,7 @@ export function ReportDetail() {
         </aside>
 
         {/* Center: Main content */}
-        <main className="lg:col-span-6 order-2">
+        <main className="lg:col-span-7 order-2">
           <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
             <h1 className="text-2xl font-bold text-gray-900 mb-3">{report.title}</h1>
             <p className="text-sm text-gray-500 mb-4">Reported by <span className="font-medium text-gray-700">{report.user.username}</span> • {new Date(report.created_at).toLocaleString()}</p>
@@ -807,7 +807,7 @@ export function ReportDetail() {
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                   {report.images.map((image, index) => (
                     <div key={index} className="relative aspect-square cursor-pointer overflow-hidden bg-gray-100 rounded-lg" onClick={() => setSelectedImage({ url: image, index })}>
-                      <img src={getImageUrl(image)} alt={`Report image ${index + 1}`} className="absolute inset-0 h-full w-full object-cover rounded-lg border border-gray-200" loading="eager" decoding="sync" fetchpriority="high" referrerPolicy="no-referrer" crossOrigin="anonymous" onError={(e) => { console.error(`Failed to load image: ${image}`); const imgElement = e.target as HTMLImageElement; imgElement.src = fallbackImageUrl; }} style={{ backgroundColor: '#f0f0f0' }} />
+                      <img src={getImageUrl(image)} alt={`Report image ${index + 1}`} className="absolute inset-0 h-full w-full object-cover rounded-lg border border-gray-200" loading="eager" decoding="sync" fetchPriority="high" referrerPolicy="no-referrer" crossOrigin="anonymous" onError={(e) => { console.error(`Failed to load image: ${image}`); const imgElement = e.target as HTMLImageElement; imgElement.src = fallbackImageUrl; }} style={{ backgroundColor: '#f0f0f0' }} />
                     </div>
                   ))}
                 </div>
@@ -838,7 +838,7 @@ export function ReportDetail() {
         </main>
 
         {/* Right: Case Info */}
-        <aside className="lg:col-span-3 order-3">
+        <aside className="lg:col-span-2 order-3">
           {(report.case_number || report.priority_level || report.assigned_group || report.assigned_patroller_name) && (
             <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 sticky top-24 max-h-[calc(100vh-8rem)] overflow-y-auto">
               <h3 className="text-sm font-semibold text-gray-900 mb-3">Case Information</h3>
@@ -881,7 +881,7 @@ export function ReportDetail() {
       {/* Image Modal */}
       {selectedImage && report.images && (
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
-          <div className="relative max-w-4xl w-full">
+          <div className="relative max-w-5xl w-full flex items-center justify-center mx-auto">
             <button
               onClick={() => setSelectedImage(null)}
               className="absolute -top-10 right-0 text-white hover:text-gray-300"
@@ -891,10 +891,10 @@ export function ReportDetail() {
             <img
               src={getImageUrl(selectedImage.url)}
               alt={`Report image ${selectedImage.index + 1}`}
-              className="max-h-[85vh] max-w-full object-contain rounded-lg bg-gray-100"
+              className="block mx-auto max-h-[85vh] max-w-full object-contain rounded-lg bg-gray-100"
               loading="eager"
               decoding="sync"
-              fetchpriority="high"
+              fetchPriority="high"
               referrerPolicy="no-referrer"
               crossOrigin="anonymous"
               onError={(e) => {

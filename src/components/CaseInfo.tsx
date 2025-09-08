@@ -135,7 +135,7 @@ export function CaseInfo({ report, onUpdate, onClose, isPatrolView = false }: Ca
       case 3:
         return "Can continue work but can't complete most tasks";
       case 2:
-        return 'Service workaround available';
+        return 'Service work around available';
       case 1:
       default:
         return 'Minor inconvenience';

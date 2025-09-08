@@ -32,10 +32,12 @@ import { LikeDetailsModal } from '../components/LikeDetailsModal';
 import { Report } from '../types';
 
 // LGU Footer details – update these to your LGU specifics
-const LGU_NAME = 'Your Local Government Unit';
-const LGU_ADDRESS = 'Your LGU Address, City, Province, Country';
-const LGU_FACEBOOK_URL = 'https://facebook.com/your-lgu-page';
-const LGU_GOOGLE_MAPS_URL = 'https://maps.google.com/?q=Your+LGU+Address';
+const LGU_NAME = 'Castillejos Local Government Unit';
+const LGU_ADDRESS = 'Municipal Building, San Juan, Castillejos, Zambales, 2208, Philippines';
+const LGU_FACEBOOK_URL = 'https://www.facebook.com/profile.php?id=100086396687833';
+const LGU_GOOGLE_MAPS_URL = 'https://maps.google.com/?q=Municipal+Building,+San+Juan,+Castillejos,+Zambales,+2208,+Philippines';
+const LGU_EMAIL = 'mayorsoffice.jdk2022@gmail.com'; // update if different
+const LGU_OFFICE_HOURS = 'Monday–Friday, 8:00 AM – 5:00 PM';
 
 const CATEGORIES = ['All', 'Infrastructure', 'Safety', 'Environmental', 'Public Services', 'Other'];
 const STATUSES = ['All', 'Pending', 'In Progress', 'Resolved', 'Rejected'];
@@ -328,13 +330,13 @@ export function Reports() {
   return (
     <>
     <div className="min-h-[100dvh] bg-gray-50 reports-page">
-      <div className="w-full px-3 sm:px-4 lg:px-6 py-4 sm:py-6 max-w-7xl mx-auto">
+      <div className="w-full px-3 sm:px-4 lg:px-6 py-4 sm:py-6 max-w-screen-2xl mx-auto">
         {/* Announcements with right-side Emergency Contacts only for this section */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6">
-          <div className="lg:col-span-8">
+          <div className="lg:col-span-9">
             <AnnouncementCarousel />
           </div>
-          <aside className="lg:col-span-4">
+          <aside className="lg:col-span-3">
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
               <h3 className="text-sm font-semibold text-gray-900 mb-3">Emergency Contacts</h3>
               <ul className="space-y-3 text-sm">
@@ -457,7 +459,7 @@ export function Reports() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
             {filteredReports.map((report) => (
               <div
                 key={report.id}
@@ -570,7 +572,7 @@ export function Reports() {
       {/* Image Modal */}
       {selectedImage && (
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-          <div className="relative max-w-4xl max-h-full p-4">
+          <div className="relative max-w-5xl w-full max-h-full p-4 flex items-center justify-center mx-auto">
             <button
               onClick={() => setSelectedImage(null)}
               className="absolute top-4 right-4 text-white hover:text-gray-300 z-10"
@@ -580,7 +582,7 @@ export function Reports() {
             <img
               src={selectedImage.url}
               alt={`Report image ${selectedImage.index + 1}`}
-              className="max-w-full max-h-full object-contain"
+              className="block mx-auto max-w-full max-h-full object-contain"
             />
           </div>
         </div>
@@ -596,16 +598,31 @@ export function Reports() {
         />
       )}
     </div>
+    {/* Transition to Footer */}
+    <div className="h-6 bg-gradient-to-b from-transparent to-[#800000]" />
     {/* LGU Footer */}
-    <footer className="mt-8 border-t border-gray-200 bg-white/70">
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-6 text-sm text-gray-700 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div>
-          <p className="font-semibold text-gray-900">{LGU_NAME}</p>
-          <p className="text-gray-600">{LGU_ADDRESS}</p>
-        </div>
-        <div className="flex items-center gap-4">
-          <a href={LGU_FACEBOOK_URL} target="_blank" rel="noreferrer" className="text-blue-600 hover:text-blue-700 underline">Facebook Page</a>
-          <a href={LGU_GOOGLE_MAPS_URL} target="_blank" rel="noreferrer" className="text-green-700 hover:text-green-800 underline">View on Google Maps</a>
+    <footer className="bg-[#800000]">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-10 text-base text-white leading-relaxed">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div>
+            <p className="text-lg md:text-xl font-semibold tracking-wide text-white">{LGU_NAME}</p>
+            <p className="text-gray-100 mt-2">{LGU_ADDRESS}</p>
+            <div className="flex items-center gap-5 mt-4">
+              <a href={LGU_FACEBOOK_URL} target="_blank" rel="noreferrer" className="underline underline-offset-4 font-medium text-white hover:text-gray-200">Facebook</a>
+              <a href={LGU_GOOGLE_MAPS_URL} target="_blank" rel="noreferrer" className="underline underline-offset-4 font-medium text-white hover:text-gray-200">Google Maps</a>
+            </div>
+          </div>
+          <div>
+            <p className="text-lg md:text-xl font-semibold tracking-wide text-white">Contact</p>
+            <ul className="mt-2 space-y-1.5 text-gray-100">
+              {LGU_EMAIL && <li>Email: <a href={`mailto:${LGU_EMAIL}`} className="underline underline-offset-4 hover:text-white font-medium">{LGU_EMAIL}</a></li>}
+            </ul>
+          </div>
+          <div>
+            <p className="text-lg md:text-xl font-semibold tracking-wide text-white">Office Hours</p>
+            <p className="mt-2 text-gray-100">{LGU_OFFICE_HOURS}</p>
+            <p className="mt-3 text-gray-200">For emergencies, dial 911 or contact your local responders.</p>
+          </div>
         </div>
       </div>
     </footer>
