@@ -133,6 +133,15 @@ export const reportsService = {
     } as any;
 
     try {
+      // Helper: derive priority_level from priority when not explicitly set
+      const deriveLevelFromPriority = (priority?: Report['priority']): number | null => {
+        switch (priority) {
+          case 'high': return 5;
+          case 'medium': return 3;
+          case 'low': return 1;
+          default: return null;
+        }
+      };
       // Map client payload (location_lat/lng) to DB schema (location json)
       const payload: any = {
         user_id: (reportData as any).user_id || user.id,
@@ -148,8 +157,8 @@ export const reportsService = {
         location_address: (reportData as any).location_address,
         images: (reportData as any).images || [],
         // Ticketing system fields
-        // Do not default to 3; let it be explicitly set later
-        priority_level: (reportData as any).priority_level ?? null,
+        // Auto-derive from priority when not provided
+        priority_level: (reportData as any).priority_level ?? deriveLevelFromPriority((reportData as any).priority),
         assigned_group: (reportData as any).assigned_group || null,
         can_cancel: (reportData as any).can_cancel !== false, // Default to true
         // idempotency_key intentionally omitted: column not present in schema

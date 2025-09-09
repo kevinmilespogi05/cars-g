@@ -1180,8 +1180,15 @@ export function AdminMapDashboard() {
         <div class="text-sm text-gray-600 mb-3 leading-relaxed">${report.description.substring(0, 120)}${report.description.length > 120 ? '...' : ''}</div>
         <div class="flex items-center justify-between text-xs mb-2">
           <span class="px-2 py-1 rounded-full ${getStatusColor(report.status)} font-medium">${report.status.replace('_', ' ')}</span>
-          <span class="px-2 py-1 rounded-full ${getPriorityColor(report.priority)} font-medium">${report.priority}</span>
+          <span class="px-2 py-1 rounded-full ${getPriorityColor(report.priority)} font-medium">${(report.priority || '').charAt(0).toUpperCase() + (report.priority || '').slice(1)}</span>
         </div>
+        ${(() => { const lvl = getEffectiveLevel(report as any); return typeof lvl === 'number' ? `
+          <div class="text-xs mb-2">
+            <span class="px-2 py-1 rounded-full font-medium ${(lvl >= 5 ? 'bg-red-100 text-red-800' : lvl >= 4 ? 'bg-orange-100 text-orange-800' : lvl >= 3 ? 'bg-yellow-100 text-yellow-800' : lvl >= 2 ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800')}">
+              Level ${lvl} · ${getServiceLevelText(lvl)}
+            </span>
+          </div>
+        ` : '' })()}
         <div class="text-xs text-gray-500 mb-2">
           <div><strong>Location:</strong> ${report.location_address}</div>
           <div><strong>Reporter:</strong> ${report.username}</div>
@@ -1214,6 +1221,35 @@ export function AdminMapDashboard() {
       default: return 'bg-gray-100 text-gray-800';
     }
   };
+
+  // Map report priority to a default case level when explicit level is absent
+  const deriveLevelFromPriority = (priority?: Report['priority']): number | null => {
+    if (!priority) return null;
+    switch (priority) {
+      case 'high': return 5;
+      case 'medium': return 3;
+      case 'low': return 1;
+      default: return null;
+    }
+  };
+
+  const getEffectiveLevel = (r: Report): number | null => {
+    // Admin map Report type may not include priority_level; derive from priority
+    return deriveLevelFromPriority(r.priority);
+  };
+
+  const getServiceLevelText = (level: number): string => {
+    switch (level) {
+      case 5: return 'Total loss of service';
+      case 4: return 'Reduction of service';
+      case 3: return "Can continue work but can't complete most tasks";
+      case 2: return 'Service work around available';
+      case 1:
+      default: return 'Minor inconvenience';
+    }
+  };
+
+  const capitalize = (value: string) => value ? value.charAt(0).toUpperCase() + value.slice(1) : value;
 
   const updateSpecificMarker = async (reportId: string, newStatus: Report['status']) => {
     console.log('updateSpecificMarker called:', reportId, newStatus);
@@ -2465,7 +2501,7 @@ export function AdminMapDashboard() {
                 <p className="text-gray-900">{selectedReportForModal.description}</p>
               </div>
 
-              {/* Category and Priority */}
+              {/* Category and Priority / Case Level */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <h3 className="text-sm font-medium text-gray-500 mb-1">Category</h3>
@@ -2474,10 +2510,17 @@ export function AdminMapDashboard() {
                   </span>
                 </div>
                 <div>
-                  <h3 className="text-sm font-medium text-gray-500 mb-1">Priority</h3>
-                  <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getPriorityColor(selectedReportForModal.priority)}`}>
-                    {selectedReportForModal.priority}
-                  </span>
+                  <h3 className="text-sm font-medium text-gray-500 mb-1">Case Level</h3>
+                  <div className="flex flex-col gap-1">
+                    <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getPriorityColor(selectedReportForModal.priority)}`}>
+                      {capitalize(selectedReportForModal.priority)}
+                    </span>
+                    {(() => { const lvl = getEffectiveLevel(selectedReportForModal); return typeof lvl === 'number' ? (
+                      <span className={`${lvl >= 5 ? 'bg-red-100 text-red-800' : lvl >= 4 ? 'bg-orange-100 text-orange-800' : lvl >= 3 ? 'bg-yellow-100 text-yellow-800' : lvl >= 2 ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'} inline-block px-3 py-1 rounded-full text-sm font-medium`} title={getServiceLevelText(lvl)}>
+                        Level {lvl} · {getServiceLevelText(lvl)}
+                      </span>
+                    ) : null; })()}
+                  </div>
                 </div>
               </div>
 
@@ -2671,8 +2714,13 @@ export function AdminMapDashboard() {
                           {report.status.replace('_', ' ')}
                         </span>
                         <span className={`px-3 py-1 rounded-full text-sm font-medium ${getPriorityColor(report.priority)}`}>
-                          {report.priority}
+                          {capitalize(report.priority)}
                         </span>
+                        {(() => { const lvl = getEffectiveLevel(report); return typeof lvl === 'number' ? (
+                          <span className={`${lvl >= 5 ? 'bg-red-100 text-red-800' : lvl >= 4 ? 'bg-orange-100 text-orange-800' : lvl >= 3 ? 'bg-yellow-100 text-yellow-800' : lvl >= 2 ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'} px-3 py-1 rounded-full text-sm font-medium`} title={getServiceLevelText(lvl)}>
+                            Level {lvl} · {getServiceLevelText(lvl)}
+                          </span>
+                        ) : null; })()}
                       </div>
                     </div>
                     

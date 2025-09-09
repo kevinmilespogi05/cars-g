@@ -88,6 +88,7 @@ export const IssueReportForm: React.FC<IssueReportFormProps> = ({ onSubmit }) =>
           category: formData.category,
           status: 'pending',
           priority: formData.priority,
+          priority_level: (formData.priority === 'high' ? 5 : formData.priority === 'medium' ? 3 : 1),
           location_lat: location.lat,
           location_lng: location.lng,
           location_address: location.address,

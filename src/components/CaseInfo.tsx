@@ -142,6 +142,28 @@ export function CaseInfo({ report, onUpdate, onClose, isPatrolView = false }: Ca
     }
   };
 
+  // Derive a service level from priority when explicit level is not set
+  const deriveLevelFromPriority = (priority?: Report['priority']): number | null => {
+    if (!priority) return null;
+    switch (priority) {
+      case 'high':
+        return 5;
+      case 'medium':
+        return 3;
+      case 'low':
+        return 1;
+      default:
+        return null;
+    }
+  };
+
+  const getEffectiveLevel = (r: Report): number | null => {
+    if (typeof r.priority_level === 'number') return r.priority_level;
+    return deriveLevelFromPriority(r.priority);
+  };
+
+  const capitalize = (value: string) => value ? value.charAt(0).toUpperCase() + value.slice(1) : value;
+
   const getCommentTypeIcon = (type: string) => {
     switch (type) {
       case 'status_update': return <Clock className="h-4 w-4" />;
@@ -205,14 +227,17 @@ export function CaseInfo({ report, onUpdate, onClose, isPatrolView = false }: Ca
               }`}>
                 Priority: {report.priority}
               </span>
-              {typeof report.priority_level === 'number' && (
-                <span
-                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full font-medium ${getPriorityColor(report.priority_level)}`}
-                  title={getServiceLevelText(report.priority_level)}
-                >
-                  Level {report.priority_level} · {getServiceLevelText(report.priority_level)}
-                </span>
-              )}
+              {(() => {
+                const lvl = getEffectiveLevel(report);
+                return typeof lvl === 'number' ? (
+                  <span
+                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full font-medium ${getPriorityColor(lvl)}`}
+                    title={getServiceLevelText(lvl)}
+                  >
+                    Level {lvl} · {getServiceLevelText(lvl)}
+                  </span>
+                ) : null;
+              })()}
             </div>
           </div>
 
@@ -221,18 +246,39 @@ export function CaseInfo({ report, onUpdate, onClose, isPatrolView = false }: Ca
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
               <div className="space-y-3">
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Service Level</label>
-                  {typeof report.priority_level === 'number' ? (
-                    <div
-                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPriorityColor(report.priority_level)}`}
-                      title={getServiceLevelText(report.priority_level)}
-                    >
-                      <AlertTriangle className="h-3 w-3 mr-1" />
-                      Level {report.priority_level} · {getServiceLevelText(report.priority_level)}
-                    </div>
-                  ) : (
-                    <div className="text-xs text-gray-500">Not set</div>
-                  )}
+                  <label className="text-sm font-medium text-gray-500">Case Level</label>
+                  {(() => {
+                    const lvl = getEffectiveLevel(report);
+                    if (typeof lvl !== 'number' && !report.priority) {
+                      return <div className="text-xs text-gray-500">Not set</div>;
+                    }
+                    return (
+                      <div className="flex flex-col gap-1">
+                        {report.priority && (
+                          <div
+                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              report.priority === 'high'
+                                ? 'bg-red-100 text-red-800'
+                                : report.priority === 'medium'
+                                  ? 'bg-amber-100 text-amber-800'
+                                  : 'bg-emerald-100 text-emerald-800'
+                            }`}
+                          >
+                            <AlertTriangle className="h-3 w-3 mr-1" />
+                            {capitalize(report.priority)}
+                          </div>
+                        )}
+                        {typeof lvl === 'number' && (
+                          <div
+                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPriorityColor(lvl)}`}
+                            title={getServiceLevelText(lvl)}
+                          >
+                            Level {lvl} · {getServiceLevelText(lvl)}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
                 
                 <div>

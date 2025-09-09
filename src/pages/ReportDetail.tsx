@@ -103,6 +103,24 @@ export function ReportDetail() {
     }
   }, [id]);
 
+  // Subscribe to live report updates (status, priority, priority_level, etc.)
+  useEffect(() => {
+    if (!id) return;
+    const channel = supabase
+      .channel(`report_detail_${id}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'reports', filter: `id=eq.${id}` }, (payload) => {
+        setReport((prev) => prev ? ({
+          ...prev,
+          ...payload.new,
+        } as any) : (payload.new as any));
+      })
+      .subscribe();
+
+    return () => {
+      try { channel.unsubscribe(); } catch {}
+    };
+  }, [id]);
+
   // Keyboard shortcuts removed per request
 
   // Listen for reply like details open requests
@@ -666,6 +684,24 @@ export function ReportDetail() {
     }
   };
 
+  // Derive service level from priority when not explicitly set
+  const deriveLevelFromPriority = (priority?: Report['priority']): number | null => {
+    if (!priority) return null;
+    switch (priority) {
+      case 'high': return 5;
+      case 'medium': return 3;
+      case 'low': return 1;
+      default: return null;
+    }
+  };
+
+  const getEffectiveLevel = (r: Report): number | null => {
+    if (typeof r.priority_level === 'number') return r.priority_level;
+    return deriveLevelFromPriority(r.priority);
+  };
+
+  const capitalize = (s: string) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -902,7 +938,12 @@ export function ReportDetail() {
               <span>Reported by <span className="font-medium text-gray-700">{report.user.username}</span></span>
               <span>• {new Date(report.created_at).toLocaleString()}</span>
               <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${getStatusColor(report.status)}`}>{report.status.replace('_', ' ')}</span>
-              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${getPriorityColor(report.priority)}`}>{report.priority}</span>
+              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${getPriorityColor(report.priority)}`}>{capitalize(report.priority)}</span>
+              {(() => { const lvl = getEffectiveLevel(report); return typeof lvl === 'number' ? (
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${lvl >= 5 ? 'bg-red-100 text-red-800' : lvl >= 4 ? 'bg-orange-100 text-orange-800' : lvl >= 3 ? 'bg-yellow-100 text-yellow-800' : lvl >= 2 ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}`} title={getServiceLevelText(lvl)}>
+                  Level {lvl} · {getServiceLevelText(lvl)}
+                </span>
+              ) : null; })()}
             </div>
 
             <p className="text-gray-700 mb-4 whitespace-pre-wrap">{report.description}</p>
@@ -958,7 +999,7 @@ export function ReportDetail() {
 
         {/* Right: Case Info */}
         <aside className="lg:col-span-2 order-3">
-          {(report.case_number || report.priority_level || report.assigned_group || report.assigned_patroller_name) && (
+          {(report.case_number || report.priority || typeof report.priority_level === 'number' || report.assigned_group || report.assigned_patroller_name) && (
             <motion.div
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
@@ -970,12 +1011,12 @@ export function ReportDetail() {
                 {/* Status & Priority badges moved here */}
                 <div className="flex flex-wrap gap-2">
                   <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(report.status)}`}>{report.status.replace('_', ' ')}</span>
-                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getPriorityColor(report.priority)}`}>{report.priority}</span>
-                  {typeof report.priority_level === 'number' && (
-                    <span title={getServiceLevelText(report.priority_level)} className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${report.priority_level >= 5 ? 'bg-red-100 text-red-800' : report.priority_level >= 4 ? 'bg-orange-100 text-orange-800' : report.priority_level >= 3 ? 'bg-yellow-100 text-yellow-800' : report.priority_level >= 2 ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}`}>
-                      Level {report.priority_level} · {getServiceLevelText(report.priority_level)}
+                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getPriorityColor(report.priority)}`}>{capitalize(report.priority)}</span>
+                  {(() => { const lvl = getEffectiveLevel(report); return typeof lvl === 'number' ? (
+                    <span title={getServiceLevelText(lvl)} className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${lvl >= 5 ? 'bg-red-100 text-red-800' : lvl >= 4 ? 'bg-orange-100 text-orange-800' : lvl >= 3 ? 'bg-yellow-100 text-yellow-800' : lvl >= 2 ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}`}>
+                      Level {lvl} · {getServiceLevelText(lvl)}
                     </span>
-                  )}
+                  ) : null; })()}
                 </div>
                 {report.case_number && (
                   <div>

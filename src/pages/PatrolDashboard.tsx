@@ -384,6 +384,24 @@ export function PatrolDashboard() {
     }
   };
 
+  // Derive service level from priority when not explicitly set
+  const deriveLevelFromPriority = (priority?: Report['priority']): number | null => {
+    if (!priority) return null;
+    switch (priority) {
+      case 'high': return 5;
+      case 'medium': return 3;
+      case 'low': return 1;
+      default: return null;
+    }
+  };
+
+  const getEffectiveLevel = (r: Report): number | null => {
+    if (typeof r.priority_level === 'number') return r.priority_level;
+    return deriveLevelFromPriority(r.priority);
+  };
+
+  const capitalize = (s: string) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+
   const openWaypointNavigation = (destination: string) => {
     // Detect platform and use appropriate navigation method
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -778,17 +796,20 @@ export function PatrolDashboard() {
                             #{report.case_number}
                           </span>
                         )}
-                        {report.priority_level && (
-                          <span title={getServiceLevelText(report.priority_level)} className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            report.priority_level >= 5 ? 'bg-red-100 text-red-800' :
-                            report.priority_level >= 4 ? 'bg-orange-100 text-orange-800' :
-                            report.priority_level >= 3 ? 'bg-yellow-100 text-yellow-800' :
-                            report.priority_level >= 2 ? 'bg-blue-100 text-blue-800' :
-                            'bg-green-100 text-green-800'
-                          }`}>
-                            Level {report.priority_level} · {getServiceLevelText(report.priority_level)}
-                          </span>
-                        )}
+                        {(() => {
+                          const lvl = getEffectiveLevel(report);
+                          return typeof lvl === 'number' ? (
+                            <span title={getServiceLevelText(lvl)} className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              lvl >= 5 ? 'bg-red-100 text-red-800' :
+                              lvl >= 4 ? 'bg-orange-100 text-orange-800' :
+                              lvl >= 3 ? 'bg-yellow-100 text-yellow-800' :
+                              lvl >= 2 ? 'bg-blue-100 text-blue-800' :
+                              'bg-green-100 text-green-800'
+                            }`}>
+                              Level {lvl} · {getServiceLevelText(lvl)}
+                            </span>
+                          ) : null;
+                        })()}
                       </div>
                       
                       <p className="text-gray-600 mb-3 line-clamp-2">{report.description}</p>
@@ -928,17 +949,20 @@ export function PatrolDashboard() {
                           <Hash className="h-3 w-3 mr-1" /> #{selectedReport.case_number}
                         </span>
                       )}
-                      {selectedReport.priority_level && (
-                        <span title={getServiceLevelText(selectedReport.priority_level)} className={`inline-flex items-center px-2.5 py-0.5 rounded-full font-medium ${
-                          selectedReport.priority_level >= 5 ? 'bg-red-100 text-red-800' :
-                          selectedReport.priority_level >= 4 ? 'bg-orange-100 text-orange-800' :
-                          selectedReport.priority_level >= 3 ? 'bg-yellow-100 text-yellow-800' :
-                          selectedReport.priority_level >= 2 ? 'bg-blue-100 text-blue-800' :
-                          'bg-green-100 text-green-800'
-                        }`}>
-                          Level {selectedReport.priority_level} · {getServiceLevelText(selectedReport.priority_level)}
-                        </span>
-                      )}
+                      {(() => {
+                        const lvl = getEffectiveLevel(selectedReport);
+                        return typeof lvl === 'number' ? (
+                          <span title={getServiceLevelText(lvl)} className={`inline-flex items-center px-2.5 py-0.5 rounded-full font-medium ${
+                            lvl >= 5 ? 'bg-red-100 text-red-800' :
+                            lvl >= 4 ? 'bg-orange-100 text-orange-800' :
+                            lvl >= 3 ? 'bg-yellow-100 text-yellow-800' :
+                            lvl >= 2 ? 'bg-blue-100 text-blue-800' :
+                            'bg-green-100 text-green-800'
+                          }`}>
+                            Level {lvl} · {getServiceLevelText(lvl)}
+                          </span>
+                        ) : null;
+                      })()}
                     </div>
                   </div>
                   <button
@@ -965,14 +989,30 @@ export function PatrolDashboard() {
                     <p className="text-sm text-gray-900 mt-1">{selectedReport.category}</p>
                   </div>
                   <div className="bg-white border border-gray-200 rounded-xl p-4">
-                    <p className="text-xs font-medium text-gray-500">Priority</p>
-                    <span className={`mt-1 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      selectedReport.priority === 'high' ? 'bg-red-100 text-red-800' :
-                      selectedReport.priority === 'medium' ? 'bg-amber-100 text-amber-800' :
-                      'bg-emerald-100 text-emerald-800'
-                    }`}>
-                      {selectedReport.priority}
-                    </span>
+                    <p className="text-xs font-medium text-gray-500">Case Level</p>
+                    <div className="mt-1 flex flex-col gap-1">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        selectedReport.priority === 'high' ? 'bg-red-100 text-red-800' :
+                        selectedReport.priority === 'medium' ? 'bg-amber-100 text-amber-800' :
+                        'bg-emerald-100 text-emerald-800'
+                      }`}>
+                        {capitalize(selectedReport.priority)}
+                      </span>
+                      {(() => {
+                        const lvl = getEffectiveLevel(selectedReport);
+                        return typeof lvl === 'number' ? (
+                          <span title={getServiceLevelText(lvl)} className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            lvl >= 5 ? 'bg-red-100 text-red-800' :
+                            lvl >= 4 ? 'bg-orange-100 text-orange-800' :
+                            lvl >= 3 ? 'bg-yellow-100 text-yellow-800' :
+                            lvl >= 2 ? 'bg-blue-100 text-blue-800' :
+                            'bg-green-100 text-green-800'
+                          }`}>
+                            Level {lvl} · {getServiceLevelText(lvl)}
+                          </span>
+                        ) : null;
+                      })()}
+                    </div>
                   </div>
                   <div className="bg-white border border-gray-200 rounded-xl p-4">
                     <p className="text-xs font-medium text-gray-500">Status</p>
@@ -1023,20 +1063,37 @@ export function PatrolDashboard() {
                           </p>
                         </div>
                       )}
-                      {selectedReport.priority_level && (
-                        <div>
-                          <p className="text-sm font-medium text-gray-500">Service Level</p>
-                          <span title={getServiceLevelText(selectedReport.priority_level)} className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            selectedReport.priority_level >= 5 ? 'bg-red-100 text-red-800' :
-                            selectedReport.priority_level >= 4 ? 'bg-orange-100 text-orange-800' :
-                            selectedReport.priority_level >= 3 ? 'bg-yellow-100 text-yellow-800' :
-                            selectedReport.priority_level >= 2 ? 'bg-blue-100 text-blue-800' :
-                            'bg-green-100 text-green-800'
-                          }`}>
-                            Level {selectedReport.priority_level} · {getServiceLevelText(selectedReport.priority_level)}
-                          </span>
-                        </div>
-                      )}
+                      {(() => {
+                        const lvl = getEffectiveLevel(selectedReport);
+                        if (typeof lvl !== 'number' && !selectedReport.priority) return null;
+                        return (
+                          <div>
+                            <p className="text-sm font-medium text-gray-500">Case Level</p>
+                            <div className="flex flex-col gap-1">
+                              {selectedReport.priority && (
+                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                  selectedReport.priority === 'high' ? 'bg-red-100 text-red-800' :
+                                  selectedReport.priority === 'medium' ? 'bg-amber-100 text-amber-800' :
+                                  'bg-emerald-100 text-emerald-800'
+                                }`}>
+                                  {capitalize(selectedReport.priority)}
+                                </span>
+                              )}
+                              {typeof lvl === 'number' && (
+                                <span title={getServiceLevelText(lvl)} className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                  lvl >= 5 ? 'bg-red-100 text-red-800' :
+                                  lvl >= 4 ? 'bg-orange-100 text-orange-800' :
+                                  lvl >= 3 ? 'bg-yellow-100 text-yellow-800' :
+                                  lvl >= 2 ? 'bg-blue-100 text-blue-800' :
+                                  'bg-green-100 text-green-800'
+                                }`}>
+                                  Level {lvl} · {getServiceLevelText(lvl)}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })()}
                       {/* Set/Update Service Level */}
                       <div className="self-start mb-2">
                         <p className="text-sm font-medium text-gray-500">Set Service Level</p>

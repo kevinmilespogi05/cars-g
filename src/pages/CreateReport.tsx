@@ -236,6 +236,8 @@ export function CreateReport() {
         description: formData.description.trim(),
         category: formData.category,
         priority: formData.priority,
+        // auto-derive on client as well for robustness (service also derives)
+        priority_level: (formData.priority === 'high' ? 5 : formData.priority === 'medium' ? 3 : 1),
         location_lat: location.lat,
         location_lng: location.lng,
         location_address: location.address || `${location.lat}, ${location.lng}`,
@@ -309,6 +311,7 @@ export function CreateReport() {
           description: formData.description.trim(),
           category: formData.category,
           priority: formData.priority,
+          priority_level: (formData.priority === 'high' ? 5 : formData.priority === 'medium' ? 3 : 1),
           location_lat: location!.lat,
           location_lng: location!.lng,
           location_address: location!.address || `${location!.lat}, ${location!.lng}`,
