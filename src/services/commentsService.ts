@@ -136,6 +136,26 @@ export class CommentsService {
   // Update a comment
   static async updateComment(commentId: string, comment: string): Promise<ReportComment> {
     try {
+      // Fetch current version to record history
+      const { data: existing, error: fetchErr } = await supabase
+        .from('report_comments')
+        .select('id, comment, user_id')
+        .eq('id', commentId)
+        .single();
+      if (fetchErr) throw fetchErr;
+
+      // Record edit history (append-only)
+      try {
+        await supabase
+          .from('report_comment_edits')
+          .insert({
+            comment_id: commentId,
+            previous_comment: existing?.comment || '',
+          });
+      } catch (e) {
+        console.warn('Edit history insert failed (table may not exist):', e);
+      }
+
       const { data, error } = await supabase
         .from('report_comments')
         .update({ comment, updated_at: new Date().toISOString() })
@@ -165,6 +185,13 @@ export class CommentsService {
   // Delete a comment
   static async deleteComment(commentId: string): Promise<void> {
     try {
+      // Soft delete fallback: keep a tombstone history if edits table exists
+      try {
+        await supabase
+          .from('report_comment_edits')
+          .insert({ comment_id: commentId, previous_comment: '[deleted]' });
+      } catch {}
+
       const { error } = await supabase
         .from('report_comments')
         .delete()
@@ -174,6 +201,22 @@ export class CommentsService {
     } catch (error) {
       console.error('Error deleting comment:', error);
       throw error;
+    }
+  }
+
+  // Retrieve edit history entries (most recent first). If table missing, return empty.
+  static async getEditHistory(commentId: string): Promise<{ id: string; previous_comment: string; created_at: string }[]> {
+    try {
+      const { data, error } = await supabase
+        .from('report_comment_edits')
+        .select('id, previous_comment, created_at')
+        .eq('comment_id', commentId)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    } catch (e) {
+      console.warn('getEditHistory failed (likely no table yet):', e);
+      return [];
     }
   }
 

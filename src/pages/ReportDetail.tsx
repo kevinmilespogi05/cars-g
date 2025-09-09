@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { MapPin, Heart, MessageCircle, Send, Loader2, ChevronLeft, ChevronRight, ArrowLeft, X, Reply, Hash, User, Users, ShieldCheck, ChevronDown, ChevronUp } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
 import { LikeDetailsModal } from '../components/LikeDetailsModal';
@@ -55,7 +56,13 @@ export function ReportDetail() {
   const [submittingReply, setSubmittingReply] = useState(false);
   const [commentLikeLoading, setCommentLikeLoading] = useState<{ [key: string]: boolean }>({});
   const [nestedReplyForms, setNestedReplyForms] = useState<{ [key: string]: { content: string; submitting: boolean } }>({});
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editingText, setEditingText] = useState<string>('');
+  const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null);
+  const [historyFor, setHistoryFor] = useState<{ commentId: string; items: { id: string; previous_comment: string; created_at: string }[] } | null>(null);
   const [isCommentsCollapsed, setIsCommentsCollapsed] = useState(false);
+  const commentTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const commentsSectionRef = useRef<HTMLDivElement | null>(null);
 
   // Create a fallback image data URL
   const fallbackImageUrl = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiB2aWV3Qm94PSIwIDAgMjAwIDIwMCI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiNmMGYwZjAiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE2IiBmaWxsPSIjODg4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5JbWFnZSBub3QgYXZhaWxhYmxlPC90ZXh0Pjwvc3ZnPg==";
@@ -95,6 +102,8 @@ export function ReportDetail() {
       fetchReportComments();
     }
   }, [id]);
+
+  // Keyboard shortcuts removed per request
 
   // Listen for reply like details open requests
   useEffect(() => {
@@ -376,6 +385,46 @@ export function ReportDetail() {
     }
   };
 
+  const startEdit = (commentId: string, currentText: string) => {
+    setEditingCommentId(commentId);
+    setEditingText(currentText);
+  };
+
+  const submitEdit = async () => {
+    if (!editingCommentId || !editingText.trim()) return;
+    try {
+      const updated = await CommentsService.updateComment(editingCommentId, editingText.trim());
+      setReportComments(prev => prev.map(c => c.id === editingCommentId ? { ...c, comment: updated.comment, updated_at: updated.updated_at } : c));
+      setEditingCommentId(null);
+      setEditingText('');
+    } catch (e) {
+      alert('Failed to update comment');
+    }
+  };
+
+  const cancelEdit = () => {
+    setEditingCommentId(null);
+    setEditingText('');
+  };
+
+  const requestDelete = (commentId: string) => setDeletingCommentId(commentId);
+
+  const confirmDelete = async () => {
+    if (!deletingCommentId) return;
+    try {
+      await CommentsService.deleteComment(deletingCommentId);
+      setReportComments(prev => prev.filter(c => c.id !== deletingCommentId));
+      setDeletingCommentId(null);
+    } catch (e) {
+      alert('Failed to delete comment');
+    }
+  };
+
+  const openHistory = async (commentId: string) => {
+    const items = await CommentsService.getEditHistory(commentId);
+    setHistoryFor({ commentId, items });
+  };
+
   const handleReply = async (commentId: string) => {
     if (!user) {
       alert('Please sign in to reply to comments');
@@ -644,20 +693,32 @@ export function ReportDetail() {
 
   return (
     <div className="w-full max-w-screen-2xl mx-auto px-3 sm:px-4 py-6 sm:py-8">
-      {/* Back Button */}
-      <button
-        onClick={() => navigate('/reports')}
-        className="text-primary-color hover:text-primary-dark mb-6"
-      >
-        <ArrowLeft className="h-5 w-5 inline mr-2" />
-        Back to Reports
-      </button>
+      {/* Breadcrumb / Actions */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
+        <div className="flex items-center gap-2 text-sm text-gray-500">
+          <button onClick={() => navigate('/reports')} className="inline-flex items-center gap-1 hover:text-gray-700">
+            <ArrowLeft className="h-4 w-4" />
+            Back to Reports
+          </button>
+          <span>/</span>
+          <span className="text-gray-700 font-medium line-clamp-1">{report.title}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={() => commentsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className="px-3 py-1.5 rounded-md text-sm border border-gray-200 hover:bg-gray-50">Comments</button>
+          <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="px-3 py-1.5 rounded-md text-sm border border-gray-200 hover:bg-gray-50">Top</button>
+        </div>
+      </div>
 
       {/* 3-column layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mt-0">
         {/* Left: Comments */}
-        <aside className="lg:col-span-3 order-1">
-          <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 sticky top-24 max-h-[calc(100vh-8rem)] overflow-y-auto">
+        <aside className="lg:col-span-3 order-1" ref={commentsSectionRef}>
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25 }}
+            className="bg-white rounded-xl p-3 sm:p-4 shadow-sm border border-gray-100 lg:sticky lg:top-24 lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto"
+          >
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-gray-900 flex items-center">
                 <MessageCircle className="h-5 w-5 mr-2" />
@@ -685,6 +746,7 @@ export function ReportDetail() {
                       onChange={(e) => setCommentContent(e.target.value)}
                       placeholder="Write a comment..."
                       className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-primary-color focus:border-primary-color text-sm bg-white text-gray-900 placeholder-gray-400 resize-none"
+                      ref={commentTextareaRef}
                       rows={3}
                     />
                     <div className="mt-2 flex justify-end">
@@ -700,14 +762,26 @@ export function ReportDetail() {
                 )}
 
                 <div className="space-y-3">
+                  {reportComments.length === 0 && (
+                    <div className="text-center py-6">
+                      <MessageCircle className="h-8 w-8 text-gray-300 mx-auto mb-2" />
+                      <p className="text-sm text-gray-500">No comments yet. Start the conversation.</p>
+                    </div>
+                  )}
                   {reportComments.map((comment) => {
                     const isPatrolComment = comment.comment_type !== 'comment';
                     return (
-                      <div key={comment.id} className={`rounded-lg p-3 border-l-4 ${
+                      <motion.div
+                        key={comment.id}
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className={`rounded-lg p-3 border-l-4 ${
                         isPatrolComment 
                           ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-500 shadow' 
                           : 'bg-white shadow-sm border-gray-100 border-l-gray-300'
-                      }`}>
+                      }`}
+                      >
                         <div className="flex items-start space-x-3">
                           <div className="flex-shrink-0">
                             {isPatrolComment ? (
@@ -723,16 +797,39 @@ export function ReportDetail() {
                             )}
                           </div>
                           <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
                               <span className={`text-sm font-medium ${isPatrolComment ? 'text-blue-900' : 'text-gray-900'}`}>{comment.user_profile?.username || 'Unknown'}</span>
                               <span className="text-[11px] text-gray-500">{new Date(comment.created_at).toLocaleString()}</span>
                             </div>
-                            <p className={`text-sm ${isPatrolComment ? 'text-blue-900' : 'text-gray-700'}`}>{comment.comment}</p>
-                            <div className="flex items-center gap-3 mt-2 text-xs text-gray-600">
+                            {editingCommentId === comment.id ? (
+                              <div className="mt-1">
+                                <textarea
+                                  className="w-full px-2 py-1 border border-gray-200 rounded text-sm"
+                                  rows={3}
+                                  value={editingText}
+                                  onChange={(e) => setEditingText(e.target.value)}
+                                />
+                                <div className="mt-2 flex items-center gap-2">
+                                  <button onClick={submitEdit} className="px-2 py-1 text-xs bg-primary-color text-white rounded">Save</button>
+                                  <button onClick={cancelEdit} className="px-2 py-1 text-xs text-gray-600">Cancel</button>
+                                </div>
+                              </div>
+                            ) : (
+                              <p className={`text-sm ${isPatrolComment ? 'text-blue-900' : 'text-gray-700'}`}>{comment.comment}</p>
+                            )}
+                            <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-gray-600">
                               <button onClick={() => handleCommentLike(comment.id)} disabled={likeLoading} className={`flex items-center gap-1 ${comment.is_liked ? 'text-red-500' : 'hover:text-red-500'}`}>
                                 {likeLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Heart className={`h-3 w-3 ${comment.is_liked ? 'fill-current' : ''}`} />}
                                 <span>{comment.likes_count || 0}</span>
                               </button>
+                              {/* Edit/Delete for owner or admin-like UI; basic check */}
+                              {user?.id === comment.user_id && editingCommentId !== comment.id && (
+                                <>
+                                  <button onClick={() => startEdit(comment.id, comment.comment)} className="hover:text-gray-800">Edit</button>
+                                  <button onClick={() => requestDelete(comment.id)} className="hover:text-red-600">Delete</button>
+                                </>
+                              )}
+                              <button onClick={() => openHistory(comment.id)} className="hover:text-gray-800">History</button>
                               <button onClick={() => setReplyingTo(replyingTo === comment.id ? null : comment.id)} className="flex items-center gap-1 hover:text-gray-800">
                                 <Reply className="h-3 w-3" />
                                 Reply
@@ -771,7 +868,7 @@ export function ReportDetail() {
                             )}
                           </div>
                         </div>
-                      </div>
+                      </motion.div>
                     );
                   })}
                 </div>
@@ -789,27 +886,49 @@ export function ReportDetail() {
                 <p className="text-xs text-gray-500 mt-2">Click "Show" to view all comments</p>
               </div>
             )}
-          </div>
+          </motion.div>
         </aside>
 
         {/* Center: Main content */}
         <main className="lg:col-span-7 order-2">
-          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-            <h1 className="text-2xl font-bold text-gray-900 mb-3">{report.title}</h1>
-            <p className="text-sm text-gray-500 mb-4">Reported by <span className="font-medium text-gray-700">{report.user.username}</span> • {new Date(report.created_at).toLocaleString()}</p>
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25 }}
+            className="bg-white rounded-xl p-6 shadow-sm border border-gray-100"
+          >
+            <h1 className="text-2xl font-bold text-gray-900 mb-1">{report.title}</h1>
+            <div className="flex flex-wrap items-center gap-2 text-sm text-gray-500 mb-4">
+              <span>Reported by <span className="font-medium text-gray-700">{report.user.username}</span></span>
+              <span>• {new Date(report.created_at).toLocaleString()}</span>
+              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${getStatusColor(report.status)}`}>{report.status.replace('_', ' ')}</span>
+              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${getPriorityColor(report.priority)}`}>{report.priority}</span>
+            </div>
 
             <p className="text-gray-700 mb-4 whitespace-pre-wrap">{report.description}</p>
-            <div className="flex items-center text-sm text-gray-700 mb-6"><MapPin className="h-4 w-4 mr-1.5 flex-shrink-0 text-gray-700" /><span>{report.location_address}</span></div>
+            <div className="flex items-center text-sm text-gray-700 mb-6"><MapPin className="h-4 w-4 mr-1.5 flex-shrink-0 text-gray-700" /><a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(report.location_address || '')}`} target="_blank" rel="noreferrer" className="hover:underline hover:text-gray-900">{report.location_address}</a></div>
 
-            {report.images && report.images.length > 0 && (
+            {report.images && report.images.length > 0 ? (
               <div className="mt-6">
                 <h2 className="text-lg font-semibold text-gray-900 mb-3">Images</h2>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                   {report.images.map((image, index) => (
-                    <div key={index} className="relative aspect-square cursor-pointer overflow-hidden bg-gray-100 rounded-lg" onClick={() => setSelectedImage({ url: image, index })}>
-                      <img src={getImageUrl(image)} alt={`Report image ${index + 1}`} className="absolute inset-0 h-full w-full object-cover rounded-lg border border-gray-200" loading="eager" decoding="sync" fetchPriority="high" referrerPolicy="no-referrer" crossOrigin="anonymous" onError={(e) => { console.error(`Failed to load image: ${image}`); const imgElement = e.target as HTMLImageElement; imgElement.src = fallbackImageUrl; }} style={{ backgroundColor: '#f0f0f0' }} />
-                    </div>
+                    <motion.div
+                      key={index}
+                      whileHover={{ scale: 1.02 }}
+                      className="relative aspect-square cursor-pointer overflow-hidden bg-gray-100 rounded-lg"
+                      onClick={() => setSelectedImage({ url: image, index })}
+                    >
+                      <img src={getImageUrl(image)} alt={`Report image ${index + 1}`} className="absolute inset-0 h-full w-full object-cover rounded-lg border border-gray-200" loading="eager" decoding="sync" fetchpriority="high" referrerPolicy="no-referrer" crossOrigin="anonymous" onError={(e) => { console.error(`Failed to load image: ${image}`); const imgElement = e.target as HTMLImageElement; imgElement.src = fallbackImageUrl; }} style={{ backgroundColor: '#f0f0f0' }} />
+                    </motion.div>
                   ))}
+                </div>
+              </div>
+            ) : (
+              <div className="mt-6">
+                <h2 className="text-lg font-semibold text-gray-900 mb-3">Images</h2>
+                <div className="flex items-center justify-center h-32 rounded-lg border border-dashed border-gray-200 bg-gray-50 text-gray-500">
+                  <span className="text-sm">No images attached</span>
                 </div>
               </div>
             )}
@@ -834,13 +953,18 @@ export function ReportDetail() {
                 <div className="flex items-center gap-1.5 text-sm text-gray-700"><MessageCircle className="h-5 w-5" /><span>{report.comments_count}</span></div>
               </div>
             </div>
-          </div>
+          </motion.div>
         </main>
 
         {/* Right: Case Info */}
         <aside className="lg:col-span-2 order-3">
           {(report.case_number || report.priority_level || report.assigned_group || report.assigned_patroller_name) && (
-            <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 sticky top-24 max-h-[calc(100vh-8rem)] overflow-y-auto">
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.25 }}
+              className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 sticky top-24 max-h-[calc(100vh-8rem)] overflow-y-auto"
+            >
               <h3 className="text-sm font-semibold text-gray-900 mb-3">Case Information</h3>
               <div className="space-y-3">
                 {/* Status & Priority badges moved here */}
@@ -873,9 +997,47 @@ export function ReportDetail() {
                   </div>
                 )}
               </div>
-            </div>
+            </motion.div>
           )}
         </aside>
+      </div>
+
+      {/* Floating action bar (mobile) */}
+      <div className="lg:hidden fixed left-0 right-0 bottom-0 z-40">
+        <div className="pointer-events-none px-3 pb-[env(safe-area-inset-bottom)]">
+          <div className="pointer-events-auto mx-auto mb-3 max-w-md rounded-full border border-gray-200 bg-white shadow-lg">
+            <div className="flex items-center justify-around px-3 py-2">
+              <button
+                onClick={handleLike}
+                className={`inline-flex items-center gap-1.5 text-sm ${report?.is_liked ? 'text-red-600' : 'text-gray-700'} hover:text-red-600`}
+              >
+                <Heart className={`h-5 w-5 ${report?.is_liked ? 'fill-current' : ''}`} />
+                <span>{report?.likes_count || 0}</span>
+              </button>
+              <div className="h-6 w-px bg-gray-200" />
+              <button
+                onClick={() => {
+                  setIsCommentsCollapsed(false);
+                  setTimeout(() => {
+                    commentTextareaRef.current?.focus();
+                    commentTextareaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  }, 10);
+                }}
+                className="inline-flex items-center gap-1.5 text-sm text-gray-700 hover:text-gray-900"
+              >
+                <MessageCircle className="h-5 w-5" />
+                <span>{report?.comments_count || 0}</span>
+              </button>
+              <div className="h-6 w-px bg-gray-200" />
+              <button
+                onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                className="inline-flex items-center gap-1.5 text-sm text-gray-700 hover:text-gray-900"
+              >
+                Top
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Image Modal */}
@@ -894,7 +1056,7 @@ export function ReportDetail() {
               className="block mx-auto max-h-[85vh] max-w-full object-contain rounded-lg bg-gray-100"
               loading="eager"
               decoding="sync"
-              fetchPriority="high"
+              fetchpriority="high"
               referrerPolicy="no-referrer"
               crossOrigin="anonymous"
               onError={(e) => {
@@ -945,6 +1107,44 @@ export function ReportDetail() {
             (likeDetailsModal.reportTitle ? `People who liked "${likeDetailsModal.reportTitle}"` : 'Likes')
           }
         />
+      )}
+
+      {/* Delete confirm */}
+      {deletingCommentId && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-4 w-full max-w-sm">
+            <h4 className="font-semibold text-gray-900 mb-2">Delete comment?</h4>
+            <p className="text-sm text-gray-600">This action cannot be undone.</p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button onClick={() => setDeletingCommentId(null)} className="px-3 py-1.5 text-sm">Cancel</button>
+              <button onClick={confirmDelete} className="px-3 py-1.5 text-sm bg-red-600 text-white rounded">Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit history modal */}
+      {historyFor && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-4 w-full max-w-md max-h-[70vh] overflow-auto">
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="font-semibold text-gray-900">Edit history</h4>
+              <button onClick={() => setHistoryFor(null)} className="text-gray-600 hover:text-gray-800"><X className="h-4 w-4" /></button>
+            </div>
+            {historyFor.items.length === 0 ? (
+              <p className="text-sm text-gray-500">No edits yet.</p>
+            ) : (
+              <ul className="space-y-3">
+                {historyFor.items.map((h) => (
+                  <li key={h.id} className="rounded border border-gray-200 p-2">
+                    <div className="text-[11px] text-gray-500 mb-1">{new Date(h.created_at).toLocaleString()}</div>
+                    <div className="text-sm text-gray-800 whitespace-pre-wrap">{h.previous_comment}</div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

@@ -61,6 +61,20 @@ export function Reports() {
   const loadingRef = React.useRef(false);
   const needsRefetchRef = React.useRef(false);
 
+  // Micro-animations: container and card variants
+  const gridVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: { staggerChildren: 0.06, delayChildren: 0.05 }
+    }
+  } as const;
+
+  const cardVariants = {
+    hidden: { opacity: 0, y: 8 },
+    visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 260, damping: 24 } }
+  } as const;
+
   useEffect(() => {
     // Wait for auth to be initialized before fetching reports
     const initializeAndFetch = async () => {
@@ -392,14 +406,25 @@ export function Reports() {
 
         {/* Header Section */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-            <h1 className="text-xl sm:text-2xl font-bold text-[#800000]">Reports</h1>
+          <div className="flex items-center gap-2 text-sm text-gray-500">
+            <Link to="/" className="hover:text-gray-700">Home</Link>
+            <span>/</span>
+            <span className="text-gray-700 font-medium">Reports</span>
+          </div>
+          <div className="flex items-center gap-2">
             <Link
               to="/verification-reports"
-              className="flex items-center gap-2 text-orange-600 hover:text-orange-700 text-sm font-medium hover:underline"
+              className="hidden sm:inline-flex items-center gap-2 px-3 py-2 rounded-md text-orange-700 bg-orange-50 hover:bg-orange-100 border border-orange-200 text-sm font-medium transition-colors"
             >
               <Shield className="h-4 w-4" />
-              <span>Verification Reports</span>
+              <span>Verification</span>
+            </Link>
+            <Link
+              to="/reports/create"
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-[#800000] text-white hover:bg-[#6e0000] text-sm font-semibold shadow-sm"
+            >
+              <Plus className="h-4 w-4" />
+              Create report
             </Link>
           </div>
         </div>
@@ -410,7 +435,7 @@ export function Reports() {
         </div>
 
         {/* Search and Filters Section */}
-        <div className="bg-white rounded-lg shadow-sm p-4 mb-4 border border-gray-100">
+        <div className="bg-white/90 backdrop-blur sticky top-20 z-10 rounded-lg shadow-sm p-4 mb-4 border border-gray-100">
           <div className="flex flex-col sm:flex-row gap-3">
             {/* Search */}
             <div className="flex-1">
@@ -421,7 +446,7 @@ export function Reports() {
                   placeholder="Search reports..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-md focus:ring-2 focus:ring-primary-color focus:border-transparent"
+                  className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-md focus:ring-2 focus:ring-primary-color focus:border-transparent bg-white"
                 />
               </div>
             </div>
@@ -463,22 +488,74 @@ export function Reports() {
 
         {/* Reports Grid - restored to fuller layout */}
         {filteredReports.length === 0 ? (
-          <div className="text-center py-8">
-            <div className="text-gray-400 mb-3">
-              <Filter className="h-12 w-12 mx-auto" />
-            </div>
-            <h3 className="text-base font-medium text-gray-900 mb-2">No reports found</h3>
-            <p className="text-sm text-gray-500">
+          <div className="text-center py-14">
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+              className="mx-auto mb-4 w-56 h-40 relative"
+            >
+              {/* Simple empty-state illustration */}
+              <svg viewBox="0 0 300 220" className="absolute inset-0 w-full h-full">
+                <defs>
+                  <linearGradient id="g1" x1="0" x2="1" y1="0" y2="1">
+                    <stop offset="0%" stopColor="#f1f5f9" />
+                    <stop offset="100%" stopColor="#e2e8f0" />
+                  </linearGradient>
+                </defs>
+                <rect x="0" y="120" width="300" height="80" fill="url(#g1)" rx="14" />
+                <rect x="20" y="40" width="180" height="110" fill="#ffffff" rx="14" stroke="#e5e7eb" />
+                <rect x="35" y="60" width="120" height="12" fill="#e5e7eb" rx="6" />
+                <rect x="35" y="80" width="150" height="10" fill="#eef2f7" rx="5" />
+                <rect x="35" y="98" width="100" height="10" fill="#eef2f7" rx="5" />
+                <circle cx="230" cy="65" r="18" fill="#fee2e2" />
+                <path d="M222 65h16" stroke="#ef4444" strokeWidth="3" strokeLinecap="round" />
+                <path d="M230 57v16" stroke="#ef4444" strokeWidth="3" strokeLinecap="round" />
+              </svg>
+              {/* Floating pin */}
+              <motion.div
+                initial={{ y: -6 }}
+                animate={{ y: 0 }}
+                transition={{ repeat: Infinity, repeatType: 'reverse', duration: 1.4, ease: 'easeInOut' }}
+                className="absolute -top-2 right-10 text-gray-400"
+              >
+                <MapPin className="h-7 w-7" />
+              </motion.div>
+            </motion.div>
+            <h3 className="text-base font-semibold text-gray-900 mb-2">No reports found</h3>
+            <p className="text-sm text-gray-500 mb-4">
               {searchTerm || filters.category !== 'All' || filters.status !== 'All' || filters.priority !== 'All'
-                ? 'Try adjusting your search or filters'
-                : 'Be the first to submit a report!'
-              }
+                ? 'Try adjusting your search or filters.'
+                : 'Be the first to submit a report!'}
             </p>
+            <div className="flex items-center justify-center gap-2">
+              <button
+                onClick={() => navigate('/reports/create')}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-[#800000] text-white hover:bg-[#6e0000] text-sm font-semibold shadow-sm"
+              >
+                <Plus className="h-4 w-4" />
+                Create report
+              </button>
+              {(searchTerm || filters.category !== 'All' || filters.status !== 'All' || filters.priority !== 'All') && (
+                <button
+                  onClick={() => { setSearchTerm(''); setFilters({ category: 'All', status: 'All', priority: 'All' }); }}
+                  className="text-sm text-gray-600 hover:text-gray-800 underline"
+                >
+                  Reset filters
+                </button>
+              )}
+            </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
+          <motion.div
+            variants={gridVariants}
+            initial="hidden"
+            animate="visible"
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6"
+          >
             {filteredReports.map((report) => (
-              <div
+              <motion.div
+                variants={cardVariants}
                 key={report.id}
                 className="group bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer border border-gray-100 hover:border-gray-200 overflow-hidden hover:-translate-y-1"
                 onClick={() => navigate(`/reports/${report.id}`)}
@@ -602,9 +679,9 @@ export function Reports() {
                     </button>
                   </div>
                 </div>
-              </div>
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
         )}
       </div>
 

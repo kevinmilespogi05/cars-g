@@ -163,14 +163,14 @@ export function CaseInfo({ report, onUpdate, onClose, isPatrolView = false }: Ca
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={onClose}></div>
+        <div className="fixed inset-0 bg-black/60 transition-opacity" onClick={onClose}></div>
         
-        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-5xl sm:w-full">
+        <div className="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-5xl sm:w-full">
           {/* Header */}
           <div className="bg-white px-6 py-4 border-b border-gray-200">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
-                <div className="h-10 w-10 rounded-lg bg-emerald-600 flex items-center justify-center">
+                <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-500 to-blue-600 flex items-center justify-center shadow-sm">
                   <Hash className="w-5 h-5 text-white" />
                 </div>
                 <div>
@@ -187,11 +187,38 @@ export function CaseInfo({ report, onUpdate, onClose, isPatrolView = false }: Ca
                 <X className="h-6 w-6" />
               </button>
             </div>
+            {/* Badges row */}
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full font-medium ${
+                report.status === 'pending' ? 'bg-amber-100 text-amber-800' :
+                report.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
+                report.status === 'awaiting_verification' ? 'bg-orange-100 text-orange-800' :
+                report.status === 'resolved' ? 'bg-emerald-100 text-emerald-800' :
+                'bg-red-100 text-red-800'
+              }`}>
+                {report.status.replace('_', ' ')}
+              </span>
+              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full font-medium ${
+                report.priority === 'high' ? 'bg-red-100 text-red-800' :
+                report.priority === 'medium' ? 'bg-amber-100 text-amber-800' :
+                'bg-emerald-100 text-emerald-800'
+              }`}>
+                Priority: {report.priority}
+              </span>
+              {typeof report.priority_level === 'number' && (
+                <span
+                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full font-medium ${getPriorityColor(report.priority_level)}`}
+                  title={getServiceLevelText(report.priority_level)}
+                >
+                  Level {report.priority_level} · {getServiceLevelText(report.priority_level)}
+                </span>
+              )}
+            </div>
           </div>
 
-          <div className="px-6 py-4 max-h-[70vh] overflow-y-auto">
+          <div className={`px-6 py-4 overflow-y-auto ${isPatrolView ? 'max-h-[70vh] pb-40' : 'max-h-[70vh]'}`}>
             {/* Case Information */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
               <div className="space-y-3">
                 <div>
                   <label className="text-sm font-medium text-gray-500">Service Level</label>
@@ -209,20 +236,12 @@ export function CaseInfo({ report, onUpdate, onClose, isPatrolView = false }: Ca
                 </div>
                 
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Assigned Group</label>
-                  <p className="text-sm text-gray-900">{report.assigned_group || 'Not assigned'}</p>
+                  <label className="text-sm font-medium text-gray-500">Assigned Patroller</label>
+                  <p className="text-sm text-gray-900">{report.assigned_patroller_name || 'Not assigned'}</p>
                 </div>
               </div>
               
               <div className="space-y-3">
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Assigned Patroller</label>
-                  <p className="text-sm text-gray-900 flex items-center">
-                    <User className="h-4 w-4 mr-1" />
-                    {report.assigned_patroller_name || 'Not assigned'}
-                  </p>
-                </div>
-                
                 <div>
                   <label className="text-sm font-medium text-gray-500">Status</label>
                   <div className="flex items-center space-x-2">
@@ -419,9 +438,9 @@ export function CaseInfo({ report, onUpdate, onClose, isPatrolView = false }: Ca
                 )}
               </div>
 
-              {/* Add Comment Form */}
+              {/* Add Comment Form (sticky inside scroll, with extra bottom padding on container) */}
               {isPatrolView && (
-                <div className="sticky bottom-0 left-0 right-0 bg-white border-t border-gray-200 pt-4">
+                <div className="sticky bottom-0 left-0 right-0 bg-white border-t border-gray-200 pt-4 pb-4 shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
                   <div className="space-y-3">
                     <div className="flex flex-wrap gap-2 items-center">
                       <label className="text-xs font-medium text-gray-500">Type</label>
@@ -457,6 +476,7 @@ export function CaseInfo({ report, onUpdate, onClose, isPatrolView = false }: Ca
                 </div>
               )}
             </div>
+
           </div>
         </div>
       </div>

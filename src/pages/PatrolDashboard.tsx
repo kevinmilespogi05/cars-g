@@ -26,6 +26,13 @@ export function PatrolDashboard() {
   const [proofUploading, setProofUploading] = useState(false);
   const [showCaseInfo, setShowCaseInfo] = useState(false);
   const [selectedCaseReport, setSelectedCaseReport] = useState<Report | null>(null);
+  const [quickFilter, setQuickFilter] = useState<'all' | 'mine' | 'unassigned'>(() => {
+    try {
+      const saved = localStorage.getItem('patrol.quickFilter');
+      if (saved === 'mine' || saved === 'unassigned' || saved === 'all') return saved;
+    } catch {}
+    return 'all';
+  });
   const [patrolStats, setPatrolStats] = useState<{
     totalCompleted: number;
     totalExperience: number;
@@ -233,6 +240,13 @@ export function PatrolDashboard() {
     loadAllReportsStats();
   }, [filterStatus]);
 
+  // Persist quick filter
+  useEffect(() => {
+    try {
+      localStorage.setItem('patrol.quickFilter', quickFilter);
+    } catch {}
+  }, [quickFilter]);
+
   // Sync priority level input when modal opens/changes selection
   useEffect(() => {
     if (selectedReport) {
@@ -244,13 +258,27 @@ export function PatrolDashboard() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return reports;
-    return reports.filter(r =>
+    let base = reports;
+
+    // Apply quick filters first
+    if (quickFilter === 'mine' && user?.id) {
+      base = base.filter(r => r.patrol_user_id === user.id);
+    } else if (quickFilter === 'unassigned') {
+      base = base.filter(r => !r.patrol_user_id);
+    }
+
+    if (!q) return base;
+    return base.filter(r =>
       r.title.toLowerCase().includes(q) ||
       r.description.toLowerCase().includes(q) ||
       (r.location_address || '').toLowerCase().includes(q)
     );
-  }, [reports, search]);
+  }, [reports, search, quickFilter, user?.id]);
+
+  const myJobsCount = useMemo(() => {
+    if (!user?.id) return 0;
+    return reports.filter(r => r.patrol_user_id === user.id).length;
+  }, [reports, user?.id]);
 
   const totals = useMemo(() => {
     // Use allReportsStats for dashboard overview (not affected by filters)
@@ -513,19 +541,19 @@ export function PatrolDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200">
+      <div className="bg-white/80 backdrop-blur border-b border-gray-200/70">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-3">
-                <div className="h-8 w-8 rounded-lg bg-emerald-600 flex items-center justify-center">
+                <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-emerald-500 to-blue-600 flex items-center justify-center shadow-sm">
                   <ShieldCheck className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-xl font-bold text-gray-900">Patrol Dashboard</h1>
-                  <p className="text-sm text-gray-500">Welcome{user?.username ? `, ${user.username}` : ''}</p>
+                  <h1 className="text-[1.15rem] font-semibold text-gray-900 tracking-tight">Patrol Dashboard</h1>
+                  <p className="text-xs text-gray-500">Welcome{user?.username ? `, ${user.username}` : ''}</p>
                 </div>
               </div>
             </div>
@@ -535,7 +563,7 @@ export function PatrolDashboard() {
                 loadPatrolStats();
                 loadAllReportsStats();
               }}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-colors"
+              className="inline-flex items-center px-3.5 py-2 border border-emerald-600/10 text-sm font-medium rounded-lg text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-colors shadow-sm"
             >
               <RefreshCw className="w-4 h-4 mr-2" />
               Refresh
@@ -548,96 +576,96 @@ export function PatrolDashboard() {
         {/* Announcements Section */}
         <AnnouncementCarousel />
         {/* Stats Overview (clickable filters) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5 mb-8">
           <button
             onClick={() => setFilterStatus('all')}
-            className={`text-left bg-white rounded-xl p-6 shadow-sm border transition-all ${
-              filterStatus === 'all' ? 'border-emerald-300 ring-2 ring-emerald-200' : 'border-gray-200 hover:border-gray-300'
+            className={`text-left bg-white/90 backdrop-blur rounded-xl p-5 shadow-sm border transition-all ${
+              filterStatus === 'all' ? 'border-emerald-300 ring-2 ring-emerald-200' : 'border-gray-200 hover:border-gray-300 hover:shadow'
             }`}
           >
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <Activity className="h-8 w-8 text-emerald-600" />
+                <Activity className="h-7 w-7 text-emerald-600" />
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">Total Active</p>
-                <p className="text-2xl font-bold text-gray-900">{totals.total}</p>
+                <p className="text-2xl font-bold text-gray-900 tracking-tight">{totals.total}</p>
               </div>
             </div>
           </button>
           
           <button
             onClick={() => setFilterStatus('pending')}
-            className={`text-left bg-white rounded-xl p-6 shadow-sm border transition-all ${
-              filterStatus === 'pending' ? 'border-amber-300 ring-2 ring-amber-200' : 'border-gray-200 hover:border-gray-300'
+            className={`text-left bg-white/90 backdrop-blur rounded-xl p-5 shadow-sm border transition-all ${
+              filterStatus === 'pending' ? 'border-amber-300 ring-2 ring-amber-200' : 'border-gray-200 hover:border-gray-300 hover:shadow'
             }`}
           >
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <AlertTriangle className="h-8 w-8 text-amber-600" />
+                <AlertTriangle className="h-7 w-7 text-amber-600" />
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">Pending</p>
-                <p className="text-2xl font-bold text-gray-900">{totals.pending}</p>
+                <p className="text-2xl font-bold text-gray-900 tracking-tight">{totals.pending}</p>
               </div>
             </div>
           </button>
           
           <button
             onClick={() => setFilterStatus('in_progress')}
-            className={`text-left bg-white rounded-xl p-6 shadow-sm border transition-all ${
-              filterStatus === 'in_progress' ? 'border-blue-300 ring-2 ring-blue-200' : 'border-gray-200 hover:border-gray-300'
+            className={`text-left bg-white/90 backdrop-blur rounded-xl p-5 shadow-sm border transition-all ${
+              filterStatus === 'in_progress' ? 'border-blue-300 ring-2 ring-blue-200' : 'border-gray-200 hover:border-gray-300 hover:shadow'
             }`}
           >
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <Clock className="h-8 w-8 text-blue-600" />
+                <Clock className="h-7 w-7 text-blue-600" />
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">In Progress</p>
-                <p className="text-2xl font-bold text-gray-900">{totals.inProgress}</p>
+                <p className="text-2xl font-bold text-gray-900 tracking-tight">{totals.inProgress}</p>
               </div>
             </div>
           </button>
           
           <button
             onClick={() => setFilterStatus('awaiting_verification')}
-            className={`text-left bg-white rounded-xl p-6 shadow-sm border transition-all ${
-              filterStatus === 'awaiting_verification' ? 'border-orange-300 ring-2 ring-orange-200' : 'border-gray-200 hover:border-gray-300'
+            className={`text-left bg-white/90 backdrop-blur rounded-xl p-5 shadow-sm border transition-all ${
+              filterStatus === 'awaiting_verification' ? 'border-orange-300 ring-2 ring-orange-200' : 'border-gray-200 hover:border-gray-300 hover:shadow'
             }`}
           >
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <ShieldCheck className="h-8 w-8 text-orange-600" />
+                <ShieldCheck className="h-7 w-7 text-orange-600" />
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">Awaiting Verification</p>
-                <p className="text-2xl font-bold text-gray-900">{totals.awaitingVerification}</p>
+                <p className="text-2xl font-bold text-gray-900 tracking-tight">{totals.awaitingVerification}</p>
               </div>
             </div>
           </button>
           
           <button
             onClick={() => navigate('/profile')}
-            className="text-left bg-white rounded-xl p-6 shadow-sm border border-gray-200 hover:border-gray-300 transition-all"
+            className="text-left bg-white/90 backdrop-blur rounded-xl p-5 shadow-sm border border-gray-200 hover:border-gray-300 hover:shadow transition-all"
           >
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <CheckCircle2 className="h-8 w-8 text-emerald-600" />
+                <CheckCircle2 className="h-7 w-7 text-emerald-600" />
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">My Resolved</p>
-                <p className="text-2xl font-bold text-gray-900">{totals.myResolved}</p>
+                <p className="text-2xl font-bold text-gray-900 tracking-tight">{totals.myResolved}</p>
               </div>
             </div>
           </button>
         </div>
 
         {/* Level Progress */}
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 mb-8">
+        <div className="bg-white/90 backdrop-blur rounded-xl p-6 shadow-sm border border-gray-200 mb-8">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-3">
-              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-emerald-500 to-blue-600 flex items-center justify-center">
+              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-emerald-500 to-blue-600 flex items-center justify-center shadow-sm">
                 <Trophy className="w-5 h-5 text-white" />
               </div>
               <div>
@@ -661,7 +689,34 @@ export function PatrolDashboard() {
         </div>
 
         {/* Search */}
-        <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200 mb-8">
+        <div className="bg-white/90 backdrop-blur rounded-xl p-6 shadow-sm border border-gray-200 mb-8">
+          {/* Quick Actions */}
+          <div className="mb-4 flex items-center gap-2">
+            <button
+              onClick={() => setQuickFilter('all')}
+              className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${
+                quickFilter === 'all' ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              All ({totals.total})
+            </button>
+            <button
+              onClick={() => setQuickFilter('mine')}
+              className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${
+                quickFilter === 'mine' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              My Jobs ({myJobsCount})
+            </button>
+            <button
+              onClick={() => setQuickFilter('unassigned')}
+              className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${
+                quickFilter === 'unassigned' ? 'bg-amber-600 text-white border-amber-600' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              Unassigned ({reports.filter(r => !r.patrol_user_id).length})
+            </button>
+          </div>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
             <input
@@ -669,13 +724,13 @@ export function PatrolDashboard() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search reports..."
-              className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm"
+              className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm placeholder:text-gray-400"
             />
           </div>
         </div>
 
         {/* Reports List */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="bg-white/90 backdrop-blur rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           {loading ? (
             <div className="p-12 text-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600 mx-auto"></div>
@@ -694,7 +749,7 @@ export function PatrolDashboard() {
               {filtered.map((report) => (
                 <div
                   key={report.id}
-                  className="p-6 hover:bg-gray-50 transition-colors cursor-pointer"
+                  className="p-6 hover:bg-gray-50/70 transition-colors cursor-pointer"
                   onClick={() => setSelectedReport(report)}
                 >
                   <div className="flex items-start justify-between">
@@ -796,17 +851,61 @@ export function PatrolDashboard() {
         </div>
       </div>
 
+      {/* Bottom Navigation (mobile) */}
+      <div className="fixed inset-x-0 bottom-0 z-40 md:hidden">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-safe">
+          <div className="mb-4 rounded-2xl border border-gray-200 bg-white/95 backdrop-blur shadow-lg">
+            <div className="grid grid-cols-4">
+              <button
+                onClick={() => setFilterStatus('all')}
+                className={`flex flex-col items-center justify-center py-3 text-xs ${filterStatus === 'all' ? 'text-emerald-600' : 'text-gray-500'}`}
+              >
+                <Activity className="h-5 w-5" />
+                <span className="mt-1">All</span>
+              </button>
+              <button
+                onClick={() => setFilterStatus('pending')}
+                className={`flex flex-col items-center justify-center py-3 text-xs ${filterStatus === 'pending' ? 'text-amber-600' : 'text-gray-500'}`}
+              >
+                <AlertTriangle className="h-5 w-5" />
+                <span className="mt-1">Pending</span>
+              </button>
+              <button
+                onClick={() => setFilterStatus('in_progress')}
+                className={`flex flex-col items-center justify-center py-3 text-xs ${filterStatus === 'in_progress' ? 'text-blue-600' : 'text-gray-500'}`}
+              >
+                <Clock className="h-5 w-5" />
+                <span className="mt-1">Ongoing</span>
+              </button>
+              <button
+                onClick={() => setFilterStatus('awaiting_verification')}
+                className={`flex flex-col items-center justify-center py-3 text-xs ${filterStatus === 'awaiting_verification' ? 'text-orange-600' : 'text-gray-500'}`}
+              >
+                <ShieldCheck className="h-5 w-5" />
+                <span className="mt-1">Verify</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Detail Modal */}
       {selectedReport && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
+        <div
+          className="fixed inset-0 z-50 overflow-y-auto"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="patrol-modal-title"
+          onKeyDown={(e) => { if (e.key === 'Escape') setSelectedReport(null); }}
+        >
           <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={() => setSelectedReport(null)}></div>
+            <div className="fixed inset-0 bg-black/60 transition-opacity" onClick={() => setSelectedReport(null)}></div>
             
-            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-5xl sm:w-full">
+            <div className="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-5xl sm:w-full">
               <div className="bg-white px-6 py-4 border-b border-gray-200 sticky top-0 z-10">
                 <div className="flex items-start justify-between">
                   <div className="min-w-0">
-                    <h3 className="text-lg font-semibold text-gray-900 truncate">{selectedReport.title}</h3>
+                    <h3 id="patrol-modal-title" className="text-lg font-semibold text-gray-900 truncate">{selectedReport.title}</h3>
                     <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full font-medium ${
                         selectedReport.status === 'pending' ? 'bg-amber-100 text-amber-800' :
@@ -853,16 +952,21 @@ export function PatrolDashboard() {
               </div>
               
               <div className="px-6 py-4 max-h-[70vh] overflow-y-auto">
-                <p className="text-gray-700 mb-4 whitespace-pre-wrap">{selectedReport.description}</p>
-                
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Category</p>
-                    <p className="text-sm text-gray-900">{selectedReport.category}</p>
+                {/* Description */}
+                <div className="mb-6">
+                  <h4 className="text-sm font-semibold text-gray-900 mb-2">Description</h4>
+                  <p className="text-gray-700 whitespace-pre-wrap bg-gray-50 border border-gray-200 rounded-lg p-3 leading-relaxed">{selectedReport.description}</p>
+                </div>
+
+                {/* Quick Facts */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+                  <div className="bg-white border border-gray-200 rounded-xl p-4">
+                    <p className="text-xs font-medium text-gray-500">Category</p>
+                    <p className="text-sm text-gray-900 mt-1">{selectedReport.category}</p>
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Priority</p>
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                  <div className="bg-white border border-gray-200 rounded-xl p-4">
+                    <p className="text-xs font-medium text-gray-500">Priority</p>
+                    <span className={`mt-1 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                       selectedReport.priority === 'high' ? 'bg-red-100 text-red-800' :
                       selectedReport.priority === 'medium' ? 'bg-amber-100 text-amber-800' :
                       'bg-emerald-100 text-emerald-800'
@@ -870,9 +974,9 @@ export function PatrolDashboard() {
                       {selectedReport.priority}
                     </span>
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Status</p>
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                  <div className="bg-white border border-gray-200 rounded-xl p-4">
+                    <p className="text-xs font-medium text-gray-500">Status</p>
+                    <span className={`mt-1 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                       selectedReport.status === 'pending' ? 'bg-amber-100 text-amber-800' :
                       selectedReport.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
                       selectedReport.status === 'awaiting_verification' ? 'bg-orange-100 text-orange-800' :
@@ -882,10 +986,14 @@ export function PatrolDashboard() {
                       {statusLabel(selectedReport.status)}
                     </span>
                   </div>
+                </div>
+
+                {/* Assignment and Case Info */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                   {selectedReport.patrol_user_id && (
-                    <div>
-                      <p className="text-sm font-medium text-gray-500">Assignment</p>
-                      <div className={`flex items-center space-x-1 text-sm ${
+                    <div className="bg-white border border-gray-200 rounded-xl p-4">
+                      <p className="text-sm font-medium text-gray-900 mb-2">Assignment</p>
+                      <div className={`flex items-center space-x-2 text-sm ${
                         selectedReport.patrol_user_id === user?.id ? 'text-green-600' : 'text-gray-900'
                       }`}>
                         <ShieldCheck className={`h-4 w-4 ${
@@ -900,13 +1008,12 @@ export function PatrolDashboard() {
                       </div>
                     </div>
                   )}
-                </div>
 
                 {/* Ticketing Information */}
                 {(selectedReport.case_number || selectedReport.priority_level || selectedReport.assigned_group) && (
-                  <div className="border-t border-gray-200 pt-4 mb-4">
+                  <div className="bg-white border border-gray-200 rounded-xl p-4">
                     <h4 className="text-sm font-medium text-gray-900 mb-3">Case Information</h4>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {selectedReport.case_number && (
                         <div>
                           <p className="text-sm font-medium text-gray-500">Case Number</p>
@@ -931,7 +1038,7 @@ export function PatrolDashboard() {
                         </div>
                       )}
                       {/* Set/Update Service Level */}
-                      <div>
+                      <div className="self-start mb-2">
                         <p className="text-sm font-medium text-gray-500">Set Service Level</p>
                         <div className="flex items-center gap-2">
                           <select
@@ -964,22 +1071,15 @@ export function PatrolDashboard() {
                           </p>
                         </div>
                       )}
-                      {selectedReport.assigned_patroller_name && (
-                        <div>
-                          <p className="text-sm font-medium text-gray-500">Assigned Patroller</p>
-                          <p className="text-sm text-gray-900 flex items-center">
-                            <ShieldCheck className="h-4 w-4 mr-1" />
-                            {selectedReport.assigned_patroller_name}
-                          </p>
-                        </div>
-                      )}
+                      {/* Assigned Patroller removed here to avoid duplication with Assignment card */}
                     </div>
                   </div>
                 )}
+                </div>
                 
                 {selectedReport.location_address && (
-                  <div className="mb-6">
-                    <p className="text-sm font-medium text-gray-500 mb-2">Location</p>
+                  <div className="mb-6 bg-white border border-gray-200 rounded-xl p-4">
+                    <p className="text-sm font-medium text-gray-900 mb-2">Location</p>
                     <div className="flex items-center space-x-2 text-sm text-gray-900 mb-3">
                       <MapPin className="h-4 w-4 text-emerald-600" />
                       <span>{selectedReport.location_address}</span>
@@ -1006,8 +1106,8 @@ export function PatrolDashboard() {
                 )}
                 
                 {Array.isArray(selectedReport.images) && selectedReport.images.length > 0 && (
-                  <div>
-                    <p className="text-sm font-medium text-gray-500 mb-2">Images</p>
+                  <div className="bg-white border border-gray-200 rounded-xl p-4">
+                    <p className="text-sm font-medium text-gray-900 mb-2">Images</p>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                       {selectedReport.images.map((src, idx) => (
                         <img
@@ -1027,18 +1127,21 @@ export function PatrolDashboard() {
                 <div className="flex space-x-3">
                   {selectedReport.status === 'in_progress' && (
                     <div className="flex items-center space-x-3">
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => setProofFile(e.target.files?.[0] || null)}
-                        className="text-sm"
-                      />
+                      <label className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 cursor-pointer">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => setProofFile(e.target.files?.[0] || null)}
+                          className="hidden"
+                        />
+                        {proofFile ? 'Change Proof' : 'Add Proof Image'}
+                      </label>
                       <button
                         onClick={() => selectedReport && proofFile && markResolvedWithProof(selectedReport.id)}
                         disabled={!proofFile || proofUploading}
                         className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                       >
-                        {proofUploading ? 'Uploading...' : 'Submit for Verification'}
+                        {proofUploading ? 'Uploading…' : 'Submit for Verification'}
                       </button>
                       {selectedReport.patrol_user_id === user?.id && (
                         <button

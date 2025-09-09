@@ -160,9 +160,9 @@ export function LandingPage() {
               <Link
                 to="/register"
                 className="text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 flex items-center space-x-2"
-                style={{backgroundColor: '#800000 !important'}}
-                onMouseEnter={(e) => e.target.style.setProperty('background-color', '#660000', 'important')}
-                onMouseLeave={(e) => e.target.style.setProperty('background-color', '#800000', 'important')}
+                style={{backgroundColor: '#800000'}}
+                onMouseEnter={(e) => (e.target as HTMLElement).style.backgroundColor = '#660000'}
+                onMouseLeave={(e) => (e.target as HTMLElement).style.backgroundColor = '#800000'}
               >
                 <Zap className="h-4 w-4" />
                 <span>Get Started</span>
@@ -206,9 +206,9 @@ export function LandingPage() {
               <Link
                 to="/register"
                 className="block text-center text-white py-3 px-4 rounded-xl font-semibold transition-all duration-300 shadow-lg"
-                style={{backgroundColor: '#800000 !important'}}
-                onMouseEnter={(e) => e.target.style.setProperty('background-color', '#660000', 'important')}
-                onMouseLeave={(e) => e.target.style.setProperty('background-color', '#800000', 'important')}
+                style={{backgroundColor: '#800000'}}
+                onMouseEnter={(e) => (e.target as HTMLElement).style.backgroundColor = '#660000'}
+                onMouseLeave={(e) => (e.target as HTMLElement).style.backgroundColor = '#800000'}
               >
                 Get Started
               </Link>
@@ -663,9 +663,9 @@ export function LandingPage() {
             <Link
               to="/register"
                 className="group text-white px-10 py-5 rounded-2xl text-lg font-bold transition-all duration-300 shadow-2xl hover:shadow-3xl transform hover:scale-105 inline-flex items-center space-x-3"
-                style={{backgroundColor: '#800000 !important'}}
-                onMouseEnter={(e) => e.target.style.setProperty('background-color', '#660000', 'important')}
-                onMouseLeave={(e) => e.target.style.setProperty('background-color', '#800000', 'important')}
+                style={{backgroundColor: '#800000'}}
+                onMouseEnter={(e) => (e.target as HTMLElement).style.backgroundColor = '#660000'}
+                onMouseLeave={(e) => (e.target as HTMLElement).style.backgroundColor = '#800000'}
               >
                 <Zap className="h-6 w-6 group-hover:rotate-12 transition-transform duration-300" />
                 <span>Get Started Free</span>

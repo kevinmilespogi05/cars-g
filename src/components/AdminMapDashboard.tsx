@@ -1463,68 +1463,109 @@ export function AdminMapDashboard() {
   return (
     <div className="h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b border-gray-200">
+      <div className="sticky top-0 z-50 border-b border-gray-200 bg-white/80 supports-[backdrop-filter]:bg-white/70 backdrop-blur">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-3">
-                <div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center">
+                <div className="h-8 w-8 rounded-xl bg-blue-600 flex items-center justify-center shadow-sm">
                   <Layers className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-xl font-bold text-gray-900">Admin Map Dashboard</h1>
-                  <p className="text-sm text-gray-500">Real-time monitoring of reports and locations</p>
+                  <nav aria-label="Breadcrumb" className="text-xs text-gray-500">
+                    <ol className="flex items-center space-x-1">
+                      <li>Admin</li>
+                      <li className="text-gray-300">/</li>
+                      <li className="font-medium text-gray-700">Map</li>
+                    </ol>
+                  </nav>
+                  <h1 className="text-lg sm:text-xl font-bold text-gray-900">Admin • Map</h1>
                 </div>
               </div>
             </div>
-            <div className="flex items-center space-x-3">
-              <button
-                onClick={() => setShowSidenav(!showSidenav)}
-                className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-              >
-                {showSidenav ? <PanelLeftClose className="w-4 h-4 mr-2" /> : <PanelLeftOpen className="w-4 h-4 mr-2" />}
-                <span className="hidden sm:inline">{showSidenav ? 'Hide' : 'Show'} Reports</span>
-              </button>
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-              >
-                <Filter className="w-4 h-4 mr-2" />
-                <span className="hidden sm:inline">Filters</span>
-              </button>
-              <button
-                onClick={() => {
-                  const resolvedReports = reports.filter(r => r.status === 'resolved');
-                  const queryParams = new URLSearchParams();
-                  resolvedReports.forEach((report, index) => {
-                    queryParams.append(`report_${index}`, JSON.stringify(report));
-                  });
-                  window.location.href = `/admin/history?${queryParams.toString()}`;
-                }}
-                className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-colors relative"
-              >
-                <History className="w-4 h-4 mr-2" />
-                <span className="hidden sm:inline">History</span>
-                {reports.filter(r => r.status === 'resolved').length > 0 && (
-                  <span className="absolute -top-2 -right-2 bg-green-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                    {reports.filter(r => r.status === 'resolved').length}
-                  </span>
-                )}
-              </button>
-              <button
-                onClick={fetchReports}
-                disabled={loading}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors"
-              >
-                <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-                <span className="hidden sm:inline">Refresh</span>
-              </button>
+            <div className="flex items-center">
+              <div className="hidden sm:flex items-center bg-white shadow-sm border border-gray-200 rounded-xl">
+                <button
+                  onClick={() => setShowSidenav(!showSidenav)}
+                  aria-label={showSidenav ? 'Hide reports panel' : 'Show reports panel'}
+                  className={`inline-flex items-center px-3 py-2 text-sm font-medium transition-colors ${showSidenav ? 'bg-gray-50 text-gray-900' : 'text-gray-700 hover:bg-gray-50'}`}
+                >
+                  {showSidenav ? <PanelLeftClose className="w-4 h-4 mr-2" /> : <PanelLeftOpen className="w-4 h-4 mr-2" />}
+                  <span className="hidden md:inline">Reports</span>
+                </button>
+                <div className="w-px h-6 bg-gray-200" />
+                <button
+                  onClick={() => setShowFilters(!showFilters)}
+                  aria-pressed={showFilters}
+                  aria-label="Toggle filters"
+                  className={`inline-flex items-center px-3 py-2 text-sm font-medium transition-colors ${showFilters ? 'bg-gray-50 text-gray-900' : 'text-gray-700 hover:bg-gray-50'}`}
+                >
+                  <Filter className="w-4 h-4 mr-2" />
+                  <span className="hidden md:inline">Filters</span>
+                </button>
+                <div className="w-px h-6 bg-gray-200" />
+                <button
+                  onClick={() => {
+                    const resolvedReports = reports.filter(r => r.status === 'resolved');
+                    const queryParams = new URLSearchParams();
+                    resolvedReports.forEach((report, index) => {
+                      queryParams.append(`report_${index}`, JSON.stringify(report));
+                    });
+                    window.location.href = `/admin/history?${queryParams.toString()}`;
+                  }}
+                  aria-label="Open history"
+                  className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors relative"
+                >
+                  <History className="w-4 h-4 mr-2" />
+                  <span className="hidden md:inline">History</span>
+                  {reports.filter(r => r.status === 'resolved').length > 0 && (
+                    <span className="absolute -top-2 -right-2 bg-green-600 text-white text-[10px] rounded-full h-5 w-5 flex items-center justify-center">
+                      {reports.filter(r => r.status === 'resolved').length}
+                    </span>
+                  )}
+                </button>
+                <div className="w-px h-6 bg-gray-200" />
+                <button
+                  onClick={fetchReports}
+                  disabled={loading}
+                  aria-busy={loading}
+                  className="inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-60"
+                >
+                  <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                  <span className="hidden md:inline">Refresh</span>
+                </button>
+              </div>
+              {/* Compact actions for small screens */}
+              <div className="sm:hidden flex items-center gap-2">
+                <button
+                  onClick={() => setShowSidenav(!showSidenav)}
+                  className="p-2 bg-white rounded-full border border-gray-200 shadow-sm"
+                  aria-label={showSidenav ? 'Hide reports panel' : 'Show reports panel'}
+                >
+                  {showSidenav ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeftOpen className="w-4 h-4" />}
+                </button>
+                <button
+                  onClick={() => setShowFilters(!showFilters)}
+                  className="p-2 bg-white rounded-full border border-gray-200 shadow-sm"
+                  aria-label="Toggle filters"
+                >
+                  <Filter className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={fetchReports}
+                  disabled={loading}
+                  className="p-2 bg-blue-600 text-white rounded-full shadow-sm disabled:opacity-60"
+                  aria-label="Refresh"
+                >
+                  <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Quick Filter Chips */}
-        <div className="border-t border-gray-100 bg-white">
+        <div className="border-t border-gray-100 bg-white/80 supports-[backdrop-filter]:bg-white/70">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 overflow-x-auto">
             <div className="flex items-center gap-2 min-w-max">
               {([
@@ -1903,8 +1944,9 @@ export function AdminMapDashboard() {
             <div className="absolute right-4 top-4 z-[1003]">
               <button
                 onClick={() => setShowSidenav(true)}
-                className="p-3 bg-white rounded-full shadow-lg hover:shadow-xl transition-shadow"
+                className="p-3 bg-white/90 supports-[backdrop-filter]:bg-white/70 backdrop-blur rounded-full shadow-lg hover:shadow-xl transition-shadow border border-gray-200"
                 title="Show Reports"
+                aria-label="Show reports panel"
               >
                 <PanelLeftOpen className="w-5 h-5 text-gray-700" />
               </button>
@@ -1915,22 +1957,25 @@ export function AdminMapDashboard() {
           <div className="md:hidden absolute left-4 top-1/2 -translate-y-1/2 flex flex-col gap-2 z-[1003]">
             <button
               onClick={() => mapInstance.current?.zoomIn()}
-              className="p-2 bg-white rounded-full shadow-lg"
+              className="p-2 bg-white/90 supports-[backdrop-filter]:bg-white/70 backdrop-blur rounded-full shadow-md border border-gray-200"
               title="Zoom In"
+              aria-label="Zoom in"
             >
               <ZoomIn className="w-4 h-4 text-gray-700" />
             </button>
             <button
               onClick={() => mapInstance.current?.zoomOut()}
-              className="p-2 bg-white rounded-full shadow-lg"
+              className="p-2 bg-white/90 supports-[backdrop-filter]:bg-white/70 backdrop-blur rounded-full shadow-md border border-gray-200"
               title="Zoom Out"
+              aria-label="Zoom out"
             >
               <ZoomOut className="w-4 h-4 text-gray-700" />
             </button>
             <button
               onClick={() => setShowMobileList(true)}
-              className="p-2 bg-white rounded-full shadow-lg"
+              className="p-2 bg-white/90 supports-[backdrop-filter]:bg-white/70 backdrop-blur rounded-full shadow-md border border-gray-200"
               title="Open Reports"
+              aria-label="Open reports list"
             >
               <MapPin className="w-4 h-4 text-gray-700" />
             </button>
@@ -1940,7 +1985,7 @@ export function AdminMapDashboard() {
           <div className="md:hidden fixed right-0 bottom-0 z-[9996] px-3 pb-[env(safe-area-inset-bottom)]">
             <button
               onClick={() => setShowMobileList(true)}
-              className="flex items-center justify-between px-4 py-3 bg-white rounded-l-xl shadow-[0_-6px_20px_rgba(0,0,0,0.15)] border border-gray-200"
+              className="flex items-center justify-between px-4 py-3 bg-white/95 supports-[backdrop-filter]:bg-white/80 backdrop-blur rounded-l-xl shadow-[0_-6px_20px_rgba(0,0,0,0.15)] border border-gray-200"
               aria-label="Open recent reports"
             >
               <span className="text-sm font-semibold text-gray-800">Reports</span>
@@ -1950,7 +1995,7 @@ export function AdminMapDashboard() {
           
           {/* Map Loading/Error State */}
           {!mapInstance.current && (
-            <div className="absolute inset-0 bg-gray-100 flex items-center justify-center">
+            <div className="absolute inset-0 bg-gray-50 flex items-center justify-center">
               <div className="text-center">
                 {mapError ? (
                   <>
@@ -1959,13 +2004,13 @@ export function AdminMapDashboard() {
                     <div className="space-x-2">
                       <button
                         onClick={refreshMap}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
                       >
                         Refresh Map
                       </button>
                       <button
                         onClick={() => setMapError(null)}
-                        className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                        className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors shadow-sm"
                       >
                         Dismiss
                       </button>
@@ -1973,7 +2018,7 @@ export function AdminMapDashboard() {
                   </>
                 ) : (
                   <>
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                    <div className="animate-spin rounded-full h-12 w-12 border-2 border-gray-200 border-t-blue-600 mx-auto mb-4"></div>
                     <p className="text-gray-600">Loading map...</p>
                     <button
                       onClick={initializeMap}

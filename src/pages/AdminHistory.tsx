@@ -29,6 +29,7 @@ export function AdminHistory() {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [loading, setLoading] = useState(false);
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
 
   useEffect(() => {
     // Parse reports from URL parameters
@@ -139,6 +140,16 @@ export function AdminHistory() {
     return colors[priority] || colors.medium;
   };
 
+  // Compute quick category counts for chips
+  const categoryCounts = React.useMemo(() => {
+    const map = new Map<string, number>();
+    reports.forEach(r => {
+      const key = r.category || 'other';
+      map.set(key, (map.get(key) || 0) + 1);
+    });
+    return map;
+  }, [reports]);
+
   const exportToCSV = () => {
     const headers = ['Title', 'Description', 'Category', 'Priority', 'Reporter', 'Patrol Officer', 'Date', 'Location'];
     const csvContent = [
@@ -180,50 +191,68 @@ export function AdminHistory() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b border-gray-200">
+      <div className="sticky top-0 z-40 border-b border-gray-200 bg-white/80 supports-[backdrop-filter]:bg-white/70 backdrop-blur">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-4">
               <button
                 onClick={() => navigate(-1)}
-                className="p-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors hover:shadow-sm"
+                className="p-2 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors"
+                aria-label="Go back"
               >
                 <ArrowLeft className="w-5 h-5" />
               </button>
               <div className="flex items-center space-x-3">
-                <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-lg">
-                  <Check className="w-6 h-6 text-white" />
+                <div className="h-9 w-9 rounded-xl bg-emerald-600 flex items-center justify-center shadow-sm">
+                  <Check className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-2xl font-bold text-gray-900">Resolved Reports History</h1>
-                  <p className="text-sm text-gray-600">View all completed and resolved reports</p>
+                  <nav aria-label="Breadcrumb" className="text-xs text-gray-500">
+                    <ol className="flex items-center space-x-1">
+                      <li>Admin</li>
+                      <li className="text-gray-300">/</li>
+                      <li className="font-medium text-gray-700">History</li>
+                    </ol>
+                  </nav>
+                  <h1 className="text-lg sm:text-xl font-bold text-gray-900">Resolved Reports History</h1>
                 </div>
               </div>
             </div>
-            <div className="flex items-center space-x-3">
-              <button
-                onClick={exportToCSV}
-                className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors hover:shadow-sm"
-              >
-                <Download className="w-4 h-4 mr-2" />
-                Export CSV
-              </button>
-              <button
-                onClick={printPage}
-                className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors hover:shadow-sm"
-              >
-                <Printer className="w-4 h-4 mr-2" />
-                Print
-              </button>
+            <div className="flex items-center">
+              <div className="hidden sm:flex items-center bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                <button
+                  onClick={exportToCSV}
+                  className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Export CSV
+                </button>
+                <div className="w-px h-6 bg-gray-200" />
+                <button
+                  onClick={printPage}
+                  className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  <Printer className="w-4 h-4 mr-2" />
+                  Print
+                </button>
+              </div>
+              <div className="sm:hidden flex items-center gap-2">
+                <button onClick={exportToCSV} className="p-2 bg-white rounded-full border border-gray-200 shadow-sm" aria-label="Export CSV">
+                  <Download className="w-4 h-4" />
+                </button>
+                <button onClick={printPage} className="p-2 bg-white rounded-full border border-gray-200 shadow-sm" aria-label="Print">
+                  <Printer className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
       {/* Filters and Search */}
-      <div className="bg-white border-b border-gray-200 shadow-sm">
+      <div className="bg-white/80 supports-[backdrop-filter]:bg-white/70 border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1">
@@ -234,7 +263,7 @@ export function AdminHistory() {
                   placeholder="Search reports by title, description, reporter, or patrol officer..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                 />
               </div>
             </div>
@@ -242,7 +271,7 @@ export function AdminHistory() {
               <select
                 value={categoryFilter}
                 onChange={(e) => setCategoryFilter(e.target.value)}
-                className="px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                className="px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
               >
                 <option value="all">All Categories</option>
                 <option value="infrastructure">Infrastructure</option>
@@ -259,6 +288,31 @@ export function AdminHistory() {
 
       {/* Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Quick Category Chips */}
+        <div className="mb-6 overflow-x-auto">
+          <div className="inline-flex items-center gap-2 bg-white border border-gray-200 rounded-xl p-1 shadow-sm min-w-max">
+            {(() => {
+              const items: Array<{ key: string; label: string; count: number }> = [];
+              const unique = Array.from(categoryCounts.keys());
+              items.push({ key: 'all', label: 'All', count: reports.length });
+              unique.forEach(key => items.push({ key, label: key.charAt(0).toUpperCase() + key.slice(1), count: categoryCounts.get(key) || 0 }));
+              return items.map(({ key, label, count }) => {
+                const isActive = categoryFilter === key;
+                return (
+                  <button
+                    key={key}
+                    onClick={() => setCategoryFilter(key)}
+                    className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border ${isActive ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-white border-transparent text-gray-700 hover:bg-gray-50'}`}
+                    aria-pressed={isActive}
+                  >
+                    <span>{label}</span>
+                    <span className={`px-2 py-0.5 rounded-full text-xs ${isActive ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-700'}`}>{count}</span>
+                  </button>
+                );
+              });
+            })()}
+          </div>
+        </div>
         {/* Summary Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
@@ -318,16 +372,37 @@ export function AdminHistory() {
 
         {/* Reports List */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="px-8 py-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-blue-50">
-            <h2 className="text-xl font-semibold text-gray-900">Resolved Reports</h2>
-            <p className="text-sm text-gray-600 mt-1">
-              Showing {filteredReports.length} of {reports.length} resolved reports
-            </p>
+          <div className="px-6 sm:px-8 py-5 border-b border-gray-200 bg-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">Resolved Reports</h2>
+                <p className="text-sm text-gray-600 mt-1">Showing {filteredReports.length} of {reports.length} resolved reports</p>
+              </div>
+              <div className="inline-flex items-center bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+                <button
+                  onClick={() => setViewMode('cards')}
+                  className={`px-3 py-2 text-sm font-medium ${viewMode === 'cards' ? 'bg-gray-50 text-gray-900' : 'text-gray-700 hover:bg-gray-50'}`}
+                  aria-pressed={viewMode === 'cards'}
+                  title="Card view"
+                >
+                  Cards
+                </button>
+                <div className="w-px h-6 bg-gray-200" />
+                <button
+                  onClick={() => setViewMode('table')}
+                  className={`px-3 py-2 text-sm font-medium ${viewMode === 'table' ? 'bg-gray-50 text-gray-900' : 'text-gray-700 hover:bg-gray-50'}`}
+                  aria-pressed={viewMode === 'table'}
+                  title="Table view"
+                >
+                  Table
+                </button>
+              </div>
+            </div>
           </div>
           
           {loading ? (
             <div className="p-12 text-center text-gray-500">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <div className="animate-spin rounded-full h-12 w-12 border-2 border-gray-200 border-t-blue-600 mx-auto mb-4"></div>
               <p>Loading reports...</p>
             </div>
           ) : filteredReports.length === 0 ? (
@@ -336,86 +411,110 @@ export function AdminHistory() {
               <h3 className="text-lg font-medium text-gray-900 mb-2">No reports found</h3>
               <p className="text-gray-500">Try adjusting your search or filters</p>
             </div>
+          ) : viewMode === 'table' ? (
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr className="text-left text-gray-600">
+                    <th className="px-6 py-3 font-medium">Title</th>
+                    <th className="px-6 py-3 font-medium">Category</th>
+                    <th className="px-6 py-3 font-medium">Priority</th>
+                    <th className="px-6 py-3 font-medium">Reporter</th>
+                    <th className="px-6 py-3 font-medium">Patrol Officer</th>
+                    <th className="px-6 py-3 font-medium">Date</th>
+                    <th className="px-6 py-3 font-medium">Location</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {filteredReports.map((r) => (
+                    <tr key={r.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-3 max-w-[280px] truncate" title={r.title}>{r.title}</td>
+                      <td className="px-6 py-3">
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${getCategoryColor(r.category)}`}>{r.category}</span>
+                      </td>
+                      <td className="px-6 py-3">
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${getPriorityColor(r.priority)}`}>{r.priority}</span>
+                      </td>
+                      <td className="px-6 py-3 truncate max-w-[180px]" title={r.username}>{r.username}</td>
+                      <td className="px-6 py-3 truncate max-w-[180px]" title={r.patrol_officer_name || 'Not Assigned'}>{r.patrol_officer_name || 'Not Assigned'}</td>
+                      <td className="px-6 py-3 whitespace-nowrap" title={formatDate(r.created_at)}>{formatDate(r.created_at)}</td>
+                      <td className="px-6 py-3 truncate max-w-[320px]" title={r.location_address}>{r.location_address}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           ) : (
-            <div className="divide-y divide-gray-100">
+            <div className="space-y-4">
               {filteredReports.map((report) => (
-                <div key={report.id} className="p-8 hover:bg-gray-50 transition-colors">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-3">
-                        <h3 className="text-xl font-semibold text-gray-900">{report.title}</h3>
-                        <span className={`px-3 py-1.5 rounded-full text-sm font-medium border ${getCategoryColor(report.category)}`}>
-                          {report.category.charAt(0).toUpperCase() + report.category.slice(1)}
-                        </span>
-                        <span className={`px-3 py-1.5 rounded-full text-sm font-medium border ${getPriorityColor(report.priority)}`}>
-                          {report.priority.charAt(0).toUpperCase() + report.priority.slice(1)} Priority
-                        </span>
-                      </div>
-                      <p className="text-gray-600 text-base leading-relaxed mb-4">{report.description}</p>
+                <article key={report.id} className="group mx-4 sm:mx-6 my-4 border border-gray-200 rounded-xl hover:shadow-md transition-shadow bg-white">
+                  <div className="px-5 sm:px-6 pt-5">
+                    <div className="flex flex-wrap items-center gap-3 mb-2">
+                      <h3 className="text-lg font-semibold text-gray-900 mr-auto min-w-0">
+                        <span className="block truncate" title={report.title}>{report.title}</span>
+                      </h3>
+                      <span className={`px-3 py-1.5 rounded-full text-xs font-medium border ${getCategoryColor(report.category)}`}>{report.category.charAt(0).toUpperCase() + report.category.slice(1)}</span>
+                      <span className={`px-3 py-1.5 rounded-full text-xs font-medium border ${getPriorityColor(report.priority)}`}>{report.priority.charAt(0).toUpperCase() + report.priority.slice(1)} Priority</span>
                     </div>
+                    <p className="text-gray-600 text-sm leading-relaxed mb-4">{report.description}</p>
                   </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 text-sm">
-                    <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-lg bg-blue-100 flex items-center justify-center">
-                        <User2 className="w-4 h-4 text-blue-600" />
+                  <div className="px-5 sm:px-6 pb-5">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 text-sm">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="h-8 w-8 rounded-lg bg-blue-100 flex items-center justify-center">
+                          <User2 className="w-4 h-4 text-blue-600" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-gray-500 text-xs uppercase tracking-wide">Reporter</p>
+                          <p className="font-medium text-gray-900 truncate" title={report.username}>{report.username}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-gray-500 text-xs uppercase tracking-wide">Reporter</p>
-                        <p className="font-medium text-gray-900">{report.username}</p>
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="h-8 w-8 rounded-lg bg-green-100 flex items-center justify-center">
+                          <Shield className="w-4 h-4 text-green-600" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-gray-500 text-xs uppercase tracking-wide">Patrol Officer</p>
+                          <p className="font-medium text-gray-900 truncate" title={report.patrol_officer_name || 'Not Assigned'}>{report.patrol_officer_name || 'Not Assigned'}</p>
+                        </div>
                       </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-lg bg-green-100 flex items-center justify-center">
-                        <Shield className="w-4 h-4 text-green-600" />
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="h-8 w-8 rounded-lg bg-yellow-100 flex items-center justify-center">
+                          <Calendar className="w-4 h-4 text-yellow-600" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-gray-500 text-xs uppercase tracking-wide">Date</p>
+                          <p className="font-medium text-gray-900 truncate" title={formatDate(report.created_at)}>{formatDate(report.created_at)}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-gray-500 text-xs uppercase tracking-wide">Patrol Officer</p>
-                        <p className="font-medium text-gray-900">
-                          {report.patrol_officer_name || 'Not Assigned'}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-lg bg-yellow-100 flex items-center justify-center">
-                        <Calendar className="w-4 h-4 text-yellow-600" />
-                      </div>
-                      <div>
-                        <p className="text-gray-500 text-xs uppercase tracking-wide">Date</p>
-                        <p className="font-medium text-gray-900">{formatDate(report.created_at)}</p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-lg bg-purple-100 flex items-center justify-center">
-                        <MapPin className="w-4 h-4 text-purple-600" />
-                      </div>
-                      <div>
-                        <p className="text-gray-500 text-xs uppercase tracking-wide">Location</p>
-                        <p className="font-medium text-gray-900 truncate">{report.location_address}</p>
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="h-8 w-8 rounded-lg bg-purple-100 flex items-center justify-center">
+                          <MapPin className="w-4 h-4 text-purple-600" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-gray-500 text-xs uppercase tracking-wide">Location</p>
+                          <p className="font-medium text-gray-900 overflow-hidden text-ellipsis whitespace-nowrap" title={report.location_address}>{report.location_address}</p>
+                        </div>
                       </div>
                     </div>
+                    {report.images && report.images.length > 0 && (
+                      <div className="mt-5">
+                        <p className="text-sm text-gray-500 mb-3 font-medium">Attached Images</p>
+                        <div className="flex gap-3 overflow-x-auto pb-2">
+                          {report.images.map((image, index) => (
+                            <img
+                              key={index}
+                              src={image}
+                              alt={`Report image ${index + 1}`}
+                              className="w-20 h-20 object-cover rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                              onClick={() => window.open(image, '_blank')}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  
-                  {report.images && report.images.length > 0 && (
-                    <div className="mt-6">
-                      <p className="text-sm text-gray-500 mb-3 font-medium">Attached Images</p>
-                      <div className="flex gap-3 overflow-x-auto pb-2">
-                        {report.images.map((image, index) => (
-                          <img
-                            key={index}
-                            src={image}
-                            alt={`Report image ${index + 1}`}
-                            className="w-20 h-20 object-cover rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-                            onClick={() => window.open(image, '_blank')}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
+                </article>
               ))}
             </div>
           )}
