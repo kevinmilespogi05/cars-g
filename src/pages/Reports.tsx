@@ -329,44 +329,61 @@ export function Reports() {
 
   return (
     <>
-    <div className="min-h-[100dvh] bg-gray-50 reports-page">
-      <div className="w-full px-3 sm:px-4 lg:px-6 py-4 sm:py-6 max-w-screen-2xl mx-auto">
+    <div className="min-h-[100dvh] bg-gradient-to-br from-gray-50 via-white to-gray-100 reports-page">
+      <div className="w-full px-4 sm:px-6 lg:px-8 py-6 sm:py-8 max-w-screen-2xl mx-auto">
         {/* Announcements with right-side Emergency Contacts only for this section */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6">
           <div className="lg:col-span-9">
             <AnnouncementCarousel />
           </div>
           <aside className="lg:col-span-3">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-              <h3 className="text-sm font-semibold text-gray-900 mb-3">Emergency Contacts</h3>
-              <ul className="space-y-3 text-sm">
-                <li className="flex items-start justify-between">
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-6 hover:shadow-xl transition-all duration-300">
+              <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <Shield className="h-5 w-5 text-blue-600" />
+                Emergency Contacts
+              </h3>
+              <ul className="space-y-4 text-sm">
+                <li className="flex items-start justify-between group">
                   <div>
-                    <p className="font-medium text-gray-900">Emergency Hotline</p>
-                    <p className="text-gray-500">For immediate assistance</p>
+                    <p className="font-semibold text-gray-900 group-hover:text-gray-700 transition-colors">National Emergency Hotline</p>
+                    <p className="text-gray-500 text-xs">For immediate assistance</p>
                   </div>
-                  <a href="tel:911" className="text-red-600 hover:text-red-700 font-semibold">911</a>
+                  <a href="tel:911" className="text-red-600 hover:text-red-700 font-bold text-lg hover:scale-110 transition-all duration-200">911</a>
                 </li>
-                <li className="flex items-start justify-between">
+                <li className="flex items-start justify-between group">
                   <div>
-                    <p className="font-medium text-gray-900">Police</p>
-                    <p className="text-gray-500">Non-emergency</p>
+                    <p className="font-semibold text-gray-900 group-hover:text-gray-700 transition-colors">Philippine Red Cross</p>
+                    <p className="text-gray-500 text-xs">Medical emergencies</p>
                   </div>
-                  <a href="tel:117" className="text-red-600 hover:text-red-700 font-semibold">117</a>
+                  <a href="tel:143" className="text-red-600 hover:text-red-700 font-bold text-lg hover:scale-110 transition-all duration-200">143</a>
                 </li>
-                <li className="flex items-start justify-between">
+                <li className="flex items-start justify-between group">
                   <div>
-                    <p className="font-medium text-gray-900">Fire Department</p>
-                    <p className="text-gray-500">Report fires and hazards</p>
+                    <p className="font-semibold text-gray-900 group-hover:text-gray-700 transition-colors">NDRRMC</p>
+                    <p className="text-gray-500 text-xs">Disaster response</p>
                   </div>
-                  <a href="tel:160" className="text-red-600 hover:text-red-700 font-semibold">160</a>
+                  <a href="tel:0289115061" className="text-red-600 hover:text-red-700 font-bold text-sm hover:scale-110 transition-all duration-200">(02) 8911-5061</a>
                 </li>
-                <li className="flex items-start justify-between">
+                <li className="flex items-start justify-between group">
                   <div>
-                    <p className="font-medium text-gray-900">Ambulance</p>
-                    <p className="text-gray-500">Medical emergencies</p>
+                    <p className="font-semibold text-gray-900 group-hover:text-gray-700 transition-colors">Philippine National Police</p>
+                    <p className="text-gray-500 text-xs">Police assistance</p>
                   </div>
-                  <a href="tel:16911" className="text-red-600 hover:text-red-700 font-semibold">16911</a>
+                  <a href="tel:9117" className="text-red-600 hover:text-red-700 font-bold text-lg hover:scale-110 transition-all duration-200">9117</a>
+                </li>
+                <li className="flex items-start justify-between group">
+                  <div>
+                    <p className="font-semibold text-gray-900 group-hover:text-gray-700 transition-colors">Bureau of Fire Protection</p>
+                    <p className="text-gray-500 text-xs">Fire emergencies</p>
+                  </div>
+                  <a href="tel:117" className="text-red-600 hover:text-red-700 font-bold text-lg hover:scale-110 transition-all duration-200">117</a>
+                </li>
+                <li className="flex items-start justify-between group">
+                  <div>
+                    <p className="font-semibold text-gray-900 group-hover:text-gray-700 transition-colors">Department of Health</p>
+                    <p className="text-gray-500 text-xs">Health emergencies</p>
+                  </div>
+                  <a href="tel:0287111001" className="text-red-600 hover:text-red-700 font-bold text-sm hover:scale-110 transition-all duration-200">(02) 8711-1001</a>
                 </li>
               </ul>
             </div>
@@ -463,103 +480,125 @@ export function Reports() {
             {filteredReports.map((report) => (
               <div
                 key={report.id}
-                className="bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer border border-gray-100 hover:border-gray-200"
+                className="group bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer border border-gray-100 hover:border-gray-200 overflow-hidden hover:-translate-y-1"
                 onClick={() => navigate(`/reports/${report.id}`)}
               >
                 {report.images && report.images.length > 0 && !imageErrors[report.id] ? (
-                  <div className="relative h-40 overflow-hidden rounded-t-lg">
+                  <div className="relative h-48 overflow-hidden">
                     <img
                       src={report.images[0]}
                       alt={report.title}
-                      className="w-full h-full object-cover object-center"
+                      className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
                       onError={() => handleImageError(report.id)}
                     />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                     {report.images.length > 1 && (
-                      <div className="absolute top-2 right-2 bg-black bg-opacity-70 text-white text-xs px-1.5 py-0.5 rounded-full font-medium">
-                        +{report.images.length - 1}
+                      <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm text-gray-800 text-xs px-2 py-1 rounded-full font-medium shadow-sm">
+                        +{report.images.length - 1} more
                       </div>
                     )}
                   </div>
                 ) : (
-                  <div className="h-40 bg-gradient-to-br from-gray-50 to-gray-100 rounded-t-lg flex items-center justify-center">
-                    <MapPin className="h-10 w-10 text-gray-400" />
+                  <div className="h-48 bg-gradient-to-br from-gray-50 via-gray-100 to-gray-200 flex items-center justify-center group-hover:from-gray-100 group-hover:to-gray-200 transition-all duration-300">
+                    <div className="text-center">
+                      <MapPin className="h-12 w-12 text-gray-400 mx-auto mb-2 group-hover:text-gray-500 transition-colors duration-300" />
+                      <p className="text-xs text-gray-500 font-medium">No Image</p>
+                    </div>
                   </div>
                 )}
 
-                <div className="p-4">
-                  <h3 className="font-semibold text-gray-900 text-base leading-tight line-clamp-1 mb-2">
-                    {report.title}
-                  </h3>
+                <div className="p-5">
+                  <div className="flex items-start justify-between mb-3">
+                    <h3 className="font-semibold text-gray-900 text-lg leading-tight line-clamp-2 group-hover:text-gray-700 transition-colors duration-200">
+                      {report.title}
+                    </h3>
+                    {report.case_number && (
+                      <div className="flex items-center text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-lg ml-2 flex-shrink-0">
+                        <Hash className="h-3 w-3 mr-1" />
+                        <span className="font-medium">#{report.case_number}</span>
+                      </div>
+                    )}
+                  </div>
 
-                  {report.case_number && (
-                    <div className="flex items-center text-sm text-gray-500 mb-2">
-                      <Hash className="h-4 w-4 mr-1" />
-                      <span>Case #{report.case_number}</span>
-                    </div>
-                  )}
-
-                  <p className="text-gray-600 text-sm leading-relaxed line-clamp-3 mb-3">
+                  <p className="text-gray-600 text-sm leading-relaxed line-clamp-2 mb-4">
                     {report.description}
                   </p>
 
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(report.status)}`}>
+                  <div className="flex items-center gap-2 mb-4">
+                    <span className={`inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-semibold shadow-sm ${getStatusColor(report.status)}`}>
                       {getStatusIcon(report.status)}
-                      <span className="ml-1 text-xs">{report.status.replace('_', ' ')}</span>
+                      <span className="ml-1.5">{report.status.replace('_', ' ')}</span>
                     </span>
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getPriorityColor(report.priority)}`}>
+                    <span className={`inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-semibold shadow-sm ${getPriorityColor(report.priority)}`}>
                       {report.priority}
                     </span>
                   </div>
 
-                  <div className="flex items-center justify-between text-sm text-gray-500 mb-3">
-                    <div className="flex items-center gap-1.5">
-                      <Users className="h-4 w-4" />
-                      <span className="truncate max-w-[120px]">{report.user_profile?.username || 'Anonymous'}</span>
+                  <div className="flex items-center justify-between text-sm mb-4">
+                    <div className="flex items-center gap-2">
+                      {report.user_profile?.avatar_url ? (
+                        <img 
+                          src={report.user_profile.avatar_url} 
+                          alt={report.user_profile.username || 'User'} 
+                          className="w-6 h-6 rounded-full object-cover ring-2 ring-gray-200" 
+                        />
+                      ) : (
+                        <div className="w-6 h-6 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center text-gray-600 text-xs font-semibold">
+                          {(report.user_profile?.username || 'A').slice(0,1).toUpperCase()}
+                        </div>
+                      )}
+                      <span className="text-gray-700 font-medium truncate max-w-[120px]">{report.user_profile?.username || 'Anonymous'}</span>
                     </div>
-                    <div className="flex items-center gap-1.5 text-gray-400">
+                    <div className="flex items-center gap-1.5 text-gray-500">
                       <Calendar className="h-4 w-4" />
-                      <span>{new Date(report.created_at).toLocaleDateString()}</span>
+                      <span className="text-xs">{new Date(report.created_at).toLocaleDateString()}</span>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-                    <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                    <div className="flex items-center gap-4">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           handleLike(report.id);
                         }}
                         disabled={likeLoading[report.id]}
-                        className="flex items-center gap-1.5 text-sm transition-colors hover:text-red-500"
+                        className="flex items-center gap-1.5 text-sm transition-all duration-200 hover:scale-105 group/like"
                       >
                         {likeLoading[report.id] ? (
-                          <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
+                          <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
                         ) : (
                           <Heart 
                             className={`h-4 w-4 transition-all duration-200 ${
                               report.is_liked 
-                                ? 'fill-red-500 text-red-500' 
-                                : 'fill-none text-gray-500 hover:text-red-500'
+                                ? 'fill-red-500 text-red-500 group-hover/like:scale-110' 
+                                : 'fill-none text-gray-400 hover:text-red-500 group-hover/like:scale-110'
                             }`} 
                           />
                         )}
-                        <span className="text-sm text-gray-600">{report.likes?.count || 0}</span>
+                        <span className={`text-xs font-medium ${
+                          report.is_liked ? 'text-red-500' : 'text-gray-500'
+                        }`}>
+                          {report.likes?.count || 0}
+                        </span>
                       </button>
-                      <div className="flex items-center gap-1.5 text-sm text-gray-500">
-                        <MessageCircle className="h-4 w-4" />
-                        <span>{report.comments?.count || 0}</span>
+                      
+                      <div className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-all duration-200 hover:scale-105 group/comment">
+                        <MessageCircle className="h-4 w-4 group-hover/comment:scale-110 transition-transform duration-200" />
+                        <span className="text-xs font-medium">{report.comments?.count || 0}</span>
                       </div>
                     </div>
+                    
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         navigate(`/reports/${report.id}`);
                       }}
-                      className="text-primary-color hover:text-primary-dark transition-colors p-1.5 rounded hover:bg-gray-50"
+                      className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 transition-all duration-200 hover:scale-105 group/view px-2 py-1 rounded-lg hover:bg-gray-50"
                       title="View details"
                     >
-                      <Eye className="h-4 w-4" />
+                      <Eye className="h-4 w-4 group-hover/view:scale-110 transition-transform duration-200" />
+                      <span className="font-medium">View</span>
                     </button>
                   </div>
                 </div>
