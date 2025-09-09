@@ -73,7 +73,7 @@ export function Navigation() {
 
   return (
     <nav 
-      className={`fixed w-full z-50 transition-all duration-300 shadow-lg ${isScrolled ? 'py-3' : 'py-4'}`}
+      className={`fixed w-full z-[2000] transition-all duration-300 shadow-lg ${isScrolled ? 'py-3' : 'py-4'}`}
       style={{ backgroundColor: '#800000' }}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -139,7 +139,7 @@ export function Navigation() {
                 </button>
 
                 {isProfileMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl py-2 z-50 border border-gray-200/50 backdrop-blur-sm">
+                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl py-2 z-[3000] border border-gray-200/50 backdrop-blur-sm">
                     <div className="px-4 py-3 border-b border-gray-100">
                       <div className="flex items-center space-x-3">
                         <img
