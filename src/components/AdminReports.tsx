@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { Search, Filter, CheckCircle2, XCircle, Wrench, RefreshCw, Eye, Trash2, User2, Calendar, MapPin, X, Navigation } from 'lucide-react';
+import { Search, Filter, CheckCircle2, XCircle, Wrench, RefreshCw, Eye, Trash2, User2, Calendar, MapPin, X, Navigation, Hash } from 'lucide-react';
 import { reportsService } from '../services/reportsService';
 import type { Report } from '../types';
 import { supabase } from '../lib/supabase';
@@ -263,6 +263,12 @@ export function AdminReports() {
                     {r.priority && (
                       <span className={`text-xs px-1.5 py-0.5 rounded-full ${r.priority === 'high' ? 'bg-red-100 text-red-800' : r.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>{r.priority}</span>
                     )}
+                    {r.case_number && (
+                      <span className="inline-flex items-center text-xs px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-800">
+                        <Hash className="h-3 w-3 mr-1" />
+                        {r.case_number}
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-1 sm:gap-2 shrink-0">
@@ -428,6 +434,15 @@ export function AdminReports() {
                       <span className={`${selectedReport.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : selectedReport.status === 'in_progress' ? 'bg-blue-100 text-blue-800' : selectedReport.status === 'resolved' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'} text-xs px-2 py-0.5 rounded-full`}>{selectedReport.status.replace('_', ' ')}</span>
                     </div>
                   </div>
+                  {selectedReport.case_number && (
+                    <div>
+                      <div className="text-xs uppercase tracking-wide text-gray-500">Case Number</div>
+                      <div className="mt-1 flex items-center text-sm text-gray-800">
+                        <Hash className="h-4 w-4 mr-1" />
+                        {selectedReport.case_number}
+                      </div>
+                    </div>
+                  )}
                   <div>
                     <div className="text-xs uppercase tracking-wide text-gray-500">Reported By</div>
                     <div className="mt-1 flex items-center gap-2 text-sm text-gray-800">

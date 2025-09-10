@@ -1021,7 +1021,7 @@ export function ReportDetail() {
                 {report.case_number && (
                   <div>
                     <p className="text-xs font-medium text-gray-500">Case Number</p>
-                    <p className="text-sm text-gray-900 flex items-center"><Hash className="h-4 w-4 mr-1" />#{report.case_number}</p>
+                    <p className="text-sm text-gray-900 flex items-center"><Hash className="h-4 w-4 mr-1" />{report.case_number}</p>
                   </div>
                 )}
                 {/* Service level is already shown in badges above to avoid duplication */}

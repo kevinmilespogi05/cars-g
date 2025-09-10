@@ -33,11 +33,28 @@ export function AuthCallback() {
         if (data.session) {
           // Successfully authenticated
           console.log('User authenticated successfully:', data.session.user);
-          setUser(data.session.user);
           
-          // Redirect based on user role
-          if (data.session.user?.user_metadata?.role === 'admin') {
+          // Fetch user profile to get role
+          const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', data.session.user.id)
+            .single();
+            
+          if (profileError) {
+            console.error('Error fetching profile:', profileError);
+            setError('Failed to load user profile. Please try again.');
+            setIsProcessing(false);
+            return;
+          }
+          
+          setUser({ ...profile, email: data.session.user.email });
+          
+          // Redirect based on user role from database
+          if (profile.role === 'admin') {
             navigate('/admin/map', { replace: true });
+          } else if (profile.role === 'patrol') {
+            navigate('/patrol', { replace: true });
           } else {
             navigate('/reports', { replace: true });
           }

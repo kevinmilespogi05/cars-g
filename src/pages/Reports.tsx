@@ -592,7 +592,7 @@ export function Reports() {
                     {report.case_number && (
                       <div className="flex items-center text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-lg ml-2 flex-shrink-0">
                         <Hash className="h-3 w-3 mr-1" />
-                        <span className="font-medium">#{report.case_number}</span>
+                        <span className="font-medium">{report.case_number}</span>
                       </div>
                     )}
                   </div>

@@ -197,7 +197,7 @@ export function CaseInfo({ report, onUpdate, onClose, isPatrolView = false }: Ca
                 </div>
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">
-                    Case #{report.case_number || 'N/A'}
+                    Case {report.case_number || 'N/A'}
                   </h3>
                   <p className="text-sm text-gray-500">{report.title}</p>
                 </div>

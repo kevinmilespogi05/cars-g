@@ -793,7 +793,7 @@ export function PatrolDashboard() {
                         {report.case_number && (
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
                             <Hash className="h-3 w-3 mr-1" />
-                            #{report.case_number}
+                            {report.case_number}
                           </span>
                         )}
                         {(() => {
@@ -946,7 +946,7 @@ export function PatrolDashboard() {
                       </span>
                       {selectedReport.case_number && (
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full font-medium bg-gray-100 text-gray-800">
-                          <Hash className="h-3 w-3 mr-1" /> #{selectedReport.case_number}
+                          <Hash className="h-3 w-3 mr-1" /> {selectedReport.case_number}
                         </span>
                       )}
                       {(() => {
@@ -1059,7 +1059,7 @@ export function PatrolDashboard() {
                           <p className="text-sm font-medium text-gray-500">Case Number</p>
                           <p className="text-sm text-gray-900 flex items-center">
                             <Hash className="h-4 w-4 mr-1" />
-                            #{selectedReport.case_number}
+                            {selectedReport.case_number}
                           </p>
                         </div>
                       )}

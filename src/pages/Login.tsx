@@ -7,11 +7,7 @@ import {
   Mail, 
   Lock, 
   AlertCircle, 
-  CheckCircle, 
   ShieldAlert, 
-  User, 
-  Shield, 
-  MapPin, 
   UserCheck,
   Eye,
   EyeOff,
@@ -33,7 +29,6 @@ export function Login() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSocialLoading, setIsSocialLoading] = useState<'google' | null>(null);
-  const [selectedRole, setSelectedRole] = useState<'user' | 'patrol' | 'admin'>('user');
   const [loginType, setLoginType] = useState<'email' | 'username'>('email');
   const [showPassword, setShowPassword] = useState(false);
   const [isFocused, setIsFocused] = useState<string | null>(null);
@@ -68,17 +63,7 @@ export function Login() {
         await signInWithUsername(username, password);
       }
       
-      // Use fresh state to determine role
-      const freshUser = useAuthStore.getState().user;
-      
-      // Check if user role matches selected role
-      if (freshUser?.role !== selectedRole) {
-        await useAuthStore.getState().signOut();
-        setError(`This account is for ${freshUser?.role} users. Please use the correct login.`);
-        return;
-      }
-      
-      navigate(from, { replace: true });
+      // The useEffect will handle the redirect based on user role automatically
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to sign in');
     } finally {
@@ -97,32 +82,6 @@ export function Login() {
     }
   };
 
-  const roleOptions = [
-    {
-      id: 'user' as const,
-      title: 'Community Member',
-      description: 'Report issues and track community safety',
-      icon: User,
-      color: 'bg-red-800',
-      path: '/reports'
-    },
-    {
-      id: 'patrol' as const,
-      title: 'Patrol Officer',
-      description: 'Respond to reports and coordinate patrols',
-      icon: MapPin,
-      color: 'bg-red-700',
-      path: '/patrol'
-    },
-    {
-      id: 'admin' as const,
-      title: 'Administrator',
-      description: 'Manage the platform and oversee operations',
-      icon: Shield,
-      color: 'bg-red-900',
-      path: '/admin/map'
-    }
-  ];
 
   return (
     <div className="min-h-screen bg-gray-50 relative overflow-hidden">
@@ -176,60 +135,6 @@ export function Login() {
             </div>
           </motion.div>
 
-          {/* Role Selection */}
-          <motion.div 
-            className="space-y-4"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-          >
-            <label className="text-sm font-semibold text-gray-700 flex items-center space-x-2">
-              <Shield className="h-4 w-4" />
-              <span>Select your role</span>
-            </label>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {roleOptions.map((role, index) => (
-                <motion.button
-                  key={role.id}
-                  onClick={() => setSelectedRole(role.id)}
-                  className={`group relative p-4 rounded-2xl border-2 transition-all duration-300 ${
-                    selectedRole === role.id
-                      ? 'border-blue-500 bg-blue-50 shadow-lg scale-105'
-                      : 'border-gray-200 hover:border-gray-300 hover:shadow-md'
-                  }`}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.4, delay: index * 0.1 }}
-                >
-                  <div className="flex flex-col items-center text-center space-y-3">
-                    <div className={`h-12 w-12 ${role.color} rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300 shadow-lg`}>
-                      <role.icon className="h-6 w-6 text-white" />
-                    </div>
-                    <div>
-                      <div className="text-sm font-bold text-gray-900 mb-1">
-                        {role.title}
-                      </div>
-                      <div className="text-xs text-gray-500 leading-tight">
-                        {role.description}
-                      </div>
-                    </div>
-                    {selectedRole === role.id && (
-                      <motion.div
-                        className="absolute -top-2 -right-2 h-6 w-6 bg-green-500 rounded-full flex items-center justify-center"
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        transition={{ duration: 0.2 }}
-                      >
-                        <CheckCircle className="h-4 w-4 text-white" />
-                      </motion.div>
-                    )}
-                  </div>
-                </motion.button>
-              ))}
-            </div>
-          </motion.div>
         
           {/* Form Section */}
           <motion.form 
@@ -237,7 +142,7 @@ export function Login() {
             onSubmit={handleSubmit}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.3 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
           >
             {/* Message Alerts */}
             <AnimatePresence>
@@ -394,7 +299,7 @@ export function Login() {
               ) : (
                 <div className="flex items-center space-x-3">
                   <Zap className="h-5 w-5 group-hover:rotate-12 transition-transform duration-300" />
-                  <span>Sign in as {roleOptions.find(r => r.id === selectedRole)?.title}</span>
+                  <span>Sign in to your account</span>
                   <ChevronRight className="h-5 w-5 group-hover:translate-x-1 transition-transform duration-300" />
                 </div>
               )}

@@ -24,7 +24,8 @@ import {
   ChevronDown,
   ChevronUp,
   ShieldCheck,
-  History
+  History,
+  Hash
 } from 'lucide-react';
 import { Notification } from './Notification';
 
@@ -47,6 +48,7 @@ interface Report {
   images: string[];
   patrol_user_id?: string | null;
   patrol_username?: string | null;
+  case_number?: string;
 }
 
 interface MapMarker {
@@ -579,7 +581,8 @@ export function AdminMapDashboard() {
           created_at,
           user_id,
           patrol_user_id,
-          images
+          images,
+          case_number
         `)
         .order('created_at', { ascending: false })
         .range(0, 49);
@@ -687,7 +690,26 @@ export function AdminMapDashboard() {
           user_id: 'demo-user-1',
           username: 'User demo-user-1',
           avatar_url: null,
-          images: ['https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=300&fit=crop']
+          images: ['https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=300&fit=crop'],
+          case_number: '000001'
+        },
+        {
+          id: 'demo-2',
+          title: 'Uncollected Garbage',
+          description: 'Could cause harm.',
+          category: 'environmental',
+          status: 'in_progress',
+          priority: 'high',
+          location: { lat: 14.8386, lng: 120.1881 },
+          location_address: 'Ablao Street, San Pablo, Castillejos, Zambales, Central Luzon, 2208, Philippines',
+          created_at: new Date(Date.now() - 259200000).toISOString(),
+          user_id: 'demo-user-2',
+          username: 'Leo',
+          avatar_url: null,
+          images: ['https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=400&h=300&fit=crop'],
+          patrol_user_id: 'patrol-demo',
+          patrol_username: 'patrol demo',
+          case_number: '000004'
         },
         {
           id: 'demo-3',
@@ -700,9 +722,12 @@ export function AdminMapDashboard() {
           location_address: 'Pamatawan Bridge, Zambales Highway, Cawag, Pamatawan, Subic, Zambales, Central Luzon, 2208, Philippines',
           created_at: new Date(Date.now() - 259200000).toISOString(),
           user_id: 'demo-user-3',
-          username: 'User demo-user-3',
+          username: 'kevin',
           avatar_url: null,
-          images: []
+          images: [],
+          patrol_user_id: 'patrol-demo',
+          patrol_username: 'patrol demo',
+          case_number: '000003'
         }
       ];
       setReports(demoReports);
@@ -1193,6 +1218,7 @@ export function AdminMapDashboard() {
           <div><strong>Location:</strong> ${report.location_address}</div>
           <div><strong>Reporter:</strong> ${report.username}</div>
           <div><strong>Date:</strong> ${new Date(report.created_at).toLocaleDateString()}</div>
+          ${report.case_number ? `<div><strong>Case #:</strong> ${report.case_number}</div>` : ''}
         </div>
         <button data-view-details data-report-id="${report.id}" class="mt-2 w-full text-center text-sm text-blue-600 hover:text-blue-700 font-semibold border-t pt-2 cursor-pointer hover:bg-blue-50 rounded px-2 py-1 transition-colors">
           View full details →
@@ -1761,6 +1787,12 @@ export function AdminMapDashboard() {
                             {report.status === 'awaiting_verification' ? 'Awaiting Verification' : report.status.replace('_', ' ')}
                           </span>
                         </div>
+                        {report.case_number && (
+                          <div className="flex items-center gap-1 mb-2">
+                            <Hash className="h-3 w-3 text-gray-500" />
+                            <span className="text-xs text-gray-600 font-medium">{report.case_number}</span>
+                          </div>
+                        )}
                         <p className="text-sm text-gray-600 mb-3 line-clamp-2 leading-relaxed">
                           {report.description}
                         </p>
@@ -1881,6 +1913,12 @@ export function AdminMapDashboard() {
                           {report.status.replace('_', ' ')}
                         </span>
                       </div>
+                      {report.case_number && (
+                        <div className="flex items-center gap-1 mb-2">
+                          <Hash className="h-3 w-3 text-gray-500" />
+                          <span className="text-xs text-gray-600 font-medium">{report.case_number}</span>
+                        </div>
+                      )}
                       <p className="text-sm text-gray-700 mb-3 line-clamp-2 leading-relaxed">
                         {report.description}
                       </p>
@@ -2273,6 +2311,12 @@ export function AdminMapDashboard() {
                               {report.status === 'awaiting_verification' ? 'Verify' : report.status.replace('_', ' ')}
                             </span>
                           </div>
+                          {report.case_number && (
+                            <div className="flex items-center gap-1 mb-1">
+                              <Hash className="h-2.5 w-2.5 text-gray-500" />
+                              <span className="text-xs text-gray-600 font-medium">{report.case_number}</span>
+                            </div>
+                          )}
                           <p className="text-xs text-gray-600 mb-1 line-clamp-1">
                             {report.description}
                           </p>
@@ -2385,6 +2429,12 @@ export function AdminMapDashboard() {
                             {report.status}
                           </span>
                         </div>
+                        {report.case_number && (
+                          <div className="flex items-center gap-1 mb-2">
+                            <Hash className="h-3 w-3 text-gray-500" />
+                            <span className="text-xs text-gray-600 font-medium">{report.case_number}</span>
+                          </div>
+                        )}
                         <p className="text-xs text-gray-600 mb-2 line-clamp-2">{report.description}</p>
                         <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
                           <span>{report.username}</span>
@@ -2531,6 +2581,17 @@ export function AdminMapDashboard() {
                   {selectedReportForModal.status.replace('_', ' ')}
                 </span>
               </div>
+
+              {/* Case Number */}
+              {selectedReportForModal.case_number && (
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500 mb-1">Case Number</h3>
+                  <div className="flex items-center gap-2">
+                    <Hash className="h-4 w-4 text-gray-600" />
+                    <span className="text-gray-900 font-medium">{selectedReportForModal.case_number}</span>
+                  </div>
+                </div>
+              )}
 
               {/* Reporter Info */}
               <div>
@@ -2739,6 +2800,15 @@ export function AdminMapDashboard() {
                           {new Date(report.created_at).toLocaleString()}
                         </span>
                       </div>
+                      {report.case_number && (
+                        <div>
+                          <span className="text-gray-500">Case #:</span>
+                          <span className="ml-2 text-gray-900 flex items-center">
+                            <Hash className="h-3 w-3 mr-1" />
+                            {report.case_number}
+                          </span>
+                        </div>
+                      )}
                       <div>
                         <span className="text-gray-500">Location:</span>
                         <span className="ml-2 text-gray-900">{report.location_address}</span>
