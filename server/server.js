@@ -101,11 +101,26 @@ app.use(cors({
     process.env.FRONTEND_URL || "http://localhost:5173",
     "http://localhost:5173",
     "http://localhost:3000",
-    "https://cars-g.vercel.app"
+    "https://cars-g.vercel.app",
+    "https://cars-g.vercel.app/",
+    "https://cars-g-git-main-kevinmccarthy.vercel.app",
+    "https://cars-g-git-main-kevinmccarthy.vercel.app/"
   ],
-  credentials: true
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+  optionsSuccessStatus: 200
 }));
 app.use(express.json());
+
+// Handle CORS preflight requests
+app.options('*', (req, res) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.sendStatus(200);
+});
 
 // Global rate limit (basic protection)
 const globalLimiter = rateLimit({
@@ -228,7 +243,19 @@ app.get('/health', (req, res) => {
     status: 'OK', 
     timestamp: new Date().toISOString(),
     supabase: 'connected',
-    websocket: 'running'
+    websocket: 'running',
+    cors: 'configured',
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
+
+// WebSocket health check
+app.get('/ws-health', (req, res) => {
+  res.status(200).json({
+    status: 'OK',
+    websocket: 'available',
+    connectedUsers: connectedUsers.size,
+    timestamp: new Date().toISOString()
   });
 });
 
@@ -272,6 +299,8 @@ app.get('/api/chat/conversations/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
     console.log('Fetching conversations for user:', userId);
+    console.log('Request origin:', req.headers.origin);
+    console.log('Request headers:', req.headers);
     
     if (!supabaseAdmin) {
       return res.status(503).json({ 
@@ -677,10 +706,13 @@ const io = new Server(server, {
       process.env.FRONTEND_URL || "http://localhost:5173",
       "http://localhost:5173",
       "http://localhost:3000",
-      "https://cars-g.vercel.app"
+      "https://cars-g.vercel.app",
+      "https://cars-g.vercel.app/",
+      "https://cars-g-git-main-kevinmccarthy.vercel.app",
+      "https://cars-g-git-main-kevinmccarthy.vercel.app/"
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
     credentials: true
   },
   transports: ['websocket', 'polling'], // Allow fallback to polling for better compatibility
@@ -776,6 +808,8 @@ const flushMessageBatch = async (conversationId) => {
 
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
+  console.log('Connection origin:', socket.handshake.headers.origin);
+  console.log('Connection headers:', socket.handshake.headers);
   performanceMetrics.connectionsActive++;
   
   // Track message processing for performance metrics

@@ -102,25 +102,24 @@ export const useChatSocket = ({
         ? 'http://localhost:3001' 
         : (import.meta.env.VITE_CHAT_SERVER_URL || config.api.baseUrl);
       
-      // Ensure proper protocol for WebSocket
-      if (chatServerUrl.startsWith('https://')) {
-        chatServerUrl = chatServerUrl.replace('https://', 'wss://');
-      } else if (chatServerUrl.startsWith('http://')) {
-        chatServerUrl = chatServerUrl.replace('http://', 'ws://');
-      }
+      // For production, use the same URL as the API (Socket.IO handles protocol automatically)
+      // Don't manually convert to wss:// as Socket.IO handles this automatically
+      console.log('Using chat server URL:', chatServerUrl);
       
       console.log('Creating optimized socket connection to:', chatServerUrl);
       
       // Enhanced socket configuration with better error handling
       const enhancedSocketConfig = {
         ...socketConfig,
-        transports: ['websocket', 'polling'], // Allow fallback to polling
+        transports: ['polling', 'websocket'], // Try polling first, then websocket
         upgrade: true, // Enable upgrade for better compatibility
-        rememberUpgrade: true,
-        timeout: 20000, // Increased timeout
-        reconnectionAttempts: 5, // More retry attempts
-        reconnectionDelay: 1000,
-        reconnectionDelayMax: 5000,
+        rememberUpgrade: false, // Don't remember upgrade to allow fallback
+        timeout: 30000, // Increased timeout for Render
+        reconnectionAttempts: 10, // More retry attempts
+        reconnectionDelay: 2000, // Longer delay between attempts
+        reconnectionDelayMax: 10000, // Longer max delay
+        forceNew: true, // Force new connection
+        autoConnect: true, // Auto connect
       };
       
       globalSocket = io(chatServerUrl, enhancedSocketConfig);
@@ -154,13 +153,24 @@ export const useChatSocket = ({
         setIsConnected(false);
         setIsAuthenticated(false);
         
+        // Log specific error details
+        if (error.message) {
+          console.error('Error details:', error.message);
+        }
+        if (error.description) {
+          console.error('Error description:', error.description);
+        }
+        if (error.context) {
+          console.error('Error context:', error.context);
+        }
+        
         // Attempt reconnection with exponential backoff
         setTimeout(() => {
           if (globalSocket && !globalSocket.connected && !connectionInProgress) {
             console.log('Attempting to reconnect...');
             globalSocket.connect();
           }
-        }, 2000);
+        }, 3000);
       });
 
       // Authentication events
