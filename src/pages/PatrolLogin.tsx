@@ -7,13 +7,11 @@ import { useAuthStore } from '../store/authStore';
 export function PatrolLogin() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { signIn, signInWithUsername, signOut, user, isAuthenticated } = useAuthStore();
-  const [email, setEmail] = useState('');
-  const [username, setUsername] = useState('');
+  const { signInWithEmailOrUsername, signOut, user, isAuthenticated } = useAuthStore();
+  const [emailOrUsername, setEmailOrUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [loginType, setLoginType] = useState<'email' | 'username'>('email');
 
   const from = (location.state as any)?.from?.pathname || '/patrol';
 
@@ -29,12 +27,8 @@ export function PatrolLogin() {
     setIsLoading(true);
 
     try {
-      // Use the appropriate login method based on login type
-      if (loginType === 'email') {
-        await signIn(email, password);
-      } else {
-        await signInWithUsername(username, password);
-      }
+      // Use the unified login method that handles both email and username
+      await signInWithEmailOrUsername(emailOrUsername, password);
       
       // Re-check role after sign-in
       if (useAuthStore.getState().user?.role === 'patrol') {
@@ -92,65 +86,24 @@ export function PatrolLogin() {
           )}
 
           <div className="space-y-5">
-            {/* Login Type Toggle */}
-            <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
-              <button
-                type="button"
-                onClick={() => setLoginType('email')}
-                className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors ${
-                  loginType === 'email'
-                    ? 'bg-white text-primary-color shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                <div className="flex items-center justify-center space-x-2">
-                  <Mail className="h-4 w-4" />
-                  <span>Email</span>
-                </div>
-              </button>
-              <button
-                type="button"
-                onClick={() => setLoginType('username')}
-                className={`flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors ${
-                  loginType === 'username'
-                    ? 'bg-white text-primary-color shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                <div className="flex items-center justify-center space-x-2">
-                  <UserCheck className="h-4 w-4" />
-                  <span>Username</span>
-                </div>
-              </button>
-            </div>
-
+            {/* Username or Email Field */}
             <div className="space-y-2">
-              <label htmlFor={loginType} className="block text-sm font-semibold text-gray-700">
-                Patrol {loginType === 'email' ? 'email' : 'username'}
+              <label htmlFor="emailOrUsername" className="block text-sm font-semibold text-gray-700">
+                Patrol Username or Email
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  {loginType === 'email' ? (
-                    <Mail className="h-5 w-5 text-gray-400" />
-                  ) : (
-                    <UserCheck className="h-5 w-5 text-gray-400" />
-                  )}
+                  <UserCheck className="h-5 w-5 text-gray-400" />
                 </div>
                 <input
-                  id={loginType}
-                  name={loginType}
-                  type={loginType === 'email' ? 'email' : 'text'}
+                  id="emailOrUsername"
+                  name="emailOrUsername"
+                  type="text"
                   required
                   className="block w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-color/20 focus:border-primary-color text-sm transition-all duration-200 bg-gray-50/50 hover:bg-white"
-                  placeholder={loginType === 'email' ? 'patrol@example.com' : 'patrol_username'}
-                  value={loginType === 'email' ? email : username}
-                  onChange={(e) => {
-                    if (loginType === 'email') {
-                      setEmail(e.target.value);
-                    } else {
-                      setUsername(e.target.value);
-                    }
-                  }}
+                  placeholder="Enter your patrol username or email"
+                  value={emailOrUsername}
+                  onChange={(e) => setEmailOrUsername(e.target.value)}
                 />
               </div>
             </div>

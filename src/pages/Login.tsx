@@ -22,14 +22,12 @@ import {
 export function Login() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { signIn, signInWithUsername, signInWithGoogle, user, isAuthenticated } = useAuthStore();
-  const [email, setEmail] = useState('');
-  const [username, setUsername] = useState('');
+  const { signInWithEmailOrUsername, signInWithGoogle, user, isAuthenticated } = useAuthStore();
+  const [emailOrUsername, setEmailOrUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSocialLoading, setIsSocialLoading] = useState<'google' | null>(null);
-  const [loginType, setLoginType] = useState<'email' | 'username'>('email');
   const [showPassword, setShowPassword] = useState(false);
   const [isFocused, setIsFocused] = useState<string | null>(null);
 
@@ -56,12 +54,8 @@ export function Login() {
     setIsLoading(true);
 
     try {
-      // Use the appropriate login method based on login type
-      if (loginType === 'email') {
-        await signIn(email, password);
-      } else {
-        await signInWithUsername(username, password);
-      }
+      // Use the unified login method that handles both email and username
+      await signInWithEmailOrUsername(emailOrUsername, password);
       
       // The useEffect will handle the redirect based on user role automatically
     } catch (err) {
@@ -173,71 +167,29 @@ export function Login() {
               )}
             </AnimatePresence>
 
-            {/* Login Type Toggle */}
-            <div className="flex space-x-2 bg-gray-100 p-2 rounded-2xl">
-              <button
-                type="button"
-                onClick={() => setLoginType('email')}
-                className={`flex-1 py-3 px-4 text-sm font-semibold rounded-xl transition-all duration-300 ${
-                  loginType === 'email'
-                    ? 'bg-white text-blue-600 shadow-lg scale-105'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-              >
-                <div className="flex items-center justify-center space-x-2">
-                  <Mail className="h-4 w-4" />
-                  <span>Email</span>
-                </div>
-              </button>
-              <button
-                type="button"
-                onClick={() => setLoginType('username')}
-                className={`flex-1 py-3 px-4 text-sm font-semibold rounded-xl transition-all duration-300 ${
-                  loginType === 'username'
-                    ? 'bg-white text-blue-600 shadow-lg scale-105'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-              >
-                <div className="flex items-center justify-center space-x-2">
-                  <UserCheck className="h-4 w-4" />
-                  <span>Username</span>
-                </div>
-              </button>
-            </div>
-
-            {/* Email/Username Field */}
+            {/* Username or Email Field */}
             <div className="space-y-2">
-              <label htmlFor={loginType} className="block text-sm font-semibold text-gray-700">
-                {loginType === 'email' ? 'Email address' : 'Username'}
+              <label htmlFor="emailOrUsername" className="block text-sm font-semibold text-gray-700">
+                Username or Email
               </label>
               <div className="relative group">
-                <div          className={`absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none transition-colors duration-200 ${
-           isFocused === loginType ? 'text-red-600' : 'text-gray-400'
-         }`}>
-                  {loginType === 'email' ? (
-                    <Mail className="h-5 w-5" />
-                  ) : (
-                    <UserCheck className="h-5 w-5" />
-                  )}
+                <div className={`absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none transition-colors duration-200 ${
+                  isFocused === 'emailOrUsername' ? 'text-red-600' : 'text-gray-400'
+                }`}>
+                  <UserCheck className="h-5 w-5" />
                 </div>
                 <input
-                  id={loginType}
-                  name={loginType}
-                  type={loginType === 'email' ? 'email' : 'text'}
-                  autoComplete={loginType === 'email' ? 'email' : 'username'}
+                  id="emailOrUsername"
+                  name="emailOrUsername"
+                  type="text"
+                  autoComplete="username"
                   required
-                  value={loginType === 'email' ? email : username}
-                  onChange={(e) => {
-                    if (loginType === 'email') {
-                      setEmail(e.target.value);
-                    } else {
-                      setUsername(e.target.value);
-                    }
-                  }}
-                  onFocus={() => setIsFocused(loginType)}
+                  value={emailOrUsername}
+                  onChange={(e) => setEmailOrUsername(e.target.value)}
+                  onFocus={() => setIsFocused('emailOrUsername')}
                   onBlur={() => setIsFocused(null)}
                   className="block w-full pl-12 pr-4 py-4 border-2 border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all duration-200 bg-gray-50/50 hover:bg-white group-hover:border-gray-300"
-                  placeholder={loginType === 'email' ? 'Enter your email' : 'Enter your username'}
+                  placeholder="Enter your username or email"
                 />
               </div>
             </div>
