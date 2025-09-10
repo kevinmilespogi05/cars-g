@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { MapPin, Heart, MessageCircle, Send, Loader2, ChevronLeft, ChevronRight, ArrowLeft, X, Reply, Hash, User, Users, ShieldCheck, ChevronDown, ChevronUp } from 'lucide-react';
+import { MapPin, Heart, MessageCircle, Send, Loader2, ChevronLeft, ChevronRight, ArrowLeft, X, Reply, Hash, User, Users, ShieldCheck, ChevronDown, ChevronUp, Star } from 'lucide-react';
+import { getStatusColor as badgeStatusColor, getPriorityColor as badgePriorityColor } from '../lib/badges';
 import { motion } from 'framer-motion';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
@@ -9,6 +10,7 @@ import { Comment, CommentReply, ReportComment } from '../types';
 import { reportsService } from '../services/reportsService';
 import { CommentsService } from '../services/commentsService';
 import { ReplyThread } from '../components/ReplyThread';
+import { caseService } from '../services/caseService';
 
 interface Report {
   id: string;
@@ -63,6 +65,8 @@ export function ReportDetail() {
   const [isCommentsCollapsed, setIsCommentsCollapsed] = useState(false);
   const commentTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const commentsSectionRef = useRef<HTMLDivElement | null>(null);
+  const [myRating, setMyRating] = useState<number | null>(null);
+  const [submittingRating, setSubmittingRating] = useState(false);
 
   // Create a fallback image data URL
   const fallbackImageUrl = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiB2aWV3Qm94PSIwIDAgMjAwIDIwMCI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiNmMGYwZjAiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE2IiBmaWxsPSIjODg4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5JbWFnZSBub3QgYXZhaWxhYmxlPC90ZXh0Pjwvc3ZnPg==";
@@ -168,13 +172,24 @@ export function ReportDetail() {
 
       if (likeError) throw likeError;
 
-      setReport({
+      const full = {
         ...reportData,
         user: profileData,
         likes_count: reportData.likes?.[0]?.count || 0,
         comments_count: (reportData.comments?.[0]?.count || 0) + (reportData.report_comments?.[0]?.count || 0),
         is_liked: userLikes && userLikes.length > 0
-      });
+      } as any;
+      setReport(full);
+      // Load my rating if any
+      try {
+        const { data: existing } = await supabase
+          .from('report_ratings')
+          .select('stars')
+          .eq('report_id', full.id)
+          .eq('requester_user_id', user?.id || '')
+          .maybeSingle();
+        if (existing?.stars) setMyRating(existing.stars);
+      } catch {}
     } catch (error) {
       console.error('Error fetching report:', error);
     } finally {
@@ -640,33 +655,9 @@ export function ReportDetail() {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'in_progress':
-        return 'bg-blue-100 text-blue-800';
-      case 'resolved':
-        return 'bg-green-100 text-green-800';
-      case 'rejected':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
+  const getStatusColor = (status: string) => badgeStatusColor(status);
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'low':
-        return 'bg-green-100 text-green-800';
-      case 'medium':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'high':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
+  const getPriorityColor = (priority: string) => badgePriorityColor(priority);
 
   const getServiceLevelText = (level: number) => {
     switch (level) {
@@ -992,6 +983,31 @@ export function ReportDetail() {
                   </button>
                 </div>
                 <div className="flex items-center gap-1.5 text-sm text-gray-700"><MessageCircle className="h-5 w-5" /><span>{report.comments_count}</span></div>
+                {user?.id && report.status === 'resolved' && (
+                  <div className="ml-2 flex items-center gap-1">
+                    {[1,2,3,4,5].map(n => (
+                      <button
+                        key={n}
+                        onClick={async () => {
+                          if (submittingRating) return;
+                          try {
+                            setSubmittingRating(true);
+                            const saved = await caseService.rateReport(report.id, n as any, null);
+                            setMyRating(saved.stars);
+                          } catch (e) {
+                            alert('Failed to submit rating');
+                          } finally {
+                            setSubmittingRating(false);
+                          }
+                        }}
+                        className={`p-0.5 ${submittingRating ? 'opacity-50' : ''}`}
+                        title={`Rate ${n} star${n>1?'s':''}`}
+                      >
+                        <Star className={`w-5 h-5 ${myRating && n <= myRating ? 'text-yellow-500 fill-yellow-400' : 'text-gray-400'}`} />
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </motion.div>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Filter, MapPin, Calendar, User, Heart, MessageCircle, Eye, Clock, CheckCircle, XCircle, AlertTriangle, Loader2, X, Shield } from 'lucide-react';
+import { getPriorityColor as badgePriorityColor, getStatusColor as badgeStatusColor } from '../lib/badges';
 import { useAuthStore } from '../store/authStore';
 import { Report } from '../types';
 import { reportsService } from '../services/reportsService';
@@ -413,14 +414,10 @@ export function VerificationReports() {
 
                   {/* Priority and Status Badges */}
                   <div className="flex items-center gap-1.5 mb-2.5">
-                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium ${getPriorityColor(report.priority)}`}>
+                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium ${badgePriorityColor(report.priority)}`}>
                       {report.priority}
                     </span>
-                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium ${
-                      report.status === 'verifying' ? 'bg-purple-100 text-purple-800' :
-                      report.status === 'awaiting_verification' ? 'bg-orange-100 text-orange-800' :
-                      'bg-gray-100 text-gray-800'
-                    }`}>
+                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium ${badgeStatusColor(report.status)}`}>
                       {report.status === 'verifying' ? 'Verifying' : 
                        report.status === 'awaiting_verification' ? 'Awaiting Verification' :
                        report.status.replace('_', ' ')}

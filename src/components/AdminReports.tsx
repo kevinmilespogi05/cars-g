@@ -1,10 +1,12 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { Search, Filter, CheckCircle2, XCircle, Wrench, RefreshCw, Eye, Trash2, User2, Calendar, MapPin, X, Navigation, Hash } from 'lucide-react';
+import { Search, Filter, CheckCircle2, XCircle, Wrench, RefreshCw, Eye, Trash2, User2, Calendar, MapPin, X, Navigation, Hash, CalendarDays } from 'lucide-react';
+import { getStatusColor as badgeStatusColor } from '../lib/badges';
 import { reportsService } from '../services/reportsService';
 import type { Report } from '../types';
 import { supabase } from '../lib/supabase';
 import { FocusTrap } from './FocusTrap';
 import { awardPoints } from '../lib/points';
+import { caseService } from '../services/caseService';
 
 type StatusFilter = 'All' | 'pending' | 'in_progress' | 'resolved' | 'rejected';
 
@@ -155,6 +157,112 @@ export function AdminReports() {
     }
   };
 
+  const [dispatchGroup, setDispatchGroup] = useState<Record<string, Report['assigned_group']>>({});
+  const [dispatchAssignee, setDispatchAssignee] = useState<Record<string, string>>({});
+  const [dispatchResponsibility, setDispatchResponsibility] = useState<Record<string, string>>({});
+  const now = new Date();
+  const [showMonthPicker, setShowMonthPicker] = useState(false);
+  const [showYearPicker, setShowYearPicker] = useState(false);
+  const [monthValue, setMonthValue] = useState<string>(() => {
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    return `${y}-${m}`;
+  });
+  const [yearValue, setYearValue] = useState<number>(() => now.getFullYear());
+
+  // Simple CSV export for reporting
+  const exportReportsCsv = (items: Report[], filename: string) => {
+    const col = [
+      'id',
+      'case_number',
+      'title',
+      'description',
+      'category',
+      'status',
+      'priority',
+      'priority_level',
+      'assigned_group',
+      'assigned_patroller_name',
+      'location_address',
+      'created_at',
+      'updated_at',
+      'reporter_username',
+      'likes_count',
+      'comments_count',
+      'rating_avg',
+      'rating_count',
+    ] as const;
+    const escape = (v: any) => {
+      const s = v === null || v === undefined ? '' : String(v);
+      if (/[",\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+      return s;
+    };
+    const header = col.join(',');
+    const rows = items.map((r: any) => {
+      const likeCount = Array.isArray(r.likes)
+        ? (r.likes[0]?.count || 0)
+        : (typeof r.likes === 'number' ? r.likes : 0);
+      const legacyComments = Array.isArray(r.comments) ? (r.comments[0]?.count || 0) : 0;
+      const newComments = Array.isArray(r.comment_count) ? (r.comment_count[0]?.count || 0) : 0;
+      const totalComments = legacyComments + newComments;
+      const row: Record<string,string|number|null|undefined> = {
+        id: r.id,
+        case_number: r.case_number,
+        title: r.title,
+        description: r.description,
+        category: r.category,
+        status: r.status,
+        priority: r.priority,
+        priority_level: r.priority_level,
+        assigned_group: r.assigned_group,
+        assigned_patroller_name: r.assigned_patroller_name,
+        location_address: r.location_address,
+        created_at: r.created_at,
+        updated_at: (r as any).updated_at,
+        reporter_username: r.user_profile?.username,
+        likes_count: likeCount,
+        comments_count: totalComments,
+        rating_avg: (r as any).rating_avg,
+        rating_count: (r as any).rating_count,
+      };
+      return col.map(k => escape((row as any)[k])).join(',');
+    });
+    const csv = [header, ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDispatch = async (reportId: string) => {
+    const group = dispatchGroup[reportId] || 'Other';
+    const assignee = dispatchAssignee[reportId] || '';
+    const responsibility = dispatchResponsibility[reportId] || '';
+    try {
+      setReports(prev => prev.map(r => r.id === reportId ? { ...r, assigned_group: group, assigned_patroller_name: assignee, status: 'in_progress' } : r));
+      await reportsService.updateReportTicketing(reportId, {
+        assigned_group: group as any,
+        assigned_patroller_name: assignee || undefined,
+      } as any);
+      await reportsService.updateReportStatus(reportId, 'in_progress');
+      // Log assignment responsibility as a status update comment if provided
+      if (responsibility) {
+        try {
+          const { CommentsService } = await import('../services/commentsService');
+          await CommentsService.addComment(reportId, `Assigned to ${group}${assignee ? ` (${assignee})` : ''} · Task: ${responsibility}`, 'assignment');
+        } catch {}
+      }
+    } catch (e: any) {
+      alert(e?.message || 'Failed to dispatch');
+      await loadReports();
+    }
+  };
+
   const updateStatus = async (reportId: string, newStatus: Report['status']) => {
     try {
       // Get the current report to check if we're moving from in_progress to resolved
@@ -239,8 +347,113 @@ export function AdminReports() {
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </button>
+          <div className="relative">
+            <button
+              onClick={async () => {
+                setShowMonthPicker(true);
+              }}
+              className="inline-flex items-center gap-2 px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+              title="Generate Monthly Cases"
+            >
+              <CalendarDays className="w-4 h-4" />
+              Gen Month
+            </button>
+          </div>
+          <div className="relative">
+            <button
+              onClick={async () => {
+                setShowYearPicker(true);
+              }}
+              className="inline-flex items-center gap-2 px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+              title="Generate Yearly Cases"
+            >
+              <CalendarDays className="w-4 h-4" />
+              Gen Year
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* Month Picker Modal */}
+      {showMonthPicker && (
+        <div className="fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setShowMonthPicker(false)} />
+          <div className="absolute inset-0 px-4 flex items-center justify-center py-8">
+            <div className="w-full max-w-sm bg-white rounded-xl shadow-2xl border border-gray-200 p-4">
+              <h3 className="text-base font-semibold text-gray-900 mb-3">Export Monthly Report</h3>
+              <label className="block text-xs text-gray-600 mb-1">Select month</label>
+              <input
+                type="month"
+                value={monthValue}
+                onChange={(e) => setMonthValue(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+              />
+              <div className="mt-4 flex justify-end gap-2">
+                <button onClick={() => setShowMonthPicker(false)} className="px-3 py-1.5 text-sm rounded border border-gray-300">Cancel</button>
+                <button
+                  onClick={async () => {
+                    const [yStr, mStr] = (monthValue || '').split('-');
+                    const year = Number(yStr || now.getFullYear());
+                    const month = Number((mStr || String(now.getMonth() + 1)).padStart(2, '0'));
+                    try {
+                      const all = await caseService.getMonthlyCases(year, month);
+                      await caseService.generateMonthly(year, month);
+                      const monthName = new Date(year, month - 1, 1).toLocaleString('en-US', { month: 'long' });
+                      exportReportsCsv(all as any, `${monthName}, ${year} report.csv`);
+                      setShowMonthPicker(false);
+                    } catch (e: any) {
+                      alert(e?.message || 'Failed to export monthly report');
+                    }
+                  }}
+                  className="px-3 py-1.5 text-sm rounded bg-indigo-600 text-white hover:bg-indigo-700"
+                >
+                  Export
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Year Picker Modal */}
+      {showYearPicker && (
+        <div className="fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setShowYearPicker(false)} />
+          <div className="absolute inset-0 px-4 flex items-center justify-center py-8">
+            <div className="w-full max-w-sm bg-white rounded-xl shadow-2xl border border-gray-200 p-4">
+              <h3 className="text-base font-semibold text-gray-900 mb-3">Export Yearly Report</h3>
+              <label className="block text-xs text-gray-600 mb-1">Select year</label>
+              <input
+                type="number"
+                min={2000}
+                max={9999}
+                value={yearValue}
+                onChange={(e) => setYearValue(Number(e.target.value) || now.getFullYear())}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+              />
+              <div className="mt-4 flex justify-end gap-2">
+                <button onClick={() => setShowYearPicker(false)} className="px-3 py-1.5 text-sm rounded border border-gray-300">Cancel</button>
+                <button
+                  onClick={async () => {
+                    const year = yearValue || now.getFullYear();
+                    try {
+                      const all = await caseService.getYearlyCases(year);
+                      await caseService.generateYearly(year);
+                      exportReportsCsv(all as any, `${year} report.csv`);
+                      setShowYearPicker(false);
+                    } catch (e: any) {
+                      alert(e?.message || 'Failed to export yearly report');
+                    }
+                  }}
+                  className="px-3 py-1.5 text-sm rounded bg-purple-600 text-white hover:bg-purple-700"
+                >
+                  Export
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="p-3 bg-red-50 text-red-700 border border-red-200 rounded">{error}</div>
@@ -259,7 +472,7 @@ export function AdminReports() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
                     <h3 className="font-medium text-gray-900 truncate text-sm sm:text-base">{r.title}</h3>
-                    <span className={`text-xs px-1.5 py-0.5 rounded-full ${r.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : r.status === 'in_progress' ? 'bg-blue-100 text-blue-800' : r.status === 'resolved' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{r.status.replace('_', ' ')}</span>
+                    <span className={`text-xs px-1.5 py-0.5 rounded-full ${badgeStatusColor(r.status)}`}>{r.status.replace('_', ' ')}</span>
                     {r.priority && (
                       <span className={`text-xs px-1.5 py-0.5 rounded-full ${r.priority === 'high' ? 'bg-red-100 text-red-800' : r.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>{r.priority}</span>
                     )}
@@ -542,6 +755,82 @@ export function AdminReports() {
               </div>
               {/* Footer */}
               <div className="px-4 sm:px-6 py-3 sm:py-4 border-t flex flex-wrap items-center justify-end gap-3 sticky bottom-0 bg-white">
+                {/* Dispatch controls */}
+                <div className="mr-auto flex items-center gap-2 flex-wrap">
+                  <select
+                    value={dispatchGroup[selectedReport.id] || selectedReport.assigned_group || ''}
+                    onChange={(e) => setDispatchGroup(prev => ({ ...prev, [selectedReport.id]: e.target.value as Report['assigned_group'] }))}
+                    className="px-2 py-1 border border-gray-300 rounded-lg text-sm"
+                  >
+                    <option value="">Select group</option>
+                    <option>Waste Management</option>
+                    <option>Barangay Police</option>
+                    <option>Engineering Group</option>
+                    <option>Field Group</option>
+                    <option>Maintenance Group</option>
+                    <option>Other</option>
+                  </select>
+                  {/* Responsibility selector varies by group */}
+                  <select
+                    value={dispatchResponsibility[selectedReport.id] || ''}
+                    onChange={(e) => setDispatchResponsibility(prev => ({ ...prev, [selectedReport.id]: e.target.value }))}
+                    className="px-2 py-1 border border-gray-300 rounded-lg text-sm"
+                  >
+                    <option value="">Select responsibility</option>
+                    {(dispatchGroup[selectedReport.id] === 'Waste Management') && (
+                      <>
+                        <option>Garbage collection</option>
+                        <option>Other waste-related concerns</option>
+                      </>
+                    )}
+                    {(dispatchGroup[selectedReport.id] === 'Barangay Police') && (
+                      <>
+                        <option>Conduct investigations within barangay</option>
+                        <option>Respond to presence-required case</option>
+                      </>
+                    )}
+                    {(dispatchGroup[selectedReport.id] === 'Engineering Group') && (
+                      <>
+                        <option>Repair roads</option>
+                        <option>Other engineering-related works</option>
+                      </>
+                    )}
+                    {(!dispatchGroup[selectedReport.id] || ['Field Group','Maintenance Group','Other'].includes(dispatchGroup[selectedReport.id]!)) && (
+                      <>
+                        <option>Initial assessment</option>
+                        <option>Follow-up visit</option>
+                      </>
+                    )}
+                  </select>
+                  <input
+                    value={dispatchAssignee[selectedReport.id] ?? selectedReport.assigned_patroller_name ?? ''}
+                    onChange={(e) => setDispatchAssignee(prev => ({ ...prev, [selectedReport.id]: e.target.value }))}
+                    placeholder="Assignee name or user"
+                    className="px-2 py-1 border border-gray-300 rounded-lg text-sm"
+                  />
+                  {/* Quick assign shortcuts */}
+                  <button
+                    onClick={() => setDispatchGroup(prev => ({ ...prev, [selectedReport.id]: 'Waste Management' }))}
+                    className="px-2 py-1 text-xs border border-green-200 text-green-700 bg-green-50 rounded hover:bg-green-100"
+                    title="Assign Waste Management"
+                  >WM</button>
+                  <button
+                    onClick={() => setDispatchGroup(prev => ({ ...prev, [selectedReport.id]: 'Barangay Police' }))}
+                    className="px-2 py-1 text-xs border border-blue-200 text-blue-700 bg-blue-50 rounded hover:bg-blue-100"
+                    title="Assign Barangay Police"
+                  >BP</button>
+                  <button
+                    onClick={() => setDispatchGroup(prev => ({ ...prev, [selectedReport.id]: 'Engineering Group' }))}
+                    className="px-2 py-1 text-xs border border-amber-200 text-amber-700 bg-amber-50 rounded hover:bg-amber-100"
+                    title="Assign Engineering"
+                  >ENG</button>
+                  <button
+                    onClick={() => handleDispatch(selectedReport.id)}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm"
+                  >
+                    Dispatch
+                  </button>
+                </div>
                 <button
                   onClick={() => {
                     if (selectedReport) handleDelete(selectedReport.id);

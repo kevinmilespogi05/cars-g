@@ -21,8 +21,10 @@ import {
   Shield,
   Calendar,
   XCircle,
-  Hash
+  Hash,
+  Star
 } from 'lucide-react';
+import { getStatusColor as badgeStatusColor, getStatusIcon as badgeStatusIcon, getPriorityColor as badgePriorityColor } from '../lib/badges';
 import { useAuthStore } from '../store/authStore';
 import { supabase } from '../lib/supabase';
 import { QuickActions } from '../components/QuickActions';
@@ -285,48 +287,11 @@ export function Reports() {
     setImageErrors(prev => ({ ...prev, [reportId]: true }));
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return <Clock className="w-4 h-4 text-yellow-500" />;
-      case 'in_progress':
-        return <AlertCircle className="w-4 h-4 text-blue-500" />;
-      case 'resolved':
-        return <CheckCircle className="w-4 h-4 text-green-500" />;
-      case 'rejected':
-        return <XCircle className="w-4 h-4 text-red-500" />;
-      default:
-        return <Clock className="w-4 h-4 text-gray-500" />;
-    }
-  };
+  const getStatusIcon = (status: string) => badgeStatusIcon(status);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'in_progress':
-        return 'bg-blue-100 text-blue-800';
-      case 'resolved':
-        return 'bg-green-100 text-green-800';
-      case 'rejected':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
+  const getStatusColor = (status: string) => badgeStatusColor(status);
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'high':
-        return 'bg-red-100 text-red-800';
-      case 'medium':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'low':
-        return 'bg-green-100 text-green-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
+  const getPriorityColor = (priority: string) => badgePriorityColor(priority);
 
   const filteredReports = reports;
 
@@ -601,7 +566,7 @@ export function Reports() {
                     {report.description}
                   </p>
 
-                  <div className="flex items-center gap-2 mb-4">
+                  <div className="flex items-center gap-2 mb-3">
                     <span className={`inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-semibold shadow-sm ${getStatusColor(report.status)}`}>
                       {getStatusIcon(report.status)}
                       <span className="ml-1.5">{report.status.replace('_', ' ')}</span>
@@ -609,6 +574,12 @@ export function Reports() {
                     <span className={`inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-semibold shadow-sm ${getPriorityColor(report.priority)}`}>
                       {report.priority}
                     </span>
+                    {typeof (report as any).rating_avg === 'number' && (report as any).rating_count > 0 && (
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-xl text-xs font-semibold shadow-sm bg-yellow-50 text-yellow-700">
+                        <Star className="h-3.5 w-3.5 mr-1 text-yellow-500 fill-yellow-400" />
+                        {(report as any).rating_avg} ({(report as any).rating_count})
+                      </span>
+                    )}
                   </div>
 
                   <div className="flex items-center justify-between text-sm mb-4">
@@ -632,7 +603,7 @@ export function Reports() {
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                  <div className="flex items-center justify-between pt-3 border-t border-gray-100">
                     <div className="flex items-center gap-4">
                       <button
                         onClick={(e) => {
@@ -664,6 +635,13 @@ export function Reports() {
                         <MessageCircle className="h-4 w-4 group-hover/comment:scale-110 transition-transform duration-200" />
                         <span className="text-xs font-medium">{report.comments?.count || 0}</span>
                       </div>
+                      {typeof (report as any).rating_avg === 'number' && (report as any).rating_count > 0 && (
+                        <div className="flex items-center gap-1.5 text-sm text-yellow-700">
+                          <Star className="h-4 w-4 text-yellow-500 fill-yellow-400" />
+                          <span className="text-xs font-medium">{(report as any).rating_avg}</span>
+                          <span className="text-[11px] text-yellow-700">({(report as any).rating_count})</span>
+                        </div>
+                      )}
                     </div>
                     
                     <button

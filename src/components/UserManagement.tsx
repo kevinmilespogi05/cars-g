@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Loader2, UserPlus, UserMinus, Shield, Ban, RefreshCw } from 'lucide-react';
+import { Loader2, UserPlus, UserMinus, Shield, Ban, RefreshCw, ShieldCheck } from 'lucide-react';
 import { ConfirmationDialog } from './ConfirmationDialog';
 import { Notification } from './Notification';
 import { useAuthStore } from '../store/authStore';
@@ -9,7 +9,7 @@ interface User {
   id: string;
   username: string;
   email: string;
-  role: 'user' | 'admin';
+  role: 'user' | 'admin' | 'patrol';
   is_banned: boolean;
   created_at: string;
   last_sign_in: string;
@@ -71,7 +71,7 @@ export function UserManagement() {
     }
   };
 
-  const updateUserRole = async (userId: string, newRole: 'user' | 'admin') => {
+  const updateUserRole = async (userId: string, newRole: 'user' | 'admin' | 'patrol') => {
     setActionLoading(userId);
     try {
       // First, ensure the current session has admin rights to update another user's role
@@ -133,7 +133,7 @@ export function UserManagement() {
     }
   };
 
-  const handleRoleChange = (userId: string, newRole: 'user' | 'admin') => {
+  const handleRoleChange = (userId: string, newRole: 'user' | 'admin' | 'patrol') => {
     setConfirmation({
       isOpen: true,
       title: `Change User Role to ${newRole}`,
@@ -247,7 +247,7 @@ export function UserManagement() {
                         <h3 className="text-base font-medium text-gray-900 truncate">{user.username}</h3>
                         {currentUser?.role === 'admin' && (
                           <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'
+                            user.role === 'admin' ? 'bg-purple-100 text-purple-800' : user.role === 'patrol' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-800'
                           }`}>
                             {user.role}
                           </span>
@@ -288,6 +288,18 @@ export function UserManagement() {
                               Remove Admin
                             </button>
                           )}
+                          <button
+                            onClick={() => handleRoleChange(user.id, 'patrol' as any)}
+                            disabled={actionLoading === user.id}
+                            className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                          >
+                            {actionLoading === user.id ? (
+                              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                            ) : (
+                              <ShieldCheck className="h-3 w-3 mr-1" />
+                            )}
+                            Make Patrol
+                          </button>
                           {!user.is_banned ? (
                             <button
                               onClick={() => handleBanToggle(user.id, true)}
@@ -347,7 +359,7 @@ export function UserManagement() {
                   <div className="flex items-center space-x-4">
                     {currentUser?.role === 'admin' && (
                       <div className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'
+                        user.role === 'admin' ? 'bg-purple-100 text-purple-800' : user.role === 'patrol' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-800'
                       }`}>
                         {user.role}
                       </div>
@@ -386,6 +398,18 @@ export function UserManagement() {
                             Remove Admin
                           </button>
                         )}
+                        <button
+                          onClick={() => handleRoleChange(user.id, 'patrol' as any)}
+                          disabled={actionLoading === user.id}
+                          className="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+                        >
+                          {actionLoading === user.id ? (
+                            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                          ) : (
+                            <ShieldCheck className="h-3 w-3 mr-1" />
+                          )}
+                          Make Patrol
+                        </button>
                         {!user.is_banned ? (
                           <button
                             onClick={() => handleBanToggle(user.id, true)}

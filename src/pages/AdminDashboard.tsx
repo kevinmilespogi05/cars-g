@@ -10,7 +10,8 @@ import {
   Megaphone,
   Check,
   Clock,
-  Info
+  Info,
+  ClipboardList
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { UserManagement } from '../components/UserManagement';
@@ -19,12 +20,14 @@ import { AdminSettings } from '../components/AdminSettings';
 import { Notification } from '../components/Notification';
 import { AdminReports } from '../components/AdminReports';
 import { AnnouncementManagement } from '../components/AnnouncementManagement';
+import { AdminCaseRequests } from '../components/AdminCaseRequests';
+import { AdminDutySchedule } from '../components/AdminDutySchedule';
 
 export function AdminDashboard() {
   const { user } = useAuthStore();
   const navigate = useNavigate();
 
-  const [activeSection, setActiveSection] = useState<'reports' | 'users' | 'stats' | 'settings' | 'announcements'>('reports');
+  const [activeSection, setActiveSection] = useState<'reports' | 'requests' | 'duty' | 'users' | 'stats' | 'settings' | 'announcements'>('reports');
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [showInfo, setShowInfo] = useState<boolean>(false);
   const [totalReports, setTotalReports] = useState<number>(0);
@@ -64,7 +67,7 @@ export function AdminDashboard() {
   }: {
     icon: any;
     label: string;
-    value: 'reports' | 'users' | 'stats' | 'settings' | 'announcements';
+    value: 'reports' | 'requests' | 'duty' | 'users' | 'stats' | 'settings' | 'announcements';
   }) => (
     <button
       onClick={() => setActiveSection(value)}
@@ -167,6 +170,8 @@ export function AdminDashboard() {
           <div className="mt-4 flex items-center gap-2 overflow-x-auto">
             <div className="inline-flex items-center gap-2 bg-white border border-gray-200 rounded-xl p-1 shadow-sm">
               <TabButton icon={FileText} label="Reports" value="reports" />
+              <TabButton icon={ClipboardList} label="Requests" value="requests" />
+              <TabButton icon={ClipboardList} label="Duty" value="duty" />
               <TabButton icon={Users} label="Users" value="users" />
               <TabButton icon={BarChart3} label="Statistics" value="stats" />
               <TabButton icon={Megaphone} label="Announcements" value="announcements" />
@@ -182,13 +187,23 @@ export function AdminDashboard() {
           {activeSection === 'reports' && (
             <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3 md:p-4">
               <AdminReports />
-          </div>
-        )}
+            </div>
+          )}
+          {activeSection === 'requests' && (
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3 md:p-4">
+              <AdminCaseRequests />
+            </div>
+          )}
+          {activeSection === 'duty' && (
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3 md:p-4">
+              <AdminDutySchedule />
+            </div>
+          )}
           {activeSection === 'users' && (
             <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3 md:p-4">
               <UserManagement />
-                  </div>
-                )}
+            </div>
+          )}
           {activeSection === 'stats' && (
             <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3 md:p-4">
               <AdminStatistics />
@@ -221,6 +236,25 @@ export function AdminDashboard() {
                 <li>Filter, review, and update report statuses.</li>
                 <li>Assign to patrol officers and view details.</li>
                 <li>Export and audit recent activity.</li>
+              </ul>
+            </div>
+          )}
+          {activeSection === 'requests' && (
+            <div>
+              <p className="text-sm text-gray-700 mb-2">Review newly created case requests.</p>
+              <ul className="list-disc pl-5 text-sm text-gray-600 space-y-1">
+                <li>Verify request details and evidence.</li>
+                <li>Accept to move to pending queue, or reject with reason.</li>
+                <li>Assign priority and group after acceptance.</li>
+              </ul>
+            </div>
+          )}
+          {activeSection === 'duty' && (
+            <div>
+              <p className="text-sm text-gray-700 mb-2">Manage daily AM/PM duty schedules.</p>
+              <ul className="list-disc pl-5 text-sm text-gray-600 space-y-1">
+                <li>Set dispatcher and receiver per shift.</li>
+                <li>Track notes and coverage across dates.</li>
               </ul>
             </div>
           )}

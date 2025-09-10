@@ -9,7 +9,7 @@ export class ReportsServiceError extends Error {
 }
 
 // Feature flags
-const ENABLE_CLIENT_SIDE_NOTIFICATIONS = false; // Disabled to avoid RLS 403s; use server-side trigger or function instead
+const ENABLE_CLIENT_SIDE_NOTIFICATIONS = false;
 
 // Enhanced caching and performance optimizations
 const _profileCache = new Map<string, { username: string; avatar_url: string | null; lastUpdated: number }>();
@@ -182,12 +182,12 @@ export const reportsService = {
         try {
           await supabase.from('notifications').insert({
             user_id: payload.user_id,
-            title: 'Report Submitted',
-            message: `Your report "${payload.title}" was submitted successfully.`,
-            type: 'success',
+            title: 'Case Received',
+            message: `We received your case: "${payload.title}". We'll review it shortly.`,
+            type: 'info',
             link: `/reports/${data.id}`,
             read: false,
-          });
+          } as any);
         } catch (e) {
           console.warn('Client-side notification insert failed:', e);
         }
@@ -780,7 +780,9 @@ export const reportsService = {
           *,
           likes:likes(count),
           comments:comments(count),
-          comment_count:report_comments(count)
+          comment_count:report_comments(count),
+          rating_avg:report_ratings(stars),
+          rating_count:report_ratings(count)
         `)
         .order('created_at', { ascending: false });
       if (filters?.limit && Number.isFinite(filters.limit)) {
@@ -873,7 +875,14 @@ export const reportsService = {
         is_liked: likedReportIds.has(report.id),
         likes: { count: report.likes?.[0]?.count || 0 },
         // Normalize comment count: sum legacy `comments` and new `report_comments`
-        comments: { count: (report.comments?.[0]?.count || 0) + (report.comment_count?.[0]?.count || 0) }
+        comments: { count: (report.comments?.[0]?.count || 0) + (report.comment_count?.[0]?.count || 0) },
+        rating_avg: (() => {
+          const stars = Array.isArray(report.rating_avg) ? report.rating_avg.map((r:any)=>r.stars) : [];
+          if (!stars.length) return undefined;
+          const sum = stars.reduce((a:number,b:number)=>a+b,0);
+          return Math.round((sum / stars.length) * 10) / 10;
+        })(),
+        rating_count: report.rating_count?.[0]?.count || 0
       }));
 
       // Cache the result
@@ -925,12 +934,12 @@ export const reportsService = {
         if (reportOwner?.user_id) {
           await supabase.from('notifications').insert({
             user_id: reportOwner.user_id,
-            title: 'Report Status Updated',
-            message: `Your report "${reportOwner.title}" is now ${newStatus.replace('_', ' ')}.`,
+            title: 'Case Updated',
+            message: `Your case "${reportOwner.title}" is now ${newStatus.replace('_', ' ')}.`,
             type: newStatus === 'resolved' ? 'success' : (newStatus === 'rejected' ? 'warning' : 'info'),
             link: `/reports/${reportId}`,
             read: false,
-          });
+          } as any);
         }
       } catch (e) {
         console.warn('Client-side notification insert failed:', e);
@@ -1183,6 +1192,30 @@ export const reportsService = {
         .single();
 
       if (error) throw error;
+
+      // Notify report owner about dispatch/assignment change
+      if (ENABLE_CLIENT_SIDE_NOTIFICATIONS) {
+        try {
+          const { data: owner } = await supabase
+            .from('reports')
+            .select('user_id, title, assigned_group, case_number')
+            .eq('id', reportId)
+            .single();
+          if (owner?.user_id) {
+            const group = (updates.assigned_group as string) || data.assigned_group || 'the team';
+            await supabase.from('notifications').insert({
+              user_id: owner.user_id,
+              title: 'Case Dispatched',
+              message: `Your case "${owner.title}" has been dispatched to ${group}.`,
+              type: 'info',
+              link: `/reports/${reportId}`,
+              read: false,
+            } as any);
+          }
+        } catch (e) {
+          console.warn('Notification insert (dispatch) failed:', e);
+        }
+      }
       return data as Report;
     } catch (error) {
       console.error('Error updating report ticketing:', error);

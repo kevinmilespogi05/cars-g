@@ -101,6 +101,10 @@ export const adminRoutes: RouteObject[] = [
     element: <ProtectedRoute><AdminDashboard /></ProtectedRoute>
   },
   {
+    path: '/admin/sample-case',
+    element: <ProtectedRoute><AdminDashboard /></ProtectedRoute>
+  },
+  {
     path: '/admin/map',
     element: <ProtectedRoute><AdminMapDashboard /></ProtectedRoute>
   },

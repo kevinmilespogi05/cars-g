@@ -31,10 +31,12 @@ export interface Report {
   // Ticketing system fields
   case_number?: string;
   priority_level?: number; // 1-5 scale, 5 = highest
-  assigned_group?: 'Engineering Group' | 'Field Group' | 'Maintenance Group' | 'Other';
+  assigned_group?: 'Engineering Group' | 'Waste Management' | 'Barangay Police' | 'Field Group' | 'Maintenance Group' | 'Other';
   assigned_patroller_name?: string;
   can_cancel?: boolean;
   comment_count?: number;
+  rating_avg?: number;
+  rating_count?: number;
 }
 
 export interface ReportComment {
@@ -187,6 +189,27 @@ export interface Comment {
   replies_count?: number;
   is_liked?: boolean;
   replies?: CommentReply[];
+}
+
+// Duty scheduling and ratings
+export interface DutySchedule {
+  id: string;
+  duty_date: string; // ISO date (YYYY-MM-DD)
+  shift: 'AM' | 'PM';
+  dispatcher_user_id?: string | null;
+  receiver_user_id?: string | null;
+  notes?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ReportRating {
+  id: string;
+  report_id: string;
+  requester_user_id: string;
+  stars: 1 | 2 | 3 | 4 | 5;
+  comment?: string | null;
+  created_at: string;
 }
 
 // Google Maps Types
