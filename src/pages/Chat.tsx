@@ -197,6 +197,19 @@ export const Chat: React.FC = () => {
       handleNewMessage(message);
     };
 
+    // Listen for batched messages
+    const handleSocketMessageBatch = (messages: ChatMessageType[]) => {
+      try {
+        if (Array.isArray(messages)) {
+          for (const m of messages) {
+            handleNewMessage(m);
+          }
+        }
+      } catch (e) {
+        console.error('Error handling new_messages_batch in Chat page:', e);
+      }
+    };
+
     // Listen for typing events
     const handleSocketTyping = (data: { userId: string; username: string }) => {
       console.log('User typing:', data);
@@ -212,12 +225,14 @@ export const Chat: React.FC = () => {
     socket.on('new_message', handleSocketMessage);
     socket.on('user_typing', handleSocketTyping);
     socket.on('user_stopped_typing', handleSocketTypingStop);
+    socket.on('new_messages_batch', handleSocketMessageBatch);
 
     // Cleanup
     return () => {
       socket.off('new_message', handleSocketMessage);
       socket.off('user_typing', handleSocketTyping);
       socket.off('user_stopped_typing', handleSocketTypingStop);
+      socket.off('new_messages_batch', handleSocketMessageBatch);
     };
   }, [socket, handleNewMessage, handleUserTyping, handleUserStoppedTyping]);
 

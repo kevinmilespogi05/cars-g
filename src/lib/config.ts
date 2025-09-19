@@ -4,6 +4,23 @@ export const config = {
   api: {
     baseUrl: import.meta.env.DEV ? 'http://localhost:3001' : (import.meta.env.VITE_API_URL || 'https://cars-g-api.onrender.com')
   },
+  chat: {
+    // Prefer explicit chat URL; otherwise reuse API base URL
+    baseUrl: (() => {
+      const explicit = import.meta.env.VITE_CHAT_SERVER_URL;
+      // If running from localhost, prefer localhost socket unless explicitly forced
+      const isLocalHost = typeof window !== 'undefined' && /^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname);
+      if (isLocalHost) {
+        return explicit && /^https?:\/\/localhost(?::\d+)?/i.test(explicit)
+          ? explicit
+          : 'http://localhost:3001';
+      }
+      if (import.meta.env.DEV) {
+        return explicit || 'http://localhost:3001';
+      }
+      return explicit || (import.meta.env.VITE_API_URL || 'https://cars-g-api.onrender.com');
+    })()
+  },
   
   // Supabase Configuration
   supabase: {
@@ -41,3 +58,5 @@ export const config = {
 export const getApiUrl = (endpoint: string = ''): string => {
   return `${config.api.baseUrl}${endpoint}`;
 }; 
+
+export const getChatUrl = (): string => config.chat.baseUrl;

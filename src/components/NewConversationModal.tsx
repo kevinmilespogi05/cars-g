@@ -35,8 +35,9 @@ export function NewConversationModal({ isOpen, onClose, onConversationCreated }:
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, username, email, avatar_url')
+        .select('id, username, email, avatar_url, role')
         .neq('id', currentUser?.id) // Exclude current user
+        .not('role', 'in', '(admin,patrol)') // Exclude admin and patrol roles
         .eq('is_banned', false) // Only show active users
         .order('username');
 
