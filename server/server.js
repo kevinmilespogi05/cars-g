@@ -9,6 +9,7 @@ import dotenv from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
 import fetch from 'node-fetch';
+import { GoogleAuth } from 'google-auth-library';
 
 // Load environment variables
 dotenv.config();
@@ -161,6 +162,69 @@ async function sendEmailViaBrevo(toEmail, subject, textContent, htmlContent) {
   }
 }
 
+// FCM HTTP v1 helper
+const FCM_PROJECT_ID = process.env.FCM_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID;
+
+async function getFcmAccessToken() {
+  try {
+    const scopes = ['https://www.googleapis.com/auth/firebase.messaging'];
+    const auth = new GoogleAuth({
+      scopes,
+      // Prefer inlined JSON; fallback to GOOGLE_APPLICATION_CREDENTIALS path if provided
+      credentials: process.env.GOOGLE_SERVICE_ACCOUNT_JSON
+        ? JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON)
+        : undefined,
+      keyFile: process.env.GOOGLE_APPLICATION_CREDENTIALS || undefined,
+    });
+    const client = await auth.getClient();
+    const accessToken = await client.getAccessToken();
+    if (!accessToken || !accessToken.token) throw new Error('Failed to obtain FCM access token');
+    return accessToken.token;
+  } catch (err) {
+    console.error('FCM v1 auth error:', err);
+    return null;
+  }
+}
+
+async function sendFcmV1ToToken(deviceToken, title, body, link) {
+  try {
+    if (!FCM_PROJECT_ID) {
+      console.warn('FCM_PROJECT_ID not set; skipping FCM send');
+      return { ok: false };
+    }
+    const token = await getFcmAccessToken();
+    if (!token) return { ok: false };
+
+    const endpoint = `https://fcm.googleapis.com/v1/projects/${FCM_PROJECT_ID}/messages:send`;
+    const message = {
+      message: {
+        token: deviceToken,
+        notification: { title, body },
+        data: { link: String(link || '/') }
+      }
+    };
+
+    const resp = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(message)
+    });
+
+    if (!resp.ok) {
+      const errText = await resp.text().catch(() => '');
+      console.error('FCM v1 send failed:', resp.status, errText);
+      return { ok: false };
+    }
+    return { ok: true };
+  } catch (e) {
+    console.error('FCM v1 send error:', e);
+    return { ok: false };
+  }
+}
+
 // Test email endpoint
 app.post('/api/email/test', async (req, res) => {
   try {
@@ -263,24 +327,10 @@ app.post('/api/push/send', async (req, res) => {
       .eq('user_id', userId);
     if (error) throw error;
 
-    const serverKey = process.env.FIREBASE_SERVER_KEY;
-    if (!serverKey) return res.status(500).json({ error: 'FIREBASE_SERVER_KEY not configured' });
-
     const responses = [];
     for (const sub of subs || []) {
-      const resp = await fetch('https://fcm.googleapis.com/fcm/send', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `key=${serverKey}`,
-        },
-        body: JSON.stringify({
-          to: sub.token,
-          notification: { title, body },
-          data: { link: link || '/' },
-        }),
-      });
-      responses.push({ token: sub.token, ok: resp.ok });
+      const resp = await sendFcmV1ToToken(sub.token, title, body, link);
+      responses.push({ token: sub.token, ok: !!resp.ok });
     }
 
     res.json({ ok: true, count: responses.length });
@@ -1133,7 +1183,7 @@ const startServer = async () => {
       console.log('\n✅ Chat server is ready!');
     });
 
-    // Helper: send push to a specific user via FCM
+    // Helper: send push to a specific user via FCM v1
     const sendPushToUser = async (userId, title, body, link) => {
       try {
         if (!supabaseAdmin) return;
@@ -1143,25 +1193,8 @@ const startServer = async () => {
           .eq('user_id', userId);
         if (error) throw error;
 
-        const serverKey = process.env.FIREBASE_SERVER_KEY;
-        if (!serverKey) {
-          console.warn('FIREBASE_SERVER_KEY not set, skipping push');
-          return;
-        }
-
         for (const sub of subs || []) {
-          await fetch('https://fcm.googleapis.com/fcm/send', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `key=${serverKey}`,
-            },
-            body: JSON.stringify({
-              to: sub.token,
-              notification: { title, body },
-              data: { link: link || '/' },
-            }),
-          });
+          await sendFcmV1ToToken(sub.token, title, body, link);
         }
       } catch (err) {
         console.error('sendPushToUser error:', err);

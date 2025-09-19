@@ -28,6 +28,10 @@ services:
         value: cars-g-uploads
       - key: FIREBASE_SERVER_KEY
         value: your_firebase_server_key_here
+      - key: FCM_PROJECT_ID
+        value: carsg-d5bed
+      - key: GOOGLE_SERVICE_ACCOUNT_JSON
+        sync: false
       - key: BREVO_API_KEY
         sync: false
       - key: BREVO_SENDER_EMAIL
