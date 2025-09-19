@@ -3,6 +3,8 @@ import { useAuthStore } from '../store/authStore';
 import { Award, MapPin, Star, Edit2, Save, X, Camera, Shield, Bell, Lock, Calendar, Eye, CheckCircle, AlertCircle, Search, Filter, X as XIcon } from 'lucide-react';
 import { AchievementsPanel } from '../components/AchievementsPanel';
 import { AvatarSelector } from '../components/AvatarSelector';
+import { ProfileSettingsTabs } from '../components/ProfileSettingsTabs';
+import { ProfileTabContent } from '../components/ProfileTabContent';
 import { supabase } from '../lib/supabase';
 import { motion } from 'framer-motion';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -52,6 +54,9 @@ export function Profile() {
     email: true,
     push: true
   });
+
+  // Patrol duty group derived from today's duty schedule
+  const [patrolGroup, setPatrolGroup] = useState<string | null>(null);
 
   const isOwnProfile = !id || (currentUser && id === currentUser.id);
   const user = isOwnProfile ? currentUser : profileData;
@@ -138,6 +143,9 @@ export function Profile() {
         setEditedUsername(currentUser.username || '');
         fetchUserStats(currentUser.id);
         fetchMyReports(currentUser.id);
+        if (currentUser.role === 'patrol') {
+          fetchPatrolGroup(currentUser.id);
+        }
       }
     } else if (id) {
       fetchProfile(id);
@@ -145,6 +153,55 @@ export function Profile() {
       fetchMyReports(id);
     }
   }, [id, currentUser, isOwnProfile]);
+
+  // Determine current shift based on local time
+  const getCurrentShift = () => {
+    const hour = new Date().getHours();
+    return hour < 12 ? 'AM' : 'PM';
+  };
+
+  // Fetch patrol group from today's duty schedule notes (expects pattern like "group: Alpha")
+  const fetchPatrolGroup = async (userId: string) => {
+    try {
+      const today = new Date();
+      const y = today.getFullYear();
+      const m = String(today.getMonth() + 1).padStart(2, '0');
+      const d = String(today.getDate()).padStart(2, '0');
+      const dutyDate = `${y}-${m}-${d}`;
+      const shift = getCurrentShift();
+
+      const { data, error } = await supabase
+        .from('duty_schedules')
+        .select('group, notes')
+        .eq('duty_date', dutyDate)
+        .eq('shift', shift)
+        .eq('receiver_user_id', userId)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error fetching patrol group:', error);
+        setPatrolGroup(null);
+        return;
+      }
+
+      const groupCol: string | null = (data as any)?.group || null;
+      if (groupCol) {
+        setPatrolGroup(groupCol);
+        return;
+      }
+      const notes: string | null = (data as any)?.notes || null;
+      if (notes) {
+        // Parse variants like: "group: Alpha", "Group- Bravo", "team=Charlie"
+        const match = notes.match(/(?:group|team)\s*[:=\-]\s*([A-Za-z0-9 _-]{2,})/i);
+        setPatrolGroup(match ? match[1].trim() : null);
+      } else {
+        setPatrolGroup(null);
+      }
+    } catch (err) {
+      console.error('Unexpected error fetching patrol group:', err);
+      setPatrolGroup(null);
+    }
+  };
 
   const fetchProfile = async (userId: string) => {
     try {
@@ -464,6 +521,11 @@ export function Profile() {
                       <h1 className="text-4xl font-bold text-white drop-shadow-lg">
                         {user?.username || 'Not set'}
                       </h1>
+                      {user?.role === 'patrol' && patrolGroup && (
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-emerald-400/20 text-emerald-100 border border-emerald-300/30">
+                          Group: {patrolGroup}
+                        </span>
+                      )}
                       {isOwnProfile && (
                         <button
                           onClick={() => setIsEditing(true)}
@@ -516,312 +578,34 @@ export function Profile() {
           </div>
         </div>
 
-        {/* Modern Reports Section */}
-        {user?.role !== 'patrol' && (
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 overflow-hidden">
-            <div className="px-8 py-6 border-b border-gray-200/50 bg-gray-50">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="inline-flex items-center justify-center w-12 h-12 bg-blue-500 rounded-xl">
-                    <MapPin className="h-6 w-6 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="text-2xl font-bold text-gray-900">
-                      {isOwnProfile ? 'My Reports' : `${user?.username || 'User'}'s Reports`}
-                    </h3>
-                    <p className="text-gray-600">
-                      {isOwnProfile ? 'Manage and track your submitted reports' : 'View reports submitted by this user'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            {/* Modern Search and Filter Controls */}
-            {myReports.length > 0 && (
-              <div className="px-8 py-6 bg-gray-50/50">
-                <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
-                  <div className="flex flex-col sm:flex-row gap-4 flex-1">
-                    {/* Search Bar */}
-                    <div className="relative flex-1 max-w-md">
-                      <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-                      <input
-                        type="text"
-                        placeholder="Search reports..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-12 pr-4 py-3 bg-white/80 backdrop-blur-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 shadow-sm hover:shadow-md"
-                      />
-                    </div>
-                    
-                    {/* Filter Controls */}
-                    <div className="flex gap-3">
-                      <div className="relative">
-                        <Filter className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                        <select
-                          value={statusFilter}
-                          onChange={(e) => setStatusFilter(e.target.value)}
-                          className="pl-12 pr-8 py-3 bg-white/80 backdrop-blur-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 shadow-sm hover:shadow-md appearance-none min-w-[160px]"
-                        >
-                          <option value="">All Statuses</option>
-                          <option value="pending">Pending</option>
-                          <option value="in_progress">In Progress</option>
-                          <option value="resolved">Resolved</option>
-                          <option value="rejected">Rejected</option>
-                          <option value="verifying">Verifying</option>
-                          <option value="awaiting_verification">Awaiting Verification</option>
-                        </select>
-                      </div>
-                      
-                      <select
-                        value={priorityFilter}
-                        onChange={(e) => setPriorityFilter(e.target.value)}
-                        className="px-4 py-3 bg-white/80 backdrop-blur-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 shadow-sm hover:shadow-md min-w-[140px]"
-                      >
-                        <option value="">All Priorities</option>
-                        <option value="high">High</option>
-                        <option value="medium">Medium</option>
-                        <option value="low">Low</option>
-                      </select>
-                    </div>
-                  </div>
-                  
-                  {/* Clear Filters Button */}
-                  {(searchQuery || statusFilter || priorityFilter) && (
-                    <button
-                      onClick={clearFilters}
-                      className="inline-flex items-center gap-2 px-4 py-3 text-sm font-medium text-gray-600 hover:text-gray-800 bg-white/80 hover:bg-white border border-gray-200 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md"
-                    >
-                      <XIcon className="h-4 w-4" />
-                      Clear Filters
-                    </button>
-                  )}
-                </div>
-                
-                {/* Results Count */}
-                <div className="mt-4 text-sm text-gray-600 font-medium">
-                  Showing {filteredReports.length} of {myReports.length} reports
-                </div>
-              </div>
-            )}
-            <div className="px-8 py-6">
-              {loadingMyReports ? (
-                <div className="text-center py-12">
-                  <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-500 rounded-2xl mb-4 animate-pulse">
-                    <MapPin className="h-8 w-8 text-white" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Loading Reports</h3>
-                  <p className="text-gray-600">Fetching your reports...</p>
-                </div>
-              ) : myReports.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-2xl mb-4">
-                    <MapPin className="h-8 w-8 text-gray-400" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">No Reports Yet</h3>
-                  <p className="text-gray-600">Start by submitting your first report to help improve the community.</p>
-                </div>
-              ) : filteredReports.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-2xl mb-4">
-                    <Search className="h-8 w-8 text-gray-400" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">No Matching Reports</h3>
-                  <p className="text-gray-600 mb-4">No reports match your search criteria.</p>
-                  <button
-                    onClick={clearFilters}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors duration-200"
-                  >
-                    <XIcon className="h-4 w-4" />
-                    Clear Filters
-                  </button>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {filteredReports.map((report) => (
-                    <div
-                      key={report.id}
-                      className="bg-white/80 backdrop-blur-sm border border-gray-200/50 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-200 cursor-pointer group overflow-hidden"
-                      onClick={() => navigate(`/reports/${report.id}`)}
-                    >
-                      {report.images && report.images.length > 0 ? (
-                        <div className="relative h-48 overflow-hidden">
-                            <img 
-                              src={report.images[0]} 
-                              alt={report.title} 
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                              loading="lazy"
-                            />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                          {report.images.length > 1 && (
-                            <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-lg text-xs font-medium text-gray-700">
-                              +{report.images.length - 1} more
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="h-48 bg-gradient-to-br from-gray-50 via-gray-100 to-gray-200 flex items-center justify-center group-hover:from-gray-100 group-hover:to-gray-200 transition-all duration-200">
-                          <div className="text-center">
-                            <MapPin className="h-12 w-12 text-gray-400 mx-auto mb-2" />
-                            <p className="text-sm text-gray-500 font-medium">No Image</p>
-                          </div>
-                        </div>
-                      )}
-                      
-                      <div className="p-6">
-                        <h4 className="font-bold text-gray-900 text-lg leading-tight line-clamp-2 group-hover:text-gray-700 transition-colors duration-200 mb-2">
-                          {report.title}
-                        </h4>
-                        <p className="text-gray-600 text-sm leading-relaxed line-clamp-2 mb-4">
-                          {report.description}
-                        </p>
-                        
-                        <div className="flex items-center justify-between mb-4">
-                          <div className="flex items-center gap-2">
-                            <span className={`inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-semibold shadow-sm ${getStatusColor(report.status)}`}>
-                              {report.status.replace('_', ' ')}
-                            </span>
-                            {report.priority && (
-                              <span className={`inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-semibold shadow-sm ${getPriorityColor(report.priority)}`}>
-                                {report.priority}
-                              </span>
-                            )}
-                          </div>
-                          <span className="inline-flex items-center gap-1 text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-lg">
-                            <Calendar className="h-3 w-3" />
-                            {new Date(report.created_at).toLocaleDateString()}
-                          </span>
-                        </div>
-                        
-                        <div className="pt-4 border-t border-gray-100 flex justify-between items-center">
+
+        {/* Modern Tabbed Profile Settings */}
                           {isOwnProfile ? (
-                            <button
-                              className="inline-flex items-center gap-2 text-red-600 hover:text-red-700 text-sm font-medium transition-colors duration-200"
-                              onClick={(e) => { e.stopPropagation(); setDeleteTarget(report); }}
-                            >
-                              <X className="h-4 w-4" />
-                              Delete
-                            </button>
-                          ) : (
-                            <span />
-                          )}
-                          <button
-                            className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 text-sm font-medium transition-colors duration-200 group/view"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigate(`/reports/${report.id}`);
-                            }}
-                          >
-                            <Eye className="h-4 w-4" />
-                            View Details
-                          </button>
-                        </div>
-                      </div>
-                  </div>
-                ))}
-              </div>
-            )}
-            </div>
-          </div>
-        )}
-
-        {/* Modern Patrol Reports Section */}
-        {user?.role === 'patrol' && (
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 overflow-hidden">
-            <div className="px-8 py-6 border-b border-gray-200/50 bg-emerald-50">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="inline-flex items-center justify-center w-12 h-12 bg-emerald-500 rounded-xl">
-                    <CheckCircle className="h-6 w-6 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="text-2xl font-bold text-gray-900">
-                      {isOwnProfile ? 'My Resolved Reports' : `${user?.username || 'Patrol'} Resolved Reports`}
-                    </h3>
-                    <p className="text-gray-600">
-                      {isOwnProfile ? 'Track your completed patrol assignments' : 'View reports resolved by this patrol officer'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="px-8 py-6">
-              {loadingMyReports ? (
-                <div className="text-center py-12">
-                  <div className="inline-flex items-center justify-center w-16 h-16 bg-emerald-500 rounded-2xl mb-4 animate-pulse">
-                    <CheckCircle className="h-8 w-8 text-white" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Loading Reports</h3>
-                  <p className="text-gray-600">Fetching resolved reports...</p>
-                </div>
-              ) : myResolvedReports.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-2xl mb-4">
-                    <CheckCircle className="h-8 w-8 text-gray-400" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">No Resolved Reports Yet</h3>
-                  <p className="text-gray-600">Complete your first patrol assignment to see it here.</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {myResolvedReports.map((report) => (
-                    <div
-                      key={report.id}
-                      className="bg-white/80 backdrop-blur-sm border border-gray-200/50 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-200 cursor-pointer group overflow-hidden"
-                      onClick={() => navigate(`/reports/${report.id}`)}
-                    >
-                      {report.images && report.images.length > 0 ? (
-                        <div className="relative h-48 overflow-hidden">
-                            <img 
-                              src={report.images[0]} 
-                              alt={report.title} 
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                              loading="lazy"
-                            />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                          <div className="absolute top-3 right-3 bg-emerald-500 text-white px-3 py-1 rounded-lg text-xs font-semibold shadow-lg">
-                            Resolved
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="h-48 bg-gradient-to-br from-emerald-50 via-green-100 to-emerald-200 flex items-center justify-center group-hover:from-emerald-100 group-hover:to-emerald-200 transition-all duration-200">
-                          <div className="text-center">
-                            <CheckCircle className="h-12 w-12 text-emerald-400 mx-auto mb-2" />
-                            <p className="text-sm text-emerald-600 font-medium">Resolved Report</p>
-                          </div>
-                        </div>
-                      )}
-                      
-                      <div className="p-6">
-                        <h4 className="font-bold text-gray-900 text-lg leading-tight line-clamp-2 group-hover:text-gray-700 transition-colors duration-200 mb-2">
-                          {report.title}
-                        </h4>
-                        <p className="text-gray-600 text-sm leading-relaxed line-clamp-2 mb-4">
-                          {report.description}
-                        </p>
-                        
-                        <div className="flex items-center justify-between">
-                          <span className="inline-flex items-center px-3 py-1.5 rounded-xl bg-emerald-100 text-emerald-800 text-xs font-semibold shadow-sm">
-                            ✓ Resolved
-                          </span>
-                          <span className="inline-flex items-center gap-1 text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-lg">
-                            <Calendar className="h-3 w-3" />
-                            {new Date(report.updated_at || report.created_at).toLocaleDateString()}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Modern Profile Sections */}
-        <div className={`grid gap-8 ${user?.role === 'patrol' ? 'md:grid-cols-1' : 'md:grid-cols-2'}`}>
-          {/* Account Settings - Only show for own profile */}
-          {isOwnProfile && (
+          <ProfileSettingsTabs
+            user={user}
+            isOwnProfile={isOwnProfile}
+            userStats={userStats}
+            notificationSettings={notificationSettings}
+            onNotificationToggle={handleNotificationToggle}
+          >
+            <ProfileTabContent
+              myReports={myReports}
+              myResolvedReports={myResolvedReports}
+              loadingMyReports={loadingMyReports}
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              statusFilter={statusFilter}
+              setStatusFilter={setStatusFilter}
+              priorityFilter={priorityFilter}
+              setPriorityFilter={setPriorityFilter}
+              clearFilters={clearFilters}
+              filteredReports={filteredReports}
+              setDeleteTarget={setDeleteTarget}
+            />
+          </ProfileSettingsTabs>
+        ) : (
+          /* For other users' profiles, show a simplified view */
+          <div className="grid gap-8 md:grid-cols-2">
             <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 overflow-hidden">
               <div className="px-8 py-6 border-b border-gray-200/50 bg-gray-50">
                 <div className="flex items-center gap-4">
@@ -829,8 +613,8 @@ export function Profile() {
                     <Lock className="h-6 w-6 text-white" />
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold text-gray-900">Account Settings</h3>
-                    <p className="text-gray-600">Manage your account information</p>
+                    <h3 className="text-xl font-bold text-gray-900">Account Information</h3>
+                    <p className="text-gray-600">Public profile information</p>
                   </div>
                 </div>
               </div>
@@ -850,101 +634,7 @@ export function Profile() {
                 )}
               </div>
             </div>
-          )}
 
-          {/* Notification Settings - Only show for own profile */}
-          {isOwnProfile && (
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 overflow-hidden">
-              <div className="px-8 py-6 border-b border-gray-200/50 bg-gray-50">
-                <div className="flex items-center gap-4">
-                  <div className="inline-flex items-center justify-center w-12 h-12 bg-blue-500 rounded-xl">
-                    <Bell className="h-6 w-6 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-gray-900">Notification Settings</h3>
-                    <p className="text-gray-600">Control how you receive updates</p>
-                  </div>
-                </div>
-              </div>
-              <div className="px-8 py-6 space-y-6">
-                <div className="bg-blue-50 rounded-xl p-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center">
-                        <Bell className="h-6 w-6 text-white" />
-                      </div>
-                      <div>
-                        <label className="block text-lg font-semibold text-blue-900">Email Notifications</label>
-                        <p className="text-blue-700">Receive updates via email</p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => handleNotificationToggle('email')}
-                      className={`relative inline-flex h-8 w-14 items-center rounded-full transition-all duration-200 shadow-lg hover:shadow-xl ${
-                        notificationSettings.email ? 'bg-blue-500' : 'bg-gray-300'
-                      }`}
-                      aria-label={`${notificationSettings.email ? 'Disable' : 'Enable'} email notifications`}
-                    >
-                      <span
-                        className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform duration-200 shadow-md ${
-                          notificationSettings.email ? 'translate-x-7' : 'translate-x-1'
-                        }`}
-                      />
-                    </button>
-                  </div>
-                </div>
-                
-                <div className="bg-purple-50 rounded-xl p-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-purple-500 rounded-xl flex items-center justify-center">
-                        <Bell className="h-6 w-6 text-white" />
-                      </div>
-                      <div>
-                        <label className="block text-lg font-semibold text-purple-900">Push Notifications</label>
-                        <p className="text-purple-700">Receive push notifications</p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => handleNotificationToggle('push')}
-                      className={`relative inline-flex h-8 w-14 items-center rounded-full transition-all duration-200 shadow-lg hover:shadow-xl ${
-                        notificationSettings.push ? 'bg-purple-500' : 'bg-gray-300'
-                      }`}
-                      aria-label={`${notificationSettings.push ? 'Disable' : 'Enable'} push notifications`}
-                    >
-                      <span
-                        className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform duration-200 shadow-md ${
-                          notificationSettings.push ? 'translate-x-7' : 'translate-x-1'
-                        }`}
-                      />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Achievements - Only show for non-patrol users */}
-          {user?.role !== 'patrol' && (
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 overflow-hidden">
-              <div className="px-8 py-6 border-b border-gray-200/50 bg-yellow-50">
-                <div className="flex items-center gap-4">
-                  <div className="inline-flex items-center justify-center w-12 h-12 bg-yellow-500 rounded-xl">
-                    <Award className="h-6 w-6 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-gray-900">Achievements</h3>
-                    <p className="text-gray-600">Track your progress and unlock rewards</p>
-                  </div>
-                </div>
-              </div>
-              <div className="px-8 py-6">
-                <AchievementsPanel userId={user?.id || ''} />
-              </div>
-            </div>
-          )}
-
-          {/* Modern Activity Stats */}
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 overflow-hidden">
             <div className="px-8 py-6 border-b border-gray-200/50 bg-indigo-50">
               <div className="flex items-center gap-4">
@@ -952,86 +642,34 @@ export function Profile() {
                   <Shield className="h-6 w-6 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold text-gray-900">
-                    {user?.role === 'patrol' ? 'Patrol Statistics' : 'Activity Statistics'}
-                  </h3>
-                  <p className="text-gray-600">
-                    {user?.role === 'patrol' ? 'Track your patrol performance' : 'Monitor your contribution to the community'}
-                  </p>
+                    <h3 className="text-xl font-bold text-gray-900">Activity Statistics</h3>
+                    <p className="text-gray-600">Public activity summary</p>
                 </div>
               </div>
             </div>
             <div className="px-8 py-6">
-              <div className="grid grid-cols-2 gap-6">
-                {user?.role === 'patrol' ? (
-                  // Patrol-specific stats
-                  <>
-                    <div className="bg-blue-50 rounded-2xl p-6 text-center group hover:shadow-lg transition-all duration-200">
-                      <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-500 rounded-2xl mb-4 group-hover:scale-105 transition-transform duration-200">
-                        <Shield className="h-8 w-8 text-white" />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-blue-50 rounded-xl p-4 text-center">
+                    <div className="text-2xl font-bold text-blue-900">{user?.points || 0}</div>
+                    <div className="text-sm text-blue-700">Total Points</div>
                       </div>
-                      <p className="text-4xl font-bold text-blue-900 mb-2">{userStats.patrol_level}</p>
-                      <p className="text-blue-700 font-semibold">Patrol Level</p>
+                  <div className="bg-purple-50 rounded-xl p-4 text-center">
+                    <div className="text-2xl font-bold text-purple-900">{userStats.reports_submitted}</div>
+                    <div className="text-sm text-purple-700">Reports</div>
                     </div>
-                    <div className="bg-purple-50 rounded-2xl p-6 text-center group hover:shadow-lg transition-all duration-200">
-                      <div className="inline-flex items-center justify-center w-16 h-16 bg-purple-500 rounded-2xl mb-4 group-hover:scale-105 transition-transform duration-200">
-                        <Star className="h-8 w-8 text-white" />
+                  <div className="bg-green-50 rounded-xl p-4 text-center">
+                    <div className="text-2xl font-bold text-green-900">{userStats.reports_verified}</div>
+                    <div className="text-sm text-green-700">Verified</div>
                       </div>
-                      <p className="text-4xl font-bold text-purple-900 mb-2">{userStats.patrol_experience_points}</p>
-                      <p className="text-purple-700 font-semibold">Experience Points</p>
+                  <div className="bg-emerald-50 rounded-xl p-4 text-center">
+                    <div className="text-2xl font-bold text-emerald-900">{userStats.reports_resolved}</div>
+                    <div className="text-sm text-emerald-700">Resolved</div>
                     </div>
-                    <div className="bg-green-50 rounded-2xl p-6 text-center group hover:shadow-lg transition-all duration-200">
-                      <div className="inline-flex items-center justify-center w-16 h-16 bg-green-500 rounded-2xl mb-4 group-hover:scale-105 transition-transform duration-200">
-                        <CheckCircle className="h-8 w-8 text-white" />
                       </div>
-                      <p className="text-4xl font-bold text-green-900 mb-2">{userStats.patrol_reports_accepted}</p>
-                      <p className="text-green-700 font-semibold">Reports Accepted</p>
                     </div>
-                    <div className="bg-emerald-50 rounded-2xl p-6 text-center group hover:shadow-lg transition-all duration-200">
-                      <div className="inline-flex items-center justify-center w-16 h-16 bg-emerald-500 rounded-2xl mb-4 group-hover:scale-105 transition-transform duration-200">
-                        <Award className="h-8 w-8 text-white" />
                       </div>
-                      <p className="text-4xl font-bold text-emerald-900 mb-2">{userStats.patrol_reports_completed}</p>
-                      <p className="text-emerald-700 font-semibold">Reports Completed</p>
                     </div>
-                  </>
-                ) : (
-                  // Regular user stats
-                  <>
-                    <div className="bg-blue-50 rounded-2xl p-6 text-center group hover:shadow-lg transition-all duration-200">
-                      <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-500 rounded-2xl mb-4 group-hover:scale-105 transition-transform duration-200">
-                        <Star className="h-8 w-8 text-white" />
-                      </div>
-                      <p className="text-4xl font-bold text-blue-900 mb-2">{user?.points || 0}</p>
-                      <p className="text-blue-700 font-semibold">Total Points</p>
-                    </div>
-                    <div className="bg-purple-50 rounded-2xl p-6 text-center group hover:shadow-lg transition-all duration-200">
-                      <div className="inline-flex items-center justify-center w-16 h-16 bg-purple-500 rounded-2xl mb-4 group-hover:scale-105 transition-transform duration-200">
-                        <MapPin className="h-8 w-8 text-white" />
-                      </div>
-                      <p className="text-4xl font-bold text-purple-900 mb-2">{userStats.reports_submitted}</p>
-                      <p className="text-purple-700 font-semibold">Reports Submitted</p>
-                    </div>
-                    <div className="bg-green-50 rounded-2xl p-6 text-center group hover:shadow-lg transition-all duration-200">
-                      <div className="inline-flex items-center justify-center w-16 h-16 bg-green-500 rounded-2xl mb-4 group-hover:scale-105 transition-transform duration-200">
-                        <CheckCircle className="h-8 w-8 text-white" />
-                      </div>
-                      <p className="text-4xl font-bold text-green-900 mb-2">{userStats.reports_verified}</p>
-                      <p className="text-green-700 font-semibold">Reports Verified</p>
-                    </div>
-                    <div className="bg-emerald-50 rounded-2xl p-6 text-center group hover:shadow-lg transition-all duration-200">
-                      <div className="inline-flex items-center justify-center w-16 h-16 bg-emerald-500 rounded-2xl mb-4 group-hover:scale-105 transition-transform duration-200">
-                        <Award className="h-8 w-8 text-white" />
-                      </div>
-                      <p className="text-4xl font-bold text-emerald-900 mb-2">{userStats.reports_resolved}</p>
-                      <p className="text-emerald-700 font-semibold">Reports Resolved</p>
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
+        )}
         </motion.div>
         
         {/* Delete confirmation modal */}

@@ -11,7 +11,8 @@ import {
   Check,
   Clock,
   Info,
-  ClipboardList
+  ClipboardList,
+  Shield
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { UserManagement } from '../components/UserManagement';
@@ -31,28 +32,47 @@ export function AdminDashboard() {
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [showInfo, setShowInfo] = useState<boolean>(false);
   const [totalReports, setTotalReports] = useState<number>(0);
-  const [pendingReports, setPendingReports] = useState<number>(0);
-  const [resolvedReports, setResolvedReports] = useState<number>(0);
+  const [requestReports, setRequestReports] = useState<number>(0);
   const [totalUsers, setTotalUsers] = useState<number>(0);
+  const [activePatrols, setActivePatrols] = useState<number>(0);
 
   useEffect(() => {
     // Optional: protect route
   }, [user, navigate]);
 
+  // Function to count active patrols based on current time
+  const countActivePatrols = (dutySchedules: any[]) => {
+    const now = new Date();
+    const currentDate = now.toISOString().slice(0, 10); // YYYY-MM-DD
+    const currentHour = now.getHours();
+    
+    // Determine current shift: AM (6-17) or PM (18-5)
+    const currentShift = currentHour >= 6 && currentHour < 18 ? 'AM' : 'PM';
+    
+    // Count patrols for today's current shift
+    const todayPatrols = dutySchedules.filter(schedule => 
+      schedule.duty_date === currentDate && 
+      schedule.shift === currentShift &&
+      (schedule.dispatcher_user_id || schedule.receiver_user_id)
+    );
+    
+    return todayPatrols.length;
+  };
+
   useEffect(() => {
     const fetchCounts = async () => {
       try {
-        const [reportsAll, reportsPending, reportsResolved, usersAll] = await Promise.all([
+        const [reportsAll, reportsVerifying, usersAll, dutySchedules] = await Promise.all([
           supabase.from('reports').select('*', { count: 'exact', head: true }),
-          supabase.from('reports').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
-          supabase.from('reports').select('*', { count: 'exact', head: true }).eq('status', 'resolved'),
-          supabase.from('profiles').select('*', { count: 'exact', head: true })
+          supabase.from('reports').select('*', { count: 'exact', head: true }).eq('status', 'verifying'),
+          supabase.from('profiles').select('*', { count: 'exact', head: true }),
+          supabase.from('duty_schedules').select('*').gte('duty_date', new Date().toISOString().slice(0, 10))
         ]);
 
         setTotalReports(reportsAll.count || 0);
-        setPendingReports(reportsPending.count || 0);
-        setResolvedReports(reportsResolved.count || 0);
+        setRequestReports(reportsVerifying.count || 0);
         setTotalUsers(usersAll.count || 0);
+        setActivePatrols(countActivePatrols(dutySchedules.data || []));
       } catch (e) {
         console.error('Failed to fetch admin dashboard counts', e);
       }
@@ -133,23 +153,23 @@ export function AdminDashboard() {
             </div>
             <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
               <div className="flex items-center">
-                <div className="h-10 w-10 rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center">
-                  <Clock className="w-5 h-5" />
+                <div className="h-10 w-10 rounded-lg bg-orange-500/10 text-orange-600 flex items-center justify-center">
+                  <ClipboardList className="w-5 h-5" />
                 </div>
                 <div className="ml-3">
-                  <p className="text-xs text-gray-600">Pending</p>
-                  <p className="text-xl font-semibold text-gray-900">{pendingReports}</p>
+                  <p className="text-xs text-gray-600">Requests</p>
+                  <p className="text-xl font-semibold text-gray-900">{requestReports}</p>
                 </div>
               </div>
             </div>
             <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
               <div className="flex items-center">
                 <div className="h-10 w-10 rounded-lg bg-green-600/10 text-green-600 flex items-center justify-center">
-                  <Check className="w-5 h-5" />
+                  <Shield className="w-5 h-5" />
                 </div>
                 <div className="ml-3">
-                  <p className="text-xs text-gray-600">Resolved</p>
-                  <p className="text-xl font-semibold text-gray-900">{resolvedReports}</p>
+                  <p className="text-xs text-gray-600">On Duty</p>
+                  <p className="text-xl font-semibold text-gray-900">{activePatrols}</p>
                 </div>
               </div>
             </div>

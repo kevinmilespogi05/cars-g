@@ -122,6 +122,59 @@ app.options('*', (req, res) => {
   res.sendStatus(200);
 });
 
+// Brevo (Sendinblue) email helper
+const BREVO_API_KEY = process.env.BREVO_API_KEY;
+const BREVO_SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL || 'no-reply@cars-g.app';
+const BREVO_SENDER_NAME = process.env.BREVO_SENDER_NAME || 'Cars-G';
+
+async function sendEmailViaBrevo(toEmail, subject, textContent, htmlContent) {
+  try {
+    if (!BREVO_API_KEY) {
+      console.warn('BREVO_API_KEY not set; skipping email');
+      return { ok: false, skipped: true };
+    }
+
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'api-key': BREVO_API_KEY
+      },
+      body: JSON.stringify({
+        sender: { email: BREVO_SENDER_EMAIL, name: BREVO_SENDER_NAME },
+        to: [{ email: toEmail }],
+        subject,
+        textContent,
+        htmlContent: htmlContent || `<p>${textContent}</p>`
+      })
+    });
+
+    if (!response.ok) {
+      const errText = await response.text().catch(() => '');
+      console.error('Brevo email send failed:', response.status, errText);
+      return { ok: false };
+    }
+    return { ok: true };
+  } catch (err) {
+    console.error('Brevo email error:', err);
+    return { ok: false };
+  }
+}
+
+// Test email endpoint
+app.post('/api/email/test', async (req, res) => {
+  try {
+    const { to, subject = 'Cars-G test email', text = 'Hello from Cars-G' } = req.body || {};
+    if (!to) return res.status(400).json({ error: 'to is required' });
+    const result = await sendEmailViaBrevo(to, subject, text);
+    if (!result.ok && !result.skipped) return res.status(500).json({ error: 'Failed to send email' });
+    res.json({ ok: true, skipped: !!result.skipped });
+  } catch (e) {
+    console.error('Email test error:', e);
+    res.status(500).json({ error: 'Failed to send test email' });
+  }
+});
+
 // Global rate limit (basic protection)
 const globalLimiter = rateLimit({
   windowMs: 60 * 1000, // 1 minute
@@ -1115,7 +1168,7 @@ const startServer = async () => {
       }
     };
 
-    // Subscribe to notifications inserts and forward to FCM
+    // Subscribe to notifications inserts and forward to FCM and Brevo email
     try {
       const channel = supabaseAdmin
         ? supabaseAdmin.channel('notify_fcm')
@@ -1130,6 +1183,26 @@ const startServer = async () => {
           const userId = n.user_id;
           if (userId) {
             await sendPushToUser(userId, title, body, link);
+
+            // Additionally try to send email via Brevo if user has an email
+            try {
+              const { data: profile, error: profErr } = await supabaseAdmin
+                .from('profiles')
+                .select('email, notification_settings')
+                .eq('id', userId)
+                .single();
+
+              if (!profErr && profile?.email) {
+                const allowEmail = profile.notification_settings?.email !== false;
+                if (allowEmail) {
+                  const subject = title;
+                  const textContent = `${body}${link ? `\n\nOpen: ${process.env.FRONTEND_URL || 'https://cars-g.vercel.app'}${link.startsWith('/') ? link : `/${link}`}` : ''}`;
+                  await sendEmailViaBrevo(profile.email, subject, textContent);
+                }
+              }
+            } catch (mailErr) {
+              console.warn('Email send skipped/error:', mailErr?.message || mailErr);
+            }
           }
         })
         .subscribe((status) => {

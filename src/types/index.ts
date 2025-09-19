@@ -198,6 +198,7 @@ export interface DutySchedule {
   shift: 'AM' | 'PM';
   dispatcher_user_id?: string | null;
   receiver_user_id?: string | null;
+  group?: string | null;
   notes?: string | null;
   created_at: string;
   updated_at: string;

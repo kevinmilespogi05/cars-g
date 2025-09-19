@@ -42,7 +42,7 @@ const LGU_EMAIL = 'mayorsoffice.jdk2022@gmail.com'; // update if different
 const LGU_OFFICE_HOURS = 'Monday–Friday, 8:00 AM – 5:00 PM';
 
 const CATEGORIES = ['All', 'Infrastructure', 'Safety', 'Environmental', 'Public Services', 'Other'];
-const STATUSES = ['All', 'Pending', 'In Progress', 'Resolved', 'Rejected'];
+const STATUSES = ['All', 'Pending', 'In Progress', 'Resolved'];
 const PRIORITIES = ['All', 'Low', 'Medium', 'High'];
 
 export function Reports() {
@@ -121,9 +121,9 @@ export function Reports() {
     console.log('Setting up real-time subscriptions');
     
     const matchesFilters = (r: any) => {
-      // Always exclude verifying and awaiting_verification reports from the main reports view
-      // These should be handled on the verification page
-      if (r.status === 'verifying' || r.status === 'awaiting_verification') return false;
+      // Always exclude verifying, awaiting_verification, and rejected reports from the main reports view
+      // These should be handled on the verification page or user profile
+      if (r.status === 'verifying' || r.status === 'awaiting_verification' || r.status === 'rejected') return false;
       
       const categoryOk = filters.category === 'All' || (r.category || '').toLowerCase().includes(filters.category.toLowerCase().replace(/_/g, ' '));
       const statusOk = filters.status === 'All' || (r.status || '').toLowerCase() === filters.status.toLowerCase().replace(/\s+/g, '_');
@@ -145,8 +145,8 @@ export function Reports() {
       setReports(prev => {
         const exists = prev.some(r => r.id === reportId);
         
-        // If status changes to verifying or awaiting_verification, remove it from main reports view
-        if (newStatus === 'verifying' || newStatus === 'awaiting_verification') {
+        // If status changes to verifying, awaiting_verification, or rejected, remove it from main reports view
+        if (newStatus === 'verifying' || newStatus === 'awaiting_verification' || newStatus === 'rejected') {
           return prev.filter(r => r.id !== reportId);
         }
         
@@ -223,9 +223,13 @@ export function Reports() {
         limit: 40
       });
 
-      // Filter out verifying and awaiting_verification reports from the main reports view
-      // These should be handled on the verification page
-      const filteredReportsData = reportsData.filter(report => report.status !== 'verifying' && report.status !== 'awaiting_verification');
+      // Filter out verifying, awaiting_verification, and rejected reports from the main reports view
+      // These should be handled on the verification page or user profile
+      const filteredReportsData = reportsData.filter(report => 
+        report.status !== 'verifying' && 
+        report.status !== 'awaiting_verification' && 
+        report.status !== 'rejected'
+      );
 
       setReports(filteredReportsData);
     } catch (error) {

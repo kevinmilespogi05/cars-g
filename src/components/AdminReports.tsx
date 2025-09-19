@@ -15,7 +15,7 @@ export function AdminReports() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const [status, setStatus] = useState<StatusFilter>('All');
+  const [status, setStatus] = useState<StatusFilter>('resolved');
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
   const loadingRef = React.useRef(false);
 

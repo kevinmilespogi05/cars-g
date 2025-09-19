@@ -805,6 +805,9 @@ export const reportsService = {
           .toLowerCase()
           .replace(/\s+/g, '_');
         query = query.eq('status', normalizedStatus);
+      } else {
+        // Exclude verifying and rejected reports when no specific status filter is applied
+        query = query.neq('status', 'verifying').neq('status', 'rejected');
       }
       if (filters?.priority && filters.priority !== 'All') {
         query = (query as any).ilike('priority', filters.priority.toLowerCase());

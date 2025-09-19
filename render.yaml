@@ -28,3 +28,9 @@ services:
         value: cars-g-uploads
       - key: FIREBASE_SERVER_KEY
         value: your_firebase_server_key_here
+      - key: BREVO_API_KEY
+        sync: false
+      - key: BREVO_SENDER_EMAIL
+        value: no-reply@cars-g.app
+      - key: BREVO_SENDER_NAME
+        value: Cars-G

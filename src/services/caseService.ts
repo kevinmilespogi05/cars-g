@@ -29,6 +29,7 @@ export const caseService = {
       `)
       .gte('created_at', from)
       .lte('created_at', to)
+      .eq('status', 'resolved')
       .order('created_at', { ascending: true });
     if (error) throw error;
 
@@ -72,6 +73,7 @@ export const caseService = {
       `)
       .gte('created_at', from)
       .lte('created_at', to)
+      .eq('status', 'resolved')
       .order('created_at', { ascending: true });
     if (error) throw error;
 
@@ -104,6 +106,7 @@ export const caseService = {
       shift: input.shift,
       dispatcher_user_id: input.dispatcher_user_id ?? null,
       receiver_user_id: input.receiver_user_id ?? null,
+      group: (input as any).group ?? null,
       notes: input.notes ?? null,
       updated_at: new Date().toISOString(),
     };

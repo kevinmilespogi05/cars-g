@@ -95,7 +95,68 @@ export function AdminMapDashboard() {
   const [showSidenav, setShowSidenav] = useState(true);
   const [showReportModal, setShowReportModal] = useState(false);
   const [selectedReportForModal, setSelectedReportForModal] = useState<Report | null>(null);
+  const [showLegend, setShowLegend] = useState(true);
+  const [legendPosition, setLegendPosition] = useState({ x: 16, y: 16 }); // Default top-left position
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [showImageModal, setShowImageModal] = useState(false);
+
+  // Drag handlers for legend
+  const handleLegendMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+    setDragStart({
+      x: e.clientX - legendPosition.x,
+      y: e.clientY - legendPosition.y
+    });
+  };
+
+  const handleLegendMouseMove = (e: MouseEvent) => {
+    if (!isDragging) return;
+    
+    const newX = e.clientX - dragStart.x;
+    const newY = e.clientY - dragStart.y;
+    
+    // Keep legend within viewport bounds
+    const maxX = window.innerWidth - 220; // Account for legend width
+    const maxY = window.innerHeight - 150; // Account for legend height
+    
+    setLegendPosition({
+      x: Math.max(0, Math.min(newX, maxX)),
+      y: Math.max(0, Math.min(newY, maxY))
+    });
+  };
+
+  const handleLegendDoubleClick = () => {
+    // Reset to default position
+    setLegendPosition({ x: 16, y: 16 });
+  };
+
+  const handleLegendMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  // Add global mouse event listeners for dragging
+  useEffect(() => {
+    if (isDragging) {
+      document.addEventListener('mousemove', handleLegendMouseMove);
+      document.addEventListener('mouseup', handleLegendMouseUp);
+      document.body.style.cursor = 'grabbing';
+      document.body.style.userSelect = 'none';
+    } else {
+      document.removeEventListener('mousemove', handleLegendMouseMove);
+      document.removeEventListener('mouseup', handleLegendMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleLegendMouseMove);
+      document.removeEventListener('mouseup', handleLegendMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, [isDragging, dragStart]);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [showClusterModal, setShowClusterModal] = useState(false);
   const [clusterReports, setClusterReports] = useState<Report[]>([]);
@@ -1714,7 +1775,7 @@ export function AdminMapDashboard() {
       {/* Main Content */}
       <div className="flex h-[calc(100vh-112px)]">
         {/* Sidebar */}
-        <div className={`hidden md:flex bg-white border-r border-gray-200 overflow-y-auto relative z-10 flex-col transition-all duration-300 ${
+        <div className={`hidden md:flex bg-white border-r border-gray-200 relative z-10 flex-col transition-all duration-300 ${
           showSidenav ? 'md:w-80 xl:w-96' : 'w-0'
         }`}>
           {/* Patrol Reports Section */}
@@ -1746,9 +1807,11 @@ export function AdminMapDashboard() {
             </div>
           </div>
           
-          {/* Patrol Reports List */}
-          {!patrolReportsCollapsed && (
-            <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-orange-50 to-amber-50">
+          {/* Scrollable Content Container */}
+          <div className="flex-1 overflow-y-auto">
+            {/* Patrol Reports List */}
+            {!patrolReportsCollapsed && (
+              <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-orange-50 to-amber-50">
               {reports.filter(r => r.status === 'in_progress' || r.status === 'awaiting_verification').length === 0 ? (
                 <div className="text-center py-8">
                   <div className="mx-auto h-12 w-12 text-gray-400 mb-4">
@@ -2007,6 +2070,7 @@ export function AdminMapDashboard() {
               )}
             </div>
           )}
+          </div>
         </div>
 
         {/* Map */}
@@ -2186,29 +2250,64 @@ export function AdminMapDashboard() {
           </div>
 
           {/* Map Legend */}
-          <div className="absolute top-4 left-4 bg-white/90 backdrop-blur rounded-lg shadow-lg p-3 min-w-[200px] z-[1002]">
-            <h3 className="text-sm font-medium text-gray-700 mb-2">Map Legend</h3>
-            <div className="space-y-1 text-xs">
+          <div 
+            className="absolute bg-white/90 backdrop-blur rounded-lg shadow-lg z-[1002] select-none"
+            style={{
+              left: `${legendPosition.x}px`,
+              top: `${legendPosition.y}px`,
+              cursor: isDragging ? 'grabbing' : 'grab'
+            }}
+          >
+            <div 
+              className="flex items-center justify-between p-3 hover:bg-gray-50/50 transition-colors"
+              onMouseDown={handleLegendMouseDown}
+              onDoubleClick={handleLegendDoubleClick}
+              onClick={(e) => {
+                // Only toggle if not dragging
+                if (!isDragging) {
+                  setShowLegend(!showLegend);
+                }
+              }}
+            >
+              <h3 className="text-sm font-medium text-gray-700">Map Legend</h3>
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded-full border border-white bg-yellow-500"></div>
-                <span>Pending</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded-full border border-white bg-blue-500"></div>
-                <span>In Progress</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded-full border border-white bg-orange-500"></div>
-                <span>Awaiting Verification</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded-full border border-white bg-red-500"></div>
-                <span>Rejected</span>
-              </div>
-              <div className="text-xs text-gray-500 mt-2 pt-2 border-t border-gray-200">
-                <span>Patrol reports are highlighted in the sidebar</span>
+                {showLegend ? (
+                  <ChevronUp className="w-4 h-4 text-gray-500" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-gray-500" />
+                )}
+                <div className="flex flex-col gap-0.5 opacity-40">
+                  <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
+                  <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
+                  <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
+                </div>
               </div>
             </div>
+            {showLegend && (
+              <div className="px-3 pb-3 min-w-[200px]">
+                <div className="space-y-1 text-xs">
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded-full border border-white bg-yellow-500"></div>
+                    <span>Pending</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded-full border border-white bg-blue-500"></div>
+                    <span>In Progress</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded-full border border-white bg-orange-500"></div>
+                    <span>Awaiting Verification</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded-full border border-white bg-red-500"></div>
+                    <span>Rejected</span>
+                  </div>
+                  <div className="text-xs text-gray-500 mt-2 pt-2 border-t border-gray-200">
+                    <span>Patrol reports are highlighted in the sidebar</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

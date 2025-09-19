@@ -35,6 +35,10 @@ VITE_FIREBASE_MESSAGING_SENDER_ID=672452977686
 VITE_FIREBASE_APP_ID=1:672452977686:web:109661be796952ddbf8137
 VITE_FIREBASE_VAPID_KEY=BIwpimX2-4_1EwjnCHpGnNVRca-5dqETfdBOzl2ajY6lm5hqOk0pkj1RDI8QTpK20QOIxi16ietGrwsIxqe6lUo
 FIREBASE_SERVER_KEY=your_firebase_server_key_here
+# Brevo (Sendinblue)
+BREVO_API_KEY=your_brevo_api_key_here
+BREVO_SENDER_EMAIL=no-reply@cars-g.app
+BREVO_SENDER_NAME=Cars-G
 "@
     
     # Write to server/.env file

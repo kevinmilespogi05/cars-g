@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { CalendarDays, RefreshCw } from 'lucide-react';
 import type { DutySchedule } from '../types';
 import { caseService } from '../services/caseService';
+import { supabase } from '../lib/supabase';
 
 function formatDate(d: Date) {
   return d.toISOString().slice(0, 10);
@@ -19,8 +20,25 @@ export function AdminDutySchedule() {
   const [items, setItems] = useState<DutySchedule[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const [users, setUsers] = useState<Array<{id: string, username: string, full_name: string | null}>>([]);
 
   const end = useMemo(() => formatDate(addDays(new Date(start), Math.max(0, days - 1))), [start, days]);
+
+  const loadUsers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, username, full_name')
+        .eq('role', 'patrol')
+        .order('username');
+      
+      if (error) throw error;
+      setUsers(data || []);
+    } catch (e: any) {
+      console.error('Failed to load users:', e);
+    }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -35,14 +53,48 @@ export function AdminDutySchedule() {
     }
   };
 
-  useEffect(() => { load(); }, [start, end]);
+  useEffect(() => { 
+    load(); 
+    loadUsers();
+  }, [start, end]);
 
-  const upsert = async (duty_date: string, shift: 'AM' | 'PM', field: 'dispatcher_user_id' | 'receiver_user_id' | 'notes', value: string) => {
+  // Function to find user ID by username
+  const findUserIdByUsername = (username: string): string | null => {
+    const user = users.find(u => u.username === username);
+    return user ? user.id : null;
+  };
+
+  // Function to find username by user ID
+  const findUsernameById = (userId: string | null): string => {
+    if (!userId) return '';
+    const user = users.find(u => u.id === userId);
+    return user ? user.username : '';
+  };
+
+  const upsert = async (duty_date: string, shift: 'AM' | 'PM', field: 'dispatcher_user_id' | 'receiver_user_id' | 'notes' | 'group', value: string) => {
     try {
+      // Clear previous validation errors
+      setValidationError(null);
+      
+      // Convert username to user ID for database storage
+      let userId = value;
+      if (field === 'dispatcher_user_id' || field === 'receiver_user_id') {
+        if (value) {
+          userId = findUserIdByUsername(value);
+          if (!userId) {
+            setValidationError('User not found. Please select a valid user from the dropdown.');
+            return;
+          }
+        } else {
+          userId = null;
+        }
+      }
+
       const existing = items.find(i => i.duty_date === duty_date && i.shift === shift);
       const payload: any = { duty_date, shift };
-      if (field === 'dispatcher_user_id') payload.dispatcher_user_id = value || null;
-      if (field === 'receiver_user_id') payload.receiver_user_id = value || null;
+      if (field === 'dispatcher_user_id') payload.dispatcher_user_id = userId;
+      if (field === 'receiver_user_id') payload.receiver_user_id = userId;
+      if (field === 'group') payload.group = value || null;
       if (field === 'notes') payload.notes = value || null;
       const saved = await caseService.upsertDutySchedule({ ...existing, ...payload } as any);
       setItems(prev => {
@@ -52,7 +104,7 @@ export function AdminDutySchedule() {
         return copy;
       });
     } catch (e: any) {
-      alert(e?.message || 'Failed to save duty schedule');
+      setError(e?.message || 'Failed to save duty schedule');
     }
   };
 
@@ -90,6 +142,7 @@ export function AdminDutySchedule() {
       </div>
 
       {error && <div className="p-3 bg-red-50 text-red-700 border border-red-200 rounded">{error}</div>}
+      {validationError && <div className="p-3 bg-yellow-50 text-yellow-700 border border-yellow-200 rounded">{validationError}</div>}
 
       <div className="overflow-auto border rounded">
         <table className="min-w-full text-sm">
@@ -100,6 +153,7 @@ export function AdminDutySchedule() {
               <th className="text-left px-3 py-2">AM Receiver</th>
               <th className="text-left px-3 py-2">PM Dispatcher</th>
               <th className="text-left px-3 py-2">PM Receiver</th>
+              <th className="text-left px-3 py-2">Group</th>
               <th className="text-left px-3 py-2">Notes</th>
             </tr>
           </thead>
@@ -108,35 +162,67 @@ export function AdminDutySchedule() {
               <tr key={r.date} className="border-b">
                 <td className="px-3 py-2 whitespace-nowrap"><div className="inline-flex items-center gap-1.5"><CalendarDays className="w-4 h-4 text-gray-500" />{r.date}</div></td>
                 <td className="px-3 py-2">
-                  <input
+                  <select
                     className="w-44 px-2 py-1 border border-gray-300 rounded"
-                    placeholder="User ID / Name"
-                    value={r.am?.dispatcher_user_id || ''}
+                    value={findUsernameById(r.am?.dispatcher_user_id || null)}
                     onChange={(e) => upsert(r.date, 'AM', 'dispatcher_user_id', e.target.value)}
-                  />
+                  >
+                    <option value="">Select user...</option>
+                    {users.map(user => (
+                      <option key={user.id} value={user.username}>
+                        {user.username} {user.full_name ? `(${user.full_name})` : ''}
+                      </option>
+                    ))}
+                  </select>
                 </td>
                 <td className="px-3 py-2">
-                  <input
+                  <select
                     className="w-44 px-2 py-1 border border-gray-300 rounded"
-                    placeholder="User ID / Name"
-                    value={r.am?.receiver_user_id || ''}
+                    value={findUsernameById(r.am?.receiver_user_id || null)}
                     onChange={(e) => upsert(r.date, 'AM', 'receiver_user_id', e.target.value)}
-                  />
+                  >
+                    <option value="">Select user...</option>
+                    {users.map(user => (
+                      <option key={user.id} value={user.username}>
+                        {user.username} {user.full_name ? `(${user.full_name})` : ''}
+                      </option>
+                    ))}
+                  </select>
                 </td>
                 <td className="px-3 py-2">
-                  <input
+                  <select
                     className="w-44 px-2 py-1 border border-gray-300 rounded"
-                    placeholder="User ID / Name"
-                    value={r.pm?.dispatcher_user_id || ''}
+                    value={findUsernameById(r.pm?.dispatcher_user_id || null)}
                     onChange={(e) => upsert(r.date, 'PM', 'dispatcher_user_id', e.target.value)}
-                  />
+                  >
+                    <option value="">Select user...</option>
+                    {users.map(user => (
+                      <option key={user.id} value={user.username}>
+                        {user.username} {user.full_name ? `(${user.full_name})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </td>
+                <td className="px-3 py-2">
+                  <select
+                    className="w-44 px-2 py-1 border border-gray-300 rounded"
+                    value={findUsernameById(r.pm?.receiver_user_id || null)}
+                    onChange={(e) => upsert(r.date, 'PM', 'receiver_user_id', e.target.value)}
+                  >
+                    <option value="">Select user...</option>
+                    {users.map(user => (
+                      <option key={user.id} value={user.username}>
+                        {user.username} {user.full_name ? `(${user.full_name})` : ''}
+                      </option>
+                    ))}
+                  </select>
                 </td>
                 <td className="px-3 py-2">
                   <input
-                    className="w-44 px-2 py-1 border border-gray-300 rounded"
-                    placeholder="User ID / Name"
-                    value={r.pm?.receiver_user_id || ''}
-                    onChange={(e) => upsert(r.date, 'PM', 'receiver_user_id', e.target.value)}
+                    className="w-40 px-2 py-1 border border-gray-300 rounded"
+                    placeholder="e.g., Alpha"
+                    value={r.am?.group || r.pm?.group || ''}
+                    onChange={(e) => upsert(r.date, 'AM', 'group', e.target.value)}
                   />
                 </td>
                 <td className="px-3 py-2">
