@@ -56,6 +56,31 @@ messaging.onBackgroundMessage(function(payload) {
   self.registration.showNotification(notificationTitle, notificationOptions);
 });
 
+self.addEventListener('push', function(event) {
+  try {
+    const raw = event.data ? event.data.json() : {};
+    // Normalize payload structure between generic WebPush and FCM
+    const n = raw.notification || {};
+    const d = raw.data || {};
+    const title = n.title || raw.title || 'Cars-G';
+    const body = n.body || raw.body || '';
+    const link = (raw.fcmOptions && raw.fcmOptions.link) || d.link || '/';
+
+    const options = {
+      body,
+      icon: n.icon || '/pwa-192x192.png',
+      badge: '/pwa-192x192.png',
+      tag: n.tag || 'default',
+      data: Object.assign({}, d, { link })
+    };
+
+    event.waitUntil(self.registration.showNotification(title, options));
+  } catch (err) {
+    // Fallback: show minimal notification
+    event.waitUntil(self.registration.showNotification('Cars-G', { body: '' }));
+  }
+});
+
 self.addEventListener('notificationclick', function(event) {
   event.notification.close();
   

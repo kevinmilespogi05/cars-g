@@ -199,7 +199,18 @@ async function sendFcmV1ToToken(deviceToken, title, body, link) {
     const message = {
       message: {
         token: deviceToken,
-        notification: { title, body },
+        // Use WebPush payload for browsers
+        webpush: {
+          notification: {
+            title,
+            body,
+            icon: '/pwa-192x192.png'
+          },
+          fcmOptions: {
+            link: String(link || '/')
+          }
+        },
+        // Keep data for client-side handling if needed
         data: { link: String(link || '/') }
       }
     };

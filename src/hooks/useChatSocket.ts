@@ -228,11 +228,25 @@ export const useChatSocket = ({
     socket.off('user_typing');
     socket.off('user_stopped_typing');
     socket.off('message_deleted');
+    socket.off('new_messages_batch');
 
     // Add new listeners with debouncing
     socket.on('new_message', (message: ChatMessage) => {
       console.log('New message received:', message);
       onMessage?.(message);
+    });
+
+    // Handle batched messages emitted by the server
+    socket.on('new_messages_batch', (messages: ChatMessage[]) => {
+      try {
+        if (Array.isArray(messages)) {
+          for (const m of messages) {
+            onMessage?.(m);
+          }
+        }
+      } catch (e) {
+        console.error('Error handling new_messages_batch:', e);
+      }
     });
 
     socket.on('message_deleted', (data: { messageId: string; conversationId: string }) => {
