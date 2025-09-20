@@ -258,6 +258,15 @@ const globalLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+
+// Rate limiters for specific endpoints
+const createConversationLimiter = rateLimit({ windowMs: 60 * 1000, max: 20 });
+const messageRateLimiter = rateLimit({ 
+  windowMs: 60 * 1000, // 1 minute
+  max: 100, // 100 messages per minute per IP
+  message: 'Too many messages sent, please slow down'
+});
+
 app.use(globalLimiter);
 
 // Performance tracking middleware
@@ -436,16 +445,6 @@ app.post('/api/chat/conversations/:conversationId/read', enhancedChatEndpoints.m
 
 // Get unread count for conversation
 app.get('/api/chat/conversations/:conversationId/unread', enhancedChatEndpoints.getUnreadCount);
-
-// Stricter rate limit for conversation creation
-const createConversationLimiter = rateLimit({ windowMs: 60 * 1000, max: 20 });
-
-// Rate limit for message sending
-const messageRateLimiter = rateLimit({ 
-  windowMs: 60 * 1000, // 1 minute
-  max: 100, // 100 messages per minute per IP
-  message: 'Too many messages sent, please slow down'
-});
 
 app.post('/api/chat/conversations', createConversationLimiter, async (req, res) => {
   try {
