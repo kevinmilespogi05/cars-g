@@ -13,6 +13,7 @@ import {
   EyeOff,
   ArrowLeft,
   Zap,
+  CheckCircle,
   Star,
   Globe,
   Smartphone,

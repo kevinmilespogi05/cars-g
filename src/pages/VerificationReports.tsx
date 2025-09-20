@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Filter, MapPin, Calendar, User, Heart, MessageCircle, Eye, Clock, CheckCircle, XCircle, AlertTriangle, Loader2, X, Shield } from 'lucide-react';
+import { Search, Filter, MapPin, Calendar, User, Heart, MessageCircle, Eye, Clock, CheckCircle, XCircle, AlertTriangle, Loader2, X, Shield, Trash2 } from 'lucide-react';
 import { getPriorityColor as badgePriorityColor, getStatusColor as badgeStatusColor } from '../lib/badges';
 import { useAuthStore } from '../store/authStore';
 import { Report } from '../types';
 import { reportsService } from '../services/reportsService';
 import { LikeDetailsModal } from '../components/LikeDetailsModal';
+import { ConfirmationModal } from '../components/ConfirmationModal';
 
 const CATEGORIES = ['All', 'Infrastructure', 'Safety', 'Environmental', 'Public Services', 'Other'];
 const PRIORITIES = ['All', 'Low', 'Medium', 'High'];
@@ -14,6 +15,11 @@ export function VerificationReports() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const [reports, setReports] = useState<Report[]>([]);
+  
+  // Debug: Log reports state changes
+  useEffect(() => {
+    console.log('Reports state changed:', reports.length, reports);
+  }, [reports]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState({
@@ -25,8 +31,23 @@ export function VerificationReports() {
   const [imageErrors, setImageErrors] = useState<{ [key: string]: boolean }>({});
   const [likeLoading, setLikeLoading] = useState<{ [key: string]: boolean }>({});
   const [likeDetailsModal, setLikeDetailsModal] = useState<{ isOpen: boolean; reportId: string; reportTitle: string } | null>(null);
+  const [actionLoading, setActionLoading] = useState<{ [key: string]: boolean }>({});
+  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; reportId: string; reportTitle: string } | null>(null);
   const loadingRef = React.useRef(false);
   const needsRefetchRef = React.useRef(false);
+
+  // Helper function to remove duplicate reports by ID
+  const deduplicateReports = (reports: Report[]): Report[] => {
+    const seen = new Set<string>();
+    return reports.filter(report => {
+      if (seen.has(report.id)) {
+        return false;
+      }
+      seen.add(report.id);
+      return true;
+    });
+  };
 
   useEffect(() => {
     const initializeAndFetch = async () => {
@@ -68,8 +89,8 @@ export function VerificationReports() {
     console.log('Setting up real-time subscriptions for verification reports');
     
     const matchesFilters = (r: any) => {
-      // Only show reports that are verifying or awaiting verification
-      if (r.status !== 'verifying' && r.status !== 'awaiting_verification') return false;
+      // Only show reports that are verifying, awaiting verification, or cancelled
+      if (r.status !== 'verifying' && r.status !== 'awaiting_verification' && r.status !== 'cancelled') return false;
       
       // Add null checks for all properties
       const categoryOk = !filters.category || filters.category === 'All' || 
@@ -90,15 +111,19 @@ export function VerificationReports() {
     
     const reportsSubscription = reportsService.subscribeToReports((newReport) => {
       console.log('New verification report received:', newReport);
-      // Only add reports that are verifying or awaiting verification
-      if (newReport.status !== 'verifying' && newReport.status !== 'awaiting_verification') return;
+      // Only add reports that are verifying, awaiting verification, or cancelled
+      if (newReport.status !== 'verifying' && newReport.status !== 'awaiting_verification' && newReport.status !== 'cancelled') return;
       if (!matchesFilters(newReport)) return;
-      setReports(prev => (prev.some(r => r.id === newReport.id) ? prev : [newReport, ...prev]));
+      setReports(prev => {
+        // Check if report already exists to prevent duplicates
+        if (prev.some(r => r.id === newReport.id)) return prev;
+        return [newReport, ...prev];
+      });
     });
 
     const statusSubscription = reportsService.subscribeToReportStatusChanges((reportId, newStatus) => {
       console.log('Status change received for verification report:', reportId, 'new status:', newStatus);
-      if (newStatus !== 'verifying' && newStatus !== 'awaiting_verification') {
+      if (newStatus !== 'verifying' && newStatus !== 'awaiting_verification' && newStatus !== 'cancelled') {
         setReports(prev => prev.filter(r => r.id !== reportId));
       } else {
         setReports(prev => {
@@ -145,11 +170,11 @@ export function VerificationReports() {
     };
   }, [user, filters, searchTerm]);
 
-  // Clean up any reports that don't have verifying or awaiting_verification status
+  // Clean up any reports that don't have verifying, awaiting_verification, or cancelled status
   useEffect(() => {
-    const hasInvalidReports = reports.some(report => report.status !== 'verifying' && report.status !== 'awaiting_verification');
+    const hasInvalidReports = reports.some(report => report.status !== 'verifying' && report.status !== 'awaiting_verification' && report.status !== 'cancelled');
     if (hasInvalidReports) {
-      setReports(prev => prev.filter(report => report.status === 'verifying' || report.status === 'awaiting_verification'));
+      setReports(prev => deduplicateReports(prev.filter(report => report.status === 'verifying' || report.status === 'awaiting_verification' || report.status === 'cancelled')));
     }
   });
 
@@ -164,19 +189,59 @@ export function VerificationReports() {
       setLoading(true);
       loadingRef.current = true;
       
-      // Fetch reports with 'verifying' or 'awaiting_verification' status
-      const reportsData = await reportsService.getReports({
-        category: filters.category,
-        status: filters.status === 'All' ? undefined : filters.status,
-        priority: filters.priority,
-        search: searchTerm,
-        limit: 40
+      // Fetch reports that are verifying, awaiting verification, or cancelled
+      const [verifyingReports, awaitingReports, cancelledReports] = await Promise.all([
+        reportsService.getReports({
+          category: filters.category,
+          status: 'verifying',
+          priority: filters.priority,
+          search: searchTerm,
+          limit: 40
+        }),
+        reportsService.getReports({
+          category: filters.category,
+          status: 'awaiting_verification',
+          priority: filters.priority,
+          search: searchTerm,
+          limit: 40
+        }),
+        reportsService.getReports({
+          category: filters.category,
+          status: 'cancelled',
+          priority: filters.priority,
+          search: searchTerm,
+          limit: 40
+        })
+      ]);
+
+      console.log('Debug: Fetched reports:', {
+        verifying: verifyingReports.length,
+        awaiting: awaitingReports.length,
+        cancelled: cancelledReports.length
       });
+      
+      // Combine all reports and remove duplicates based on ID
+      let allReports = deduplicateReports([...verifyingReports, ...awaitingReports, ...cancelledReports]);
 
-      // Double-check: filter to ensure only verifying or awaiting_verification reports are shown
-      const filteredReportsData = reportsData.filter(report => report.status === 'verifying' || report.status === 'awaiting_verification');
+      console.log('Combined reports before filtering:', { 
+        totalReports: allReports.length, 
+        reports: allReports.map(r => ({ id: r.id, title: r.title, status: r.status }))
+      });
+      
+      // Apply status filter if not 'All'
+      if (filters.status !== 'All') {
+        const normalizedStatus = filters.status.toLowerCase().replace(/\s+/g, '_');
+        allReports = allReports.filter(report => report.status === normalizedStatus);
+        console.log('After status filter:', {
+          filteredCount: allReports.length,
+          filterStatus: filters.status,
+          normalizedStatus,
+          filteredReports: allReports.map(r => ({ id: r.id, title: r.title, status: r.status }))
+        });
+      }
 
-      setReports(filteredReportsData);
+      console.log('Final reports being set:', allReports.length);
+      setReports(deduplicateReports(allReports));
     } catch (error) {
       console.error('Error fetching verification reports:', error);
     } finally {
@@ -228,6 +293,56 @@ export function VerificationReports() {
     setImageErrors(prev => ({ ...prev, [reportId]: true }));
   };
 
+  const handleCancel = async (reportId: string) => {
+    setActionLoading(prev => ({ ...prev, [reportId]: true }));
+    try {
+      await reportsService.cancelReport(reportId, 'Cancelled by user');
+      setReports(prev => prev.map(report => 
+        report.id === reportId 
+          ? { ...report, status: 'cancelled' as const, can_cancel: false }
+          : report
+      ));
+      setNotification({ message: 'Report cancelled successfully', type: 'success' });
+      
+      // Refresh the data to ensure we have the latest status from the database
+      setTimeout(() => {
+        fetchReports();
+      }, 1000);
+    } catch (error) {
+      console.error('Error cancelling report:', error);
+      setNotification({ message: 'Failed to cancel report', type: 'error' });
+    } finally {
+      setActionLoading(prev => ({ ...prev, [reportId]: false }));
+    }
+  };
+
+  const handleDelete = (reportId: string, reportTitle: string) => {
+    setDeleteModal({
+      isOpen: true,
+      reportId,
+      reportTitle
+    });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteModal) return;
+
+    const { reportId } = deleteModal;
+    setActionLoading(prev => ({ ...prev, [reportId]: true }));
+    
+    try {
+      await reportsService.deleteReport(reportId);
+      setReports(prev => prev.filter(report => report.id !== reportId));
+      setNotification({ message: 'Report deleted successfully', type: 'success' });
+      setDeleteModal(null);
+    } catch (error) {
+      console.error('Error deleting report:', error);
+      setNotification({ message: 'Failed to delete report', type: 'error' });
+    } finally {
+      setActionLoading(prev => ({ ...prev, [reportId]: false }));
+    }
+  };
+
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'high':
@@ -243,8 +358,8 @@ export function VerificationReports() {
 
   // Filter reports based on current filters and search
   const filteredReports = reports.filter(report => {
-    // Only show reports that are verifying or awaiting verification
-    if (report.status !== 'verifying' && report.status !== 'awaiting_verification') return false;
+    // Only show reports that are verifying, awaiting verification, or cancelled
+    if (report.status !== 'verifying' && report.status !== 'awaiting_verification' && report.status !== 'cancelled') return false;
     
     // Add null checks for all properties
     const categoryOk = !filters.category || filters.category === 'All' || 
@@ -297,7 +412,24 @@ export function VerificationReports() {
           </button>
         </div>
 
-
+        {/* Notification */}
+        {notification && (
+          <div className={`mb-4 p-3 rounded-md ${
+            notification.type === 'success' 
+              ? 'bg-green-50 text-green-800 border border-green-200' 
+              : 'bg-red-50 text-red-800 border border-red-200'
+          }`}>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">{notification.message}</span>
+              <button
+                onClick={() => setNotification(null)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Search and Filters Section */}
         <div className="bg-white rounded-lg shadow-sm p-3 mb-4 border border-gray-100">
@@ -336,6 +468,7 @@ export function VerificationReports() {
                 <option value="All">All Statuses</option>
                 <option value="verifying">Verifying</option>
                 <option value="awaiting_verification">Awaiting Verification</option>
+                <option value="cancelled">Cancelled</option>
               </select>
 
               <select
@@ -420,6 +553,7 @@ export function VerificationReports() {
                     <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium ${badgeStatusColor(report.status)}`}>
                       {report.status === 'verifying' ? 'Verifying' : 
                        report.status === 'awaiting_verification' ? 'Awaiting Verification' :
+                       report.status === 'cancelled' ? 'Cancelled' :
                        report.status.replace('_', ' ')}
                     </span>
                   </div>
@@ -467,16 +601,57 @@ export function VerificationReports() {
                         <span>{report.comments?.count || 0}</span>
                       </div>
                     </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`/reports/${report.id}`);
-                      }}
-                      className="text-orange-600 hover:text-orange-700 transition-colors p-1 rounded hover:bg-orange-50"
-                      title="View details"
-                    >
-                      <Eye className="h-3.5 w-3.5" />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      {/* Cancel Button - only show for verifying/awaiting_verification reports */}
+                      {(report.status === 'verifying' || report.status === 'awaiting_verification') && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCancel(report.id);
+                          }}
+                          disabled={actionLoading[report.id]}
+                          className="text-red-600 hover:text-red-700 transition-colors p-1 rounded hover:bg-red-50 disabled:opacity-50"
+                          title="Cancel report"
+                        >
+                          {actionLoading[report.id] ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <XCircle className="h-3.5 w-3.5" />
+                          )}
+                        </button>
+                      )}
+                      
+                      {/* Delete Button - only show for cancelled reports */}
+                      {report.status === 'cancelled' && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete(report.id, report.title);
+                          }}
+                          disabled={actionLoading[report.id]}
+                          className="text-red-600 hover:text-red-700 transition-colors p-1 rounded hover:bg-red-50 disabled:opacity-50"
+                          title="Permanently delete report"
+                        >
+                          {actionLoading[report.id] ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-3.5 w-3.5" />
+                          )}
+                        </button>
+                      )}
+                      
+                      {/* View Button */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/reports/${report.id}`);
+                        }}
+                        className="text-orange-600 hover:text-orange-700 transition-colors p-1 rounded hover:bg-orange-50"
+                        title="View details"
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -511,6 +686,21 @@ export function VerificationReports() {
           onClose={() => setLikeDetailsModal(null)}
           reportId={likeDetailsModal.reportId}
           reportTitle={likeDetailsModal.reportTitle}
+        />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteModal && (
+        <ConfirmationModal
+          isOpen={deleteModal.isOpen}
+          onClose={() => setDeleteModal(null)}
+          onConfirm={confirmDelete}
+          title="Delete Report"
+          message={`Are you sure you want to permanently delete the report "${deleteModal.reportTitle}"? This action cannot be undone.`}
+          confirmText="Delete"
+          cancelText="Cancel"
+          type="danger"
+          isLoading={actionLoading[deleteModal.reportId]}
         />
       )}
     </div>

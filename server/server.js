@@ -10,6 +10,7 @@ import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
 import fetch from 'node-fetch';
 import { GoogleAuth } from 'google-auth-library';
+import * as enhancedChatEndpoints from './enhancedChatEndpoints.js';
 
 // Load environment variables
 dotenv.config();
@@ -264,14 +265,14 @@ app.use((req, res, next) => {
   const start = Date.now();
   res.on('finish', () => {
     const duration = Date.now() - start;
-    performanceMetrics.responseTimes.push(duration);
     
-    // Keep only last 100 response times to prevent memory bloat
-    if (performanceMetrics.responseTimes.length > 100) {
+    // Use circular buffer to prevent memory leaks
+    if (performanceMetrics.responseTimes.length >= 100) {
       performanceMetrics.responseTimes.shift();
     }
+    performanceMetrics.responseTimes.push(duration);
     
-    // Update average response time
+    // Update average response time efficiently
     const total = performanceMetrics.responseTimes.reduce((a, b) => a + b, 0);
     performanceMetrics.averageResponseTime = Math.round(total / performanceMetrics.responseTimes.length);
   });
@@ -408,76 +409,44 @@ app.get('/api/quotas/:userId', async (req, res) => {
   }
 });
 
-// Chat API endpoints
-app.get('/api/chat/conversations/:userId', async (req, res) => {
-  try {
-    const { userId } = req.params;
-    console.log('Fetching conversations for user:', userId);
-    console.log('Request origin:', req.headers.origin);
-    console.log('Request headers:', req.headers);
-    
-    if (!supabaseAdmin) {
-      return res.status(503).json({ 
-        error: 'Chat service temporarily unavailable', 
-        details: 'Admin privileges required for chat functionality' 
-      });
-    }
-    
-    // First, get the conversations using admin client to bypass RLS
-    const { data: conversations, error: convError } = await supabaseAdmin
-      .from('chat_conversations')
-      .select('*')
-      .or(`participant1_id.eq.${userId},participant2_id.eq.${userId}`);
+// Enhanced Chat API endpoints
+// Get conversations with enhanced participant data
+app.get('/api/chat/conversations/:userId', enhancedChatEndpoints.getConversationsWithParticipants);
 
-    if (convError) {
-      console.error('Error fetching conversations:', convError);
-      throw convError;
-    }
+// Get conversation participants
+app.get('/api/chat/conversations/:conversationId/participants', enhancedChatEndpoints.getConversationParticipants);
 
-    console.log('Found conversations:', conversations);
+// Get conversation details
+app.get('/api/chat/conversations/details/:conversationId', enhancedChatEndpoints.getConversationDetails);
 
-    // For now, return basic conversation data without complex joins
-    // We can add participant details later if needed
-    res.json(conversations || []);
-  } catch (error) {
-    console.error('Error fetching conversations:', error);
-    res.status(500).json({ error: 'Failed to fetch conversations', details: error.message });
-  }
-});
+// Search conversations
+app.get('/api/chat/conversations/search', enhancedChatEndpoints.searchConversations);
 
-app.get('/api/chat/messages/:conversationId', async (req, res) => {
-  try {
-    const { conversationId } = req.params;
-    console.log('Fetching messages for conversation:', conversationId);
-    
-    if (!supabaseAdmin) {
-      return res.status(503).json({ 
-        error: 'Chat service temporarily unavailable', 
-        details: 'Admin privileges required for chat functionality' 
-      });
-    }
-    
-    const { data, error } = await supabaseAdmin
-      .from('chat_messages')
-      .select('*')
-      .eq('conversation_id', conversationId)
-      .order('created_at', { ascending: true });
+// Get total unread count
+app.get('/api/chat/unread-count', enhancedChatEndpoints.getTotalUnreadCount);
 
-    if (error) {
-      console.error('Error fetching messages:', error);
-      throw error;
-    }
+// Get messages with pagination
+app.get('/api/chat/messages/:conversationId', enhancedChatEndpoints.getMessagesWithPagination);
 
-    console.log('Found messages:', data?.length || 0);
-    res.json(data || []);
-  } catch (error) {
-    console.error('Error fetching messages:', error);
-    res.status(500).json({ error: 'Failed to fetch messages', details: error.message });
-  }
- });
+// Send message with rate limiting
+app.post('/api/chat/messages', messageRateLimiter, enhancedChatEndpoints.sendMessage);
+
+// Mark conversation as read
+app.post('/api/chat/conversations/:conversationId/read', enhancedChatEndpoints.markConversationAsRead);
+
+// Get unread count for conversation
+app.get('/api/chat/conversations/:conversationId/unread', enhancedChatEndpoints.getUnreadCount);
 
 // Stricter rate limit for conversation creation
 const createConversationLimiter = rateLimit({ windowMs: 60 * 1000, max: 20 });
+
+// Rate limit for message sending
+const messageRateLimiter = rateLimit({ 
+  windowMs: 60 * 1000, // 1 minute
+  max: 100, // 100 messages per minute per IP
+  message: 'Too many messages sent, please slow down'
+});
+
 app.post('/api/chat/conversations', createConversationLimiter, async (req, res) => {
   try {
     const { participant1_id, participant2_id } = req.body;
@@ -761,7 +730,7 @@ app.post('/api/cloudinary/batch-delete', async (req, res) => {
 // Socket.IO connection handling with performance optimizations
 const connectedUsers = new Map();
 const messageQueue = new Map(); // Queue for batched messages
-const BATCH_DELAY = 50; // 50ms batch delay
+const BATCH_DELAY = 10; // Reduced to 10ms for better real-time performance
 const batchTimers = new Map();
 
 // Performance monitoring
@@ -813,7 +782,7 @@ app.get('/api/performance', (req, res) => {
   });
 });
 
-// Optimized Socket.IO configuration
+// Optimized Socket.IO configuration for real-time performance
 const io = new Server(server, {
   cors: {
     origin: [
@@ -831,21 +800,21 @@ const io = new Server(server, {
   },
   transports: ['websocket', 'polling'], // Allow fallback to polling for better compatibility
   allowEIO3: false, // Disable legacy support
-  pingTimeout: 60000,
-  pingInterval: 25000,
+  pingTimeout: 30000, // Reduced for faster detection of disconnections
+  pingInterval: 15000, // More frequent pings for better connection health
   maxHttpBufferSize: 1e6, // 1MB
-  // Performance optimizations
-  connectTimeout: 20000, // Increased timeout
-  upgradeTimeout: 20000, // Increased upgrade timeout
+  // Performance optimizations for real-time
+  connectTimeout: 15000, // Reduced timeout for faster connection
+  upgradeTimeout: 15000, // Reduced upgrade timeout
   allowUpgrades: true, // Enable upgrade for better compatibility
   rememberUpgrade: true,
   perMessageDeflate: {
-    threshold: 32768, // Only compress messages larger than 32KB
+    threshold: 16384, // Reduced threshold for faster compression
     zlibInflateOptions: {
-      chunkSize: 10 * 1024
+      chunkSize: 8 * 1024
     },
     zlibDeflateOptions: {
-      level: 6
+      level: 3 // Faster compression
     }
   }
 });
@@ -926,6 +895,10 @@ io.on('connection', (socket) => {
   console.log('Connection headers:', socket.handshake.headers);
   performanceMetrics.connectionsActive++;
   
+  // Enhanced connection monitoring
+  socket.lastPing = Date.now();
+  socket.isAlive = true;
+  
   // Track message processing for performance metrics
   const originalEmit = socket.emit;
   socket.emit = function(event, ...args) {
@@ -961,6 +934,7 @@ io.on('connection', (socket) => {
         });
         
         socket.userId = userId;
+        socket.authenticated = true;
         socket.join(`user_${userId}`);
         
         console.log(`User ${existingConnection.user.username} reconnected with socket ${socket.id}`);
@@ -988,6 +962,7 @@ io.on('connection', (socket) => {
       });
 
       socket.userId = userId;
+      socket.authenticated = true;
       socket.join(`user_${userId}`);
       
       console.log(`User ${user.username} authenticated with socket ${socket.id}`);
@@ -1000,49 +975,118 @@ io.on('connection', (socket) => {
 
   // Handle joining a conversation
   socket.on('join_conversation', (conversationId) => {
+    // Validate authentication first
+    if (!socket.authenticated || !socket.userId) {
+      return;
+    }
+
     socket.join(`conversation_${conversationId}`);
     console.log(`Socket ${socket.id} joined conversation ${conversationId}`);
   });
 
   // Handle leaving a conversation
   socket.on('leave_conversation', (conversationId) => {
+    // Validate authentication first
+    if (!socket.authenticated || !socket.userId) {
+      return;
+    }
+
     socket.leave(`conversation_${conversationId}`);
     console.log(`Socket ${socket.id} left conversation ${conversationId}`);
   });
 
-  // Handle single message (legacy support)
-  socket.on('send_message', async (messageData) => {
+  // Handle single message with immediate processing for real-time performance
+  socket.on('send_message', async (messageData, callback) => {
     try {
+      // Validate authentication first
+      if (!socket.authenticated || !socket.userId) {
+        socket.emit('auth_error', { message: 'Not authenticated' });
+        if (callback && typeof callback === 'function') {
+          callback({ success: false, error: 'Not authenticated' });
+        }
+        return;
+      }
+
       const { conversation_id, sender_id, content, message_type = 'text' } = messageData;
       
-      // Add to batch
-      if (!messageQueue.has(conversation_id)) {
-        messageQueue.set(conversation_id, []);
+      // Validate sender matches authenticated user
+      if (sender_id !== socket.userId) {
+        socket.emit('message_error', { message: 'Sender ID mismatch' });
+        if (callback && typeof callback === 'function') {
+          callback({ success: false, error: 'Sender ID mismatch' });
+        }
+        return;
       }
       
-      messageQueue.get(conversation_id).push({
-        sender_id,
-        content,
-        message_type
-      });
+      // Process message immediately for real-time performance
+      const { data: message, error } = await supabaseAdmin
+        .from('chat_messages')
+        .insert([{
+          conversation_id,
+          sender_id,
+          content,
+          message_type
+        }])
+        .select()
+        .single();
 
-      // Set batch timer
-      if (!batchTimers.has(conversation_id)) {
-        const timer = setTimeout(() => {
-          flushMessageBatch(conversation_id);
-        }, BATCH_DELAY);
-        batchTimers.set(conversation_id, timer);
+      if (error) {
+        console.error('Database error saving message:', error);
+        socket.emit('message_error', { message: 'Failed to save message' });
+        
+        if (callback && typeof callback === 'function') {
+          callback({ success: false, error: 'Failed to save message' });
+        }
+        return;
+      }
+
+      // Add sender information
+      const messageWithSender = {
+        ...message,
+        sender: connectedUsers.get(sender_id)?.user
+      };
+
+      // Broadcast immediately to conversation room
+      io.to(`conversation_${conversation_id}`).emit('new_message', messageWithSender);
+      
+      // Update conversation timestamp
+      try {
+        await supabaseAdmin
+          .from('chat_conversations')
+          .update({ last_message_at: new Date().toISOString() })
+          .eq('id', conversation_id);
+      } catch (updateError) {
+        console.error('Warning: Failed to update conversation timestamp:', updateError);
+      }
+
+      // Update performance metrics
+      performanceMetrics.messagesProcessed++;
+
+      // Send success response to client
+      if (callback && typeof callback === 'function') {
+        callback({ success: true, message: messageWithSender });
       }
 
     } catch (error) {
-      console.error('Error queuing message:', error);
-      socket.emit('message_error', { message: 'Failed to queue message' });
+      console.error('Error processing message:', error);
+      socket.emit('message_error', { message: 'Failed to process message' });
+      
+      // Send error response to client
+      if (callback && typeof callback === 'function') {
+        callback({ success: false, error: 'Failed to process message' });
+      }
     }
   });
 
   // Handle batched messages (new optimized method)
   socket.on('send_message_batch', async (batchData) => {
     try {
+      // Validate authentication first
+      if (!socket.authenticated || !socket.userId) {
+        socket.emit('auth_error', { message: 'Not authenticated' });
+        return;
+      }
+
       const { conversation_id, messages } = batchData;
       
       const startTime = Date.now();
@@ -1105,6 +1149,11 @@ io.on('connection', (socket) => {
   // Handle typing indicator with debouncing
   const typingTimers = new Map();
   socket.on('typing_start', (conversationId) => {
+    // Validate authentication first
+    if (!socket.authenticated || !socket.userId) {
+      return;
+    }
+
     const key = `${socket.id}-${conversationId}`;
     
     // Clear existing timer
@@ -1129,6 +1178,11 @@ io.on('connection', (socket) => {
   });
 
   socket.on('typing_stop', (conversationId) => {
+    // Validate authentication first
+    if (!socket.authenticated || !socket.userId) {
+      return;
+    }
+
     const key = `${socket.id}-${conversationId}`;
     if (typingTimers.has(key)) {
       clearTimeout(typingTimers.get(key));
@@ -1138,6 +1192,18 @@ io.on('connection', (socket) => {
     socket.to(`conversation_${conversationId}`).emit('user_stopped_typing', {
       userId: socket.userId
     });
+  });
+
+  // Handle ping/pong for connection health
+  socket.on('ping', () => {
+    socket.lastPing = Date.now();
+    socket.isAlive = true;
+    socket.emit('pong');
+  });
+
+  socket.on('pong', () => {
+    socket.lastPing = Date.now();
+    socket.isAlive = true;
   });
 
   // Handle disconnection
@@ -1165,6 +1231,17 @@ io.on('connection', (socket) => {
     console.log('Socket disconnected:', socket.id);
   });
 });
+
+// Connection health monitoring
+setInterval(() => {
+  const now = Date.now();
+  io.sockets.sockets.forEach((socket) => {
+    if (socket.lastPing && now - socket.lastPing > 60000) { // 60 seconds timeout
+      console.log(`Disconnecting stale socket: ${socket.id}`);
+      socket.disconnect(true);
+    }
+  });
+}, 30000); // Check every 30 seconds
 
 // Error handling
 app.use((err, req, res, next) => {

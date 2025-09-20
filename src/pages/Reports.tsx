@@ -223,12 +223,13 @@ export function Reports() {
         limit: 40
       });
 
-      // Filter out verifying, awaiting_verification, and rejected reports from the main reports view
+      // Filter out verifying, awaiting_verification, rejected, and cancelled reports from the main reports view
       // These should be handled on the verification page or user profile
       const filteredReportsData = reportsData.filter(report => 
         report.status !== 'verifying' && 
         report.status !== 'awaiting_verification' && 
-        report.status !== 'rejected'
+        report.status !== 'rejected' &&
+        report.status !== 'cancelled'
       );
 
       setReports(filteredReportsData);
@@ -578,12 +579,6 @@ export function Reports() {
                     <span className={`inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-semibold shadow-sm ${getPriorityColor(report.priority)}`}>
                       {report.priority}
                     </span>
-                    {typeof (report as any).rating_avg === 'number' && (report as any).rating_count > 0 && (
-                      <span className="inline-flex items-center px-2.5 py-1 rounded-xl text-xs font-semibold shadow-sm bg-yellow-50 text-yellow-700">
-                        <Star className="h-3.5 w-3.5 mr-1 text-yellow-500 fill-yellow-400" />
-                        {(report as any).rating_avg} ({(report as any).rating_count})
-                      </span>
-                    )}
                   </div>
 
                   <div className="flex items-center justify-between text-sm mb-4">

@@ -34,7 +34,7 @@ export function AdminReports() {
         }
       } catch {}
 
-      const data = await reportsService.getReports({
+      const data = await reportsService.getAdminReports({
         search: search || undefined,
         status,
         limit: 30,

@@ -12,7 +12,8 @@ import {
   Download,
   Printer,
   Shield,
-  Clock
+  Clock,
+  XCircle
 } from 'lucide-react';
 import type { Report } from '../types';
 import { supabase } from '../lib/supabase';
@@ -30,78 +31,131 @@ export function AdminHistory() {
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [loading, setLoading] = useState(false);
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
+  const [activeTab, setActiveTab] = useState<'resolved' | 'rejected'>('resolved');
 
   useEffect(() => {
-    // Parse reports from URL parameters
-    const resolvedReports: ReportWithPatrol[] = [];
-    let index = 0;
+    fetchAllReports();
     
-    while (true) {
-      const reportParam = searchParams.get(`report_${index}`);
-      if (!reportParam) break;
-      
-      try {
-        const report = JSON.parse(reportParam);
-        resolvedReports.push(report);
-      } catch (error) {
-        console.error('Error parsing report:', error);
-      }
-      
-      index++;
-    }
-    
-    setReports(resolvedReports);
-    setFilteredReports(resolvedReports);
-    
-    // Fetch patrol officer names for reports that have patrol_user_id
-    if (resolvedReports.length > 0) {
-      fetchPatrolOfficerNames(resolvedReports);
+    // Check for tab parameter in URL
+    const tabParam = searchParams.get('tab');
+    if (tabParam === 'rejected') {
+      setActiveTab('rejected');
     }
   }, [searchParams]);
 
-  const fetchPatrolOfficerNames = async (reports: ReportWithPatrol[]) => {
+  const fetchAllReports = async () => {
+    setLoading(true);
     try {
-      // Get unique patrol user IDs
+      // Fetch both resolved and rejected reports
+      const { data: reportsData, error } = await supabase
+        .from('reports')
+        .select(`
+          id,
+          title,
+          description,
+          category,
+          status,
+          priority,
+          location,
+          location_address,
+          created_at,
+          user_id,
+          patrol_user_id,
+          images,
+          case_number
+        `)
+        .in('status', ['resolved', 'rejected'])
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const reportsWithPatrol: ReportWithPatrol[] = reportsData || [];
+      
+      // Fetch usernames for all user_ids from profiles table
+      if (reportsWithPatrol.length > 0) {
+        await fetchUsernamesAndPatrolOfficerNames(reportsWithPatrol);
+      } else {
+        setReports(reportsWithPatrol);
+        setFilteredReports(reportsWithPatrol);
+      }
+    } catch (error) {
+      console.error('Error fetching reports:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchUsernamesAndPatrolOfficerNames = async (reports: ReportWithPatrol[]) => {
+    try {
+      // Get unique user IDs and patrol user IDs
+      const userIds = reports
+        .map(report => report.user_id)
+        .filter((id, index, arr) => arr.indexOf(id) === index); // Remove duplicates
+
       const patrolUserIds = reports
         .filter(report => report.patrol_user_id)
         .map(report => report.patrol_user_id)
         .filter((id, index, arr) => arr.indexOf(id) === index); // Remove duplicates
 
-      if (patrolUserIds.length === 0) return;
+      let userMap = new Map();
+      let patrolUserMap = new Map();
 
-      // Fetch patrol officer profiles
-      const { data: patrolProfiles, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, username')
-        .in('id', patrolUserIds);
+      // Fetch user profiles for usernames
+      if (userIds.length > 0) {
+        const { data: userProfiles, error: userError } = await supabase
+          .from('profiles')
+          .select('id, username')
+          .in('id', userIds);
 
-      if (error) {
-        console.error('Error fetching patrol profiles:', error);
-        return;
+        if (!userError && userProfiles) {
+          userProfiles.forEach(profile => {
+            userMap.set(profile.id, profile.username);
+          });
+        }
       }
 
-      // Create a map of patrol user ID to name
-      const patrolNameMap = new Map();
-      patrolProfiles?.forEach(profile => {
-        patrolNameMap.set(profile.id, profile.full_name || profile.username || 'Unknown');
-      });
+      // Fetch patrol officer profiles
+      if (patrolUserIds.length > 0) {
+        const { data: patrolProfiles, error: patrolError } = await supabase
+          .from('profiles')
+          .select('id, username')
+          .in('id', patrolUserIds);
 
-      // Update reports with patrol officer names
+        if (!patrolError && patrolProfiles) {
+          patrolProfiles.forEach(profile => {
+            patrolUserMap.set(profile.id, profile.username);
+          });
+        }
+      }
+
+      // Update reports with usernames and patrol officer names
       const updatedReports = reports.map(report => ({
         ...report,
-        patrol_officer_name: report.patrol_user_id ? patrolNameMap.get(report.patrol_user_id) : undefined
+        username: userMap.get(report.user_id) || `User ${report.user_id.slice(0, 8)}`,
+        patrol_officer_name: report.patrol_user_id ? patrolUserMap.get(report.patrol_user_id) : undefined
       }));
 
       setReports(updatedReports);
       setFilteredReports(updatedReports);
     } catch (error) {
-      console.error('Error in fetchPatrolOfficerNames:', error);
+      console.error('Error in fetchUsernamesAndPatrolOfficerNames:', error);
+      // Fallback: set reports with fallback usernames
+      const fallbackReports = reports.map(report => ({
+        ...report,
+        username: `User ${report.user_id.slice(0, 8)}`,
+        patrol_officer_name: undefined
+      }));
+      setReports(fallbackReports);
+      setFilteredReports(fallbackReports);
     }
   };
 
   useEffect(() => {
-    // Filter reports based on search term and category
+    // Filter reports based on search term, category, and active tab
     let filtered = reports;
+    
+    // Filter by active tab (resolved or rejected)
+    filtered = filtered.filter(report => report.status === activeTab);
     
     if (searchTerm) {
       filtered = filtered.filter(report => 
@@ -117,7 +171,7 @@ export function AdminHistory() {
     }
     
     setFilteredReports(filtered);
-  }, [reports, searchTerm, categoryFilter]);
+  }, [reports, searchTerm, categoryFilter, activeTab]);
 
   const getCategoryColor = (category: string) => {
     const colors: Record<string, string> = {
@@ -140,15 +194,16 @@ export function AdminHistory() {
     return colors[priority] || colors.medium;
   };
 
-  // Compute quick category counts for chips
+  // Compute quick category counts for chips based on active tab
   const categoryCounts = React.useMemo(() => {
     const map = new Map<string, number>();
-    reports.forEach(r => {
+    const tabReports = reports.filter(report => report.status === activeTab);
+    tabReports.forEach(r => {
       const key = r.category || 'other';
       map.set(key, (map.get(key) || 0) + 1);
     });
     return map;
-  }, [reports]);
+  }, [reports, activeTab]);
 
   const exportToCSV = () => {
     const headers = ['Title', 'Description', 'Category', 'Priority', 'Reporter', 'Patrol Officer', 'Date', 'Location'];
@@ -170,7 +225,7 @@ export function AdminHistory() {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `resolved-reports-${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `${activeTab}-reports-${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
   };
@@ -216,7 +271,7 @@ export function AdminHistory() {
                       <li className="font-medium text-gray-700">History</li>
                     </ol>
                   </nav>
-                  <h1 className="text-lg sm:text-xl font-bold text-gray-900">Resolved Reports History</h1>
+                  <h1 className="text-lg sm:text-xl font-bold text-gray-900">Reports History</h1>
                 </div>
               </div>
             </div>
@@ -247,6 +302,46 @@ export function AdminHistory() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex space-x-8">
+            <button
+              onClick={() => setActiveTab('resolved')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'resolved'
+                  ? 'border-emerald-500 text-emerald-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <div className="flex items-center space-x-2">
+                <Check className="w-4 h-4" />
+                <span>Resolved</span>
+                <span className="bg-emerald-100 text-emerald-800 text-xs px-2 py-1 rounded-full">
+                  {reports.filter(r => r.status === 'resolved').length}
+                </span>
+              </div>
+            </button>
+            <button
+              onClick={() => setActiveTab('rejected')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'rejected'
+                  ? 'border-red-500 text-red-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <div className="flex items-center space-x-2">
+                <XCircle className="w-4 h-4" />
+                <span>Rejected</span>
+                <span className="bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full">
+                  {reports.filter(r => r.status === 'rejected').length}
+                </span>
+              </div>
+            </button>
           </div>
         </div>
       </div>
@@ -294,7 +389,8 @@ export function AdminHistory() {
             {(() => {
               const items: Array<{ key: string; label: string; count: number }> = [];
               const unique = Array.from(categoryCounts.keys());
-              items.push({ key: 'all', label: 'All', count: reports.length });
+              const tabReports = reports.filter(report => report.status === activeTab);
+              items.push({ key: 'all', label: 'All', count: tabReports.length });
               unique.forEach(key => items.push({ key, label: key.charAt(0).toUpperCase() + key.slice(1), count: categoryCounts.get(key) || 0 }));
               return items.map(({ key, label, count }) => {
                 const isActive = categoryFilter === key;
@@ -317,12 +413,12 @@ export function AdminHistory() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
             <div className="flex items-center">
-              <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-lg">
-                <Check className="w-6 h-6 text-white" />
+              <div className={`h-12 w-12 rounded-xl bg-gradient-to-br ${activeTab === 'resolved' ? 'from-green-500 to-emerald-600' : 'from-red-500 to-red-600'} flex items-center justify-center shadow-lg`}>
+                {activeTab === 'resolved' ? <Check className="w-6 h-6 text-white" /> : <XCircle className="w-6 h-6 text-white" />}
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Resolved</p>
-                <p className="text-3xl font-bold text-gray-900">{reports.length}</p>
+                <p className="text-sm font-medium text-gray-600">Total {activeTab === 'resolved' ? 'Resolved' : 'Rejected'}</p>
+                <p className="text-3xl font-bold text-gray-900">{reports.filter(r => r.status === activeTab).length}</p>
               </div>
             </div>
           </div>
@@ -349,7 +445,8 @@ export function AdminHistory() {
                     const reportDate = new Date(r.created_at);
                     const now = new Date();
                     return reportDate.getMonth() === now.getMonth() && 
-                           reportDate.getFullYear() === now.getFullYear();
+                           reportDate.getFullYear() === now.getFullYear() &&
+                           r.status === activeTab;
                   }).length}
                 </p>
               </div>
@@ -363,7 +460,7 @@ export function AdminHistory() {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-600">Categories</p>
                 <p className="text-3xl font-bold text-gray-900">
-                  {new Set(reports.map(r => r.category)).size}
+                  {new Set(reports.filter(r => r.status === activeTab).map(r => r.category)).size}
                 </p>
               </div>
             </div>
@@ -375,8 +472,8 @@ export function AdminHistory() {
           <div className="px-6 sm:px-8 py-5 border-b border-gray-200 bg-white">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-xl font-semibold text-gray-900">Resolved Reports</h2>
-                <p className="text-sm text-gray-600 mt-1">Showing {filteredReports.length} of {reports.length} resolved reports</p>
+                <h2 className="text-xl font-semibold text-gray-900">{activeTab === 'resolved' ? 'Resolved' : 'Rejected'} Reports</h2>
+                <p className="text-sm text-gray-600 mt-1">Showing {filteredReports.length} of {reports.filter(r => r.status === activeTab).length} {activeTab} reports</p>
               </div>
               <div className="inline-flex items-center bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
                 <button
@@ -407,8 +504,8 @@ export function AdminHistory() {
             </div>
           ) : filteredReports.length === 0 ? (
             <div className="p-12 text-center text-gray-500">
-              <Check className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No reports found</h3>
+              {activeTab === 'resolved' ? <Check className="w-16 h-16 text-gray-300 mx-auto mb-4" /> : <XCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />}
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No {activeTab} reports found</h3>
               <p className="text-gray-500">Try adjusting your search or filters</p>
             </div>
           ) : viewMode === 'table' ? (
@@ -455,6 +552,9 @@ export function AdminHistory() {
                       </h3>
                       <span className={`px-3 py-1.5 rounded-full text-xs font-medium border ${getCategoryColor(report.category)}`}>{report.category.charAt(0).toUpperCase() + report.category.slice(1)}</span>
                       <span className={`px-3 py-1.5 rounded-full text-xs font-medium border ${getPriorityColor(report.priority)}`}>{report.priority.charAt(0).toUpperCase() + report.priority.slice(1)} Priority</span>
+                      {report.status === 'rejected' && (
+                        <span className="px-3 py-1.5 rounded-full text-xs font-medium border bg-red-100 text-red-800 border-red-200">Rejected</span>
+                      )}
                     </div>
                     <p className="text-gray-600 text-sm leading-relaxed mb-4">{report.description}</p>
                   </div>

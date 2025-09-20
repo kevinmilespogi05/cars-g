@@ -729,7 +729,9 @@ export function AdminMapDashboard() {
         return report;
       });
       
+      // Store all reports (including rejected) for the rejected button
       setReports(updatedReports);
+      
       // Cache for next visit for instant paint
       try { sessionStorage.setItem('admin_map_reports_v1', JSON.stringify({ data: updatedReports, ts: Date.now() })); } catch {}
     } catch (error) {
@@ -1007,8 +1009,8 @@ export function AdminMapDashboard() {
 
       // Filter reports based on current filter and search
       const filteredReports = reports.filter(report => {
-        // Always exclude resolved reports from the map
-        if (report.status === 'resolved') return false;
+        // Always exclude resolved and rejected reports from the map
+        if (report.status === 'resolved' || report.status === 'rejected') return false;
         const matchesFilter = filter === 'all' || report.status === filter;
         const matchesSearch = searchTerm === '' || 
           report.title.toLowerCase().includes(searchTerm.toLowerCase()) ||

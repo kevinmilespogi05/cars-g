@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useAuthStore } from '../store/authStore';
-import { Award, MapPin, Star, Edit2, Save, X, Camera, Shield, Bell, Lock, Calendar, Eye, CheckCircle, AlertCircle, Search, Filter, X as XIcon } from 'lucide-react';
+import { Award, MapPin, Star, Edit2, Save, X, Camera, Shield, Bell, Lock, Calendar, Eye, CheckCircle, AlertCircle, Search, Filter, X as XIcon, ArrowLeft } from 'lucide-react';
 import { AchievementsPanel } from '../components/AchievementsPanel';
 import { AvatarSelector } from '../components/AvatarSelector';
 import { ProfileSettingsTabs } from '../components/ProfileSettingsTabs';
@@ -450,6 +450,22 @@ export function Profile() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
       <div className="w-full px-4 sm:px-6 lg:px-8 py-8 max-w-7xl mx-auto">
+        {/* Go Back Button */}
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.3 }}
+          className="mb-6"
+        >
+          <button
+            onClick={() => navigate(-1)}
+            className="inline-flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors group bg-white/80 backdrop-blur-sm px-4 py-2 rounded-xl shadow-sm border border-gray-200/50 hover:shadow-md"
+          >
+            <ArrowLeft className="h-5 w-5 group-hover:-translate-x-1 transition-transform duration-200" />
+            <span className="font-medium">Go Back</span>
+          </button>
+        </motion.div>
+
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}

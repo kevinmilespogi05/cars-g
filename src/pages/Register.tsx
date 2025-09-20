@@ -17,7 +17,9 @@ import {
   Star,
   Globe,
   Smartphone,
-  ChevronRight
+  ChevronRight,
+  FileText,
+  X
 } from 'lucide-react';
 
 export function Register() {
@@ -31,10 +33,18 @@ export function Register() {
   const [isSocialLoading, setIsSocialLoading] = useState<'google' | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [isFocused, setIsFocused] = useState<string | null>(null);
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    
+    if (!privacyAccepted) {
+      setError('Please accept the Privacy Policy and Terms of Service to continue.');
+      return;
+    }
+    
     setIsLoading(true);
 
     try {
@@ -235,6 +245,42 @@ export function Register() {
               </div>
             </div>
 
+            {/* Privacy Policy Checkbox */}
+            <div className="space-y-3">
+              <div className="flex items-start space-x-3">
+                <div className="flex items-center h-5">
+                  <input
+                    id="privacy-policy"
+                    name="privacy-policy"
+                    type="checkbox"
+                    checked={privacyAccepted}
+                    onChange={(e) => setPrivacyAccepted(e.target.checked)}
+                    className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded transition-colors duration-200"
+                  />
+                </div>
+                <div className="text-sm">
+                  <label htmlFor="privacy-policy" className="text-gray-700 cursor-pointer">
+                    I agree to the{' '}
+                    <button
+                      type="button"
+                      onClick={() => setShowPrivacyModal(true)}
+                      className="text-red-600 hover:text-red-700 underline font-medium transition-colors duration-200"
+                    >
+                      Privacy Policy
+                    </button>
+                    {' '}and{' '}
+                    <button
+                      type="button"
+                      onClick={() => setShowPrivacyModal(true)}
+                      className="text-red-600 hover:text-red-700 underline font-medium transition-colors duration-200"
+                    >
+                      Terms of Service
+                    </button>
+                  </label>
+                </div>
+              </div>
+            </div>
+
             {/* Create Account Button */}
             <motion.button
               type="submit"
@@ -334,6 +380,125 @@ export function Register() {
           </motion.div>
         </motion.div>
       </div>
+
+      {/* Privacy Policy Modal */}
+      <AnimatePresence>
+        {showPrivacyModal && (
+          <motion.div
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setShowPrivacyModal(false)}
+          >
+            <motion.div
+              className="bg-white rounded-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden shadow-2xl"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                <div className="flex items-center space-x-3">
+                  <div className="h-10 w-10 rounded-xl flex items-center justify-center" style={{backgroundColor: '#800000'}}>
+                    <Shield className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900">Privacy Policy & Terms of Service</h2>
+                    <p className="text-sm text-gray-600">CARS-G Community Safety Platform</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowPrivacyModal(false)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200"
+                >
+                  <X className="h-5 w-5 text-gray-500" />
+                </button>
+              </div>
+
+              {/* Modal Content */}
+              <div className="p-6 overflow-y-auto max-h-[60vh]">
+                <div className="space-y-6 text-sm text-gray-700">
+                  <section>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
+                      <FileText className="h-5 w-5 mr-2" />
+                      Privacy Policy
+                    </h3>
+                    <div className="space-y-3">
+                      <p>
+                        <strong>Information We Collect:</strong> We collect information you provide directly to us, such as when you create an account, submit reports, or contact us for support.
+                      </p>
+                      <p>
+                        <strong>How We Use Your Information:</strong> We use the information we collect to provide, maintain, and improve our services, process reports, and communicate with you about safety concerns in your community.
+                      </p>
+                      <p>
+                        <strong>Information Sharing:</strong> We do not sell, trade, or otherwise transfer your personal information to third parties without your consent, except as described in this policy.
+                      </p>
+                      <p>
+                        <strong>Data Security:</strong> We implement appropriate security measures to protect your personal information against unauthorized access, alteration, disclosure, or destruction.
+                      </p>
+                    </div>
+                  </section>
+
+                  <section>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
+                      <Shield className="h-5 w-5 mr-2" />
+                      Terms of Service
+                    </h3>
+                    <div className="space-y-3">
+                      <p>
+                        <strong>Acceptable Use:</strong> You agree to use CARS-G only for lawful purposes and in accordance with these terms. You may not use the service to submit false reports or engage in any harmful activities.
+                      </p>
+                      <p>
+                        <strong>Community Guidelines:</strong> All users must follow our community guidelines, which promote respectful communication and accurate reporting of safety concerns.
+                      </p>
+                      <p>
+                        <strong>Account Responsibility:</strong> You are responsible for maintaining the confidentiality of your account credentials and for all activities that occur under your account.
+                      </p>
+                      <p>
+                        <strong>Service Availability:</strong> We strive to maintain service availability but cannot guarantee uninterrupted access. We reserve the right to modify or discontinue the service at any time.
+                      </p>
+                    </div>
+                  </section>
+
+                  <section>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
+                      <Globe className="h-5 w-5 mr-2" />
+                      Contact Information
+                    </h3>
+                    <p>
+                      If you have any questions about this Privacy Policy or Terms of Service, please contact us through our support channels within the application.
+                    </p>
+                  </section>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex items-center justify-between p-6 border-t border-gray-200 bg-gray-50">
+                <div className="flex items-center space-x-3">
+                  <input
+                    id="modal-privacy-policy"
+                    type="checkbox"
+                    checked={privacyAccepted}
+                    onChange={(e) => setPrivacyAccepted(e.target.checked)}
+                    className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="modal-privacy-policy" className="text-sm text-gray-700 cursor-pointer">
+                    I have read and agree to the Privacy Policy and Terms of Service
+                  </label>
+                </div>
+                <button
+                  onClick={() => setShowPrivacyModal(false)}
+                  className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors duration-200 font-medium"
+                >
+                  Close
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 } 

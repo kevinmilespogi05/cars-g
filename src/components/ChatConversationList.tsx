@@ -26,13 +26,25 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = ({
       ? conversation.participant2_id 
       : conversation.participant1_id;
     
-    // Find the user in profiles data
+    // First try to find the user in the conversation's participants array
+    const participantInConversation = conversation.participants?.find(p => p.id === otherId);
+    if (participantInConversation) {
+      return {
+        id: participantInConversation.id,
+        username: participantInConversation.username,
+        avatar_url: participantInConversation.avatar_url,
+        is_banned: participantInConversation.is_banned,
+      };
+    }
+    
+    // Fallback to profiles array if participants not available
     const otherUser = profiles.find(p => p.id === otherId);
     
     return {
       id: otherId,
       username: otherUser ? otherUser.username : `User ${otherId.slice(0, 8)}`,
       avatar_url: otherUser ? otherUser.avatar_url : null,
+      is_banned: otherUser ? otherUser.is_banned : false,
     };
   };
 
@@ -43,7 +55,13 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = ({
       ? conversation.participant2_id 
       : conversation.participant1_id;
     
-    // Check if the other participant is banned
+    // First check in conversation's participants array
+    const participantInConversation = conversation.participants?.find(p => p.id === otherId);
+    if (participantInConversation) {
+      return participantInConversation.is_banned === true;
+    }
+    
+    // Fallback to profiles array
     const otherUser = profiles.find(p => p.id === otherId);
     return otherUser ? otherUser.is_banned === true : false;
   };
@@ -143,7 +161,7 @@ export const ChatConversationList: React.FC<ChatConversationListProps> = ({
                 {/* Unread indicator and banned user indicator */}
                 <div className="flex items-center justify-between mt-2">
                   {/* Unread count */}
-                  {conversation.unread_count && conversation.unread_count > 0 && (
+                  {conversation.unread_count > 0 && (
                     <span className={`text-xs px-2 py-1 rounded-full ${
                       isSelected 
                         ? 'bg-white/20 text-white' 

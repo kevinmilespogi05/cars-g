@@ -752,6 +752,155 @@ export const reportsService = {
     }
   },
 
+  // Get reports for admin dashboard sorted by case number
+  async getAdminReports(filters?: {
+    category?: string;
+    status?: string;
+    priority?: string;
+    search?: string;
+    limit?: number;
+  }): Promise<Report[]> {
+    try {
+      // Create cache key based on filters
+      const cacheKey = JSON.stringify({ ...filters, admin: true });
+      const cacheKeyHash = btoa(cacheKey).slice(0, 20);
+      
+      // Check memory cache first
+      const cached = sessionStorage.getItem(`admin_reports_${cacheKeyHash}`);
+      if (cached) {
+        const { data, timestamp } = JSON.parse(cached);
+        if (Date.now() - timestamp < 30000) { // 30 second cache
+          return data;
+        }
+      }
+
+      let query = supabase
+        .from('reports')
+        .select(`
+          *,
+          likes:likes(count),
+          comments:comments(count),
+          comment_count:report_comments(count),
+          rating_avg:report_ratings(stars),
+          rating_count:report_ratings(count)
+        `)
+        .order('case_number', { ascending: true });
+      if (filters?.limit && Number.isFinite(filters.limit)) {
+        const end = Math.max(0, Math.floor(filters.limit) - 1);
+        query = (query as any).range(0, end);
+      }
+
+      // Apply filters
+      if (filters?.category && filters.category !== 'All') {
+        const normalizedCategory = (filters.category || '')
+          .toString()
+          .replace(/_/g, ' ')
+          .trim();
+        query = query.ilike('category', `%${normalizedCategory}%`);
+      }
+      if (filters?.status && filters.status !== 'All') {
+        const normalizedStatus = (filters.status || '')
+          .toString()
+          .trim()
+          .toLowerCase()
+          .replace(/\s+/g, '_');
+        query = query.eq('status', normalizedStatus);
+      } else {
+        // Exclude verifying and rejected reports when no specific status filter is applied
+        // Note: cancelled reports are now included in verification reports page
+        query = query.neq('status', 'verifying').neq('status', 'rejected');
+      }
+      if (filters?.priority && filters.priority !== 'All') {
+        query = (query as any).ilike('priority', filters.priority.toLowerCase());
+      }
+      if (filters?.search) {
+        query = query.or(`title.ilike.%${filters.search}%,description.ilike.%${filters.search}%`);
+      }
+
+      const { data: reportsData, error: reportsError } = await query;
+      if (reportsError) throw reportsError;
+
+      if (!reportsData || reportsData.length === 0) {
+        return [];
+      }
+
+      // Batch fetch user profiles and user likes in parallel with caching
+      const userIds = [...new Set(reportsData.map(report => report.user_id))];
+      
+      // Get current user with better error handling
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError) {
+        console.error('Error getting user:', userError);
+      }
+      
+      // Use cached profiles where possible
+      const uncachedUserIds = userIds.filter(id => !_getCachedProfile(id));
+      
+      const [profilesData, userLikes] = await Promise.all([
+        uncachedUserIds.length > 0 ? supabase
+          .from('profiles')
+          .select('id, username, avatar_url')
+          .in('id', uncachedUserIds) : Promise.resolve({ data: [], error: null }),
+        user ? supabase
+          .from('likes')
+          .select('report_id')
+          .eq('user_id', user.id) : Promise.resolve({ data: null, error: null })
+      ]);
+
+      if (profilesData.error) throw profilesData.error;
+      if (userLikes.error) {
+        console.error('Error fetching user likes:', userLikes.error);
+      }
+
+      // Cache new profiles
+      profilesData.data?.forEach(profile => {
+        _cacheProfile(profile.id, profile);
+      });
+
+      // Create lookup maps
+      const profilesMap = new Map();
+      userIds.forEach(id => {
+        const cached = _getCachedProfile(id);
+        if (cached) {
+          profilesMap.set(id, cached);
+        }
+      });
+      profilesData.data?.forEach(profile => {
+        profilesMap.set(profile.id, profile);
+      });
+      
+      const likedReportIds = new Set(userLikes.data?.map(like => like.report_id) || []);
+
+      // Combine data efficiently
+      const result = reportsData.map(report => ({
+        ...report,
+        user_profile: profilesMap.get(report.user_id),
+        is_liked: likedReportIds.has(report.id),
+        likes: { count: report.likes?.[0]?.count || 0 },
+        // Normalize comment count: sum legacy `comments` and new `report_comments`
+        comments: { count: (report.comments?.[0]?.count || 0) + (report.comment_count?.[0]?.count || 0) },
+        rating_avg: (() => {
+          const stars = Array.isArray(report.rating_avg) ? report.rating_avg.map((r:any)=>r.stars) : [];
+          if (!stars.length) return undefined;
+          const sum = stars.reduce((a:number,b:number)=>a+b,0);
+          return Math.round((sum / stars.length) * 10) / 10;
+        })(),
+        rating_count: report.rating_count?.[0]?.count || 0
+      }));
+
+      // Cache the result
+      sessionStorage.setItem(`admin_reports_${cacheKeyHash}`, JSON.stringify({
+        data: result,
+        timestamp: Date.now()
+      }));
+
+      return result;
+    } catch (error) {
+      throw new ReportsServiceError(`Failed to get admin reports: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  },
+
   // Get reports with optimized queries and caching
   async getReports(filters?: {
     category?: string;
@@ -807,6 +956,7 @@ export const reportsService = {
         query = query.eq('status', normalizedStatus);
       } else {
         // Exclude verifying and rejected reports when no specific status filter is applied
+        // Note: cancelled reports are now included in verification reports page
         query = query.neq('status', 'verifying').neq('status', 'rejected');
       }
       if (filters?.priority && filters.priority !== 'All') {
@@ -906,7 +1056,7 @@ export const reportsService = {
     if (!user) throw new ReportsServiceError('User not authenticated');
 
     // Validate status
-    const validStatuses = ['verifying', 'pending', 'in_progress', 'resolved', 'rejected'] as const;
+    const validStatuses = ['verifying', 'pending', 'in_progress', 'resolved', 'rejected', 'cancelled'] as const;
     if (!validStatuses.includes(newStatus as any)) {
       throw new ReportsServiceError(`Invalid status value: ${newStatus}`);
     }
@@ -1232,7 +1382,7 @@ export const reportsService = {
       const { data, error } = await supabase
         .from('reports')
         .update({ 
-          status: 'rejected',
+          status: 'cancelled',
           can_cancel: false 
         })
         .eq('id', reportId)
@@ -1245,6 +1395,9 @@ export const reportsService = {
         .single();
 
       if (error) throw error;
+
+      // Clear cache to ensure fresh data on next fetch
+      this.clearCache();
 
       // Add a comment about the cancellation if reason provided
       if (reason) {
@@ -1259,6 +1412,21 @@ export const reportsService = {
       return data as Report;
     } catch (error) {
       console.error('Error cancelling report:', error);
+      throw error;
+    }
+  },
+
+  // Delete a report permanently
+  async deleteReport(reportId: string): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('reports')
+        .delete()
+        .eq('id', reportId);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error deleting report:', error);
       throw error;
     }
   },

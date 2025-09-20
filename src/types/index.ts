@@ -14,7 +14,7 @@ export interface Report {
   description: string;
   category: string;
   priority: 'low' | 'medium' | 'high';
-  status: 'verifying' | 'pending' | 'in_progress' | 'awaiting_verification' | 'resolved' | 'rejected';
+  status: 'verifying' | 'pending' | 'in_progress' | 'awaiting_verification' | 'resolved' | 'rejected' | 'cancelled';
   location_lat: number;
   location_lng: number;
   location_address: string;
@@ -113,10 +113,13 @@ export interface ChatMessage {
 
 export interface ChatParticipant {
   id: string;
-  conversation_id: string;
-  user_id: string;
-  joined_at: string;
+  conversation_id?: string;
+  user_id?: string;
+  joined_at?: string;
   last_read_at: string;
+  username: string;
+  avatar_url: string | null;
+  is_banned: boolean;
   user?: {
     id: string;
     username: string;
@@ -128,6 +131,7 @@ export interface ChatUser {
   id: string;
   username: string;
   avatar_url: string | null;
+  is_banned?: boolean;
   is_online?: boolean;
   last_seen?: string;
 }
