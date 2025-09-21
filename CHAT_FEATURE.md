@@ -58,7 +58,7 @@ The chat feature allows users to send real-time messages to admin users only. It
 ## Configuration
 
 ### Environment Variables
-- `VITE_SERVER_URL`: Backend server URL (default: http://localhost:3001)
+- `VITE_API_URL`: Backend server URL (default: https://cars-g-api.onrender.com in production, http://localhost:3001 in development)
 - `VITE_SUPABASE_URL`: Supabase project URL
 - `VITE_SUPABASE_ANON_KEY`: Supabase anonymous key
 - `SUPABASE_SERVICE_ROLE_KEY`: Supabase service role key (for admin operations)

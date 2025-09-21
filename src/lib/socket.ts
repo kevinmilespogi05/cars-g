@@ -1,6 +1,7 @@
 import { io, Socket } from 'socket.io-client';
 import { SocketEvents } from '../types';
 import { getAccessToken } from './jwt';
+import { config } from './config';
 
 class SocketManager {
   private socket: Socket<SocketEvents> | null = null;
@@ -24,7 +25,7 @@ class SocketManager {
 
       console.log('Attempting socket connection with token:', token.substring(0, 20) + '...');
 
-      const serverUrl = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
+      const serverUrl = config.api.baseUrl;
       
       this.socket = io(serverUrl, {
         transports: ['websocket', 'polling'],

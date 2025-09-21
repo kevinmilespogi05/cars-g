@@ -1,6 +1,5 @@
 import { getAccessToken } from '../lib/jwt';
-
-const API_BASE_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3001';
+import { getApiUrl } from '../lib/config';
 
 export interface AdminStatus {
   success: boolean;
@@ -15,7 +14,7 @@ export const checkAdminStatus = async (): Promise<AdminStatus> => {
       throw new Error('No authentication token available');
     }
 
-    const response = await fetch(`${API_BASE_URL}/api/admin/status`, {
+    const response = await fetch(getApiUrl('/api/admin/status'), {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
