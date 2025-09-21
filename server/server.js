@@ -187,17 +187,35 @@ const FCM_PROJECT_ID = process.env.FCM_PROJECT_ID || process.env.VITE_FIREBASE_P
 async function getFcmAccessToken() {
   try {
     const scopes = ['https://www.googleapis.com/auth/firebase.messaging'];
+    
+    // Try to load service account from file first
+    let credentials;
+    try {
+      const fs = await import('fs');
+      const serviceKeyPath = process.env.GOOGLE_APPLICATION_CREDENTIALS || './service_key.json';
+      const serviceKey = JSON.parse(fs.readFileSync(serviceKeyPath, 'utf8'));
+      credentials = serviceKey;
+      console.log('✅ Loaded Firebase service account from file');
+    } catch (fileError) {
+      console.log('Could not load service key from file, trying environment variable...');
+      // Fallback to environment variable
+      if (process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
+        credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
+        console.log('✅ Loaded Firebase service account from environment variable');
+      } else {
+        throw new Error('No Firebase service account credentials found');
+      }
+    }
+    
     const auth = new GoogleAuth({
       scopes,
-      // Prefer inlined JSON; fallback to GOOGLE_APPLICATION_CREDENTIALS path if provided
-      credentials: process.env.GOOGLE_SERVICE_ACCOUNT_JSON
-        ? JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON)
-        : undefined,
-      keyFile: process.env.GOOGLE_APPLICATION_CREDENTIALS || undefined,
+      credentials
     });
+    
     const client = await auth.getClient();
     const accessToken = await client.getAccessToken();
     if (!accessToken || !accessToken.token) throw new Error('Failed to obtain FCM access token');
+    console.log('✅ FCM access token obtained successfully');
     return accessToken.token;
   } catch (err) {
     console.error('FCM v1 auth error:', err);
@@ -246,12 +264,19 @@ async function sendFcmV1ToToken(deviceToken, title, body, link) {
     if (!resp.ok) {
       const errText = await resp.text().catch(() => '');
       console.error('FCM v1 send failed:', resp.status, errText);
-      return { ok: false };
+      return { ok: false, error: `HTTP ${resp.status}: ${errText}` };
     }
     return { ok: true };
   } catch (e) {
-    console.error('FCM v1 send error:', e);
-    return { ok: false };
+    // Capture and return detailed error information
+    try {
+      const msg = typeof e === 'string' ? e : (e?.message || JSON.stringify(e));
+      console.error('FCM v1 send error:', msg);
+      return { ok: false, error: msg };
+    } catch {
+      console.error('FCM v1 send error (unknown)');
+      return { ok: false, error: 'Unknown error' };
+    }
   }
 }
 
@@ -306,8 +331,17 @@ const recentRegistrations = new Map();
 app.post('/api/push/register', async (req, res) => {
   try {
     const { token, userId, platform = 'web', userAgent } = req.body || {};
-    if (!token || !userId) {
-      return res.status(400).json({ error: 'token and userId are required' });
+    if (!userId) {
+      return res.status(400).json({ error: 'userId is required' });
+    }
+
+    // If no token provided, just log the registration attempt
+    if (!token) {
+      console.log(`📱 Push registration attempt for user ${userId} (${platform}) - no FCM token`);
+      return res.json({ 
+        success: true, 
+        message: 'Registration logged (server-side notifications only)' 
+      });
     }
 
     // rudimentary rate limit by user
@@ -359,13 +393,36 @@ app.post('/api/push/send', async (req, res) => {
       .eq('user_id', userId);
     if (error) throw error;
 
-    const responses = [];
+        const responses = [];
     for (const sub of subs || []) {
       const resp = await sendFcmV1ToToken(sub.token, title, body, link);
-      responses.push({ token: sub.token, ok: !!resp.ok });
+      responses.push({ 
+        token: sub.token.substring(0, 20) + '...', 
+        ok: !!resp.ok,
+        error: resp.error || null
+      });
+      
+      // If token is invalid, remove it from database
+      if (!resp.ok && resp.error && (resp.error.includes('UNREGISTERED') || resp.error.includes('NOT_FOUND'))) {
+        console.log('🗑️  Removing invalid token:', sub.token.substring(0, 20) + '...');
+        await supabaseAdmin
+          .from('push_subscriptions')
+          .delete()
+          .eq('token', sub.token);
+      }
     }
 
-    res.json({ ok: true, count: responses.length });
+    const successCount = responses.filter(r => r.ok).length;
+    const errorCount = responses.filter(r => !r.ok).length;
+    
+    console.log(`📊 Push notification results: ${successCount} success, ${errorCount} failed`);
+    res.json({ 
+      ok: true, 
+      total: responses.length,
+      successful: successCount,
+      failed: errorCount,
+      responses
+    });
   } catch (e) {
     console.error('Push send error:', e);
     res.status(500).json({ error: 'Failed to send push' });
@@ -993,6 +1050,123 @@ const PORT = process.env.PORT || 3001;
 const connectedUsers = new Map(); // userId -> socketId
 const adminSockets = new Set(); // Set of admin socket IDs
 
+// Helper: send push to a specific user via FCM v1
+const sendPushToUser = async (userId, title, body, link) => {
+  try {
+    if (!supabaseAdmin) {
+      console.warn('⚠️  No Supabase admin client available for push notifications');
+      return { sent: 0, failed: 0 };
+    }
+    
+    const { data: subs, error } = await supabaseAdmin
+      .from('push_subscriptions')
+      .select('token')
+      .eq('user_id', userId);
+      
+    if (error) {
+      console.error('Error fetching push subscriptions:', error);
+      throw error;
+    }
+
+    if (!subs || subs.length === 0) {
+      console.log(`📱 No push subscriptions found for user ${userId}`);
+      return { sent: 0, failed: 0 };
+    }
+
+    console.log(`📱 Found ${subs.length} push subscription(s) for user ${userId}`);
+    
+    let sent = 0;
+    let failed = 0;
+    
+    for (const sub of subs) {
+      const result = await sendFcmV1ToToken(sub.token, title, body, link);
+      
+      if (result.ok) {
+        sent++;
+        console.log(`✅ Push notification sent successfully to token ${sub.token.substring(0, 20)}...`);
+      } else {
+        failed++;
+        console.error(`❌ Push notification failed for token ${sub.token.substring(0, 20)}...:`, result.error);
+        
+        // If token is invalid, remove it from database
+        if (result.error && (result.error.includes('UNREGISTERED') || result.error.includes('NOT_FOUND'))) {
+          console.log(`🗑️  Removing invalid token from database: ${sub.token.substring(0, 20)}...`);
+          await supabaseAdmin
+            .from('push_subscriptions')
+            .delete()
+            .eq('token', sub.token);
+        }
+      }
+    }
+    
+    console.log(`📊 Push notification results for user ${userId}: ${sent} sent, ${failed} failed`);
+    return { sent, failed };
+    
+  } catch (err) {
+    console.error('sendPushToUser error:', err);
+    return { sent: 0, failed: 0, error: err.message };
+  }
+};
+
+// Send push notification for chat messages
+const sendChatPushNotification = async (message, senderRole) => {
+  try {
+    const { sender, receiver } = message;
+    const isFromAdmin = senderRole === 'admin';
+    
+    // Always send notification to the receiver (not the sender)
+    const targetUserId = message.receiver_id;
+    
+    // Don't send push notification to the sender
+    if (targetUserId === message.sender_id) {
+      return;
+    }
+
+    // Create notification title and body based on who is sending
+    const senderName = sender?.username || (isFromAdmin ? 'Admin' : 'User');
+    const title = isFromAdmin ? 'New message from Admin' : 'New message from User';
+    const body = `${senderName}: ${message.message}`;
+    
+    // Determine the correct link based on the receiver's role
+    // If receiver is admin, link to admin chat; if receiver is user, link to user chat
+    const receiverRole = receiver?.role;
+    const link = receiverRole === 'admin' ? '/admin/chat' : '/chat';
+
+    // Send push notification
+    await sendPushToUser(targetUserId, title, body, link);
+
+    // Also create a notification record in the database
+    console.log('Creating notification for user:', targetUserId);
+    const { error: notificationError } = await supabaseAdmin
+      ? supabaseAdmin.from('notifications').insert({
+          user_id: targetUserId,
+          title,
+          message: body,
+          type: 'chat',
+          link,
+          created_at: new Date().toISOString()
+        })
+      : supabase.from('notifications').insert({
+          user_id: targetUserId,
+          title,
+          message: body,
+          type: 'chat',
+          link,
+          created_at: new Date().toISOString()
+        });
+
+    if (notificationError) {
+      console.error('Failed to create chat notification record:', notificationError);
+    } else {
+      console.log('✅ Chat notification created successfully for user:', targetUserId);
+    }
+
+    console.log(`Chat push notification sent to user ${targetUserId} (${receiverRole})`);
+  } catch (error) {
+    console.error('Error sending chat push notification:', error);
+  }
+};
+
 io.on('connection', async (socket) => {
   console.log('Socket connected:', socket.id);
 
@@ -1224,6 +1398,22 @@ io.on('connection', async (socket) => {
         });
       }
 
+      // Send push notification for chat message
+      try {
+        console.log('🔔 Attempting to send chat push notification...');
+        console.log('   Message details:', {
+          id: newMessage.id,
+          sender_id: newMessage.sender_id,
+          receiver_id: newMessage.receiver_id,
+          message: newMessage.message.substring(0, 50) + '...'
+        });
+        await sendChatPushNotification(newMessage, socket.userRole);
+        console.log('✅ Chat push notification sent successfully');
+      } catch (pushError) {
+        console.error('❌ Failed to send chat push notification:', pushError);
+        console.error('   Push error details:', pushError.message || pushError);
+      }
+
       console.log(`Message sent from ${socket.userId} to ${receiverId}`);
 
     } catch (error) {
@@ -1392,24 +1582,6 @@ const startServer = async () => {
       console.log(`📊 Health check: http://localhost:${PORT}/health`);
       console.log('\n✅ Server is ready!');
     });
-
-    // Helper: send push to a specific user via FCM v1
-    const sendPushToUser = async (userId, title, body, link) => {
-      try {
-        if (!supabaseAdmin) return;
-        const { data: subs, error } = await supabaseAdmin
-          .from('push_subscriptions')
-          .select('token')
-          .eq('user_id', userId);
-        if (error) throw error;
-
-        for (const sub of subs || []) {
-          await sendFcmV1ToToken(sub.token, title, body, link);
-        }
-      } catch (err) {
-        console.error('sendPushToUser error:', err);
-      }
-    };
 
     // Subscribe to notifications inserts and forward to FCM and Brevo email
     try {

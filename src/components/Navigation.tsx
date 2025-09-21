@@ -269,15 +269,6 @@ export function Navigation() {
                 </Link>
               ))}
 
-              {/* Chat Button - only for non-admin users */}
-              {user?.role !== 'admin' && (
-                <div className="px-4 py-3.5">
-                  <ChatButton 
-                    adminId="admin" // This should be the actual admin user ID
-                    className="w-full justify-center"
-                  />
-                </div>
-              )}
 
               {user?.role === 'admin' && (
                 <Link 

@@ -17,35 +17,10 @@ export function usePushNotifications({ userId, enabled = true }: UsePushNotifica
 
     const setup = async () => {
       try {
-        // Initialize Firebase
-        await initializeFirebase();
-
-        // Prefer a dedicated Firebase Messaging SW registration (narrow scope to avoid clashing with PWA SW)
-        let swRegistration: ServiceWorkerRegistration | undefined = undefined;
-        if ('serviceWorker' in navigator) {
-          // Try to find an existing registration for our messaging SW
-          const registrations = await navigator.serviceWorker.getRegistrations();
-          swRegistration = registrations.find(r => r.active?.scriptURL.includes('/firebase-messaging-sw.js'))
-            || registrations.find(r => r.waiting?.scriptURL?.includes('/firebase-messaging-sw.js'))
-            || registrations.find(r => r.installing?.scriptURL?.includes('/firebase-messaging-sw.js'));
-
-          if (!swRegistration) {
-            swRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-          }
-
-          // Ensure activation before using it
-          const worker = swRegistration.active || swRegistration.installing || swRegistration.waiting;
-          if (worker && worker.state !== 'activated') {
-            await new Promise<void>((resolve) => {
-              const onStateChange = () => {
-                if (worker.state === 'activated') {
-                  worker.removeEventListener('statechange', onStateChange as any);
-                  resolve();
-                }
-              };
-              worker.addEventListener('statechange', onStateChange as any);
-            });
-          }
+        // Check if notifications are supported
+        if (!('Notification' in window)) {
+          console.log('Notifications not supported');
+          return;
         }
 
         // Ask for permission
@@ -55,28 +30,106 @@ export function usePushNotifications({ userId, enabled = true }: UsePushNotifica
           return;
         }
 
-        // Get token
-        const token = await requestFcmToken(swRegistration || undefined);
-        if (!token) return;
+        console.log('✅ Notification permission granted - setting up FCM');
 
-        // Register token with backend
-        await fetch(getApiUrl('/api/push/register'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token, userId, platform: 'web', userAgent: navigator.userAgent }),
-        });
+        // Initialize Firebase and get FCM token
+        await initializeFirebase();
+        const fcmToken = await requestFcmToken();
+        
+        if (fcmToken) {
+          console.log('✅ FCM token obtained:', fcmToken.substring(0, 20) + '...');
+          
+          // Register with backend
+          try {
+            await fetch(getApiUrl('/api/push/register'), {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ 
+                token: fcmToken,
+                userId, 
+                platform: 'web', 
+                userAgent: navigator.userAgent 
+              }),
+            });
+            console.log('✅ Push registration successful with FCM token');
+          } catch (regError) {
+            console.warn('Push registration failed:', regError);
+          }
+        } else {
+          console.warn('⚠️ Failed to get FCM token, registering without token');
+          
+          // Fallback registration without FCM token
+          try {
+            await fetch(getApiUrl('/api/push/register'), {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ 
+                userId, 
+                platform: 'web', 
+                userAgent: navigator.userAgent 
+              }),
+            });
+            console.log('✅ Push registration successful (fallback without FCM token)');
+          } catch (regError) {
+            console.warn('Push registration failed:', regError);
+          }
+        }
 
-        // Also listen to realtime notifications to show native notifications in foreground
+        // Listen to realtime notifications to show native notifications in foreground
         const channel = supabase
           .channel('notifications_push')
           .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` }, (payload) => {
             const n = payload.new as any;
             if (Notification.permission === 'granted') {
-              new Notification(n.title || 'Notification', {
+              // Handle chat notifications differently
+              const isChatNotification = n.type === 'chat';
+              const notificationOptions: NotificationOptions = {
                 body: n.message || '',
                 icon: '/pwa-192x192.png',
-                data: { link: n.link },
-              });
+                badge: '/pwa-192x192.png',
+                tag: isChatNotification ? 'chat' : 'default',
+                data: { 
+                  link: n.link,
+                  type: n.type,
+                  notificationId: n.id
+                },
+                requireInteraction: isChatNotification, // Chat notifications should require interaction
+                silent: false,
+                vibrate: isChatNotification ? [200, 100, 200] : undefined, // Special vibration for chat
+              };
+
+              // Add actions for chat notifications
+              if (isChatNotification) {
+                notificationOptions.actions = [
+                  {
+                    action: 'reply',
+                    title: 'Reply',
+                    icon: '/pwa-192x192.png'
+                  },
+                  {
+                    action: 'view',
+                    title: 'View Chat',
+                    icon: '/pwa-192x192.png'
+                  }
+                ];
+              }
+
+              const notification = new Notification(n.title || 'Notification', notificationOptions);
+              
+              // Handle notification click
+              notification.onclick = (event) => {
+                const target = event.target as Notification;
+                const data = target.data || {};
+                const link = data.link || '/';
+                
+                // Close the notification
+                target.close();
+                
+                // Navigate to the appropriate page
+                if (window.location.pathname !== link) {
+                  window.location.href = link;
+                }
+              };
             }
           })
           .subscribe();
@@ -105,16 +158,24 @@ export function usePushNotifications({ userId, enabled = true }: UsePushNotifica
       const { notification, data } = payload || {};
       
       if (notification && Notification.permission === 'granted') {
+        // Check if this is a chat notification
+        const isChatNotification = data?.type === 'chat' || notification.title?.includes('message');
+        
         // Create a more interactive notification for foreground
         const notificationOptions: NotificationOptions = {
           body: notification.body || '',
           icon: '/pwa-192x192.png',
           badge: '/pwa-192x192.png',
-          tag: notification.tag || 'default',
-          requireInteraction: false,
+          tag: isChatNotification ? 'chat' : 'default',
+          requireInteraction: isChatNotification, // Chat notifications should require interaction
           silent: false,
           data: data || {},
-          actions: [
+          vibrate: isChatNotification ? [200, 100, 200] : undefined, // Special vibration for chat
+        };
+
+        // Add actions for chat notifications
+        if (isChatNotification) {
+          notificationOptions.actions = [
             {
               action: 'reply',
               title: 'Reply',
@@ -122,11 +183,20 @@ export function usePushNotifications({ userId, enabled = true }: UsePushNotifica
             },
             {
               action: 'view',
+              title: 'View Chat',
+              icon: '/pwa-192x192.png'
+            }
+          ];
+        } else {
+          // Default actions for non-chat notifications
+          notificationOptions.actions = [
+            {
+              action: 'view',
               title: 'View',
               icon: '/pwa-192x192.png'
             }
-          ]
-        };
+          ];
+        }
 
         const foregroundNotification = new Notification(notification.title || 'Cars-G', notificationOptions);
         
@@ -135,7 +205,6 @@ export function usePushNotifications({ userId, enabled = true }: UsePushNotifica
           const target = event.target as Notification;
           const data = target.data || {};
           const link = data.link || '/';
-          const conversationId = data.conversationId;
           
           // Close the notification
           target.close();
@@ -146,10 +215,11 @@ export function usePushNotifications({ userId, enabled = true }: UsePushNotifica
           }
         };
         
-        // Auto-close after 5 seconds for foreground notifications
+        // Auto-close after different durations based on notification type
+        const autoCloseDelay = isChatNotification ? 10000 : 5000; // Chat notifications stay longer
         setTimeout(() => {
           foregroundNotification.close();
-        }, 5000);
+        }, autoCloseDelay);
       }
     });
   }, []);

@@ -30,20 +30,29 @@ messaging.onBackgroundMessage(function(payload) {
   console.log('Background message received:', payload);
   
   const notificationTitle = payload.notification?.title || 'Cars-G';
+  const isChatNotification = payload.data?.type === 'chat' || notificationTitle.includes('message');
+  
   const notificationOptions = {
     body: payload.notification?.body || '',
     icon: '/pwa-192x192.png',
     badge: '/pwa-192x192.png',
-    tag: payload.notification?.tag || 'default',
-    requireInteraction: false,
+    tag: isChatNotification ? 'chat' : 'default',
+    requireInteraction: isChatNotification, // Chat notifications should require interaction
     silent: false,
     data: payload.data || {},
-    actions: [
+    vibrate: isChatNotification ? [200, 100, 200] : undefined, // Special vibration for chat
+    actions: isChatNotification ? [
       {
         action: 'reply',
         title: 'Reply',
         icon: '/pwa-192x192.png'
       },
+      {
+        action: 'view',
+        title: 'View Chat',
+        icon: '/pwa-192x192.png'
+      }
+    ] : [
       {
         action: 'view',
         title: 'View',
@@ -65,13 +74,35 @@ self.addEventListener('push', function(event) {
     const title = n.title || raw.title || 'Cars-G';
     const body = n.body || raw.body || '';
     const link = (raw.fcmOptions && raw.fcmOptions.link) || d.link || '/';
+    const isChatNotification = d.type === 'chat' || title.includes('message');
 
     const options = {
       body,
       icon: n.icon || '/pwa-192x192.png',
       badge: '/pwa-192x192.png',
-      tag: n.tag || 'default',
-      data: Object.assign({}, d, { link })
+      tag: isChatNotification ? 'chat' : 'default',
+      requireInteraction: isChatNotification, // Chat notifications should require interaction
+      silent: false,
+      vibrate: isChatNotification ? [200, 100, 200] : undefined, // Special vibration for chat
+      data: Object.assign({}, d, { link }),
+      actions: isChatNotification ? [
+        {
+          action: 'reply',
+          title: 'Reply',
+          icon: '/pwa-192x192.png'
+        },
+        {
+          action: 'view',
+          title: 'View Chat',
+          icon: '/pwa-192x192.png'
+        }
+      ] : [
+        {
+          action: 'view',
+          title: 'View',
+          icon: '/pwa-192x192.png'
+        }
+      ]
     };
 
     event.waitUntil(self.registration.showNotification(title, options));
@@ -88,37 +119,55 @@ self.addEventListener('notificationclick', function(event) {
   const link = data.link || '/';
   const conversationId = data.conversationId;
   const action = event.action;
+  const isChatNotification = data.type === 'chat';
   
-  console.log('Notification clicked:', { action, data });
+  console.log('Notification clicked:', { action, data, isChatNotification });
   
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
-      // If action is reply, navigate to chat with focus on input
-      if (action === 'reply' && conversationId) {
-        const chatLink = `/chat?conversationId=${conversationId}&focus=input`;
-        
-        for (const client of windowClients) {
-          if ('focus' in client) {
-            client.focus();
-            client.navigate(chatLink);
-            return;
+      // Handle chat-specific actions
+      if (isChatNotification) {
+        if (action === 'reply') {
+          // For reply action, navigate to chat with focus on input
+          const chatLink = link.includes('?') ? `${link}&focus=input` : `${link}?focus=input`;
+          
+          for (const client of windowClients) {
+            if ('focus' in client) {
+              client.focus();
+              client.navigate(chatLink);
+              return;
+            }
+          }
+          if (clients.openWindow) {
+            return clients.openWindow(chatLink);
+          }
+        } else if (action === 'view' || !action) {
+          // For view action or default click, navigate to chat
+          for (const client of windowClients) {
+            if ('focus' in client) {
+              client.focus();
+              client.navigate(link);
+              return;
+            }
+          }
+          if (clients.openWindow) {
+            return clients.openWindow(link);
           }
         }
-        if (clients.openWindow) {
-          return clients.openWindow(chatLink);
+      } else {
+        // Handle non-chat notifications
+        if (action === 'view' || !action) {
+          for (const client of windowClients) {
+            if ('focus' in client) {
+              client.focus();
+              client.navigate(link);
+              return;
+            }
+          }
+          if (clients.openWindow) {
+            return clients.openWindow(link);
+          }
         }
-      }
-      
-      // Default behavior: navigate to the link
-      for (const client of windowClients) {
-        if ('focus' in client) {
-          client.focus();
-          if (link) client.navigate(link);
-          return;
-        }
-      }
-      if (clients.openWindow) {
-        return clients.openWindow(link);
       }
     })
   );
