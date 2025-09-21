@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { FileText, Award, User, LogOut, Shield, Menu, X, ChevronDown, MessageCircle, MapPin, Megaphone } from 'lucide-react';
+import { FileText, Award, User, LogOut, Shield, Menu, X, ChevronDown, MapPin, Megaphone, MessageCircle } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { supabase } from '../lib/supabase';
+import { ChatButton } from './ChatButton';
 
 export function Navigation() {
   const location = useLocation();
@@ -39,18 +40,16 @@ export function Navigation() {
       return [
         { path: '/admin/map', icon: MapPin, label: 'Map' },
         { path: '/leaderboard', icon: Award, label: 'Leaderboard' },
-        { path: '/chat', icon: MessageCircle, label: 'Chat' }
+        { path: '/admin/chat', icon: MessageCircle, label: 'Chat' }
       ];
     } else if (user?.role === 'patrol') {
       return [
         // Patrol users don't need navigation items since they're already on their dashboard
-        // and can't access chat
       ];
     } else {
       return [
         { path: '/reports', icon: FileText, label: 'Reports' },
-        { path: '/leaderboard', icon: Award, label: 'Leaderboard' },
-        { path: '/chat', icon: MessageCircle, label: 'Chat' }
+        { path: '/leaderboard', icon: Award, label: 'Leaderboard' }
       ];
     }
   };
@@ -119,6 +118,14 @@ export function Navigation() {
                   )}
                 </Link>
               ))}
+              
+              {/* Chat Button - only for non-admin users on desktop */}
+              {user?.role !== 'admin' && (
+                <ChatButton 
+                  adminId="admin" // This should be the actual admin user ID
+                  className="ml-2"
+                />
+              )}
               
               {/* Desktop Profile Menu */}
               <div className="relative ml-3" ref={profileMenuRef}>
@@ -261,6 +268,16 @@ export function Navigation() {
                   {label}
                 </Link>
               ))}
+
+              {/* Chat Button - only for non-admin users */}
+              {user?.role !== 'admin' && (
+                <div className="px-4 py-3.5">
+                  <ChatButton 
+                    adminId="admin" // This should be the actual admin user ID
+                    className="w-full justify-center"
+                  />
+                </div>
+              )}
 
               {user?.role === 'admin' && (
                 <Link 

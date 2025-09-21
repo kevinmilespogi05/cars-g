@@ -5,7 +5,6 @@ import { useAuthStore } from './store/authStore';
 import { Analytics } from "@vercel/analytics/react";
 import { initializeAchievements } from './lib/initAchievements';
 import { Providers } from './components/Providers';
-import { EnhancedChatProvider } from './contexts/EnhancedChatContext';
 import { motion } from 'framer-motion';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { publicRoutes, protectedRoutes, adminRoutes, patrolRoutes } from './routes/routes';
@@ -156,8 +155,7 @@ function AppContent() {
   return (
     <ErrorBoundary>
       <Providers>
-        <EnhancedChatProvider>
-          <div className="min-h-screen bg-gray-100">
+        <div className="min-h-screen bg-gray-100">
           {/* Only show Navigation on non-landing pages */}
           {!isLandingPage && <Navigation />}
           <main className={isLandingPage ? 'pt-0' : 'pt-20 sm:pt-24'}>
@@ -224,7 +222,6 @@ function AppContent() {
           />
           </div>
           <Analytics />
-        </EnhancedChatProvider>
       </Providers>
     </ErrorBoundary>
   );

@@ -1,6 +1,16 @@
 import { supabase } from '../lib/supabase';
 import type { ReportComment } from '../types';
 import { reportsService } from './reportsService';
+import { useAuthStore } from '../store/authStore';
+
+// Helper function to get current user from auth store
+function getCurrentUser() {
+  const { user, isAuthenticated } = useAuthStore.getState();
+  if (!isAuthenticated || !user) {
+    throw new Error('User not authenticated');
+  }
+  return user;
+}
 
 export class CommentsService {
   // Get comments for a specific report
@@ -38,7 +48,7 @@ export class CommentsService {
       });
 
       // Get current user for localStorage access
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = getCurrentUser();
       
       // For report comments, we'll use localStorage for likes
       // since the comment_likes table has foreign key constraints to the comments table

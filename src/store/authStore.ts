@@ -3,6 +3,17 @@ import { create } from 'zustand';
 import { User } from '../types';
 import { supabase } from '../lib/supabase';
 import { initializeUserStats, verifyDatabaseSchema, debugDatabaseIssue } from '../lib/initAchievements';
+import { 
+  authenticateWithJWT, 
+  refreshAccessToken, 
+  getCurrentUser, 
+  logoutWithJWT, 
+  isAuthenticated as isJWTAuthenticated,
+  getCurrentStoredUser,
+  clearTokens,
+  storeTokens,
+  storeUser
+} from '../lib/jwt';
 
 interface AuthState {
   user: User | null;
@@ -16,6 +27,11 @@ interface AuthState {
   signInWithFacebook: () => Promise<void>;
   signOut: () => Promise<void>;
   initialize: () => Promise<void>;
+  // JWT methods
+  signInWithJWT: (email: string, password: string) => Promise<void>;
+  refreshJWTToken: () => Promise<boolean>;
+  checkJWTAuthentication: () => boolean;
+  initializeJWT: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -46,6 +62,15 @@ export const useAuthStore = create<AuthState>((set) => ({
   
   initialize: async () => {
     try {
+      // First try JWT authentication
+      await useAuthStore.getState().initializeJWT();
+      
+      // If JWT authentication succeeded, we're done
+      if (useAuthStore.getState().isAuthenticated) {
+        return;
+      }
+
+      // Fallback to Supabase authentication
       // Get initial session
       const { data: { session }, error } = await supabase.auth.getSession();
       
@@ -426,7 +451,16 @@ export const useAuthStore = create<AuthState>((set) => ({
         email = profile.email;
       }
 
-      // Now use the email to sign in
+      // Try JWT authentication first
+      try {
+        await useAuthStore.getState().signInWithJWT(email, password);
+        return; // Success with JWT, exit early
+      } catch (jwtError) {
+        console.log('JWT authentication failed, falling back to Supabase:', jwtError);
+        // Fall back to Supabase authentication
+      }
+
+      // Fallback to Supabase authentication
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -606,7 +640,14 @@ export const useAuthStore = create<AuthState>((set) => ({
   
   signOut: async () => {
     try {
-      // First check if we have a valid session
+      // Try JWT logout first
+      try {
+        await logoutWithJWT();
+      } catch (jwtError) {
+        console.warn('JWT logout error:', jwtError);
+      }
+
+      // Also try Supabase logout
       const { data: { session } } = await supabase.auth.getSession();
       
       if (session) {
@@ -627,6 +668,87 @@ export const useAuthStore = create<AuthState>((set) => ({
       // Clear any stored session data
       localStorage.removeItem('supabase.auth.token');
       sessionStorage.clear();
+      
+      // Also clear JWT tokens
+      clearTokens();
+    }
+  },
+
+  // JWT Authentication Methods
+  signInWithJWT: async (email: string, password: string) => {
+    try {
+      const response = await authenticateWithJWT(email, password);
+      
+      if (response.success) {
+        set({ 
+          user: response.user,
+          isAuthenticated: true,
+        });
+      } else {
+        throw new Error('Authentication failed');
+      }
+    } catch (error: any) {
+      console.error('JWT Authentication error:', error);
+      throw new Error(error.message || 'Failed to sign in with JWT');
+    }
+  },
+
+  refreshJWTToken: async () => {
+    try {
+      const response = await refreshAccessToken();
+      
+      if (response) {
+        set({ 
+          user: response.user,
+          isAuthenticated: true,
+        });
+        return true;
+      } else {
+        set({ user: null, isAuthenticated: false });
+        return false;
+      }
+    } catch (error) {
+      console.error('JWT token refresh error:', error);
+      set({ user: null, isAuthenticated: false });
+      return false;
+    }
+  },
+
+  checkJWTAuthentication: () => {
+    return isJWTAuthenticated();
+  },
+
+  initializeJWT: async () => {
+    try {
+      // Check if we have stored JWT authentication
+      if (isJWTAuthenticated()) {
+        // Try to get current user from server
+        const user = await getCurrentUser();
+        
+        if (user) {
+          set({ 
+            user,
+            isAuthenticated: true,
+          });
+          return;
+        }
+      }
+
+      // If JWT auth fails, try to refresh token
+      const refreshed = await refreshAccessToken();
+      if (refreshed) {
+        set({ 
+          user: refreshed.user,
+          isAuthenticated: true,
+        });
+        return;
+      }
+
+      // If all JWT methods fail, clear state
+      set({ user: null, isAuthenticated: false });
+    } catch (error) {
+      console.error('JWT initialization error:', error);
+      set({ user: null, isAuthenticated: false });
     }
   },
 }));

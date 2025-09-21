@@ -16,9 +16,9 @@ const LeaderboardPage = lazy(() => import('../pages/LeaderboardPage').then(modul
 const Profile = lazy(() => import('../pages/Profile').then(module => ({ default: module.Profile })));
 const AdminDashboard = lazy(() => import('../pages/AdminDashboard').then(module => ({ default: module.AdminDashboard })));
 const PrivacyPolicy = lazy(() => import('../pages/PrivacyPolicy').then(module => ({ default: module.PrivacyPolicy })));
-const EnhancedChat = lazy(() => import('../pages/EnhancedChat').then(module => ({ default: module.EnhancedChat })));
 const AdminMapDashboard = lazy(() => import('../components/AdminMapDashboard').then(module => ({ default: module.AdminMapDashboard })));
 const AdminHistory = lazy(() => import('../pages/AdminHistory').then(module => ({ default: module.AdminHistory })));
+const AdminChat = lazy(() => import('../pages/AdminChat').then(module => ({ default: module.AdminChat })));
 const VerificationReports = lazy(() => import('../pages/VerificationReports').then(module => ({ default: module.VerificationReports })));
 const Announcements = lazy(() => import('../pages/Announcements').then(module => ({ default: module.Announcements })));
 
@@ -75,10 +75,6 @@ export const protectedRoutes: RouteObject[] = [
     element: <ProtectedRoute><Profile /></ProtectedRoute>
   },
   {
-    path: '/chat',
-    element: <ProtectedRoute><EnhancedChat /></ProtectedRoute>
-  },
-  {
     path: '/verification-reports',
     element: <ProtectedRoute adminRedirect={true} patrolRedirect={true}><VerificationReports /></ProtectedRoute>
   },
@@ -111,5 +107,9 @@ export const adminRoutes: RouteObject[] = [
   {
     path: '/admin/history',
     element: <ProtectedRoute><AdminHistory /></ProtectedRoute>
+  },
+  {
+    path: '/admin/chat',
+    element: <ProtectedRoute><AdminChat /></ProtectedRoute>
   }
 ]; 

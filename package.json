@@ -39,11 +39,7 @@
     "test:e2e:deployment:open": "cypress open --config specPattern='cypress/e2e/deployment.cy.js'",
     "test:health": "curl -f https://cars-g.vercel.app/ && curl -f https://cars-g-api.onrender.com/health",
     "test:quick": "npm run test:deployment:frontend && npm run test:deployment:backend",
-    "deploy:backend": "powershell -ExecutionPolicy Bypass -File scripts/deploy-backend.ps1",
-    "chat:setup": "npm run server:install && echo '✅ Chat backend dependencies installed. Run npm run chat:start to start the server.'",
-    "chat:start": "cd server && npm run dev",
-    "chat:build": "cd server && npm run build",
-    "chat:test": "npm test"
+    "deploy:backend": "powershell -ExecutionPolicy Bypass -File scripts/deploy-backend.ps1"
   },
   "dependencies": {
     "@googlemaps/js-api-loader": "^1.16.6",

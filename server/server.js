@@ -10,7 +10,8 @@ import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
 import fetch from 'node-fetch';
 import { GoogleAuth } from 'google-auth-library';
-import * as enhancedChatEndpoints from './enhancedChatEndpoints.js';
+import { generateTokenPair, verifyToken, extractTokenFromHeader } from './lib/jwt.js';
+import { authenticateToken, requireRole } from './middleware/auth.js';
 
 // Load environment variables
 dotenv.config();
@@ -51,6 +52,23 @@ if (process.env.NODE_ENV === 'development') {
 
 const app = express();
 const server = createServer(app);
+
+// Initialize Socket.IO
+const io = new Server(server, {
+  cors: {
+    origin: [
+      process.env.FRONTEND_URL || "http://localhost:5173",
+      "http://localhost:5173",
+      "http://localhost:3000",
+      "https://cars-g.vercel.app",
+      "https://cars-g.vercel.app/",
+      "https://cars-g-git-main-kevinmccarthy.vercel.app",
+      "https://cars-g-git-main-kevinmccarthy.vercel.app/"
+    ],
+    methods: ["GET", "POST"],
+    credentials: true
+  }
+});
 
 
 // Initialize Supabase client
@@ -259,13 +277,6 @@ const globalLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-// Rate limiters for specific endpoints
-const createConversationLimiter = rateLimit({ windowMs: 60 * 1000, max: 20 });
-const messageRateLimiter = rateLimit({ 
-  windowMs: 60 * 1000, // 1 minute
-  max: 100, // 100 messages per minute per IP
-  message: 'Too many messages sent, please slow down'
-});
 
 app.use(globalLimiter);
 
@@ -367,19 +378,336 @@ app.get('/health', (req, res) => {
     status: 'OK', 
     timestamp: new Date().toISOString(),
     supabase: 'connected',
-    websocket: 'running',
     cors: 'configured',
     environment: process.env.NODE_ENV || 'development'
   });
 });
 
-// WebSocket health check
-app.get('/ws-health', (req, res) => {
-  res.status(200).json({
-    status: 'OK',
-    websocket: 'available',
-    connectedUsers: connectedUsers.size,
-    timestamp: new Date().toISOString()
+// Check admin online status
+app.get('/api/admin/status', (req, res) => {
+  try {
+    const isAdminOnline = adminSockets.size > 0;
+    res.json({
+      success: true,
+      isOnline: isAdminOnline,
+      adminCount: adminSockets.size
+    });
+  } catch (error) {
+    console.error('Admin status check error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to check admin status'
+    });
+  }
+});
+
+// Test endpoint to check chat_messages table
+app.get('/api/test/chat-messages', async (req, res) => {
+  try {
+    if (!supabaseAdmin) {
+      return res.status(503).json({ error: 'Admin privileges required' });
+    }
+
+    // Check if table exists and get sample data with sender information
+    const { data: messages, error } = await supabaseAdmin
+      .from('chat_messages')
+      .select(`
+        *,
+        sender:profiles!sender_id(id, username, avatar_url, role),
+        receiver:profiles!receiver_id(id, username, avatar_url, role)
+      `)
+      .limit(5);
+
+    if (error) {
+      return res.status(500).json({ 
+        error: 'Database error', 
+        details: error.message,
+        code: error.code 
+      });
+    }
+
+    res.json({ 
+      success: true, 
+      messageCount: messages?.length || 0,
+      messages: messages || []
+    });
+
+  } catch (error) {
+    res.status(500).json({ 
+      error: 'Test failed', 
+      details: error.message 
+    });
+  }
+});
+
+// API endpoint to get user's chat messages
+app.get('/api/chat/messages/:userId', async (req, res) => {
+  try {
+    if (!supabaseAdmin) {
+      return res.status(503).json({ error: 'Admin privileges required' });
+    }
+
+    const { userId } = req.params;
+
+    // Get messages where user is either sender or receiver
+    const { data: messages, error } = await supabaseAdmin
+      .from('chat_messages')
+      .select(`
+        *,
+        sender:profiles!sender_id(id, username, avatar_url, role),
+        receiver:profiles!receiver_id(id, username, avatar_url, role)
+      `)
+      .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      return res.status(500).json({ 
+        error: 'Database error', 
+        details: error.message,
+        code: error.code 
+      });
+    }
+
+    res.json({ 
+      success: true, 
+      messages: messages || []
+    });
+
+  } catch (error) {
+    res.status(500).json({ 
+      error: 'Failed to fetch messages', 
+      details: error.message 
+    });
+  }
+});
+
+// JWT Authentication Endpoints
+
+// Login endpoint - authenticate user and generate JWT tokens
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email and password are required',
+        code: 'MISSING_CREDENTIALS'
+      });
+    }
+
+    // Authenticate with Supabase
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
+
+    if (authError || !authData.user) {
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid email or password',
+        code: 'INVALID_CREDENTIALS'
+      });
+    }
+
+    // Get user profile from Supabase
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, email, username, role, points, avatar_url')
+      .eq('id', authData.user.id)
+      .single();
+
+    if (profileError || !profile) {
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to fetch user profile',
+        code: 'PROFILE_ERROR'
+      });
+    }
+
+    // Generate JWT tokens
+    const tokens = generateTokenPair({
+      id: profile.id,
+      email: profile.email,
+      username: profile.username,
+      role: profile.role || 'user'
+    });
+
+    res.json({
+      success: true,
+      user: {
+        id: profile.id,
+        email: profile.email,
+        username: profile.username,
+        role: profile.role || 'user',
+        points: profile.points || 0,
+        avatar_url: profile.avatar_url
+      },
+      tokens
+    });
+
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      code: 'INTERNAL_ERROR'
+    });
+  }
+});
+
+// Refresh token endpoint
+app.post('/api/auth/refresh', async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+
+    if (!refreshToken) {
+      return res.status(400).json({
+        success: false,
+        error: 'Refresh token is required',
+        code: 'MISSING_REFRESH_TOKEN'
+      });
+    }
+
+    // Verify refresh token
+    const decoded = verifyToken(refreshToken);
+    
+    if (decoded.type !== 'refresh') {
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid token type',
+        code: 'INVALID_TOKEN_TYPE'
+      });
+    }
+
+    // Get user profile
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, email, username, role, points, avatar_url')
+      .eq('id', decoded.userId)
+      .single();
+
+    if (profileError || !profile) {
+      return res.status(401).json({
+        success: false,
+        error: 'User not found',
+        code: 'USER_NOT_FOUND'
+      });
+    }
+
+    // Generate new token pair
+    const tokens = generateTokenPair({
+      id: profile.id,
+      email: profile.email,
+      username: profile.username,
+      role: profile.role || 'user'
+    });
+
+    res.json({
+      success: true,
+      user: {
+        id: profile.id,
+        email: profile.email,
+        username: profile.username,
+        role: profile.role || 'user',
+        points: profile.points || 0,
+        avatar_url: profile.avatar_url
+      },
+      tokens
+    });
+
+  } catch (error) {
+    console.error('Token refresh error:', error);
+    
+    if (error.message === 'Token has expired') {
+      return res.status(401).json({
+        success: false,
+        error: 'Refresh token has expired',
+        code: 'TOKEN_EXPIRED'
+      });
+    }
+
+    res.status(401).json({
+      success: false,
+      error: 'Invalid refresh token',
+      code: 'INVALID_TOKEN'
+    });
+  }
+});
+
+// Get current user info (protected endpoint)
+app.get('/api/auth/me', authenticateToken, async (req, res) => {
+  try {
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, email, username, role, points, avatar_url')
+      .eq('id', req.user.id)
+      .single();
+
+    if (profileError || !profile) {
+      return res.status(404).json({
+        success: false,
+        error: 'User profile not found',
+        code: 'PROFILE_NOT_FOUND'
+      });
+    }
+
+    res.json({
+      success: true,
+      user: {
+        id: profile.id,
+        email: profile.email,
+        username: profile.username,
+        role: profile.role || 'user',
+        points: profile.points || 0,
+        avatar_url: profile.avatar_url
+      }
+    });
+
+  } catch (error) {
+    console.error('Get user info error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      code: 'INTERNAL_ERROR'
+    });
+  }
+});
+
+// Logout endpoint
+app.post('/api/auth/logout', authenticateToken, async (req, res) => {
+  try {
+    // In a more sophisticated implementation, you might want to blacklist the token
+    // For now, we'll just return success since JWT tokens are stateless
+    res.json({
+      success: true,
+      message: 'Logged out successfully'
+    });
+  } catch (error) {
+    console.error('Logout error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      code: 'INTERNAL_ERROR'
+    });
+  }
+});
+
+// Test protected endpoint
+app.get('/api/auth/test', authenticateToken, (req, res) => {
+  res.json({
+    success: true,
+    message: 'Protected endpoint accessed successfully',
+    user: req.user
+  });
+});
+
+// Test admin-only endpoint
+app.get('/api/auth/admin-test', authenticateToken, requireRole('admin'), (req, res) => {
+  res.json({
+    success: true,
+    message: 'Admin endpoint accessed successfully',
+    user: req.user
   });
 });
 
@@ -418,120 +746,6 @@ app.get('/api/quotas/:userId', async (req, res) => {
   }
 });
 
-// Enhanced Chat API endpoints
-// Get conversations with enhanced participant data
-app.get('/api/chat/conversations/:userId', enhancedChatEndpoints.getConversationsWithParticipants);
-
-// Get conversation participants
-app.get('/api/chat/conversations/:conversationId/participants', enhancedChatEndpoints.getConversationParticipants);
-
-// Get conversation details
-app.get('/api/chat/conversations/details/:conversationId', enhancedChatEndpoints.getConversationDetails);
-
-// Search conversations
-app.get('/api/chat/conversations/search', enhancedChatEndpoints.searchConversations);
-
-// Get total unread count
-app.get('/api/chat/unread-count', enhancedChatEndpoints.getTotalUnreadCount);
-
-// Get messages with pagination
-app.get('/api/chat/messages/:conversationId', enhancedChatEndpoints.getMessagesWithPagination);
-
-// Send message with rate limiting
-app.post('/api/chat/messages', messageRateLimiter, enhancedChatEndpoints.sendMessage);
-
-// Mark conversation as read
-app.post('/api/chat/conversations/:conversationId/read', enhancedChatEndpoints.markConversationAsRead);
-
-// Get unread count for conversation
-app.get('/api/chat/conversations/:conversationId/unread', enhancedChatEndpoints.getUnreadCount);
-
-app.post('/api/chat/conversations', createConversationLimiter, async (req, res) => {
-  try {
-    const { participant1_id, participant2_id } = req.body;
-    
-    if (!supabaseAdmin) {
-      return res.status(503).json({ 
-        error: 'Chat service temporarily unavailable', 
-        details: 'Admin privileges required for chat functionality' 
-      });
-    }
-    
-    // Check if conversation already exists using admin client to bypass RLS
-    const { data: existing } = await supabaseAdmin
-      .from('chat_conversations')
-      .select('*')
-      .or(`and(participant1_id.eq.${participant1_id},participant2_id.eq.${participant2_id}),and(participant1_id.eq.${participant2_id},participant2_id.eq.${participant1_id})`)
-      .single();
-
-    if (existing) {
-      return res.json(existing);
-    }
-
-    // Create new conversation using admin client to bypass RLS
-    const { data, error } = await supabaseAdmin
-      .from('chat_conversations')
-      .insert([{ participant1_id, participant2_id }])
-      .select()
-      .single();
-
-    if (error) throw error;
-    res.json(data);
-  } catch (error) {
-    console.error('Error creating conversation:', error);
-    res.status(500).json({ error: 'Failed to create conversation' });
-  }
-});
-
-// Delete message endpoint
-app.delete('/api/chat/messages/:messageId', async (req, res) => {
-  try {
-    const { messageId } = req.params;
-    const { userId } = req.body; // The user requesting the deletion
-    
-    if (!supabaseAdmin) {
-      return res.status(503).json({ 
-        error: 'Chat service temporarily unavailable', 
-        details: 'Admin privileges required for chat functionality' 
-      });
-    }
-    
-    // First, get the message to verify ownership using admin client
-    const { data: message, error: fetchError } = await supabaseAdmin
-      .from('chat_messages')
-      .select('*')
-      .eq('id', messageId)
-      .single();
-
-    if (fetchError || !message) {
-      return res.status(404).json({ error: 'Message not found' });
-    }
-
-    // Check if the user is the sender of the message
-    if (message.sender_id !== userId) {
-      return res.status(403).json({ error: 'You can only delete your own messages' });
-    }
-
-    // Delete the message using admin client
-    const { error: deleteError } = await supabaseAdmin
-      .from('chat_messages')
-      .delete()
-      .eq('id', messageId);
-
-    if (deleteError) throw deleteError;
-
-    // Broadcast deletion to all users in the conversation
-    io.to(`conversation_${message.conversation_id}`).emit('message_deleted', {
-      messageId,
-      conversationId: message.conversation_id
-    });
-
-    res.json({ success: true, messageId });
-  } catch (error) {
-    console.error('Error deleting message:', error);
-    res.status(500).json({ error: 'Failed to delete message' });
-  }
-});
 
 // Cloudinary API endpoints
 app.delete('/api/cloudinary/image/:publicId', async (req, res) => {
@@ -726,31 +940,13 @@ app.post('/api/cloudinary/batch-delete', async (req, res) => {
   }
 });
 
-// Socket.IO connection handling with performance optimizations
-const connectedUsers = new Map();
-const messageQueue = new Map(); // Queue for batched messages
-const BATCH_DELAY = 10; // Reduced to 10ms for better real-time performance
-const batchTimers = new Map();
-
 // Performance monitoring
 const performanceMetrics = {
-  messagesProcessed: 0,
   connectionsActive: 0,
   averageResponseTime: 0,
   startTime: Date.now(),
   responseTimes: []
 };
-
-// Simulate some activity for development
-if (process.env.NODE_ENV === 'development') {
-  // Add some sample response times to make metrics look realistic
-  performanceMetrics.responseTimes = [45, 67, 23, 89, 34, 56, 78, 12, 45, 67];
-  performanceMetrics.messagesProcessed = 15;
-  
-  // Update average response time
-  const total = performanceMetrics.responseTimes.reduce((a, b) => a + b, 0);
-  performanceMetrics.averageResponseTime = Math.round(total / performanceMetrics.responseTimes.length);
-}
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -764,7 +960,6 @@ app.get('/health', (req, res) => {
 // Performance API endpoint
 app.get('/api/performance', (req, res) => {
   const uptime = Math.floor((Date.now() - performanceMetrics.startTime) / 1000);
-  const messagesPerSecond = uptime > 0 ? (performanceMetrics.messagesProcessed / uptime).toFixed(2) : 0;
   
   // Calculate average response time from recent samples
   const recentResponseTimes = performanceMetrics.responseTimes.slice(-10); // Last 10 samples
@@ -775,474 +970,13 @@ app.get('/api/performance', (req, res) => {
   res.json({
     uptime,
     connectionsActive: performanceMetrics.connectionsActive,
-    messagesProcessed: performanceMetrics.messagesProcessed,
-    averageResponseTime: avgResponseTime,
-    messagesPerSecond: parseFloat(messagesPerSecond)
+    averageResponseTime: avgResponseTime
   });
 });
 
-// Optimized Socket.IO configuration for real-time performance
-const io = new Server(server, {
-  cors: {
-    origin: [
-      process.env.FRONTEND_URL || "http://localhost:5173",
-      "http://localhost:5173",
-      "http://localhost:3000",
-      "https://cars-g.vercel.app",
-      "https://cars-g.vercel.app/",
-      "https://cars-g-git-main-kevinmccarthy.vercel.app",
-      "https://cars-g-git-main-kevinmccarthy.vercel.app/"
-    ],
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
-    credentials: true
-  },
-  transports: ['websocket', 'polling'], // Allow fallback to polling for better compatibility
-  allowEIO3: false, // Disable legacy support
-  pingTimeout: 30000, // Reduced for faster detection of disconnections
-  pingInterval: 15000, // More frequent pings for better connection health
-  maxHttpBufferSize: 1e6, // 1MB
-  // Performance optimizations for real-time
-  connectTimeout: 15000, // Reduced timeout for faster connection
-  upgradeTimeout: 15000, // Reduced upgrade timeout
-  allowUpgrades: true, // Enable upgrade for better compatibility
-  rememberUpgrade: true,
-  perMessageDeflate: {
-    threshold: 16384, // Reduced threshold for faster compression
-    zlibInflateOptions: {
-      chunkSize: 8 * 1024
-    },
-    zlibDeflateOptions: {
-      level: 3 // Faster compression
-    }
-  }
-});
 
-// Message batching function
-const flushMessageBatch = async (conversationId) => {
-  const batch = messageQueue.get(conversationId);
-  if (!batch || batch.length === 0) return;
 
-  const startTime = Date.now();
-  
-  try {
-    // Process all messages in the batch
-    const messages = [];
-    for (const msgData of batch) {
-      const { sender_id, content, message_type = 'text' } = msgData;
-      
-      // Save message to Supabase using admin client
-      const { data: message, error } = await supabaseAdmin
-        .from('chat_messages')
-        .insert([{
-          conversation_id: conversationId,
-          sender_id,
-          content,
-          message_type
-        }])
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Database error saving message:', error);
-        continue;
-      }
-
-      messages.push({
-        ...message,
-        sender: connectedUsers.get(sender_id)?.user
-      });
-    }
-
-    // Broadcast all messages to conversation room
-    if (messages.length > 0) {
-      io.to(`conversation_${conversationId}`).emit('new_messages_batch', messages);
-      
-      // Update conversation timestamp
-      try {
-        await supabaseAdmin
-          .from('chat_conversations')
-          .update({ last_message_at: new Date().toISOString() })
-          .eq('id', conversationId);
-      } catch (updateError) {
-        console.error('Warning: Failed to update conversation timestamp:', updateError);
-      }
-    }
-
-    // Update performance metrics
-    const responseTime = Date.now() - startTime;
-    performanceMetrics.messagesProcessed += messages.length;
-    performanceMetrics.averageResponseTime = 
-      (performanceMetrics.averageResponseTime + responseTime) / 2;
-
-  } catch (error) {
-    console.error('Error processing message batch:', error);
-  }
-
-  // Clear batch
-  messageQueue.delete(conversationId);
-  const timer = batchTimers.get(conversationId);
-  if (timer) {
-    clearTimeout(timer);
-    batchTimers.delete(conversationId);
-  }
-};
-
-io.on('connection', (socket) => {
-  console.log('User connected:', socket.id);
-  console.log('Connection origin:', socket.handshake.headers.origin);
-  console.log('Connection headers:', socket.handshake.headers);
-  performanceMetrics.connectionsActive++;
-  
-  // Enhanced connection monitoring
-  socket.lastPing = Date.now();
-  socket.isAlive = true;
-  
-  // Track message processing for performance metrics
-  const originalEmit = socket.emit;
-  socket.emit = function(event, ...args) {
-    if (event !== 'authenticated' && event !== 'auth_error') {
-      performanceMetrics.messagesProcessed++;
-    }
-    return originalEmit.apply(this, [event, ...args]);
-  };
-  
-  // Add connection deduplication
-  socket.authenticated = false;
-  socket.userId = null;
-
-  // Handle user authentication with caching
-  socket.on('authenticate', async (userId) => {
-    try {
-      // Check if user is already authenticated on this socket
-      if (socket.userId === userId && connectedUsers.has(userId)) {
-        socket.emit('authenticated', { user: connectedUsers.get(userId).user });
-        return;
-      }
-
-      // Check if user is already connected on another socket
-      if (connectedUsers.has(userId)) {
-        const existingConnection = connectedUsers.get(userId);
-        console.log(`User ${userId} already connected on socket ${existingConnection.socketId}, updating to ${socket.id}`);
-        
-        // Update the connection to use the new socket
-        connectedUsers.set(userId, {
-          socketId: socket.id,
-          user: existingConnection.user,
-          lastSeen: Date.now()
-        });
-        
-        socket.userId = userId;
-        socket.authenticated = true;
-        socket.join(`user_${userId}`);
-        
-        console.log(`User ${existingConnection.user.username} reconnected with socket ${socket.id}`);
-        socket.emit('authenticated', { user: existingConnection.user });
-        return;
-      }
-
-      // Verify user exists in Supabase
-      const { data: user, error } = await supabase
-        .from('profiles')
-        .select('id, username, avatar_url')
-        .eq('id', userId)
-        .single();
-
-      if (error || !user) {
-        socket.emit('auth_error', { message: 'Invalid user' });
-        return;
-      }
-
-      // Store user connection
-      connectedUsers.set(userId, {
-        socketId: socket.id,
-        user: user,
-        lastSeen: Date.now()
-      });
-
-      socket.userId = userId;
-      socket.authenticated = true;
-      socket.join(`user_${userId}`);
-      
-      console.log(`User ${user.username} authenticated with socket ${socket.id}`);
-      socket.emit('authenticated', { user });
-    } catch (error) {
-      console.error('Authentication error:', error);
-      socket.emit('auth_error', { message: 'Authentication failed' });
-    }
-  });
-
-  // Handle joining a conversation
-  socket.on('join_conversation', (conversationId) => {
-    // Validate authentication first
-    if (!socket.authenticated || !socket.userId) {
-      return;
-    }
-
-    socket.join(`conversation_${conversationId}`);
-    console.log(`Socket ${socket.id} joined conversation ${conversationId}`);
-  });
-
-  // Handle leaving a conversation
-  socket.on('leave_conversation', (conversationId) => {
-    // Validate authentication first
-    if (!socket.authenticated || !socket.userId) {
-      return;
-    }
-
-    socket.leave(`conversation_${conversationId}`);
-    console.log(`Socket ${socket.id} left conversation ${conversationId}`);
-  });
-
-  // Handle single message with immediate processing for real-time performance
-  socket.on('send_message', async (messageData, callback) => {
-    try {
-      // Validate authentication first
-      if (!socket.authenticated || !socket.userId) {
-        socket.emit('auth_error', { message: 'Not authenticated' });
-        if (callback && typeof callback === 'function') {
-          callback({ success: false, error: 'Not authenticated' });
-        }
-        return;
-      }
-
-      const { conversation_id, sender_id, content, message_type = 'text' } = messageData;
-      
-      // Validate sender matches authenticated user
-      if (sender_id !== socket.userId) {
-        socket.emit('message_error', { message: 'Sender ID mismatch' });
-        if (callback && typeof callback === 'function') {
-          callback({ success: false, error: 'Sender ID mismatch' });
-        }
-        return;
-      }
-      
-      // Process message immediately for real-time performance
-      const { data: message, error } = await supabaseAdmin
-        .from('chat_messages')
-        .insert([{
-          conversation_id,
-          sender_id,
-          content,
-          message_type
-        }])
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Database error saving message:', error);
-        socket.emit('message_error', { message: 'Failed to save message' });
-        
-        if (callback && typeof callback === 'function') {
-          callback({ success: false, error: 'Failed to save message' });
-        }
-        return;
-      }
-
-      // Add sender information
-      const messageWithSender = {
-        ...message,
-        sender: connectedUsers.get(sender_id)?.user
-      };
-
-      // Broadcast immediately to conversation room
-      io.to(`conversation_${conversation_id}`).emit('new_message', messageWithSender);
-      
-      // Update conversation timestamp
-      try {
-        await supabaseAdmin
-          .from('chat_conversations')
-          .update({ last_message_at: new Date().toISOString() })
-          .eq('id', conversation_id);
-      } catch (updateError) {
-        console.error('Warning: Failed to update conversation timestamp:', updateError);
-      }
-
-      // Update performance metrics
-      performanceMetrics.messagesProcessed++;
-
-      // Send success response to client
-      if (callback && typeof callback === 'function') {
-        callback({ success: true, message: messageWithSender });
-      }
-
-    } catch (error) {
-      console.error('Error processing message:', error);
-      socket.emit('message_error', { message: 'Failed to process message' });
-      
-      // Send error response to client
-      if (callback && typeof callback === 'function') {
-        callback({ success: false, error: 'Failed to process message' });
-      }
-    }
-  });
-
-  // Handle batched messages (new optimized method)
-  socket.on('send_message_batch', async (batchData) => {
-    try {
-      // Validate authentication first
-      if (!socket.authenticated || !socket.userId) {
-        socket.emit('auth_error', { message: 'Not authenticated' });
-        return;
-      }
-
-      const { conversation_id, messages } = batchData;
-      
-      const startTime = Date.now();
-      
-      // Process all messages in parallel
-      const messagePromises = messages.map(async (msgData) => {
-        const { content, message_type = 'text' } = msgData;
-        
-        const { data: message, error } = await supabaseAdmin
-          .from('chat_messages')
-          .insert([{
-            conversation_id,
-            sender_id: socket.userId,
-            content,
-            message_type
-          }])
-          .select()
-          .single();
-
-        if (error) {
-          console.error('Database error saving message:', error);
-          return null;
-        }
-
-        return {
-          ...message,
-          sender: connectedUsers.get(socket.userId)?.user
-        };
-      });
-
-      const savedMessages = (await Promise.all(messagePromises)).filter(Boolean);
-
-      // Broadcast all messages at once
-      if (savedMessages.length > 0) {
-        io.to(`conversation_${conversation_id}`).emit('new_messages_batch', savedMessages);
-        
-        // Update conversation timestamp
-        try {
-          await supabaseAdmin
-            .from('chat_conversations')
-            .update({ last_message_at: new Date().toISOString() })
-            .eq('id', conversation_id);
-        } catch (updateError) {
-          console.error('Warning: Failed to update conversation timestamp:', updateError);
-        }
-      }
-
-      // Update performance metrics
-      const responseTime = Date.now() - startTime;
-      performanceMetrics.messagesProcessed += savedMessages.length;
-      performanceMetrics.averageResponseTime = 
-        (performanceMetrics.averageResponseTime + responseTime) / 2;
-
-    } catch (error) {
-      console.error('Error processing message batch:', error);
-      socket.emit('message_error', { message: 'Failed to process message batch' });
-    }
-  });
-
-  // Handle typing indicator with debouncing
-  const typingTimers = new Map();
-  socket.on('typing_start', (conversationId) => {
-    // Validate authentication first
-    if (!socket.authenticated || !socket.userId) {
-      return;
-    }
-
-    const key = `${socket.id}-${conversationId}`;
-    
-    // Clear existing timer
-    if (typingTimers.has(key)) {
-      clearTimeout(typingTimers.get(key));
-    }
-    
-    socket.to(`conversation_${conversationId}`).emit('user_typing', {
-      userId: socket.userId,
-      username: connectedUsers.get(socket.userId)?.user?.username
-    });
-    
-    // Auto-stop typing after 3 seconds
-    const timer = setTimeout(() => {
-      socket.to(`conversation_${conversationId}`).emit('user_stopped_typing', {
-        userId: socket.userId
-      });
-      typingTimers.delete(key);
-    }, 3000);
-    
-    typingTimers.set(key, timer);
-  });
-
-  socket.on('typing_stop', (conversationId) => {
-    // Validate authentication first
-    if (!socket.authenticated || !socket.userId) {
-      return;
-    }
-
-    const key = `${socket.id}-${conversationId}`;
-    if (typingTimers.has(key)) {
-      clearTimeout(typingTimers.get(key));
-      typingTimers.delete(key);
-    }
-    
-    socket.to(`conversation_${conversationId}`).emit('user_stopped_typing', {
-      userId: socket.userId
-    });
-  });
-
-  // Handle ping/pong for connection health
-  socket.on('ping', () => {
-    socket.lastPing = Date.now();
-    socket.isAlive = true;
-    socket.emit('pong');
-  });
-
-  socket.on('pong', () => {
-    socket.lastPing = Date.now();
-    socket.isAlive = true;
-  });
-
-  // Handle disconnection
-  socket.on('disconnect', () => {
-    if (socket.userId) {
-      // Only remove user if this socket was the active one
-      const currentConnection = connectedUsers.get(socket.userId);
-      if (currentConnection && currentConnection.socketId === socket.id) {
-        connectedUsers.delete(socket.userId);
-        console.log(`User ${socket.userId} disconnected from active socket ${socket.id}`);
-      } else {
-        console.log(`User ${socket.userId} disconnected from inactive socket ${socket.id}`);
-      }
-    }
-    
-    // Clear any pending timers
-    typingTimers.forEach((timer, key) => {
-      if (key.startsWith(socket.id)) {
-        clearTimeout(timer);
-        typingTimers.delete(key);
-      }
-    });
-    
-    performanceMetrics.connectionsActive = Math.max(0, performanceMetrics.connectionsActive - 1);
-    console.log('Socket disconnected:', socket.id);
-  });
-});
-
-// Connection health monitoring
-setInterval(() => {
-  const now = Date.now();
-  io.sockets.sockets.forEach((socket) => {
-    if (socket.lastPing && now - socket.lastPing > 60000) { // 60 seconds timeout
-      console.log(`Disconnecting stale socket: ${socket.id}`);
-      socket.disconnect(true);
-    }
-  });
-}, 30000); // Check every 30 seconds
-
-// Error handling
+// General error handling
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({ error: 'Something went wrong!' });
@@ -1254,8 +988,398 @@ if (!process.env.NODE_ENV) {
 }
 
 const PORT = process.env.PORT || 3001;
-const WS_PORT = process.env.WS_PORT || 3001;
 
+// Socket.IO connection handling
+const connectedUsers = new Map(); // userId -> socketId
+const adminSockets = new Set(); // Set of admin socket IDs
+
+io.on('connection', async (socket) => {
+  console.log('Socket connected:', socket.id);
+
+  // Authenticate user
+  socket.on('authenticate', async (data) => {
+    try {
+      console.log('Received authentication request from socket:', socket.id);
+      
+      const { token, userId, username, role } = data;
+      
+      // Try JWT authentication first
+      if (token) {
+        console.log('Attempting JWT authentication...');
+        try {
+          const decoded = verifyToken(token);
+          if (decoded) {
+            console.log('JWT token verified, fetching user profile for:', decoded.userId);
+
+            // Get user profile
+            const { data: profile, error: profileError } = await supabase
+              .from('profiles')
+              .select('id, username, role, avatar_url')
+              .eq('id', decoded.userId)
+              .single();
+
+            if (profileError || !profile) {
+              console.log('User profile not found:', profileError?.message);
+              socket.emit('auth_error', { error: 'User not found' });
+              return;
+            }
+
+            console.log('User profile found:', profile.username, profile.role);
+
+            // Store user connection
+            connectedUsers.set(profile.id, socket.id);
+            socket.userId = profile.id;
+            socket.userRole = profile.role;
+
+            // If user is admin, add to admin sockets
+            if (profile.role === 'admin') {
+              adminSockets.add(socket.id);
+              // Notify all users that admin is online
+              io.emit('admin_online', { isOnline: true });
+              console.log('Admin user connected, notifying all users');
+            }
+
+            socket.emit('authenticated', { 
+              success: true, 
+              user: profile 
+            });
+
+            // Send current admin status to the newly connected user
+            socket.emit('admin_online', { isOnline: adminSockets.size > 0 });
+
+            console.log(`User ${profile.username} (${profile.role}) authenticated successfully via JWT`);
+            return;
+          }
+        } catch (jwtError) {
+          console.log('JWT authentication failed:', jwtError.message);
+          // Fall through to fallback authentication
+        }
+      }
+      
+      // Fallback authentication for testing (remove in production)
+      if (userId && username && role) {
+        console.log('Using fallback authentication for testing...');
+        
+        // Store user connection
+        connectedUsers.set(userId, socket.id);
+        socket.userId = userId;
+        socket.userRole = role;
+
+        // If user is admin, add to admin sockets
+        if (role === 'admin') {
+          adminSockets.add(socket.id);
+          // Notify all users that admin is online
+          io.emit('admin_online', { isOnline: true });
+          console.log('Admin user connected, notifying all users');
+        }
+
+        socket.emit('authenticated', { 
+          success: true, 
+          user: { id: userId, username, role, avatar_url: null }
+        });
+
+        // Send current admin status to the newly connected user
+        socket.emit('admin_online', { isOnline: adminSockets.size > 0 });
+
+        console.log(`User ${username} (${role}) authenticated successfully via fallback`);
+        return;
+      }
+
+      console.log('No valid authentication method provided');
+      socket.emit('auth_error', { error: 'No valid authentication provided' });
+
+    } catch (error) {
+      console.error('Socket authentication error:', error);
+      socket.emit('auth_error', { error: error.message || 'Authentication failed' });
+    }
+  });
+
+  // Join admin chat
+  socket.on('join_admin_chat', async (data) => {
+    try {
+      console.log('Join admin chat request:', { socketUserId: socket.userId, socketUserRole: socket.userRole, requestedUserId: data.userId });
+      
+      if (!socket.userId) {
+        console.log('No socket.userId, emitting chat_error');
+        socket.emit('chat_error', { error: 'Not authenticated' });
+        return;
+      }
+
+      const { userId } = data;
+      
+      // Verify user can join this chat
+      // Users can join their own admin chat, admins can join any admin chat
+      if (socket.userId !== userId && socket.userRole !== 'admin') {
+        console.log('Unauthorized: socket.userId !== userId && socket.userRole !== admin');
+        console.log(`socket.userId: ${socket.userId}, userId: ${userId}, socket.userRole: ${socket.userRole}`);
+        socket.emit('chat_error', { error: 'Unauthorized - you can only join your own admin chat' });
+        return;
+      }
+
+      console.log('Authorization passed, joining chat room');
+      socket.join(`admin_chat_${userId}`);
+      socket.emit('chat_connected', { 
+        success: true, 
+        message: 'Joined admin chat' 
+      });
+
+      console.log(`User ${socket.userId} (${socket.userRole}) joined admin chat for user ${userId}`);
+
+    } catch (error) {
+      console.error('Join admin chat error:', error);
+      socket.emit('chat_error', { error: 'Failed to join chat' });
+    }
+  });
+
+  // Send message
+  socket.on('send_message', async (data) => {
+    try {
+      console.log('Send message request:', { socketUserId: socket.userId, socketUserRole: socket.userRole, data });
+      
+      if (!socket.userId) {
+        console.log('Send message: No socket.userId, emitting chat_error');
+        socket.emit('chat_error', { error: 'Not authenticated' });
+        return;
+      }
+
+      const { message, receiverId } = data;
+      
+      if (!message || !receiverId) {
+        console.log('Send message: Missing message or receiverId');
+        socket.emit('chat_error', { error: 'Message and receiver ID required' });
+        return;
+      }
+
+      // Verify user can send message to this receiver
+      // Users can send to admins (for admin chat), admins can send to anyone, users can send to themselves
+      if (socket.userId !== receiverId && socket.userRole !== 'admin') {
+        // Check if this is an admin chat (user sending to admin)
+        // For now, allow any message from regular users (they're in admin chat)
+        if (socket.userRole === 'user') {
+          console.log('Send message: Regular user sending message in admin chat - allowing');
+        } else {
+          console.log('Send message: Unauthorized - socket.userId !== receiverId && socket.userRole !== admin');
+          console.log(`socket.userId: ${socket.userId}, receiverId: ${receiverId}, socket.userRole: ${socket.userRole}`);
+          socket.emit('chat_error', { error: 'Unauthorized' });
+          return;
+        }
+      }
+
+      // Handle admin messages - use known admin user ID
+      let actualReceiverId = receiverId;
+      if (receiverId === 'admin-placeholder' || receiverId === 'admin') {
+        // Use the known admin user ID
+        actualReceiverId = 'c5e7d75b-3f1b-4f85-b5a5-6b3786daea48';
+        console.log('Using admin user ID:', actualReceiverId);
+      }
+
+      // Create message in database
+      console.log('Creating message in database with:', {
+        sender_id: socket.userId,
+        receiver_id: actualReceiverId,
+        message: message,
+        message_type: 'text',
+        is_read: false
+      });
+
+      const { data: newMessage, error: messageError } = await supabaseAdmin
+        .from('chat_messages')
+        .insert({
+          sender_id: socket.userId,
+          receiver_id: actualReceiverId,
+          message: message,
+          message_type: 'text',
+          is_read: false,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select(`
+          *,
+          sender:profiles!sender_id(id, username, avatar_url, role),
+          receiver:profiles!receiver_id(id, username, avatar_url, role)
+        `)
+        .single();
+
+      console.log('Database insert result:', { newMessage, messageError });
+
+      if (messageError) {
+        console.error('Message creation error:', messageError);
+        socket.emit('chat_error', { error: 'Failed to send message' });
+        return;
+      }
+
+      // Emit message to sender
+      socket.emit('message_sent', newMessage);
+
+      // Emit message to receiver
+      const receiverSocketId = connectedUsers.get(receiverId);
+      if (receiverSocketId) {
+        io.to(receiverSocketId).emit('message_received', newMessage);
+      }
+
+      // If this is an admin chat, notify admin
+      if (socket.userRole !== 'admin') {
+        adminSockets.forEach(adminSocketId => {
+          io.to(adminSocketId).emit('message_received', newMessage);
+        });
+      }
+
+      console.log(`Message sent from ${socket.userId} to ${receiverId}`);
+
+    } catch (error) {
+      console.error('Send message error:', error);
+      socket.emit('chat_error', { error: 'Failed to send message' });
+    }
+  });
+
+  // Mark messages as read
+  socket.on('mark_messages_read', async (data) => {
+    try {
+      if (!socket.userId) {
+        socket.emit('chat_error', { error: 'Not authenticated' });
+        return;
+      }
+
+      const { messageIds } = data;
+      
+      if (!messageIds || !Array.isArray(messageIds)) {
+        socket.emit('chat_error', { error: 'Message IDs required' });
+        return;
+      }
+
+      // Update messages as read
+      const { error: updateError } = await supabaseAdmin
+        .from('chat_messages')
+        .update({ is_read: true, updated_at: new Date().toISOString() })
+        .in('id', messageIds)
+        .eq('receiver_id', socket.userId);
+
+      if (updateError) {
+        console.error('Mark messages read error:', updateError);
+        socket.emit('chat_error', { error: 'Failed to mark messages as read' });
+        return;
+      }
+
+      socket.emit('messages_read', { messageIds });
+
+    } catch (error) {
+      console.error('Mark messages read error:', error);
+      socket.emit('chat_error', { error: 'Failed to mark messages as read' });
+    }
+  });
+
+  // Mark messages as seen by admin (double checkmark)
+  socket.on('mark_messages_seen', async (data) => {
+    try {
+      if (!socket.userId) {
+        socket.emit('chat_error', { error: 'Not authenticated' });
+        return;
+      }
+
+      // Check if user is admin
+      if (socket.userRole !== 'admin') {
+        socket.emit('chat_error', { error: 'Admin access required' });
+        return;
+      }
+
+      const { messageIds } = data;
+      
+      if (!messageIds || !Array.isArray(messageIds)) {
+        socket.emit('chat_error', { error: 'Message IDs required' });
+        return;
+      }
+
+      // Update messages as seen by admin using the database function
+      const { error: updateError } = await supabaseAdmin
+        .rpc('mark_messages_as_seen', {
+          message_ids: messageIds,
+          admin_user_id: socket.userId
+        });
+
+      if (updateError) {
+        console.error('Mark messages seen error:', updateError);
+        socket.emit('chat_error', { error: 'Failed to mark messages as seen' });
+        return;
+      }
+
+      // Get the updated messages to send back to users
+      const { data: updatedMessages, error: fetchError } = await supabaseAdmin
+        .from('chat_messages')
+        .select(`
+          *,
+          sender:profiles!chat_messages_sender_id_fkey(id, username, avatar_url, role),
+          receiver:profiles!chat_messages_receiver_id_fkey(id, username, avatar_url, role)
+        `)
+        .in('id', messageIds);
+
+      if (fetchError) {
+        console.error('Fetch updated messages error:', fetchError);
+      } else {
+        // Notify the sender of each message that their message was seen
+        updatedMessages?.forEach(message => {
+          const senderSocketId = connectedUsers.get(message.sender_id);
+          if (senderSocketId) {
+            io.to(senderSocketId).emit('message_seen', { 
+              messageId: message.id,
+              seenAt: message.seen_at,
+              isRead: message.is_read
+            });
+          }
+        });
+      }
+
+      socket.emit('messages_seen', { messageIds });
+
+    } catch (error) {
+      console.error('Mark messages seen error:', error);
+      socket.emit('chat_error', { error: 'Failed to mark messages as seen' });
+    }
+  });
+
+  // Typing indicators
+  socket.on('typing_start', (data) => {
+    if (!socket.userId) return;
+    
+    const { receiverId } = data;
+    const receiverSocketId = connectedUsers.get(receiverId);
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit('user_typing', { 
+        userId: socket.userId, 
+        isTyping: true 
+      });
+    }
+  });
+
+  socket.on('typing_stop', (data) => {
+    if (!socket.userId) return;
+    
+    const { receiverId } = data;
+    const receiverSocketId = connectedUsers.get(receiverId);
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit('user_typing', { 
+        userId: socket.userId, 
+        isTyping: false 
+      });
+    }
+  });
+
+  // Handle disconnect
+  socket.on('disconnect', () => {
+    console.log('Socket disconnected:', socket.id);
+    
+    if (socket.userId) {
+      connectedUsers.delete(socket.userId);
+      
+      // If admin disconnected, notify users
+      if (socket.userRole === 'admin') {
+        adminSockets.delete(socket.id);
+        if (adminSockets.size === 0) {
+          io.emit('admin_online', { isOnline: false });
+        }
+      }
+    }
+  });
+});
 
 // Start server after testing Supabase connection
 const startServer = async () => {
@@ -1264,10 +1388,9 @@ const startServer = async () => {
     
     server.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
-      console.log(`🔌 WebSocket server running on port ${WS_PORT}`);
       console.log(`🌐 Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:5173'}`);
       console.log(`📊 Health check: http://localhost:${PORT}/health`);
-      console.log('\n✅ Chat server is ready!');
+      console.log('\n✅ Server is ready!');
     });
 
     // Helper: send push to a specific user via FCM v1

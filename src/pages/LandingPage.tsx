@@ -5,7 +5,6 @@ import {
   Shield, 
   MapPin, 
   Award, 
-  MessageCircle, 
   Users, 
   TrendingUp, 
   CheckCircle, 
@@ -57,12 +56,6 @@ export function LandingPage() {
       title: "Earn Rewards",
       description: "Get points and recognition for helping your community stay safe.",
       color: "from-purple-500 to-purple-600"
-    },
-    {
-      icon: MessageCircle,
-      title: "Stay Connected",
-      description: "Real-time chat with community members and patrol teams.",
-      color: "from-orange-500 to-orange-600"
     },
     {
       icon: Smartphone,
@@ -729,9 +722,6 @@ export function LandingPage() {
                   <Globe className="h-5 w-5" />
                 </div>
                 <div className="h-10 w-10 bg-gray-800 rounded-lg flex items-center justify-center hover:bg-gray-700 transition-colors cursor-pointer">
-                  <MessageCircle className="h-5 w-5" />
-                </div>
-                <div className="h-10 w-10 bg-gray-800 rounded-lg flex items-center justify-center hover:bg-gray-700 transition-colors cursor-pointer">
                   <Users className="h-5 w-5" />
                 </div>
               </div>
@@ -779,10 +769,6 @@ export function LandingPage() {
                 <li className="text-gray-400 flex items-center space-x-2">
                   <CheckCircle className="h-4 w-4 text-green-400" />
                   <span>Patrol Coordination</span>
-                </li>
-                <li className="text-gray-400 flex items-center space-x-2">
-                  <CheckCircle className="h-4 w-4 text-green-400" />
-                  <span>Real-time Chat</span>
                 </li>
                 <li className="text-gray-400 flex items-center space-x-2">
                   <CheckCircle className="h-4 w-4 text-green-400" />

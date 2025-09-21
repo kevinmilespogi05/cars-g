@@ -1,7 +1,7 @@
 {
-  "name": "cars-g-chat-server",
+  "name": "cars-g-server",
   "version": "1.0.0",
-  "description": "Real-time chat server for Cars-G application",
+  "description": "API server for Cars-G application",
   "main": "server.js",
   "type": "module",
   "scripts": {
@@ -15,20 +15,21 @@
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
-    "express-rate-limit": "^8.0.1",
+    "express-rate-limit": "^8.1.0",
+    "express-validator": "^7.2.1",
     "google-auth-library": "^9.14.1",
-    "helmet": "^7.1.0",
+    "helmet": "^7.2.0",
+    "jsonwebtoken": "^9.0.2",
     "node-fetch": "^3.3.2",
-    "socket.io": "^4.7.4"
+    "socket.io": "^4.8.1"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"
   },
   "keywords": [
-    "chat",
-    "websockets",
-    "socket.io",
-    "cars-g"
+    "cars-g",
+    "api",
+    "server"
   ],
   "author": "Cars-G Team",
   "license": "MIT"

@@ -43,7 +43,7 @@ export const NotificationPermissionRequest: React.FC<NotificationPermissionReque
         
         // Show success notification
         new Notification('Notifications Enabled! 🎉', {
-          body: 'You will now receive push notifications for new chat messages',
+          body: 'You will now receive push notifications for important updates',
           icon: '/pwa-192x192.png',
           tag: 'permission-granted'
         });

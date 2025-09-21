@@ -404,6 +404,7 @@ export function Reports() {
           <QuickActions hideEmergencyActions />
         </div>
 
+
         {/* Search and Filters Section */}
         <div className="bg-white/90 backdrop-blur sticky top-20 z-10 rounded-lg shadow-sm p-4 mb-4 border border-gray-100">
           <div className="flex flex-col sm:flex-row gap-3">

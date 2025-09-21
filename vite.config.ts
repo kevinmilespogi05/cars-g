@@ -18,6 +18,12 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,ico,png,svg,json,vue,txt,woff2}'],
         cleanupOutdatedCaches: true,
         sourcemap: true,
+        // Improved offline fallback
+        navigateFallback: '/offline.html',
+        navigateFallbackAllowlist: [/^\/$/],
+        // Better service worker lifecycle management
+        skipWaiting: false,
+        clientsClaim: false,
         runtimeCaching: [
           {
             // Opportunistic map tiles caching (OpenStreetMap)
@@ -105,26 +111,36 @@ export default defineConfig({
                 statuses: [0, 200]
               }
             }
+          },
+          {
+            // API calls with better offline handling
+            urlPattern: /^https:\/\/[a-z0-9-]+\.supabase\.co\/rest\/v1\/.*/,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'api-cache',
+              networkTimeoutSeconds: 3,
+              expiration: {
+                maxEntries: 100,
+                maxAgeSeconds: 60 * 60 * 24 // 1 day
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
+              }
+            }
           }
-        ],
-        // Don't skip waiting to prevent infinite refresh loops
-        skipWaiting: false,
-        clientsClaim: false,
-        // Prevent navigation loops
-        navigateFallback: null,
-        navigateFallbackAllowlist: [/^\/$/]
+        ]
       },
       manifest: {
         name: 'Cars-G',
         short_name: 'Cars-G',
-        description: 'Your comprehensive reporting system',
+        description: 'Your comprehensive car management and reporting system',
         theme_color: '#800000',
         background_color: '#ffffff',
         display: 'standalone',
         orientation: 'portrait-primary',
         start_url: '/',
         scope: '/',
-        categories: ['productivity', 'utilities'],
+        categories: ['productivity', 'utilities', 'business'],
         lang: 'en',
         dir: 'ltr',
         icons: [
@@ -135,6 +151,12 @@ export default defineConfig({
             purpose: 'any'
           },
           {
+            src: '/pwa-192x192.png',
+            sizes: '192x192',
+            type: 'image/png',
+            purpose: 'maskable'
+          },
+          {
             src: '/pwa-512x512.png',
             sizes: '512x512',
             type: 'image/png',
@@ -144,7 +166,7 @@ export default defineConfig({
             src: '/pwa-512x512.png',
             sizes: '512x512',
             type: 'image/png',
-            purpose: 'any maskable'
+            purpose: 'maskable'
           }
         ],
         screenshots: [
@@ -160,7 +182,14 @@ export default defineConfig({
             type: 'image/png',
             form_factor: 'narrow'
           }
-        ]
+        ],
+        prefer_related_applications: false,
+        edge_side_panel: {
+          preferred_width: 400
+        },
+        launch_handler: {
+          client_mode: 'navigate-existing'
+        }
       }
     })
   ],

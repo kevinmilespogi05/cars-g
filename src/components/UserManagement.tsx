@@ -75,8 +75,8 @@ export function UserManagement() {
     setActionLoading(userId);
     try {
       // First, ensure the current session has admin rights to update another user's role
-      const { data: { user: sessionUser } } = await supabase.auth.getUser();
-      if (!sessionUser) throw new Error('Not authenticated');
+      const { user: sessionUser, isAuthenticated } = useAuthStore.getState();
+      if (!isAuthenticated || !sessionUser) throw new Error('Not authenticated');
 
       // Attempt role update (RLS requires admin policy to allow updating role)
       const { error } = await supabase
@@ -113,7 +113,7 @@ export function UserManagement() {
 
       if (error) throw error;
       // If the admin bans themselves accidentally, sign them out
-      const { data: { user: sessionUser } } = await supabase.auth.getUser();
+      const { user: sessionUser } = useAuthStore.getState();
       if (sessionUser && sessionUser.id === userId && isBanned) {
         await supabase.auth.signOut();
       }

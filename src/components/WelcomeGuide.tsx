@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ChevronRight, ChevronLeft, Shield, MapPin, Award, MessageCircle, FileText } from 'lucide-react';
+import { X, ChevronRight, ChevronLeft, Shield, MapPin, Award, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 interface WelcomeGuideProps {
@@ -28,17 +28,6 @@ const getSteps = (userRole?: string) => {
         action: {
           text: "Open Map",
           path: "/admin/map"
-        }
-      },
-      {
-        id: 3,
-        title: "Stay Connected",
-        description: "Chat with patrol teams and community members. Stay informed about what's happening.",
-        icon: MessageCircle,
-        color: "bg-orange-500",
-        action: {
-          text: "Open Chat",
-          path: "/chat"
         }
       },
       {
@@ -103,17 +92,6 @@ const getSteps = (userRole?: string) => {
         action: {
           text: "View Reports",
           path: "/reports"
-        }
-      },
-      {
-        id: 4,
-        title: "Stay Connected",
-        description: "Chat with community members and patrol teams. Stay informed about what's happening.",
-        icon: MessageCircle,
-        color: "bg-orange-500",
-        action: {
-          text: "Open Chat",
-          path: "/chat"
         }
       },
       {

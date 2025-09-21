@@ -82,59 +82,6 @@ export interface Achievement {
   progress?: number;
 }
 
-// Chat Types
-export interface ChatConversation {
-  id: string;
-  participant1_id: string;
-  participant2_id: string;
-  created_at: string;
-  updated_at: string;
-  last_message_at: string;
-  participants?: ChatParticipant[];
-  last_message?: ChatMessage;
-  unread_count?: number;
-}
-
-export interface ChatMessage {
-  id: string;
-  conversation_id: string;
-  sender_id: string;
-  content: string;
-  message_type: 'text' | 'image' | 'file' | 'location';
-  metadata?: Record<string, any>;
-  created_at: string;
-  updated_at: string;
-  sender?: {
-    id: string;
-    username: string;
-    avatar_url: string | null;
-  };
-}
-
-export interface ChatParticipant {
-  id: string;
-  conversation_id?: string;
-  user_id?: string;
-  joined_at?: string;
-  last_read_at: string;
-  username: string;
-  avatar_url: string | null;
-  is_banned: boolean;
-  user?: {
-    id: string;
-    username: string;
-    avatar_url: string | null;
-  };
-}
-
-export interface ChatUser {
-  id: string;
-  username: string;
-  avatar_url: string | null;
-  is_banned?: boolean;
-  is_online?: boolean;
-  last_seen?: string;
-}
 
 export interface LikeDetail {
   id: string;
@@ -215,6 +162,85 @@ export interface ReportRating {
   stars: 1 | 2 | 3 | 4 | 5;
   comment?: string | null;
   created_at: string;
+}
+
+// Chat Types
+export interface ChatMessage {
+  id: string;
+  sender_id: string;
+  receiver_id: string;
+  message: string;
+  message_type: 'text' | 'image' | 'file';
+  is_read: boolean;
+  seen_at?: string | null;
+  created_at: string;
+  updated_at: string;
+  sender?: {
+    id: string;
+    username: string;
+    avatar_url: string | null;
+    role: string;
+  };
+  receiver?: {
+    id: string;
+    username: string;
+    avatar_url: string | null;
+    role: string;
+  };
+}
+
+export interface AdminChat {
+  id: string;
+  user_id: string;
+  admin_id: string;
+  last_message: string;
+  last_message_at: string;
+  unread_count: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  user?: {
+    id: string;
+    username: string;
+    avatar_url: string | null;
+    email: string;
+  };
+  admin?: {
+    id: string;
+    username: string;
+    avatar_url: string | null;
+  };
+}
+
+export interface ChatRoom {
+  id: string;
+  user_id: string;
+  admin_id: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// Socket.IO Events
+export interface SocketEvents {
+  // Client to Server
+  'join_admin_chat': (data: { userId: string }) => void;
+  'send_message': (data: { message: string; receiverId: string }) => void;
+  'mark_messages_read': (data: { messageIds: string[] }) => void;
+  'mark_messages_seen': (data: { messageIds: string[] }) => void;
+  'typing_start': (data: { receiverId: string }) => void;
+  'typing_stop': (data: { receiverId: string }) => void;
+  
+  // Server to Client
+  'message_received': (message: ChatMessage) => void;
+  'message_sent': (message: ChatMessage) => void;
+  'messages_read': (data: { messageIds: string[] }) => void;
+  'messages_seen': (data: { messageIds: string[] }) => void;
+  'message_seen': (data: { messageId: string; seenAt: string; isRead: boolean }) => void;
+  'user_typing': (data: { userId: string; isTyping: boolean }) => void;
+  'admin_online': (data: { isOnline: boolean }) => void;
+  'chat_connected': (data: { success: boolean; message?: string }) => void;
+  'chat_error': (data: { error: string }) => void;
 }
 
 // Google Maps Types

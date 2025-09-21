@@ -1,0 +1,11 @@
+# JWT Configuration
+# Copy this to your .env file or set as environment variables
+
+JWT_SECRET=cf8f1086c09c228fd85ce5b7f0d7f085521633ff99f9b2786dfe1f52b0e70e9c229642b7cfd0fbc0ab6c2971b1fddc0567f890323859afcc98460854af7eafb4
+JWT_EXPIRES_IN=24h
+JWT_REFRESH_EXPIRES_IN=7d
+
+# Add these to your server/.env file:
+# JWT_SECRET=cf8f1086c09c228fd85ce5b7f0d7f085521633ff99f9b2786dfe1f52b0e70e9c229642b7cfd0fbc0ab6c2971b1fddc0567f890323859afcc98460854af7eafb4
+# JWT_EXPIRES_IN=24h
+# JWT_REFRESH_EXPIRES_IN=7d

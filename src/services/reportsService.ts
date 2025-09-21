@@ -1,11 +1,21 @@
 import { supabase } from '../lib/supabase';
 import { Report, LikeDetail, Comment, CommentReply, CommentLike } from '../types';
+import { useAuthStore } from '../store/authStore';
 
 export class ReportsServiceError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'ReportsServiceError';
   }
+}
+
+// Helper function to get current user from auth store
+function getCurrentUser() {
+  const { user, isAuthenticated } = useAuthStore.getState();
+  if (!isAuthenticated || !user) {
+    throw new ReportsServiceError('User not authenticated');
+  }
+  return user;
 }
 
 // Feature flags
@@ -116,8 +126,7 @@ function _createSubscription(channelName: string, events: any[], callback: Funct
 export const reportsService = {
   // Create report with optimistic updates
   async createReport(reportData: Omit<Report, 'id' | 'created_at' | 'updated_at' | 'status'> & { idempotency_key?: string }): Promise<Report> {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new ReportsServiceError('User not authenticated');
+    const user = getCurrentUser();
 
     // Optimistic update - add to cache immediately
     const optimisticReport: Report = {
@@ -227,7 +236,7 @@ export const reportsService = {
 
       // Build like maps for mock replies
       const allLikes = JSON.parse(localStorage.getItem('report_comment_reply_all_likes') || '{}');
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = getCurrentUser();
 
       // Ensure profiles are cached for mock replies
       const mockUserIds = [...new Set(rawReplies.map((r: any) => r.user_id))];
@@ -297,7 +306,7 @@ export const reportsService = {
         }
 
         // Current user for like status
-        const { data: { user } } = await supabase.auth.getUser();
+        const user = getCurrentUser();
 
         // For each reply, get likes count, is_liked, and nested replies if depth allows
         const result: CommentReply[] = [];
@@ -351,7 +360,7 @@ export const reportsService = {
   // Add a comment reply (top-level to comment or nested to reply)
   async addCommentReply(parentId: string, content: string, isNested: boolean = false): Promise<CommentReply> {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = getCurrentUser();
       if (!user) throw new ReportsServiceError('User not authenticated');
 
       // Check if this is a report comment
@@ -432,8 +441,7 @@ export const reportsService = {
 
   // Toggle like for a comment
   async toggleCommentLike(commentId: string): Promise<boolean> {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new ReportsServiceError('User not authenticated');
+    const user = getCurrentUser();
 
     // Check if this is a report comment or regular comment
     const { data: reportComment, error: reportCommentError } = await supabase
@@ -497,8 +505,7 @@ export const reportsService = {
 
   // Toggle like for a reply
   async toggleReplyLike(replyId: string): Promise<boolean> {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new ReportsServiceError('User not authenticated');
+    const user = getCurrentUser();
 
     // For simulated replies (created for report comments), we use localStorage
     // since they are not persisted to the `comment_replies` table and thus
@@ -827,11 +834,14 @@ export const reportsService = {
       // Batch fetch user profiles and user likes in parallel with caching
       const userIds = [...new Set(reportsData.map(report => report.user_id))];
       
-      // Get current user with better error handling
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      
-      if (userError) {
-        console.error('Error getting user:', userError);
+      // Get current user from auth store
+      let user;
+      try {
+        user = getCurrentUser();
+      } catch (error) {
+        console.error('Error getting user:', error);
+        // If user is not authenticated, we can still fetch reports but without user-specific data
+        user = null;
       }
       
       // Use cached profiles where possible
@@ -976,11 +986,14 @@ export const reportsService = {
       // Batch fetch user profiles and user likes in parallel with caching
       const userIds = [...new Set(reportsData.map(report => report.user_id))];
       
-      // Get current user with better error handling
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      
-      if (userError) {
-        console.error('Error getting user:', userError);
+      // Get current user from auth store
+      let user;
+      try {
+        user = getCurrentUser();
+      } catch (error) {
+        console.error('Error getting user:', error);
+        // If user is not authenticated, we can still fetch reports but without user-specific data
+        user = null;
       }
       
       // Use cached profiles where possible
@@ -1052,8 +1065,7 @@ export const reportsService = {
 
   // Update report status with optimistic updates
   async updateReportStatus(reportId: string, newStatus: Report['status']): Promise<Report> {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new ReportsServiceError('User not authenticated');
+    const user = getCurrentUser();
 
     // Validate status
     const validStatuses = ['verifying', 'pending', 'in_progress', 'resolved', 'rejected', 'cancelled'] as const;
@@ -1104,8 +1116,7 @@ export const reportsService = {
 
   // Like/unlike report with optimistic updates
   async toggleLike(reportId: string): Promise<boolean> {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new ReportsServiceError('User not authenticated');
+    const user = getCurrentUser();
 
     // Check if already liked
     const { data: existingLikes, error: checkError } = await supabase

@@ -50,6 +50,15 @@ export function usePWA(): UsePWAReturn {
       onRegistered(registration) {
         console.log('Service Worker registered:', registration);
         
+        // Handle service worker conflicts with Firebase messaging
+        if (registration.active) {
+          registration.active.addEventListener('message', (event) => {
+            if (event.data && event.data.type === 'SKIP_WAITING') {
+              console.log('Received SKIP_WAITING message, but not auto-updating to prevent conflicts');
+            }
+          });
+        }
+        
         // Disable automatic update checks to prevent refresh loops
         // setInterval(() => {
         //   registration.update();
@@ -57,6 +66,8 @@ export function usePWA(): UsePWAReturn {
       },
       onRegisterError(error) {
         console.error('Service Worker registration error:', error);
+        // Handle service worker conflicts gracefully
+        console.log('Attempting to resolve service worker conflicts...');
       }
     });
 

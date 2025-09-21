@@ -284,8 +284,8 @@
                 // Try multiple endpoints to test connection
                 const endpoints = [
                     '/manifest.webmanifest',
-                    'https://httpbin.org/status/200',
-                    'https://www.google.com/favicon.ico'
+                    '/pwa-192x192.png',
+                    'https://httpbin.org/status/200'
                 ];
                 
                 let connectionSuccess = false;
@@ -295,7 +295,7 @@
                         const response = await fetch(endpoint, { 
                             method: 'HEAD',
                             cache: 'no-cache',
-                            signal: AbortSignal.timeout(3000)
+                            signal: AbortSignal.timeout(2000) // Reduced timeout
                         });
                         if (response.ok) {
                             connectionSuccess = true;

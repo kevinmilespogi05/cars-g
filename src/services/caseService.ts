@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import type { DutySchedule, ReportRating } from '../types';
+import { useAuthStore } from '../store/authStore';
 
 export const caseService = {
   async generateMonthly(year: number, month: number): Promise<number> {
@@ -129,8 +130,9 @@ export const caseService = {
   },
 
   async rateReport(reportId: string, stars: 1 | 2 | 3 | 4 | 5, comment?: string | null): Promise<ReportRating> {
-    const userId = (await supabase.auth.getUser()).data.user?.id;
-    if (!userId) throw new Error('Not authenticated');
+    const { user, isAuthenticated } = useAuthStore.getState();
+    if (!isAuthenticated || !user) throw new Error('Not authenticated');
+    const userId = user.id;
     const payload = {
       report_id: reportId,
       requester_user_id: userId,

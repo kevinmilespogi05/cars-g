@@ -9,7 +9,7 @@ interface NetworkStatus {
 }
 
 // Simple flag to disable network checking (useful for testing)
-const DISABLE_NETWORK_CHECK = true; // Set to true to disable network checking
+const DISABLE_NETWORK_CHECK = false; // Set to true to disable network checking
 
 export function useNetworkStatus(): NetworkStatus & {
   checkConnection: () => Promise<boolean>;
