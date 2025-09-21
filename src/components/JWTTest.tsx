@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { authenticatedRequest } from '../lib/jwt';
 import { useChat } from '../hooks/useChat';
+import { getApiUrl } from '../lib/config';
 
 export function JWTTest() {
   const { user, isAuthenticated, signInWithJWT, signOut, checkJWTAuthentication } = useAuthStore();
@@ -29,7 +30,7 @@ export function JWTTest() {
     setTestResult('Testing...');
     
     try {
-      const response = await authenticatedRequest('http://localhost:3001/api/auth/test');
+      const response = await authenticatedRequest(getApiUrl('/api/auth/test'));
       const data = await response.json();
       
       if (response.ok) {
@@ -49,7 +50,7 @@ export function JWTTest() {
     setTestResult('Testing admin endpoint...');
     
     try {
-      const response = await authenticatedRequest('http://localhost:3001/api/auth/admin-test');
+      const response = await authenticatedRequest(getApiUrl('/api/auth/admin-test'));
       const data = await response.json();
       
       if (response.ok) {

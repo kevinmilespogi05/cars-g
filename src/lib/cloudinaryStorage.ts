@@ -1,5 +1,6 @@
 import { cloudinary } from './cloudinary';
 import { supabase } from './supabase';
+import { config } from './config';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_TOTAL_SIZE = MAX_FILE_SIZE * 5; // 50MB for multiple uploads
@@ -281,7 +282,7 @@ export async function deleteImage(imageUrl: string): Promise<void> {
     }
 
     // Use the server API endpoint for secure deletion
-    const serverUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+    const serverUrl = config.api.baseUrl;
     
     // Get the current Supabase session for authorization
     const { data: { session } } = await supabase.auth.getSession();
@@ -363,7 +364,7 @@ export async function deleteMultipleImages(imageUrls: string[]): Promise<void> {
     });
 
     // Use the batch deletion API endpoint
-    const serverUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+    const serverUrl = config.api.baseUrl;
     
     // Get the current Supabase session for authorization
     const { data: { session } } = await supabase.auth.getSession();

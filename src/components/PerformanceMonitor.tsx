@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { BarChart3, Zap, Clock, Users, MessageSquare, Activity } from 'lucide-react';
 import { reportsService } from '../services/reportsService';
+import { config } from '../lib/config';
 
 interface PerformanceMetrics {
   uptime: number;
@@ -26,7 +27,7 @@ export const PerformanceMonitor: React.FC = () => {
   const fetchServerMetrics = useCallback(async () => {
     try {
       // Use the correct server URL (port 3001)
-      const serverUrl = import.meta.env.DEV ? 'http://localhost:3001' : '';
+      const serverUrl = config.api.baseUrl;
       const response = await fetch(`${serverUrl}/api/performance`);
       if (response.ok) {
         const metrics = await response.json();

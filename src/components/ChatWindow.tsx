@@ -6,6 +6,7 @@ import { MessageList } from './MessageList';
 import { MessageInput } from './MessageInput';
 import { ChatHeader } from './ChatHeader';
 import { checkAdminStatus } from '../services/adminService';
+import { getApiUrl } from '../lib/config';
 
 interface ChatWindowProps {
   isOpen: boolean;
@@ -67,7 +68,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ isOpen, onClose, adminId
       console.log('Loading existing messages for user:', user.id);
       
       // Use server API to get messages (bypasses RLS issues)
-      const response = await fetch(`http://localhost:3001/api/chat/messages/${user.id}`);
+      const response = await fetch(getApiUrl(`/api/chat/messages/${user.id}`));
       console.log('API response status:', response.status);
       
       const data = await response.json();

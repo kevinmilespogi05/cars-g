@@ -5,6 +5,7 @@ import { socketManager } from '../lib/socket';
 import { AdminChat, ChatMessage } from '../types';
 import { formatDistanceToNow } from 'date-fns';
 import { supabase } from '../lib/supabase';
+import { getApiUrl } from '../lib/config';
 import { 
   MessageCircle, 
   X, 
@@ -74,7 +75,7 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
       console.log('Loading existing chats...');
       
       // Use server API to get all messages
-      const response = await fetch('http://localhost:3001/api/test/chat-messages');
+      const response = await fetch(getApiUrl('/api/test/chat-messages'));
       const data = await response.json();
       
       console.log('All messages from API:', data);
@@ -253,7 +254,7 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
       console.log('Loading messages for user:', userId);
       
       // Use server API to get messages (bypasses RLS issues)
-      const response = await fetch(`http://localhost:3001/api/chat/messages/${userId}`);
+      const response = await fetch(getApiUrl(`/api/chat/messages/${userId}`));
       console.log('API response status:', response.status);
       
       const data = await response.json();
