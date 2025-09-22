@@ -7,7 +7,6 @@ import { useAuthStore } from '../store/authStore';
 import { reportsService } from '../services/reportsService';
 import { cloudinary } from '../lib/cloudinary';
 import { AnnouncementCarousel } from '../components/AnnouncementCarousel';
-import { CaseInfo } from '../components/CaseInfo';
 
 
 export function PatrolDashboard() {
@@ -24,8 +23,6 @@ export function PatrolDashboard() {
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'in_progress' | 'awaiting_verification'>('all');
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [proofUploading, setProofUploading] = useState(false);
-  const [showCaseInfo, setShowCaseInfo] = useState(false);
-  const [selectedCaseReport, setSelectedCaseReport] = useState<Report | null>(null);
   const [quickFilter, setQuickFilter] = useState<'all' | 'mine' | 'unassigned'>(() => {
     try {
       const saved = localStorage.getItem('patrol.quickFilter');
@@ -441,19 +438,9 @@ export function PatrolDashboard() {
   };
 
   const handleOpenCaseInfo = (report: Report) => {
-    setSelectedCaseReport(report);
-    setShowCaseInfo(true);
+    navigate(`/patrol/case/${report.id}`);
   };
 
-  const handleUpdateReport = (updatedReport: Report) => {
-    setReports(prev => prev.map(r => r.id === updatedReport.id ? updatedReport : r));
-    if (selectedCaseReport?.id === updatedReport.id) {
-      setSelectedCaseReport(updatedReport);
-    }
-    if (selectedReport?.id === updatedReport.id) {
-      setSelectedReport(updatedReport);
-    }
-  };
 
   const handleAssignToGroup = async (reportId: string, group: string) => {
     try {
@@ -1291,15 +1278,6 @@ export function PatrolDashboard() {
         </div>
       )}
 
-      {/* Case Info Modal */}
-      {showCaseInfo && selectedCaseReport && (
-        <CaseInfo
-          report={selectedCaseReport}
-          onUpdate={handleUpdateReport}
-          onClose={() => setShowCaseInfo(false)}
-          isPatrolView={true}
-        />
-      )}
     </div>
   );
 }

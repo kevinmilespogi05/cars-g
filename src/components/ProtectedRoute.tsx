@@ -27,9 +27,9 @@ export function ProtectedRoute({ children, adminRedirect = false, patrolRedirect
     );
   }
 
-  // Redirect admin users to admin/map if this route is meant for regular users
+  // Redirect admin users to admin dashboard if this route is meant for regular users
   if (adminRedirect && user?.role === 'admin') {
-    return <Navigate to="/admin/map" replace />;
+    return <Navigate to="/admin" replace />;
   }
 
   // Redirect patrol users to patrol dashboard if this route is meant for regular users

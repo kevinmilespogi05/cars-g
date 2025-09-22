@@ -12,9 +12,10 @@ interface ChatWindowProps {
   isOpen: boolean;
   onClose: () => void;
   adminId?: string;
+  position?: { x: number; y: number };
 }
 
-export const ChatWindow: React.FC<ChatWindowProps> = ({ isOpen, onClose, adminId }) => {
+export const ChatWindow: React.FC<ChatWindowProps> = ({ isOpen, onClose, adminId, position }) => {
   const { user, isAuthenticated } = useAuthStore();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isConnected, setIsConnected] = useState(false);
@@ -275,14 +276,43 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ isOpen, onClose, adminId
 
   if (!isOpen) return null;
 
+  // Calculate position for chat window
+  const getChatPosition = () => {
+    if (position) {
+      // Position chat window near the button but adjust to fit on screen
+      const chatWidth = isExpanded ? 384 : 320; // w-96 = 384px, w-80 = 320px
+      const chatHeight = isExpanded ? 600 : 384; // h-[600px] = 600px, h-96 = 384px
+      
+      // Calculate position to place chat above and to the left of the button
+      let x = position.x - chatWidth - 20; // 20px gap from button
+      let y = position.y - chatHeight - 20; // 20px gap from button
+      
+      // Ensure chat window stays within viewport bounds
+      const maxX = window.innerWidth - chatWidth - 20;
+      const maxY = window.innerHeight - chatHeight - 20;
+      
+      x = Math.max(20, Math.min(x, maxX));
+      y = Math.max(20, Math.min(y, maxY));
+      
+      return { x, y };
+    }
+    
+    // Default position (bottom right)
+    return { x: window.innerWidth - 336, y: window.innerHeight - 408 }; // 320 + 16, 384 + 24
+  };
+
+  const chatPosition = getChatPosition();
+
   return (
     <div 
-      className={`fixed bottom-6 right-6 z-50 bg-white rounded-3xl shadow-2xl border border-gray-300/50 flex flex-col overflow-hidden transition-all duration-300 ease-in-out backdrop-blur-sm ${
+      className={`fixed z-50 bg-white rounded-3xl shadow-2xl border border-gray-300/50 flex flex-col overflow-hidden transition-all duration-300 ease-in-out backdrop-blur-sm ${
         isExpanded 
           ? 'w-96 h-[600px]' 
           : 'w-80 h-96'
       }`}
       style={{
+        left: `${chatPosition.x}px`,
+        top: `${chatPosition.y}px`,
         boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.1)'
       }}
     >

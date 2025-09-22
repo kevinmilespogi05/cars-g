@@ -1569,8 +1569,8 @@ export function AdminMapDashboard() {
   };
 
   const filteredReports = reports.filter(report => {
-    // Exclude resolved reports from the main view - they go to history
-    if (report.status === 'resolved') return false;
+    // Exclude resolved and rejected reports from the main view - they go to history
+    if (report.status === 'resolved' || report.status === 'rejected') return false;
     
     // Exclude patrol reports (in_progress and awaiting_verification) from the main view
     // They should only appear in the Patrol Reports section
@@ -1586,7 +1586,7 @@ export function AdminMapDashboard() {
   });
 
   return (
-    <div className="h-screen bg-gray-50">
+    <div className="h-screen bg-gray-50 pt-20">
       {/* Header */}
       <div className="sticky top-0 z-50 border-b border-gray-200 bg-white/80 supports-[backdrop-filter]:bg-white/70 backdrop-blur">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1697,11 +1697,10 @@ export function AdminMapDashboard() {
                 { key: 'all', label: 'All' },
                 { key: 'pending', label: 'Pending' },
                 { key: 'in_progress', label: 'In Progress' },
-                { key: 'awaiting_verification', label: 'Awaiting Verification' },
-                { key: 'rejected', label: 'Rejected' }
+                { key: 'awaiting_verification', label: 'Awaiting Verification' }
               ] as Array<{ key: 'all' | Report['status']; label: string }>).map(({ key, label }) => {
-                const nonResolved = reports.filter(r => r.status !== 'resolved');
-                const count = key === 'all' ? nonResolved.length : nonResolved.filter(r => r.status === key).length;
+                const nonResolvedRejected = reports.filter(r => r.status !== 'resolved' && r.status !== 'rejected');
+                const count = key === 'all' ? nonResolvedRejected.length : nonResolvedRejected.filter(r => r.status === key).length;
                 const isActive = filter === key;
                 return (
                   <button
@@ -2240,12 +2239,6 @@ export function AdminMapDashboard() {
                 <span className="text-gray-600">Pending:</span>
                 <span className="font-medium text-yellow-600">
                   {reports.filter(r => r.status === 'pending').length}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Rejected:</span>
-                <span className="font-medium text-red-600">
-                  {reports.filter(r => r.status === 'rejected').length}
                 </span>
               </div>
             </div>

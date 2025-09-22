@@ -295,37 +295,13 @@ export function ReportDetail() {
     
     setLikeLoading(true);
     try {
-      if (report.is_liked) {
-        console.log('Unliking report:', report.id);
-        // Unlike
-        const { error } = await supabase
-          .from('likes')
-          .delete()
-          .eq('report_id', report.id)
-          .eq('user_id', user.id);
+      const isLiked = await reportsService.toggleLike(report.id);
 
-        if (error) throw error;
-
-        setReport(prev => prev ? {
-          ...prev,
-          is_liked: false,
-          likes_count: prev.likes_count - 1
-        } : null);
-      } else {
-        console.log('Liking report:', report.id);
-        // Like
-        const { error } = await supabase
-          .from('likes')
-          .insert({ report_id: report.id, user_id: user.id });
-
-        if (error) throw error;
-
-        setReport(prev => prev ? {
-          ...prev,
-          is_liked: true,
-          likes_count: prev.likes_count + 1
-        } : null);
-      }
+      setReport(prev => prev ? {
+        ...prev,
+        is_liked: isLiked,
+        likes_count: Math.max(0, (prev.likes_count || 0) + (isLiked ? 1 : -1))
+      } : null);
     } catch (error) {
       console.error('Error toggling like:', error);
       alert('Failed to like/unlike report. Please try again.');
@@ -1099,18 +1075,22 @@ export function ReportDetail() {
 
       {/* Image Modal */}
       {selectedImage && report.images && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
-          <div className="relative max-w-5xl w-full flex items-center justify-center mx-auto">
+        <div
+          className="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center p-4"
+          onClick={() => setSelectedImage(null)}
+        >
+          <div className="relative max-w-5xl w-full flex items-center justify-center mx-auto" onClick={(e) => e.stopPropagation()}>
             <button
               onClick={() => setSelectedImage(null)}
-              className="absolute -top-10 right-0 text-white hover:text-gray-300"
+              className="absolute -top-10 right-0 text-white/80 hover:text-white"
+              aria-label="Close full image"
             >
               <X className="h-6 w-6" />
             </button>
             <img
               src={getImageUrl(selectedImage.url)}
               alt={`Report image ${selectedImage.index + 1}`}
-              className="block mx-auto max-h-[85vh] max-w-full object-contain rounded-lg bg-gray-100"
+              className="block mx-auto max-h-[90vh] max-w-[95vw] object-contain rounded-lg bg-gray-100 cursor-zoom-out"
               loading="eager"
               decoding="sync"
               fetchpriority="high"
@@ -1121,6 +1101,7 @@ export function ReportDetail() {
                 const imgElement = e.target as HTMLImageElement;
                 imgElement.src = fallbackImageUrl;
               }}
+              onClick={() => setSelectedImage(null)}
             />
             {report.images.length > 1 && (
               <>

@@ -51,7 +51,7 @@ export function Notification({ message, type, onClose, duration = 5000 }: Notifi
   const Icon = styles.icon;
 
   return (
-    <div className="fixed top-4 right-4 z-50 animate-slide-down">
+    <div className="fixed top-4 right-4 z-[3000] animate-slide-down">
       <div 
         className={`
           rounded-lg shadow-lg border-l-4 ${styles.border}

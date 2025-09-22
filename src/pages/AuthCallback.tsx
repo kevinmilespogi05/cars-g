@@ -52,7 +52,7 @@ export function AuthCallback() {
           
           // Redirect based on user role from database
           if (profile.role === 'admin') {
-            navigate('/admin/map', { replace: true });
+            navigate('/admin', { replace: true });
           } else if (profile.role === 'patrol') {
             navigate('/patrol', { replace: true });
           } else {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
@@ -9,13 +9,9 @@ import {
   Bell,
   Camera,
   AlertTriangle,
-  MessageCircle,
   X
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
-import { ChatWindow } from './ChatWindow';
-import { socketManager } from '../lib/socket';
-import { checkAdminStatus } from '../services/adminService';
 
 interface QuickAction {
   id: string;
@@ -32,11 +28,8 @@ interface QuickActionsProps {
 }
 
 export function QuickActions({ hideEmergencyActions = false }: QuickActionsProps) {
-  const { user, isAuthenticated } = useAuthStore();
+  const { user } = useAuthStore();
   const [isOpen, setIsOpen] = React.useState(false);
-  const [isChatOpen, setIsChatOpen] = useState(false);
-  const [isAdminOnline, setIsAdminOnline] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
 
   const getQuickActions = (): QuickAction[] => {
     if (user?.role === 'admin') {
@@ -97,57 +90,6 @@ export function QuickActions({ hideEmergencyActions = false }: QuickActionsProps
     }
   };
 
-  // Chat functionality
-  useEffect(() => {
-    if (!isAuthenticated || !user || user.role === 'admin') return;
-
-    // Check initial admin status
-    const checkInitialAdminStatus = async () => {
-      const adminStatus = await checkAdminStatus();
-      if (adminStatus.success) {
-        setIsAdminOnline(adminStatus.isOnline);
-      }
-    };
-
-    checkInitialAdminStatus();
-
-    // Set up admin online status listener
-    const handleAdminOnline = (data: { isOnline: boolean }) => {
-      setIsAdminOnline(data.isOnline);
-    };
-
-    // Set up message received listener for unread count
-    const handleMessageReceived = (message: any) => {
-      if (message.sender_id !== user.id) {
-        setUnreadCount(prev => prev + 1);
-      }
-    };
-
-    // Set up messages read listener
-    const handleMessagesRead = (data: { messageIds: string[] }) => {
-      setUnreadCount(0);
-    };
-
-    socketManager.onAdminOnline(handleAdminOnline);
-    socketManager.onMessageReceived(handleMessageReceived);
-    socketManager.onMessagesRead(handleMessagesRead);
-
-    return () => {
-      socketManager.offAdminOnline(handleAdminOnline);
-      socketManager.offMessageReceived(handleMessageReceived);
-      socketManager.offMessagesRead(handleMessagesRead);
-    };
-  }, [isAuthenticated, user]);
-
-  const handleChatClick = () => {
-    setIsChatOpen(true);
-    setUnreadCount(0); // Clear unread count when opening chat
-    setIsOpen(false); // Close the quick actions menu
-  };
-
-  const handleChatClose = () => {
-    setIsChatOpen(false);
-  };
 
   const quickActions = getQuickActions();
 
@@ -160,7 +102,7 @@ export function QuickActions({ hideEmergencyActions = false }: QuickActionsProps
           <p className="text-sm text-gray-600">Access your most common tasks</p>
         </div>
         
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {quickActions.map((action, index) => (
             <motion.div
               key={action.id}
@@ -239,37 +181,6 @@ export function QuickActions({ hideEmergencyActions = false }: QuickActionsProps
                   </motion.div>
                 ))}
                 
-                {/* Chat option (mobile) - only for non-admin users */}
-                {user?.role !== 'admin' && isAuthenticated && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10, scale: 0.98 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    transition={{ duration: 0.2, delay: quickActions.length * 0.05 }}
-                  >
-                    <button
-                      onClick={handleChatClick}
-                      className="flex items-center gap-3 pl-3 pr-3 py-2 rounded-full bg-white border border-gray-200 shadow-md hover:shadow-lg active:scale-95 transition-all relative"
-                    >
-                      <div className="h-9 w-9 bg-blue-100 rounded-full flex items-center justify-center relative">
-                        <MessageCircle className="h-5 w-5 text-blue-600" />
-                        {/* Unread count badge */}
-                        {unreadCount > 0 && (
-                          <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
-                            {unreadCount > 99 ? '99+' : unreadCount}
-                          </div>
-                        )}
-                        {/* Online indicator */}
-                        {isAdminOnline && (
-                          <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-400 border-2 border-white rounded-full"></div>
-                        )}
-                      </div>
-                      <span className="text-sm font-medium text-gray-900 whitespace-nowrap">
-                        Chat with Admin
-                        {isAdminOnline && <span className="text-green-600 ml-1">•</span>}
-                      </span>
-                    </button>
-                  </motion.div>
-                )}
                 
                 {/* Emergency actions (mobile) */}
                 {user?.role !== 'admin' && !hideEmergencyActions && (
@@ -315,14 +226,6 @@ export function QuickActions({ hideEmergencyActions = false }: QuickActionsProps
         </div>
       </div>
 
-      {/* Chat Window */}
-      {user?.role !== 'admin' && isAuthenticated && (
-        <ChatWindow
-          isOpen={isChatOpen}
-          onClose={handleChatClose}
-          adminId="admin"
-        />
-      )}
     </>
   );
 }

@@ -40,7 +40,7 @@ export function Login() {
   useEffect(() => {
     if (isAuthenticated) {
       if (user?.role === 'admin') {
-        navigate('/admin/map', { replace: true });
+        navigate('/admin', { replace: true });
       } else if (user?.role === 'patrol') {
         navigate('/patrol', { replace: true });
       } else {

@@ -21,6 +21,7 @@ const AdminHistory = lazy(() => import('../pages/AdminHistory').then(module => (
 const AdminChat = lazy(() => import('../pages/AdminChat').then(module => ({ default: module.AdminChat })));
 const VerificationReports = lazy(() => import('../pages/VerificationReports').then(module => ({ default: module.VerificationReports })));
 const Announcements = lazy(() => import('../pages/Announcements').then(module => ({ default: module.Announcements })));
+const CaseDetailsPage = lazy(() => import('../pages/CaseDetailsPage').then(module => ({ default: module.CaseDetailsPage })));
 
 export const publicRoutes: RouteObject[] = [
   {
@@ -88,6 +89,10 @@ export const patrolRoutes: RouteObject[] = [
   {
     path: '/patrol',
     element: <PatrolRoute><PatrolDashboard /></PatrolRoute>
+  },
+  {
+    path: '/patrol/case/:caseId',
+    element: <PatrolRoute><CaseDetailsPage /></PatrolRoute>
   }
 ];
 

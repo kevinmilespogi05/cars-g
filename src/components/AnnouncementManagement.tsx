@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Eye, EyeOff, Calendar, AlertCircle, Info, AlertTriangle, CheckCircle, Save, X, Upload, Image as ImageIcon } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye, EyeOff, AlertCircle, Info, AlertTriangle, CheckCircle, Save, X, Upload } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { getAccessToken } from '../lib/jwt';
+import { getApiUrl } from '../lib/config';
 import { useAuthStore } from '../store/authStore';
 import { cloudinary } from '../lib/cloudinary';
 
@@ -41,9 +43,11 @@ export function AnnouncementManagement() {
     image_url: ''
   });
   const [submitting, setSubmitting] = useState(false);
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string>('');
+  const [viewingAnnouncement, setViewingAnnouncement] = useState<Announcement | null>(null);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [togglingIds, setTogglingIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchAnnouncements();
@@ -52,17 +56,38 @@ export function AnnouncementManagement() {
   const fetchAnnouncements = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('announcements')
-        .select('*')
-        .order('created_at', { ascending: false });
+      // Try admin backend first to include inactive/expired
+      let loaded = false;
+      try {
+        const token = getAccessToken();
+        if (token) {
+          const resp = await fetch(getApiUrl('/api/admin/announcements'), {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          });
+          if (resp.ok) {
+            const data = await resp.json();
+            if (data?.success) {
+              setAnnouncements(data.announcements || []);
+              loaded = true;
+            }
+          }
+        }
+      } catch {}
 
-      if (error) {
-        console.error('Error fetching announcements:', error);
-        return;
+      if (!loaded) {
+        const { data, error } = await supabase
+          .from('announcements')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('Error fetching announcements:', error);
+        } else {
+          setAnnouncements(data || []);
+        }
       }
-
-      setAnnouncements(data || []);
     } catch (error) {
       console.error('Error fetching announcements:', error);
     } finally {
@@ -84,29 +109,37 @@ export function AnnouncementManagement() {
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      // Validate file type
-      if (!file.type.startsWith('image/')) {
-        alert('Please select a valid image file');
-        return;
-      }
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
 
-      // Validate file size (5MB limit)
-      if (file.size > 5 * 1024 * 1024) {
-        alert('Image size must be less than 5MB');
-        return;
-      }
+    const validFiles: File[] = [];
+    const newPreviews: string[] = [];
 
-      setImageFile(file);
-      
-      // Create preview
+    const maxPerFileSize = 5 * 1024 * 1024;
+    for (const file of files) {
+      if (!file.type.startsWith('image/')) continue;
+      if (file.size > maxPerFileSize) {
+        alert(`Image ${file.name} is larger than 5MB and was skipped.`);
+        continue;
+      }
+      validFiles.push(file);
+    }
+
+    if (validFiles.length === 0) return;
+
+    let remaining = validFiles.length;
+    validFiles.forEach((file) => {
       const reader = new FileReader();
-      reader.onload = (e) => {
-        setImagePreview(e.target?.result as string);
+      reader.onload = (ev) => {
+        newPreviews.push(ev.target?.result as string);
+        remaining -= 1;
+        if (remaining === 0) {
+          setImageFiles(validFiles);
+          setImagePreviews(newPreviews);
+        }
       };
       reader.readAsDataURL(file);
-    }
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -117,35 +150,64 @@ export function AnnouncementManagement() {
     try {
       let imageUrl = formData.image_url;
 
-      // Upload new image if one was selected
-      if (imageFile) {
-        imageUrl = await handleImageUpload(imageFile);
+      // Upload new images if any were selected
+      if (imageFiles && imageFiles.length > 0) {
+        const uploaded = await Promise.all(imageFiles.map((f) => handleImageUpload(f)));
+        // Store as comma-separated list to avoid schema change; first will be used as thumbnail
+        imageUrl = uploaded.join(',');
       }
 
-      const announcementData = {
+      // Base data used for both create and update
+      const baseData = {
         title: formData.title,
         content: formData.content,
         image_url: imageUrl,
         priority: formData.priority,
         target_audience: formData.target_audience,
-        author_id: user.id,
-        expires_at: formData.expires_at ? new Date(formData.expires_at).toISOString() : null,
-        is_active: true
-      };
+        expires_at: formData.expires_at ? new Date(formData.expires_at).toISOString() : null
+      } as any;
 
       if (editingId) {
         // Update existing announcement
-        const { error } = await supabase
-          .from('announcements')
-          .update(announcementData)
-          .eq('id', editingId);
+        // Prefer backend admin endpoint (bypasses RLS), fallback to direct Supabase update
+        let updated = false;
+        try {
+          const token = getAccessToken();
+          if (token) {
+            const resp = await fetch(getApiUrl(`/api/admin/announcements/${editingId}`), {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify(baseData)
+            });
+            if (resp.ok) {
+              const data = await resp.json();
+              if (data?.success) {
+                updated = true;
+              }
+            }
+          }
+        } catch {}
 
-        if (error) throw error;
+        if (!updated) {
+          const { error } = await supabase
+            .from('announcements')
+            .update(baseData)
+            .eq('id', editingId);
+          if (error) throw error;
+        }
       } else {
         // Create new announcement
+        const createData = {
+          ...baseData,
+          author_id: user.id,
+          is_active: true
+        };
         const { error } = await supabase
           .from('announcements')
-          .insert(announcementData);
+          .insert(createData);
 
         if (error) throw error;
       }
@@ -169,8 +231,12 @@ export function AnnouncementManagement() {
       expires_at: announcement.expires_at ? new Date(announcement.expires_at).toISOString().slice(0, 16) : '',
       image_url: announcement.image_url || ''
     });
-    setImagePreview(announcement.image_url || '');
-    setImageFile(null);
+    const urls = (announcement.image_url || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    setImagePreviews(urls);
+    setImageFiles([]);
     setEditingId(announcement.id);
     setShowForm(true);
   };
@@ -194,18 +260,52 @@ export function AnnouncementManagement() {
   };
 
   const handleToggleActive = async (id: string, currentStatus: boolean) => {
-    try {
-      const { error } = await supabase
-        .from('announcements')
-        .update({ is_active: !currentStatus })
-        .eq('id', id);
+    // Optimistic UI update with per-row loading state
+    setTogglingIds(prev => new Set(prev).add(id));
+    const previousAnnouncements = [...announcements];
+    setAnnouncements(prev => prev.map(a => a.id === id ? { ...a, is_active: !currentStatus } : a));
 
-      if (error) throw error;
+    try {
+      // Try backend admin endpoint first (bypasses RLS), fallback to direct Supabase update
+      const token = getAccessToken();
+      let ok = false;
+      if (token) {
+        const resp = await fetch(getApiUrl(`/api/admin/announcements/${id}/active`), {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ is_active: !currentStatus })
+        });
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data?.success && data?.announcement) {
+            ok = true;
+          }
+        }
+      }
+
+      if (!ok) {
+        const { error } = await supabase
+          .from('announcements')
+          .update({ is_active: !currentStatus })
+          .eq('id', id);
+        if (error) throw error;
+      }
 
       await fetchAnnouncements();
-    } catch (error) {
-      console.error('Error toggling announcement status:', error);
-      alert('Failed to update announcement status. Please try again.');
+    } catch (err: any) {
+      console.error('Error toggling announcement status:', err);
+      // Revert optimistic update
+      setAnnouncements(previousAnnouncements);
+      alert(`Failed to update announcement status: ${err?.message || 'Unknown error'}`);
+    } finally {
+      setTogglingIds(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
     }
   };
 
@@ -218,8 +318,8 @@ export function AnnouncementManagement() {
       expires_at: '',
       image_url: ''
     });
-    setImageFile(null);
-    setImagePreview('');
+    setImageFiles([]);
+    setImagePreviews([]);
     setEditingId(null);
     setShowForm(false);
   };
@@ -372,28 +472,29 @@ export function AnnouncementManagement() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Image (Optional)
+                Images (Optional)
               </label>
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
                   <label className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-md cursor-pointer hover:bg-gray-50 transition-colors">
                     <Upload className="w-4 h-4 text-gray-500" />
                     <span className="text-sm text-gray-700">
-                      {imageFile ? 'Change Image' : 'Upload Image'}
+                      {imageFiles.length > 0 ? 'Change Images' : 'Upload Images'}
                     </span>
                     <input
                       type="file"
                       accept="image/*"
                       onChange={handleImageChange}
+                      multiple
                       className="hidden"
                     />
                   </label>
-                  {imagePreview && (
+                  {imagePreviews.length > 0 && (
                     <button
                       type="button"
                       onClick={() => {
-                        setImageFile(null);
-                        setImagePreview('');
+                        setImageFiles([]);
+                        setImagePreviews([]);
                         setFormData(prev => ({ ...prev, image_url: '' }));
                       }}
                       className="text-red-600 hover:text-red-800 text-sm"
@@ -402,14 +503,11 @@ export function AnnouncementManagement() {
                     </button>
                   )}
                 </div>
-                
-                {imagePreview && (
-                  <div className="relative">
-                    <img
-                      src={imagePreview}
-                      alt="Preview"
-                      className="w-full h-32 object-cover rounded-lg border border-gray-200"
-                    />
+                {imagePreviews.length > 0 && (
+                  <div className="relative grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {imagePreviews.map((src, idx) => (
+                      <img key={idx} src={src} alt={`Preview ${idx+1}`} className="w-full h-32 object-cover rounded-lg border border-gray-200" />
+                    ))}
                     {uploadingImage && (
                       <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-lg">
                         <div className="text-white text-sm">Uploading...</div>
@@ -473,7 +571,7 @@ export function AnnouncementManagement() {
                     {announcement.image_url && (
                       <div className="mb-2">
                         <img
-                          src={announcement.image_url}
+                          src={(announcement.image_url || '').split(',')[0]}
                           alt={announcement.title}
                           className="w-16 h-16 object-cover rounded-lg border border-gray-200"
                         />
@@ -488,17 +586,35 @@ export function AnnouncementManagement() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 ml-4">
-                    <button
-                      onClick={() => handleToggleActive(announcement.id, announcement.is_active)}
-                      className={`p-2 rounded-lg transition-colors ${
-                        announcement.is_active 
-                          ? 'text-green-600 hover:bg-green-50' 
-                          : 'text-gray-400 hover:bg-gray-50'
-                      }`}
-                      title={announcement.is_active ? 'Hide announcement' : 'Show announcement'}
-                    >
-                      {announcement.is_active ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                    </button>
+                        <button
+                            onClick={() => setViewingAnnouncement(announcement)}
+                            className="p-2 text-gray-600 hover:bg-gray-50 rounded-lg transition-colors"
+                            title="View details"
+                        >
+                            <Info className="w-4 h-4" />
+                        </button>
+                    {(() => {
+                      const isToggling = togglingIds.has(announcement.id);
+                      return (
+                        <button
+                          onClick={() => handleToggleActive(announcement.id, announcement.is_active)}
+                          disabled={isToggling}
+                          className={`p-2 rounded-lg transition-colors ${
+                            announcement.is_active 
+                              ? 'text-green-600 hover:bg-green-50' 
+                              : 'text-gray-400 hover:bg-gray-50'
+                          } ${isToggling ? 'opacity-60 cursor-not-allowed' : ''}`}
+                          title={announcement.is_active ? 'Hide announcement' : 'Show announcement'}
+                          aria-busy={isToggling}
+                        >
+                          {isToggling ? (
+                            <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-r-transparent align-[-0.125em]" />
+                          ) : (
+                            announcement.is_active ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />
+                          )}
+                        </button>
+                      );
+                    })()}
                     <button
                       onClick={() => handleEdit(announcement)}
                       className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
@@ -520,6 +636,40 @@ export function AnnouncementManagement() {
           </div>
         )}
       </div>
+
+      {/* View Modal */}
+      {viewingAnnouncement && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setViewingAnnouncement(null)} />
+          <div className="relative z-10 w-full max-w-lg bg-white rounded-lg border border-gray-200 shadow-lg p-6 mx-4">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">{viewingAnnouncement.title}</h3>
+                <div className="mt-1 flex items-center gap-2 text-xs">
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full font-medium ${getPriorityColor(viewingAnnouncement.priority)}`}>{viewingAnnouncement.priority}</span>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full font-medium bg-gray-100 text-gray-800">{viewingAnnouncement.target_audience}</span>
+                </div>
+              </div>
+              <button onClick={() => setViewingAnnouncement(null)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {viewingAnnouncement.image_url && (
+              <img src={viewingAnnouncement.image_url} alt={viewingAnnouncement.title} className="w-full h-48 object-cover rounded-md border border-gray-200 mb-4" />
+            )}
+
+            <p className="text-gray-700 whitespace-pre-wrap">{viewingAnnouncement.content}</p>
+
+            <div className="mt-4 text-xs text-gray-500 flex items-center gap-4">
+              <span>Created: {new Date(viewingAnnouncement.created_at).toLocaleString()}</span>
+              {viewingAnnouncement.expires_at && (
+                <span>Expires: {new Date(viewingAnnouncement.expires_at).toLocaleString()}</span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

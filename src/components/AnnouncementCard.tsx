@@ -76,6 +76,11 @@ export function AnnouncementCard({ announcement, onView, showAuthor = true }: An
     new Date(announcement.expires_at) < new Date(Date.now() + 24 * 60 * 60 * 1000) && 
     new Date(announcement.expires_at) > new Date();
 
+  const imageUrls = (announcement.image_url || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+
   return (
     <div 
       className={`bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer group ${
@@ -84,10 +89,10 @@ export function AnnouncementCard({ announcement, onView, showAuthor = true }: An
       onClick={() => onView(announcement)}
     >
       {/* Image */}
-      {announcement.image_url && (
+      {imageUrls.length > 0 && (
         <div className="relative h-48 overflow-hidden rounded-t-lg">
           <img
-            src={announcement.image_url}
+            src={imageUrls[0]}
             alt={announcement.title}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
           />

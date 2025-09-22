@@ -497,6 +497,182 @@ app.get('/api/test/chat-messages', async (req, res) => {
   }
 });
 
+// Admin: update user role (uses service role client, bypasses RLS)
+app.put('/api/admin/users/:userId/role', authenticateToken, requireRole('admin'), async (req, res) => {
+  try {
+    if (!supabaseAdmin) {
+      return res.status(503).json({ success: false, error: 'Admin privileges required' });
+    }
+
+    const { userId } = req.params;
+    const { role } = req.body || {};
+
+    const allowedRoles = ['user', 'admin', 'patrol'];
+    if (!allowedRoles.includes(role)) {
+      return res.status(400).json({ success: false, error: 'Invalid role' });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('profiles')
+      .update({ role })
+      .eq('id', userId)
+      .select('id, role')
+      .maybeSingle();
+
+    if (error) {
+      return res.status(500).json({ success: false, error: error.message, code: error.code });
+    }
+    if (!data) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    return res.json({ success: true, message: 'User role updated', user: data });
+  } catch (e) {
+    console.error('Admin update role error:', e);
+    return res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+// Admin: toggle user ban status (uses service role client, bypasses RLS)
+app.put('/api/admin/users/:userId/ban', authenticateToken, requireRole('admin'), async (req, res) => {
+  try {
+    if (!supabaseAdmin) {
+      return res.status(503).json({ success: false, error: 'Admin privileges required' });
+    }
+
+    const { userId } = req.params;
+    const { is_banned } = req.body || {};
+
+    if (typeof is_banned !== 'boolean') {
+      return res.status(400).json({ success: false, error: 'is_banned must be boolean' });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('profiles')
+      .update({ is_banned })
+      .eq('id', userId)
+      .select('id, is_banned')
+      .maybeSingle();
+
+    if (error) {
+      return res.status(500).json({ success: false, error: error.message, code: error.code });
+    }
+    if (!data) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    return res.json({ success: true, message: `User ${is_banned ? 'banned' : 'unbanned'}`, user: data });
+  } catch (e) {
+    console.error('Admin toggle ban error:', e);
+    return res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+// Admin: toggle announcement visibility (uses service role client, bypasses RLS)
+app.put('/api/admin/announcements/:id/active', authenticateToken, requireRole('admin'), async (req, res) => {
+  try {
+    if (!supabaseAdmin) {
+      return res.status(503).json({ success: false, error: 'Admin privileges required' });
+    }
+
+    const { id } = req.params;
+    const { is_active } = req.body || {};
+
+    if (typeof is_active !== 'boolean') {
+      return res.status(400).json({ success: false, error: 'is_active must be boolean' });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('announcements')
+      .update({ is_active, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select('*')
+      .maybeSingle();
+
+    if (error) {
+      return res.status(500).json({ success: false, error: error.message, code: error.code });
+    }
+    if (!data) {
+      return res.status(404).json({ success: false, error: 'Announcement not found' });
+    }
+
+    return res.json({ success: true, announcement: data });
+  } catch (e) {
+    console.error('Admin toggle announcement active error:', e);
+    return res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+// Admin: list announcements (bypasses RLS to include inactive/expired)
+app.get('/api/admin/announcements', authenticateToken, requireRole('admin'), async (req, res) => {
+  try {
+    if (!supabaseAdmin) {
+      return res.status(503).json({ success: false, error: 'Admin privileges required' });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('announcements')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      return res.status(500).json({ success: false, error: error.message, code: error.code });
+    }
+
+    return res.json({ success: true, announcements: data || [] });
+  } catch (e) {
+    console.error('Admin list announcements error:', e);
+    return res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+// Admin: update an announcement (bypasses RLS)
+app.put('/api/admin/announcements/:id', authenticateToken, requireRole('admin'), async (req, res) => {
+  try {
+    if (!supabaseAdmin) {
+      return res.status(503).json({ success: false, error: 'Admin privileges required' });
+    }
+
+    const { id } = req.params;
+    const { title, content, image_url, priority, target_audience, expires_at } = req.body || {};
+
+    const allowedPriorities = ['low', 'normal', 'high', 'urgent'];
+    const allowedAudiences = ['all', 'users', 'patrols', 'admins'];
+
+    const updateData = {};
+    if (typeof title === 'string') updateData.title = title;
+    if (typeof content === 'string') updateData.content = content;
+    if (typeof image_url === 'string') updateData.image_url = image_url || null;
+    if (typeof priority === 'string' && allowedPriorities.includes(priority)) updateData.priority = priority;
+    if (typeof target_audience === 'string' && allowedAudiences.includes(target_audience)) updateData.target_audience = target_audience;
+    if (expires_at === null || typeof expires_at === 'string') updateData.expires_at = expires_at;
+    updateData.updated_at = new Date().toISOString();
+
+    if (Object.keys(updateData).length === 1) { // only updated_at
+      return res.status(400).json({ success: false, error: 'No valid fields to update' });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('announcements')
+      .update(updateData)
+      .eq('id', id)
+      .select('*')
+      .maybeSingle();
+
+    if (error) {
+      return res.status(500).json({ success: false, error: error.message, code: error.code });
+    }
+    if (!data) {
+      return res.status(404).json({ success: false, error: 'Announcement not found' });
+    }
+
+    return res.json({ success: true, announcement: data });
+  } catch (e) {
+    console.error('Admin update announcement error:', e);
+    return res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
 // API endpoint to get user's chat messages
 app.get('/api/chat/messages/:userId', async (req, res) => {
   try {
@@ -766,6 +942,104 @@ app.get('/api/auth/admin-test', authenticateToken, requireRole('admin'), (req, r
     message: 'Admin endpoint accessed successfully',
     user: req.user
   });
+});
+
+// Reports: like/unlike using service role (supports JWT-authenticated users)
+app.post('/api/reports/:reportId/likes', authenticateToken, async (req, res) => {
+  try {
+    if (!supabaseAdmin) {
+      return res.status(503).json({ success: false, error: 'Admin privileges required' });
+    }
+
+    const { reportId } = req.params;
+    const userId = req.user.id;
+
+    // Upsert-like behavior: ensure unique (report_id, user_id)
+    const { error } = await supabaseAdmin
+      .from('likes')
+      .upsert({ report_id: reportId, user_id: userId }, { onConflict: 'report_id,user_id', ignoreDuplicates: false });
+
+    if (error) {
+      return res.status(500).json({ success: false, error: error.message, code: error.code });
+    }
+
+    return res.json({ success: true, liked: true });
+  } catch (e) {
+    console.error('Like report error:', e);
+    return res.status(500).json({ success: false, error: 'Failed to like report' });
+  }
+});
+
+app.delete('/api/reports/:reportId/likes', authenticateToken, async (req, res) => {
+  try {
+    if (!supabaseAdmin) {
+      return res.status(503).json({ success: false, error: 'Admin privileges required' });
+    }
+
+    const { reportId } = req.params;
+    const userId = req.user.id;
+
+    const { error } = await supabaseAdmin
+      .from('likes')
+      .delete()
+      .eq('report_id', reportId)
+      .eq('user_id', userId);
+
+    if (error) {
+      return res.status(500).json({ success: false, error: error.message, code: error.code });
+    }
+
+    return res.json({ success: true, liked: false });
+  } catch (e) {
+    console.error('Unlike report error:', e);
+    return res.status(500).json({ success: false, error: 'Failed to unlike report' });
+  }
+});
+
+// Toggle like (server decides insert/delete based on current state)
+app.post('/api/reports/:reportId/likes/toggle', authenticateToken, async (req, res) => {
+  try {
+    if (!supabaseAdmin) {
+      return res.status(503).json({ success: false, error: 'Admin privileges required' });
+    }
+
+    const { reportId } = req.params;
+    const userId = req.user.id;
+
+    // Check existing
+    const { data: existing, error: checkError } = await supabaseAdmin
+      .from('likes')
+      .select('id')
+      .eq('report_id', reportId)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (checkError) {
+      return res.status(500).json({ success: false, error: checkError.message, code: checkError.code });
+    }
+
+    if (existing) {
+      const { error: delErr } = await supabaseAdmin
+        .from('likes')
+        .delete()
+        .eq('id', existing.id);
+      if (delErr) {
+        return res.status(500).json({ success: false, error: delErr.message, code: delErr.code });
+      }
+      return res.json({ success: true, liked: false });
+    }
+
+    const { error: insErr } = await supabaseAdmin
+      .from('likes')
+      .insert({ report_id: reportId, user_id: userId });
+    if (insErr) {
+      return res.status(500).json({ success: false, error: insErr.message, code: insErr.code });
+    }
+    return res.json({ success: true, liked: true });
+  } catch (e) {
+    console.error('Toggle like error:', e);
+    return res.status(500).json({ success: false, error: 'Failed to toggle like' });
+  }
 });
 
 // Current user quota usage

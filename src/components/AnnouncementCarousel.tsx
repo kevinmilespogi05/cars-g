@@ -7,7 +7,7 @@ interface Announcement {
   id: string;
   title: string;
   content: string;
-  image_url?: string;
+  image_url?: string; // can be a comma-separated list for multiple images
   priority: 'low' | 'normal' | 'high' | 'urgent';
   target_audience: 'all' | 'users' | 'patrols' | 'admins';
   created_at: string;
@@ -27,6 +27,9 @@ export function AnnouncementCarousel({ className = '' }: AnnouncementCarouselPro
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
   const carouselRef = useRef<HTMLDivElement>(null);
+  const [isImageOpen, setIsImageOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [imageIndex, setImageIndex] = useState(0);
 
   // Minimum distance for swipe
   const minSwipeDistance = 50;
@@ -141,6 +144,11 @@ export function AnnouncementCarousel({ className = '' }: AnnouncementCarouselPro
     setIsVisible(false);
   };
 
+  // Reset per-announcement image index when changing announcements
+  useEffect(() => {
+    setImageIndex(0);
+  }, [currentIndex]);
+
   if (loading) {
     return null;
   }
@@ -150,6 +158,10 @@ export function AnnouncementCarousel({ className = '' }: AnnouncementCarouselPro
   }
 
   const currentAnnouncement = announcements[currentIndex];
+  const imageUrls = (currentAnnouncement.image_url || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
 
   return (
     <div className={`bg-white border border-gray-200 rounded-lg shadow-sm mb-4 ${className}`}>
@@ -210,16 +222,16 @@ export function AnnouncementCarousel({ className = '' }: AnnouncementCarouselPro
             </div>
               
             {/* Image display */}
-            {currentAnnouncement.image_url && (
-              <div className="relative w-full h-48 sm:h-56 md:h-64 overflow-hidden rounded-lg border border-gray-200 bg-gray-100">
+            {imageUrls.length > 0 && (
+              <div className="relative w-full overflow-hidden rounded-lg border border-gray-200 bg-gray-100 flex items-center justify-center min-h-40 sm:min-h-48 md:min-h-56 lg:min-h-[420px] xl:min-h-[520px]">
                 <img
-                  src={currentAnnouncement.image_url}
+                  src={imageUrls[imageIndex]}
                   alt={currentAnnouncement.title}
-                  className="w-full h-full object-contain bg-white"
+                  className="max-w-full h-auto object-contain bg-white max-h-40 sm:max-h-48 md:max-h-56 lg:max-h-[420px] xl:max-h-[520px] cursor-zoom-in"
+                  onClick={() => { setIsImageOpen(true); setLightboxIndex(imageIndex); }}
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
                     target.style.display = 'none';
-                    // Show a placeholder when image fails to load
                     const container = target.parentElement;
                     if (container) {
                       container.innerHTML = `
@@ -235,6 +247,34 @@ export function AnnouncementCarousel({ className = '' }: AnnouncementCarouselPro
                     }
                   }}
                 />
+                {imageUrls.length > 1 && (
+                  <>
+                    <button
+                      className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-gray-700 rounded-full p-1 shadow"
+                      onClick={(e) => { e.stopPropagation(); setImageIndex((imageIndex - 1 + imageUrls.length) % imageUrls.length); }}
+                      aria-label="Previous image"
+                    >
+                      <ChevronLeft className="w-5 h-5" />
+                    </button>
+                    <button
+                      className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-gray-700 rounded-full p-1 shadow"
+                      onClick={(e) => { e.stopPropagation(); setImageIndex((imageIndex + 1) % imageUrls.length); }}
+                      aria-label="Next image"
+                    >
+                      <ChevronRight className="w-5 h-5" />
+                    </button>
+                    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+                      {imageUrls.map((_, idx) => (
+                        <button
+                          key={idx}
+                          onClick={(e) => { e.stopPropagation(); setImageIndex(idx); }}
+                          className={`w-2 h-2 rounded-full ${idx === imageIndex ? 'bg-blue-600' : 'bg-gray-300'}`}
+                          aria-label={`Go to image ${idx + 1}`}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
             )}
             
@@ -266,6 +306,58 @@ export function AnnouncementCarousel({ className = '' }: AnnouncementCarouselPro
           </div>
         </div>
       </div>
+
+      {/* Lightbox for image */}
+      {isImageOpen && imageUrls.length > 0 && (
+        <div
+          className="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center p-4"
+          onClick={() => setIsImageOpen(false)}
+        >
+          <button
+            aria-label="Close full image"
+            className="absolute top-4 right-4 text-white/80 hover:text-white"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsImageOpen(false);
+            }}
+          >
+            <X className="w-6 h-6" />
+          </button>
+          <div className="relative w-full h-full flex items-center justify-center">
+            <img
+              src={imageUrls[lightboxIndex ?? 0]}
+              alt={currentAnnouncement.title}
+              className="max-w-[95vw] max-h-[90vh] object-contain cursor-zoom-out"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsImageOpen(false);
+              }}
+            />
+            {imageUrls.length > 1 && lightboxIndex !== null && (
+              <>
+                <button
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-white hover:text-gray-300"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setLightboxIndex((lightboxIndex - 1 + imageUrls.length) % imageUrls.length);
+                  }}
+                >
+                  <ChevronLeft className="w-8 h-8" />
+                </button>
+                <button
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-white hover:text-gray-300"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setLightboxIndex((lightboxIndex + 1) % imageUrls.length);
+                  }}
+                >
+                  <ChevronRight className="w-8 h-8" />
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

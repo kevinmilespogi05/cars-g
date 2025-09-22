@@ -38,6 +38,7 @@ export function Navigation() {
   const getNavItems = () => {
     if (user?.role === 'admin') {
       return [
+        { path: '/admin', icon: MapPin, label: 'Dashboard' },
         { path: '/admin/map', icon: MapPin, label: 'Map' },
         { path: '/leaderboard', icon: Award, label: 'Leaderboard' },
         { path: '/admin/chat', icon: MessageCircle, label: 'Chat' }
@@ -79,7 +80,7 @@ export function Navigation() {
         <div className="flex justify-between items-center">
           {/* Logo */}
           <Link 
-            to={user ? (user.role === 'admin' ? '/admin/map' : user.role === 'patrol' ? '/patrol' : '/reports') : '/login'}
+            to={user ? (user.role === 'admin' ? '/admin' : user.role === 'patrol' ? '/patrol' : '/reports') : '/login'}
             className="flex items-center space-x-3 text-white hover:text-gray-100 transition-colors group"
           >
             <div className="relative">
@@ -119,8 +120,8 @@ export function Navigation() {
                 </Link>
               ))}
               
-              {/* Chat Button - only for non-admin users on desktop */}
-              {user?.role !== 'admin' && (
+              {/* Chat Button - only for regular users (not admin or patrol) on desktop */}
+              {user?.role !== 'admin' && user?.role !== 'patrol' && (
                 <ChatButton 
                   adminId="admin" // This should be the actual admin user ID
                   className="ml-2"
@@ -169,16 +170,7 @@ export function Navigation() {
                         <User className="h-4 w-4 mr-3 text-gray-400" />
                         Profile Settings
                       </Link>
-                      {user?.role === 'admin' && (
-                        <Link
-                          to="/admin"
-                          className="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors duration-150"
-                          onClick={() => setIsProfileMenuOpen(false)}
-                        >
-                          <Shield className="h-4 w-4 mr-3 text-gray-400" />
-                          Admin Dashboard
-                        </Link>
-                      )}
+                      
                       <div className="border-t border-gray-100 my-1"></div>
                       <button
                         onClick={() => {
@@ -270,16 +262,7 @@ export function Navigation() {
               ))}
 
 
-              {user?.role === 'admin' && (
-                <Link 
-                  to="/admin" 
-                  className="flex items-center px-4 py-3.5 rounded-xl text-base font-medium text-white/90 hover:bg-white/10 hover:text-white transition-all duration-200 hover:shadow-sm" 
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  <Shield className="h-5 w-5 mr-3 text-white/80" />
-                  Admin Dashboard
-                </Link>
-              )}
+              
 
               <div className="border-t border-white/10 my-2"></div>
               

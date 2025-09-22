@@ -1117,38 +1117,96 @@ export const reportsService = {
   // Like/unlike report with optimistic updates
   async toggleLike(reportId: string): Promise<boolean> {
     const user = getCurrentUser();
+    
+    // If there is no Supabase session, use backend immediately (JWT flow)
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session || !session.user) {
+        const { authenticatedRequest } = await import('../lib/jwt');
+        const { getApiUrl } = await import('../lib/config');
+        const url = `${getApiUrl(`/api/reports/${reportId}/likes/toggle`)}`;
+        const resp = await authenticatedRequest(url, { method: 'POST' });
+        if (!resp.ok) {
+          const body = await resp.text().catch(() => '');
+          throw new ReportsServiceError(`Failed to toggle like (api): HTTP ${resp.status} ${body}`);
+        }
+        const json = await resp.json().catch(() => ({} as any));
+        return !!json.liked;
+      }
+    } catch (prefetchErr) {
+      // If session check fails, proceed to fallback path below
+    }
 
-    // Check if already liked
-    const { data: existingLikes, error: checkError } = await supabase
-      .from('likes')
-      .select('id')
-      .eq('report_id', reportId)
-      .eq('user_id', user.id);
-
-    if (checkError) throw checkError;
-
-    const existingLike = existingLikes && existingLikes.length > 0 ? existingLikes[0] : null;
-
-    if (existingLike) {
-      // Unlike
-      const { error: deleteError } = await supabase
+    // First try via Supabase session (works when user signed in with Supabase)
+    try {
+      const { data: existingLikes, error: checkError } = await supabase
         .from('likes')
-        .delete()
-        .eq('id', existingLike.id);
+        .select('id')
+        .eq('report_id', reportId)
+        .eq('user_id', user.id);
 
-      if (deleteError) throw new ReportsServiceError(`Failed to unlike report: ${deleteError.message}`);
-      return false;
-    } else {
-      // Like
-      const { error: insertError } = await supabase
-        .from('likes')
-        .insert([{
-          report_id: reportId,
-          user_id: user.id
-        }]);
+      if (checkError) throw checkError;
 
-      if (insertError) throw new ReportsServiceError(`Failed to like report: ${insertError.message}`);
-      return true;
+      const existingLike = existingLikes && existingLikes.length > 0 ? existingLikes[0] : null;
+
+      if (existingLike) {
+        const { error: deleteError } = await supabase
+          .from('likes')
+          .delete()
+          .eq('id', existingLike.id);
+
+        if (deleteError) throw deleteError;
+        return false;
+      } else {
+        const { error: insertError } = await supabase
+          .from('likes')
+          .insert([{ report_id: reportId, user_id: user.id }]);
+
+        if (insertError) throw insertError;
+        return true;
+      }
+    } catch (sessionError) {
+      // If 401 or RLS due to no Supabase session, fallback to backend with JWT
+      try {
+        const { authenticatedRequest } = await import('../lib/jwt');
+        const { getApiUrl } = await import('../lib/config');
+        const url = `${getApiUrl(`/api/reports/${reportId}/likes/toggle`)}`;
+        const resp = await authenticatedRequest(url, { method: 'POST' });
+        if (!resp.ok) {
+          // If toggle endpoint not found (older server), fallback to explicit POST/DELETE endpoints
+          if (resp.status === 404) {
+            try {
+              // Determine current like state via public SELECT (allowed by RLS)
+              const { data: existingLikes } = await supabase
+                .from('likes')
+                .select('id')
+                .eq('report_id', reportId)
+                .eq('user_id', user.id);
+              const isAlreadyLiked = !!(existingLikes && existingLikes.length > 0);
+
+              const explicitUrl = `${getApiUrl(`/api/reports/${reportId}/likes`)}`;
+              const method = isAlreadyLiked ? 'DELETE' : 'POST';
+              const explicitResp = await authenticatedRequest(explicitUrl, { method });
+              if (!explicitResp.ok) {
+                const body = await explicitResp.text().catch(() => '');
+                throw new ReportsServiceError(`Failed to toggle like (api v1): HTTP ${explicitResp.status} ${body}`);
+              }
+              return !isAlreadyLiked;
+            } catch (fallbackErr: any) {
+              const msg = fallbackErr?.message || 'Unknown error';
+              throw new ReportsServiceError(`Failed to toggle like (fallback): ${msg}`);
+            }
+          } else {
+            const body = await resp.text().catch(() => '');
+            throw new ReportsServiceError(`Failed to toggle like (api): HTTP ${resp.status} ${body}`);
+          }
+        }
+        const json = await resp.json().catch(() => ({} as any));
+        return !!json.liked;
+      } catch (apiError: any) {
+        const msg = apiError?.message || (sessionError as any)?.message || 'Unknown error';
+        throw new ReportsServiceError(`Failed to toggle like: ${msg}`);
+      }
     }
   },
 
@@ -1439,6 +1497,78 @@ export const reportsService = {
     } catch (error) {
       console.error('Error deleting report:', error);
       throw error;
+    }
+  },
+
+  // Get a single report by ID
+  async getReport(reportId: string): Promise<Report> {
+    try {
+      const { data, error } = await supabase
+        .from('reports')
+        .select(`
+          *,
+          likes:likes(count),
+          comments:comments(count),
+          comment_count:report_comments(count),
+          rating_avg:report_ratings(stars),
+          rating_count:report_ratings(count)
+        `)
+        .eq('id', reportId)
+        .single();
+
+      if (error) throw error;
+      if (!data) throw new ReportsServiceError('Report not found');
+
+      // Get user profile
+      const profile = _getCachedProfile(data.user_id);
+      if (!profile) {
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('id, username, avatar_url')
+          .eq('id', data.user_id)
+          .single();
+        
+        if (!profileError && profileData) {
+          _cacheProfile(profileData.id, profileData);
+        }
+      }
+
+      // Get current user for like status
+      let user;
+      try {
+        user = getCurrentUser();
+      } catch (error) {
+        user = null;
+      }
+
+      let isLiked = false;
+      if (user) {
+        const { data: userLikes } = await supabase
+          .from('likes')
+          .select('id')
+          .eq('report_id', reportId)
+          .eq('user_id', user.id);
+        isLiked = !!(userLikes && userLikes.length > 0);
+      }
+
+      const result = {
+        ...data,
+        user_profile: _getCachedProfile(data.user_id) || { username: 'User', avatar_url: null },
+        is_liked: isLiked,
+        likes: { count: data.likes?.[0]?.count || 0 },
+        comments: { count: (data.comments?.[0]?.count || 0) + (data.comment_count?.[0]?.count || 0) },
+        rating_avg: (() => {
+          const stars = Array.isArray(data.rating_avg) ? data.rating_avg.map((r:any)=>r.stars) : [];
+          if (!stars.length) return undefined;
+          const sum = stars.reduce((a:number,b:number)=>a+b,0);
+          return Math.round((sum / stars.length) * 10) / 10;
+        })(),
+        rating_count: data.rating_count?.[0]?.count || 0
+      };
+
+      return result as Report;
+    } catch (error) {
+      throw new ReportsServiceError(`Failed to get report: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   },
 

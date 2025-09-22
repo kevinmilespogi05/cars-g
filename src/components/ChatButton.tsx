@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { socketManager } from '../lib/socket';
 import { ChatWindow } from './ChatWindow';
-import { FloatingChatButton } from './FloatingChatButton';
+import { MoveableChatButton } from './MoveableChatButton';
 import { checkAdminStatus } from '../services/adminService';
 
 interface ChatButtonProps {
@@ -18,6 +18,7 @@ export const ChatButton: React.FC<ChatButtonProps> = ({
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isAdminOnline, setIsAdminOnline] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [buttonPosition, setButtonPosition] = useState<{ x: number; y: number } | undefined>(undefined);
 
   useEffect(() => {
     if (!isAuthenticated || !user) return;
@@ -69,23 +70,29 @@ export const ChatButton: React.FC<ChatButtonProps> = ({
     setIsChatOpen(false);
   };
 
-  if (!isAuthenticated || !user) {
+  const handlePositionChange = (position: { x: number; y: number }) => {
+    setButtonPosition(position);
+  };
+
+  if (!isAuthenticated || !user || user.role === 'admin' || user.role === 'patrol') {
     return null;
   }
 
   return (
     <>
-      <FloatingChatButton
+      <MoveableChatButton
         isOpen={isChatOpen}
         onClick={handleChatClick}
         unreadCount={unreadCount}
         isOnline={isAdminOnline}
+        onPositionChange={handlePositionChange}
       />
 
       <ChatWindow
         isOpen={isChatOpen}
         onClose={handleChatClose}
         adminId={adminId}
+        position={buttonPosition}
       />
     </>
   );

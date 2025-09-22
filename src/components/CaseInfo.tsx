@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { 
   Hash, 
   AlertTriangle, 
@@ -184,46 +184,46 @@ export function CaseInfo({ report, onUpdate, onClose, isPatrolView = false }: Ca
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+      <div className="flex items-center justify-center min-h-screen pt-24 px-4 pb-8 text-center sm:block sm:p-0">
         <div className="fixed inset-0 bg-black/60 transition-opacity" onClick={onClose}></div>
         
-        <div className="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-5xl sm:w-full">
-          {/* Header */}
-          <div className="bg-white px-6 py-4 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-500 to-blue-600 flex items-center justify-center shadow-sm">
-                  <Hash className="w-5 h-5 text-white" />
+        <div className="bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-24 sm:align-middle sm:max-w-5xl sm:w-full w-full max-h-[75vh] flex flex-col">
+          {/* Header - Fixed */}
+          <div className="bg-gradient-to-r from-gray-50 to-white px-4 sm:px-6 py-4 sm:py-5 border-b border-gray-200 flex-shrink-0">
+            <div className="flex items-start justify-between">
+              <div className="flex items-start space-x-3 sm:space-x-4 flex-1 min-w-0">
+                <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl bg-gradient-to-br from-emerald-500 to-blue-600 flex items-center justify-center shadow-lg flex-shrink-0">
+                  <Hash className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                 </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-1 truncate">
                     Case {report.case_number || 'N/A'}
                   </h3>
-                  <p className="text-sm text-gray-500">{report.title}</p>
+                  <p className="text-sm text-gray-600 leading-relaxed line-clamp-2">{report.title}</p>
                 </div>
               </div>
               <button
                 onClick={onClose}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
+                className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg p-2 transition-all duration-200 flex-shrink-0 ml-2"
               >
-                <X className="h-6 w-6" />
+                <X className="h-5 w-5 sm:h-6 sm:w-6" />
               </button>
             </div>
             {/* Badges row */}
-            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full font-medium ${
-                report.status === 'pending' ? 'bg-amber-100 text-amber-800' :
-                report.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
-                report.status === 'awaiting_verification' ? 'bg-orange-100 text-orange-800' :
-                report.status === 'resolved' ? 'bg-emerald-100 text-emerald-800' :
-                'bg-red-100 text-red-800'
+            <div className="mt-3 sm:mt-4 flex flex-wrap items-center gap-2 sm:gap-3">
+              <span className={`inline-flex items-center px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs font-semibold ${
+                report.status === 'pending' ? 'bg-amber-100 text-amber-800 border border-amber-200' :
+                report.status === 'in_progress' ? 'bg-blue-100 text-blue-800 border border-blue-200' :
+                report.status === 'awaiting_verification' ? 'bg-orange-100 text-orange-800 border border-orange-200' :
+                report.status === 'resolved' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' :
+                'bg-red-100 text-red-800 border border-red-200'
               }`}>
                 {report.status.replace('_', ' ')}
               </span>
-              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full font-medium ${
-                report.priority === 'high' ? 'bg-red-100 text-red-800' :
-                report.priority === 'medium' ? 'bg-amber-100 text-amber-800' :
-                'bg-emerald-100 text-emerald-800'
+              <span className={`inline-flex items-center px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs font-semibold ${
+                report.priority === 'high' ? 'bg-red-100 text-red-800 border border-red-200' :
+                report.priority === 'medium' ? 'bg-amber-100 text-amber-800 border border-amber-200' :
+                'bg-emerald-100 text-emerald-800 border border-emerald-200'
               }`}>
                 Priority: {report.priority}
               </span>
@@ -231,89 +231,107 @@ export function CaseInfo({ report, onUpdate, onClose, isPatrolView = false }: Ca
                 const lvl = getEffectiveLevel(report);
                 return typeof lvl === 'number' ? (
                   <span
-                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full font-medium ${getPriorityColor(lvl)}`}
+                    className={`inline-flex items-center px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full text-xs font-semibold border ${getPriorityColor(lvl)}`}
                     title={getServiceLevelText(lvl)}
                   >
-                    Level {lvl} · {getServiceLevelText(lvl)}
+                    Level {lvl} Â· {getServiceLevelText(lvl)}
                   </span>
                 ) : null;
               })()}
             </div>
           </div>
 
-          <div className={`px-6 py-4 overflow-y-auto ${isPatrolView ? 'max-h-[70vh] pb-40' : 'max-h-[70vh]'}`}>
+          {/* Scrollable Content Area */}
+          <div className="flex-1 overflow-y-auto flex flex-col">
+            <div className="px-4 sm:px-6 py-4 sm:py-6 flex-1">
             {/* Case Information */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-              <div className="space-y-3">
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Case Level</label>
-                  {(() => {
-                    const lvl = getEffectiveLevel(report);
-                    if (typeof lvl !== 'number' && !report.priority) {
-                      return <div className="text-xs text-gray-500">Not set</div>;
-                    }
-                    return (
-                      <div className="flex flex-col gap-1">
-                        {report.priority && (
-                          <div
-                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              report.priority === 'high'
-                                ? 'bg-red-100 text-red-800'
-                                : report.priority === 'medium'
-                                  ? 'bg-amber-100 text-amber-800'
-                                  : 'bg-emerald-100 text-emerald-800'
-                            }`}
-                          >
-                            <AlertTriangle className="h-3 w-3 mr-1" />
-                            {capitalize(report.priority)}
-                          </div>
-                        )}
-                        {typeof lvl === 'number' && (
-                          <div
-                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPriorityColor(lvl)}`}
-                            title={getServiceLevelText(lvl)}
-                          >
-                            Level {lvl} · {getServiceLevelText(lvl)}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
+            <div className="bg-gray-50 rounded-xl p-4 sm:p-6 mb-4 sm:mb-6">
+              <h4 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4 flex items-center">
+                <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5 mr-2 text-gray-600" />
+                Case Details
+              </h4>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+                <div className="space-y-4">
+                  <div className="bg-white rounded-lg p-4 border border-gray-200">
+                    <label className="text-sm font-semibold text-gray-700 mb-2 block">Case Level</label>
+                    {(() => {
+                      const lvl = getEffectiveLevel(report);
+                      if (typeof lvl !== 'number' && !report.priority) {
+                        return <div className="text-sm text-gray-500 italic">Not set</div>;
+                      }
+                      return (
+                        <div className="flex flex-col gap-2">
+                          {report.priority && (
+                            <div
+                              className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold ${
+                                report.priority === 'high'
+                                  ? 'bg-red-100 text-red-800 border border-red-200'
+                                  : report.priority === 'medium'
+                                    ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                                    : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                              }`}
+                            >
+                              <AlertTriangle className="h-3 w-3 mr-1.5" />
+                              {capitalize(report.priority)}
+                            </div>
+                          )}
+                          {typeof lvl === 'number' && (
+                            <div
+                              className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold border ${getPriorityColor(lvl)}`}
+                              title={getServiceLevelText(lvl)}
+                            >
+                              Level {lvl} Â· {getServiceLevelText(lvl)}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                  
+                  <div className="bg-white rounded-lg p-4 border border-gray-200">
+                    <label className="text-sm font-semibold text-gray-700 mb-2 block">Assigned Patroller</label>
+                    <div className="flex items-center space-x-2">
+                      <User className="h-4 w-4 text-gray-500" />
+                      <span className="text-sm text-gray-900 font-medium">
+                        {report.assigned_patroller_name || 'Not assigned'}
+                      </span>
+                    </div>
+                  </div>
                 </div>
                 
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Assigned Patroller</label>
-                  <p className="text-sm text-gray-900">{report.assigned_patroller_name || 'Not assigned'}</p>
-                </div>
-              </div>
-              
-              <div className="space-y-3">
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Status</label>
-                  <div className="flex items-center space-x-2">
-                    {report.status === 'pending' && <Clock className="h-4 w-4 text-yellow-500" />}
-                    {report.status === 'in_progress' && <AlertCircle className="h-4 w-4 text-blue-500" />}
-                    {report.status === 'resolved' && <CheckCircle className="h-4 w-4 text-green-500" />}
-                    {report.status === 'rejected' && <XCircle className="h-4 w-4 text-red-500" />}
-                    <span className="text-sm text-gray-900 capitalize">
-                      {report.status.replace('_', ' ')}
-                    </span>
+                <div className="space-y-4">
+                  <div className="bg-white rounded-lg p-4 border border-gray-200">
+                    <label className="text-sm font-semibold text-gray-700 mb-2 block">Status</label>
+                    <div className="flex items-center space-x-2">
+                      {report.status === 'pending' && <Clock className="h-5 w-5 text-yellow-500" />}
+                      {report.status === 'in_progress' && <AlertCircle className="h-5 w-5 text-blue-500" />}
+                      {report.status === 'resolved' && <CheckCircle className="h-5 w-5 text-green-500" />}
+                      {report.status === 'rejected' && <XCircle className="h-5 w-5 text-red-500" />}
+                      <span className="text-sm text-gray-900 font-medium capitalize">
+                        {report.status.replace('_', ' ')}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Comments Section */}
-            <div className="border-t border-gray-200 pt-4">
-              <div className="flex items-center justify-between mb-4">
-                <h4 className="text-lg font-medium text-gray-900 flex items-center">
-                  <MessageSquare className="h-5 w-5 mr-2" />
-                  Comments & Logs ({comments.length})
+            </div>
+
+            {/* Comments Section - Fixed at bottom */}
+            <div className="border-t border-gray-200 bg-white px-4 sm:px-6 py-3 sm:py-4 flex-shrink-0">
+              <div className="flex items-center justify-between mb-3 sm:mb-4">
+                <h4 className="text-base sm:text-lg font-semibold text-gray-900 flex items-center">
+                  <MessageSquare className="h-4 w-4 sm:h-5 sm:w-5 mr-2 text-blue-600" />
+                  Comments & Logs
+                  <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">
+                    {comments.length}
+                  </span>
                 </h4>
               </div>
 
               {/* Comments List */}
-              <div className="space-y-3 mb-4">
+              <div className="space-y-2 mb-3 max-h-40 overflow-y-auto">
                 {loading && comments.length === 0 ? (
                   <div className="text-center py-4">
                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-600 mx-auto"></div>
@@ -329,49 +347,51 @@ export function CaseInfo({ report, onUpdate, onClose, isPatrolView = false }: Ca
                     const isPatrolComment = comment.comment_type !== 'comment';
                     
                     return (
-                      <div key={comment.id} className={`rounded-lg p-4 border-l-4 ${
+                      <div key={comment.id} className={`rounded-xl p-5 border-l-4 shadow-sm ${
                         isPatrolComment 
                           ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-500 shadow-md' 
-                          : 'bg-gray-50 border-gray-300'
+                          : 'bg-white border border-gray-200'
                       }`}>
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
-                            <div className="flex items-center space-x-2 mb-2">
+                            <div className="flex items-center space-x-3 mb-3">
                               {isPatrolComment ? (
                                 <div className="flex items-center space-x-2">
-                                  <div className="h-6 w-6 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
-                                    <ShieldCheck className="h-3 w-3 text-white" />
+                                  <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-sm">
+                                    <ShieldCheck className="h-4 w-4 text-white" />
                                   </div>
-                                  <span className="text-xs font-bold text-blue-900 uppercase tracking-wide">
+                                  <span className="text-xs font-bold text-blue-900 uppercase tracking-wide bg-blue-100 px-2 py-1 rounded-full">
                                     OFFICIAL
                                   </span>
                                 </div>
                               ) : (
                                 <img
-                                  className="h-6 w-6 rounded-full object-cover border border-gray-200"
+                                  className="h-8 w-8 rounded-full object-cover border-2 border-gray-200 shadow-sm"
                                   src={comment.user_profile?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(comment.user_profile?.username || 'User')}`}
                                   alt={comment.user_profile?.username || 'User'}
                                 />
                               )}
-                              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-bold uppercase tracking-wide ${
-                                comment.comment_type === 'status_update' ? 'bg-blue-200 text-blue-900' :
-                                comment.comment_type === 'assignment' ? 'bg-purple-200 text-purple-900' :
-                                comment.comment_type === 'resolution' ? 'bg-green-200 text-green-900' :
-                                'bg-gray-200 text-gray-900'
+                              <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wide ${
+                                comment.comment_type === 'status_update' ? 'bg-blue-100 text-blue-800 border border-blue-200' :
+                                comment.comment_type === 'assignment' ? 'bg-purple-100 text-purple-800 border border-purple-200' :
+                                comment.comment_type === 'resolution' ? 'bg-green-100 text-green-800 border border-green-200' :
+                                'bg-gray-100 text-gray-800 border border-gray-200'
                               }`}>
                                 {getCommentTypeIcon(comment.comment_type)}
-                                <span className="ml-1">{comment.comment_type.replace('_', ' ')}</span>
+                                <span className="ml-1.5">{comment.comment_type.replace('_', ' ')}</span>
                               </span>
-                              <span className={`text-xs font-medium ${
-                                isPatrolComment ? 'text-blue-600' : 'text-gray-500'
-                              }`}>
-                                by {comment.user_profile?.username || 'Unknown'}
-                              </span>
-                              <span className={`text-xs ${
-                                isPatrolComment ? 'text-blue-500' : 'text-gray-400'
-                              }`}>
-                                {new Date(comment.created_at).toLocaleString()}
-                              </span>
+                              <div className="flex flex-col">
+                                <span className={`text-sm font-semibold ${
+                                  isPatrolComment ? 'text-blue-700' : 'text-gray-700'
+                                }`}>
+                                  {comment.user_profile?.username || 'Unknown'}
+                                </span>
+                                <span className={`text-xs ${
+                                  isPatrolComment ? 'text-blue-500' : 'text-gray-500'
+                                }`}>
+                                  {new Date(comment.created_at).toLocaleString()}
+                                </span>
+                              </div>
                             </div>
                             {editingComment === comment.id ? (
                               <div className="space-y-2">
@@ -400,34 +420,38 @@ export function CaseInfo({ report, onUpdate, onClose, isPatrolView = false }: Ca
                                 </div>
                               </div>
                             ) : (
-                              <div className={`rounded-lg p-3 ${
+                              <div className={`rounded-lg p-4 ${
                                 isPatrolComment 
-                                  ? 'bg-white/70 border border-blue-200' 
-                                  : 'bg-white'
+                                  ? 'bg-white/80 border border-blue-200 shadow-sm' 
+                                  : 'bg-gray-50 border border-gray-200'
                               }`}>
-                                <p className={`text-sm ${
-                                  isPatrolComment ? 'text-blue-900 font-medium' : 'text-gray-700'
+                                <p className={`text-sm leading-relaxed ${
+                                  isPatrolComment ? 'text-blue-900 font-medium' : 'text-gray-800'
                                 }`}>
                                   {comment.comment}
                                 </p>
-                                <div className="mt-2 flex items-center gap-4 text-xs text-gray-600">
-                                  <div className="flex items-center gap-1">
-                                    <Heart className={`h-3 w-3 ${comment.is_liked ? 'text-red-500 fill-current' : 'text-gray-500'}`} />
+                                <div className="mt-3 flex items-center gap-6 text-xs">
+                                  <div className="flex items-center gap-1.5">
+                                    <Heart className={`h-4 w-4 ${comment.is_liked ? 'text-red-500 fill-current' : 'text-gray-400'}`} />
                                     <button
                                       onClick={() => {
                                         if ((comment.likes_count || 0) > 0) {
                                           setLikeDetailsModal({ isOpen: true, commentId: comment.id });
                                         }
                                       }}
-                                      className={(comment.likes_count || 0) > 0 ? 'underline' : ''}
+                                      className={`font-medium ${
+                                        (comment.likes_count || 0) > 0 
+                                          ? 'text-gray-700 hover:text-gray-900 underline' 
+                                          : 'text-gray-500'
+                                      }`}
                                     >
-                                      {comment.likes_count || 0}
+                                      {comment.likes_count || 0} like{(comment.likes_count || 0) !== 1 ? 's' : ''}
                                     </button>
                                   </div>
                                   {Array.isArray(comment.replies) && comment.replies.length > 0 && (
                                     <button
                                       onClick={() => setExpanded(prev => ({ ...prev, [comment.id]: !prev[comment.id] }))}
-                                      className="hover:text-gray-800"
+                                      className="text-blue-600 hover:text-blue-800 font-medium"
                                     >
                                       {expanded[comment.id] ? 'Hide replies' : `Show ${comment.replies.length} repl${comment.replies.length === 1 ? 'y' : 'ies'}`}
                                     </button>
@@ -484,45 +508,53 @@ export function CaseInfo({ report, onUpdate, onClose, isPatrolView = false }: Ca
                 )}
               </div>
 
-              {/* Add Comment Form (sticky inside scroll, with extra bottom padding on container) */}
+              {/* Add Comment Form */}
               {isPatrolView && (
-                <div className="sticky bottom-0 left-0 right-0 bg-white border-t border-gray-200 pt-4 pb-4 shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
-                  <div className="space-y-3">
-                    <div className="flex flex-wrap gap-2 items-center">
-                      <label className="text-xs font-medium text-gray-500">Type</label>
-                      <select
-                        value={commentType}
-                        onChange={(e) => setCommentType(e.target.value as any)}
-                        className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                      >
-                        <option value="comment">Comment</option>
-                        <option value="status_update">Status Update</option>
-                        <option value="assignment">Assignment</option>
-                        <option value="resolution">Resolution</option>
-                      </select>
+                <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                  <div className="space-y-2">
+                    <div className="flex items-center space-x-2">
+                      <img
+                        className="h-6 w-6 rounded-full object-cover border-2 border-gray-200 shadow-sm flex-shrink-0"
+                        src={user?.user_metadata?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.user_metadata?.username || 'User')}`}
+                        alt={user?.user_metadata?.username || 'User'}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center space-x-2">
+                          <label className="text-xs font-semibold text-gray-700">Type</label>
+                          <select
+                            value={commentType}
+                            onChange={(e) => setCommentType(e.target.value as any)}
+                            className="px-2 py-1 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
+                          >
+                            <option value="comment">Comment</option>
+                            <option value="status_update">Status Update</option>
+                            <option value="assignment">Assignment</option>
+                            <option value="resolution">Resolution</option>
+                          </select>
+                        </div>
+                      </div>
                     </div>
                     <div className="flex space-x-2">
                       <textarea
                         value={newComment}
                         onChange={(e) => setNewComment(e.target.value)}
                         placeholder="Add a comment or update..."
-                        className="flex-1 p-3 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                        rows={3}
+                        className="flex-1 p-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 resize-none"
+                        rows={2}
                       />
                       <button
                         onClick={handleAddComment}
                         disabled={!newComment.trim() || loading}
-                        className="px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                        className="px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1 font-semibold shadow-sm"
                       >
                         <Send className="h-4 w-4" />
-                        <span>Send</span>
+                        <span className="hidden sm:inline">Send</span>
                       </button>
                     </div>
                   </div>
                 </div>
               )}
             </div>
-
           </div>
         </div>
       </div>

@@ -124,14 +124,28 @@ export function AnnouncementModal({ announcement, onClose }: AnnouncementModalPr
               
               {/* Content */}
               <div className="px-6 py-6">
-                {/* Image */}
+                {/* Image / Images */}
                 {announcement.image_url && (
                   <div className="mb-6">
-                    <img
-                      src={announcement.image_url}
-                      alt={announcement.title}
-                      className="w-full h-64 sm:h-80 object-cover rounded-lg border border-gray-200"
-                    />
+                    {(() => {
+                      const urls = (announcement.image_url || '')
+                        .split(',')
+                        .map((s) => s.trim())
+                        .filter(Boolean);
+                      return urls.length === 1 ? (
+                        <img
+                          src={urls[0]}
+                          alt={announcement.title}
+                          className="w-full h-64 sm:h-80 object-cover rounded-lg border border-gray-200"
+                        />
+                      ) : (
+                        <div className="grid grid-cols-2 gap-3">
+                          {urls.map((u, i) => (
+                            <img key={i} src={u} alt={`${announcement.title} ${i+1}`} className="w-full h-40 object-cover rounded-lg border border-gray-200" />
+                          ))}
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
 

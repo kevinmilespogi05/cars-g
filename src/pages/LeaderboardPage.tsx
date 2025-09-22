@@ -180,18 +180,6 @@ export function LeaderboardPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
       <div className="w-full px-4 sm:px-6 lg:px-8 py-8 max-w-7xl mx-auto">
-        {/* Modern Header */}
-        <div className="text-center mb-12">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl shadow-lg mb-6">
-            <Trophy className="h-8 w-8 text-white" />
-          </div>
-          <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent mb-4">
-            Community Leaderboard
-          </h1>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Discover the most active contributors making a real impact in our community
-          </p>
-        </div>
         
         {/* Modern Controls */}
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-6 mb-8">

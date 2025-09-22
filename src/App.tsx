@@ -183,7 +183,7 @@ function AppContent() {
                   ))}
                 <Route
                   path="*"
-                  element={<Navigate to={isAuthenticated ? (user?.role === 'admin' ? "/admin/map" : user?.role === 'patrol' ? '/patrol' : "/reports") : "/login"} replace />}
+                  element={<Navigate to={isAuthenticated ? (user?.role === 'admin' ? "/admin" : user?.role === 'patrol' ? '/patrol' : "/reports") : "/login"} replace />}
                 />
               </Routes>
             </Suspense>

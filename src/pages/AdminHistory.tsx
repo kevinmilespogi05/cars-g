@@ -31,6 +31,7 @@ export function AdminHistory() {
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [loading, setLoading] = useState(false);
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
+  const [exportStatus, setExportStatus] = useState<'resolved' | 'rejected' | 'both'>('resolved');
   const [activeTab, setActiveTab] = useState<'resolved' | 'rejected'>('resolved');
 
   useEffect(() => {
@@ -234,6 +235,189 @@ export function AdminHistory() {
     window.print();
   };
 
+  const exportToPDF = async () => {
+    const getReportsBySelection = () => {
+      if (exportStatus === 'both') return reports.filter(r => r.status === 'resolved' || r.status === 'rejected');
+      return reports.filter(r => r.status === exportStatus);
+    };
+
+    const selectedReports = getReportsBySelection();
+    const title = exportStatus === 'both' ? 'Resolved & Rejected Reports' : `${exportStatus.charAt(0).toUpperCase() + exportStatus.slice(1)} Reports`;
+    const dateStr = new Date().toLocaleString();
+    // Load jsPDF and autotable from CDN
+    const loadScript = (src: string) => new Promise<void>((resolve, reject) => {
+      const existing = document.querySelector(`script[src="${src}"]`);
+      if (existing) { resolve(); return; }
+      const s = document.createElement('script');
+      s.src = src;
+      s.async = true;
+      s.onload = () => resolve();
+      s.onerror = () => reject(new Error(`Failed to load ${src}`));
+      document.head.appendChild(s);
+    });
+
+    try {
+      await loadScript('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js');
+      await loadScript('https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js');
+    } catch (e) {
+      console.error('Failed to load PDF libraries', e);
+      return;
+    }
+
+    const jspdf = (window as any).jspdf;
+    if (!jspdf || !jspdf.jsPDF) {
+      console.error('jsPDF not available');
+      return;
+    }
+
+    const doc = new jspdf.jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 36; // 0.5in
+
+    // Try to load the logo from public path
+    const loadImage = (src: string) => new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => resolve(img);
+      img.onerror = (e) => reject(e);
+      img.src = src;
+    });
+
+    // Header Brand Bar (maroon)
+    doc.setFillColor(128, 0, 0);
+    doc.rect(0, 0, pageWidth, 40, 'F');
+
+    // Brand with logo
+    let brandX = margin;
+    try {
+      const logo = await loadImage('/images/logo.jpg');
+      const logoH = 28;
+      const logoW = (logo.width / logo.height) * logoH;
+      doc.addImage(logo, 'JPEG', brandX, 6, logoW, logoH);
+      brandX += logoW + 10;
+    } catch {}
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(14);
+    doc.text('CARS-G • Community Assistance & Reporting System', brandX, 22);
+    doc.setFontSize(12);
+    doc.text(`Generated: ${dateStr}`, pageWidth - margin, 24, { align: 'right' as any });
+
+    // Title
+    doc.setTextColor(17, 24, 39);
+    doc.setFontSize(16);
+    doc.text(title, margin, 64);
+
+    // Summary chips (simple text with maroon accents)
+    doc.setFontSize(11);
+    const summaryY = 84;
+    let x = margin;
+    const drawChip = (label: string) => {
+      const padX = 8, padY = 4;
+      const w = doc.getTextWidth(label) + padX * 2;
+      doc.setDrawColor(128, 0, 0);
+      doc.setFillColor(253, 242, 242); // very light maroon tint
+      doc.roundedRect(x, summaryY - 12, w, 20, 8, 8, 'FD');
+      doc.setTextColor(128, 0, 0);
+      doc.text(label, x + padX, summaryY + 2);
+      x += w + 8;
+    };
+    drawChip(`Total: ${selectedReports.length}`);
+    if (exportStatus === 'both') {
+      drawChip(`Resolved: ${selectedReports.filter(r => r.status === 'resolved').length}`);
+      drawChip(`Rejected: ${selectedReports.filter(r => r.status === 'rejected').length}`);
+    }
+
+    // Table columns
+    const head = [
+      ...(exportStatus === 'both' ? [{ header: 'Status', dataKey: 'status' }] : []),
+      { header: 'Title', dataKey: 'title' },
+      { header: 'Category', dataKey: 'category' },
+      { header: 'Priority', dataKey: 'priority' },
+      { header: 'Reporter', dataKey: 'reporter' },
+      { header: 'Patrol Officer', dataKey: 'patrol' },
+      { header: 'Date', dataKey: 'date' },
+      { header: 'Location', dataKey: 'location' },
+      { header: 'Case #', dataKey: 'case' }
+    ] as any[];
+
+    const body = selectedReports.map(r => ({
+      status: r.status === 'resolved' ? 'Resolved' : 'Rejected',
+      title: r.title || '',
+      category: r.category || '',
+      priority: r.priority || '',
+      reporter: r.username || '',
+      patrol: (r as any).patrol_officer_name || 'Not Assigned',
+      date: new Date(r.created_at).toLocaleString(),
+      location: r.location_address || '',
+      case: (r as any).case_number || ''
+    }));
+
+    // Compute column indices for styling
+    const hasStatus = exportStatus === 'both';
+    const colIndex = {
+      status: hasStatus ? 0 : -1,
+      title: hasStatus ? 1 : 0,
+      category: hasStatus ? 2 : 1,
+      priority: hasStatus ? 3 : 2,
+      reporter: hasStatus ? 4 : 3,
+      patrol: hasStatus ? 5 : 4,
+      date: hasStatus ? 6 : 5,
+      location: hasStatus ? 7 : 6,
+      case: hasStatus ? 8 : 7,
+    } as const;
+
+    // AutoTable with maroon accents and conditional cell styling
+    (doc as any).autoTable({
+      head: [head.map(c => c.header)],
+      body: body.map(row => head.map(c => (row as any)[c.dataKey] ?? '')),
+      startY: 108,
+      styles: { fontSize: 9, cellPadding: 6, lineColor: [229,231,235], lineWidth: 0.5 },
+      headStyles: { fillColor: [128,0,0], textColor: 255, halign: 'left' },
+      alternateRowStyles: { fillColor: [253, 242, 242] },
+      didParseCell: (data: any) => {
+        if (data.section === 'body') {
+          // Status cell styling
+          if (hasStatus && data.column.index === colIndex.status) {
+            const val = String(data.cell.raw || '').toLowerCase();
+            if (val === 'resolved') {
+              data.cell.styles.fillColor = [232, 245, 233];
+              data.cell.styles.textColor = [37, 96, 41];
+            } else if (val === 'rejected') {
+              data.cell.styles.fillColor = [255, 235, 238];
+              data.cell.styles.textColor = [183, 28, 28];
+            }
+          }
+          // Priority cell styling
+          if (data.column.index === colIndex.priority) {
+            const p = String(data.cell.raw || '').toLowerCase();
+            if (p === 'high') {
+              data.cell.styles.fillColor = [254, 226, 226];
+              data.cell.styles.textColor = [153, 27, 27];
+            } else if (p === 'medium') {
+              data.cell.styles.fillColor = [254, 243, 199];
+              data.cell.styles.textColor = [146, 64, 14];
+            } else if (p === 'low') {
+              data.cell.styles.fillColor = [236, 253, 245];
+              data.cell.styles.textColor = [6, 95, 70];
+            }
+          }
+        }
+      },
+      didDrawPage: (data: any) => {
+        const str = `Page ${doc.getNumberOfPages()}`;
+        doc.setFontSize(10);
+        doc.setTextColor(128, 0, 0);
+        doc.text('CARS-G • Reports History', margin, doc.internal.pageSize.getHeight() - 16);
+        doc.text(str, pageWidth - margin, doc.internal.pageSize.getHeight() - 16, { align: 'right' as any });
+      },
+      margin: { left: margin, right: margin }
+    });
+
+    // Save
+    const filename = `${title.replace(/\s+/g,'_').toLowerCase()}_${new Date().toISOString().slice(0,10)}.pdf`;
+    doc.save(filename);
+  };
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', {
@@ -275,7 +459,7 @@ export function AdminHistory() {
                 </div>
               </div>
             </div>
-            <div className="flex items-center">
+            <div className="flex items-center gap-2">
               <div className="hidden sm:flex items-center bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
                 <button
                   onClick={exportToCSV}
@@ -293,12 +477,35 @@ export function AdminHistory() {
                   Print
                 </button>
               </div>
+              <div className="hidden sm:flex items-center bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                <select
+                  value={exportStatus}
+                  onChange={(e) => setExportStatus(e.target.value as any)}
+                  className="px-3 py-2 text-sm text-gray-700 outline-none"
+                  aria-label="Choose reports to export"
+                >
+                  <option value="resolved">Resolved</option>
+                  <option value="rejected">Rejected</option>
+                  <option value="both">Both</option>
+                </select>
+                <div className="w-px h-6 bg-gray-200" />
+                <button
+                  onClick={exportToPDF}
+                  className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Export PDF
+                </button>
+              </div>
               <div className="sm:hidden flex items-center gap-2">
                 <button onClick={exportToCSV} className="p-2 bg-white rounded-full border border-gray-200 shadow-sm" aria-label="Export CSV">
                   <Download className="w-4 h-4" />
                 </button>
                 <button onClick={printPage} className="p-2 bg-white rounded-full border border-gray-200 shadow-sm" aria-label="Print">
                   <Printer className="w-4 h-4" />
+                </button>
+                <button onClick={exportToPDF} className="p-2 bg-white rounded-full border border-gray-200 shadow-sm" aria-label="Export PDF">
+                  <Download className="w-4 h-4" />
                 </button>
               </div>
             </div>

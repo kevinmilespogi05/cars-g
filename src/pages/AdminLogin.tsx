@@ -13,11 +13,11 @@ export function AdminLogin() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const from = (location.state as any)?.from?.pathname || '/admin/map';
+  const from = (location.state as any)?.from?.pathname || '/admin';
 
   useEffect(() => {
     if (isAuthenticated && user?.role === 'admin') {
-      navigate('/admin/map', { replace: true });
+      navigate('/admin', { replace: true });
     }
   }, [isAuthenticated, user?.role, navigate]);
 
