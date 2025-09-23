@@ -32,9 +32,3 @@ services:
         value: carsg-d5bed
       - key: GOOGLE_SERVICE_ACCOUNT_JSON
         sync: false
-      - key: BREVO_API_KEY
-        sync: false
-      - key: BREVO_SENDER_EMAIL
-        value: no-reply@cars-g.app
-      - key: BREVO_SENDER_NAME
-        value: Cars-G

@@ -320,9 +320,6 @@ export const useAuthStore = create<AuthState>((set) => ({
         throw new Error('Invalid email or password. Please try again.');
       }
       
-      if (error.message?.includes('Email not confirmed')) {
-        throw new Error('Please check your email and confirm your account before signing in.');
-      }
       
       if (error.message?.includes('Too many requests')) {
         throw new Error('Too many login attempts. Please wait a moment and try again.');
@@ -399,9 +396,6 @@ export const useAuthStore = create<AuthState>((set) => ({
         throw new Error('Invalid username or password. Please try again.');
       }
       
-      if (error.message?.includes('Email not confirmed')) {
-        throw new Error('Please check your email and confirm your account before signing in.');
-      }
       
       if (error.message?.includes('Too many requests')) {
         throw new Error('Too many login attempts. Please wait a moment and try again.');
@@ -499,9 +493,6 @@ export const useAuthStore = create<AuthState>((set) => ({
         throw new Error('Invalid username or email. Please try again.');
       }
       
-      if (error.message?.includes('Email not confirmed')) {
-        throw new Error('Please check your email and confirm your account before signing in.');
-      }
       
       if (error.message?.includes('Too many requests')) {
         throw new Error('Too many login attempts. Please wait a moment and try again.');

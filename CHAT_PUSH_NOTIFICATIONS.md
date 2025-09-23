@@ -240,7 +240,6 @@ Enable debug logging by checking browser console for:
 - **Analytics**: Track notification engagement and effectiveness
 
 ### Integration Opportunities
-- **Email fallback**: Send email notifications when push notifications fail
 - **SMS integration**: SMS notifications for critical messages
 - **Desktop notifications**: Native desktop app notifications
 - **Mobile app**: Native mobile app push notifications
