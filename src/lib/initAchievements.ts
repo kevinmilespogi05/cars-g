@@ -231,16 +231,11 @@ export async function initializeUserStats(userId: string) {
       .from('user_stats')
       .select('id')
       .eq('user_id', userId)
-      .single();
+      .maybeSingle();
 
     if (checkError) {
       console.error('Error checking existing user stats:', checkError);
-      if (checkError.code === 'PGRST116') {
-        // No rows returned, which is expected for new users
-        console.log('No existing user stats found, creating new ones...');
-      } else {
-        throw checkError;
-      }
+      throw checkError;
     }
 
     // If user stats already exist, mark as initialized and return
@@ -249,6 +244,9 @@ export async function initializeUserStats(userId: string) {
       initializedUserStats.add(userId);
       return;
     }
+
+    // No existing stats found, proceed to create new ones
+    console.log('No existing user stats found, creating new ones...');
 
     // Create insert data based on what columns actually exist
     const insertData: any = {

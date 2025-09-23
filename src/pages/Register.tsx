@@ -51,11 +51,19 @@ export function Register() {
       await signUp(email, password, username);
       navigate('/login', { 
         state: { 
-          message: 'Registration successful! Please check your email to verify your account.' 
+          message: 'Registration successful! You can now sign in with your credentials.' 
         } 
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create account');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to create account';
+      setError(errorMessage);
+      
+      // If user already exists, suggest they sign in instead
+      if (errorMessage.includes('already exists')) {
+        setTimeout(() => {
+          setError(errorMessage + ' Click "Sign in here" below to access your account.');
+        }, 100);
+      }
     } finally {
       setIsLoading(false);
     }

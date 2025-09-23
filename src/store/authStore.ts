@@ -580,10 +580,31 @@ export const useAuthStore = create<AuthState>((set) => ({
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          emailRedirectTo: null, // Disable email confirmation
+        }
       });
       
       if (error) {
         console.error('Auth signup error:', error);
+        
+        // Handle specific Supabase errors with user-friendly messages
+        if (error.message?.includes('User already registered')) {
+          throw new Error('An account with this email already exists. Please try signing in instead.');
+        }
+        
+        if (error.message?.includes('Password should be at least')) {
+          throw new Error('Password must be at least 6 characters long.');
+        }
+        
+        if (error.message?.includes('Invalid email')) {
+          throw new Error('Please enter a valid email address.');
+        }
+        
+        if (error.message?.includes('Password is too weak')) {
+          throw new Error('Password is too weak. Please choose a stronger password.');
+        }
+        
         throw error;
       }
       
