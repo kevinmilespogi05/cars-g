@@ -21,6 +21,8 @@ import {
   FileText,
   X
 } from 'lucide-react';
+import { EmailVerification } from '../components/EmailVerification';
+import { getApiUrl } from '../lib/config';
 
 export function Register() {
   const navigate = useNavigate();
@@ -35,6 +37,9 @@ export function Register() {
   const [isFocused, setIsFocused] = useState<string | null>(null);
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  
+  // Registration steps: 'form' | 'verification' | 'complete'
+  const [registrationStep, setRegistrationStep] = useState<'form' | 'verification' | 'complete'>('form');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,22 +53,27 @@ export function Register() {
     setIsLoading(true);
 
     try {
-      await signUp(email, password, username);
-      navigate('/login', { 
-        state: { 
-          message: 'Registration successful! You can now sign in with your credentials.' 
-        } 
+      // Send verification email first
+      const response = await fetch(getApiUrl('/api/auth/send-verification'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          username
+        })
       });
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to create account';
-      setError(errorMessage);
-      
-      // If user already exists, suggest they sign in instead
-      if (errorMessage.includes('already exists')) {
-        setTimeout(() => {
-          setError(errorMessage + ' Click "Sign in here" below to access your account.');
-        }, 100);
+
+      const data = await response.json();
+
+      if (data.success) {
+        setRegistrationStep('verification');
+      } else {
+        setError(data.error || 'Failed to send verification email');
       }
+    } catch (err) {
+      setError('Network error. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -77,6 +87,59 @@ export function Register() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to sign up with Google');
       setIsSocialLoading(null);
+    }
+  };
+
+  const handleEmailVerified = async () => {
+    setIsLoading(true);
+    setError('');
+
+    try {
+      // Now complete the registration
+      await signUp(email, password, username);
+      setRegistrationStep('complete');
+      
+      // Navigate to login after a short delay
+      setTimeout(() => {
+        navigate('/login', { 
+          state: { 
+            message: 'Registration successful! You can now sign in with your credentials.' 
+          } 
+        });
+      }, 2000);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to create account';
+      setError(errorMessage);
+      setRegistrationStep('form'); // Go back to form if registration fails
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleBackToForm = () => {
+    setRegistrationStep('form');
+    setError('');
+  };
+
+  const handleResendVerification = async () => {
+    try {
+      const response = await fetch(getApiUrl('/api/auth/send-verification'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          username
+        })
+      });
+
+      const data = await response.json();
+      if (!data.success) {
+        setError(data.error || 'Failed to resend verification email');
+      }
+    } catch (err) {
+      setError('Network error. Please try again.');
     }
   };
 
@@ -109,7 +172,10 @@ export function Register() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
         >
-          {/* Header Section */}
+          {/* Conditional Content Based on Registration Step */}
+          {registrationStep === 'form' && (
+            <>
+              {/* Header Section */}
           <motion.div 
             className="text-center space-y-6"
             initial={{ opacity: 0, y: -20 }}
@@ -386,6 +452,41 @@ export function Register() {
               </Link>
             </p>
           </motion.div>
+            </>
+          )}
+
+          {/* Email Verification Step */}
+          {registrationStep === 'verification' && (
+            <EmailVerification
+              email={email}
+              username={username}
+              onVerified={handleEmailVerified}
+              onBack={handleBackToForm}
+              onResend={handleResendVerification}
+            />
+          )}
+
+          {/* Registration Complete Step */}
+          {registrationStep === 'complete' && (
+            <motion.div 
+              className="text-center space-y-6"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.5 }}
+            >
+              <div className="flex justify-center">
+                <div className="h-20 w-20 bg-green-100 rounded-full flex items-center justify-center">
+                  <CheckCircle className="h-10 w-10 text-green-600" />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <h2 className="text-2xl font-bold text-gray-900">Registration Complete!</h2>
+                <p className="text-gray-600">
+                  Your account has been created successfully. Redirecting to login...
+                </p>
+              </div>
+            </motion.div>
+          )}
         </motion.div>
       </div>
 

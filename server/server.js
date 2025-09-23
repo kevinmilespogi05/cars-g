@@ -12,6 +12,8 @@ import fetch from 'node-fetch';
 import { GoogleAuth } from 'google-auth-library';
 import { generateTokenPair, verifyToken, extractTokenFromHeader } from './lib/jwt.js';
 import { authenticateToken, requireRole } from './middleware/auth.js';
+import EmailService from './lib/emailService.js';
+import GmailEmailService from './lib/gmailEmailService.js';
 
 // Load environment variables
 dotenv.config();
@@ -79,6 +81,10 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 // Create clients with available keys
 const supabase = createClient(supabaseUrl, supabaseAnonKey || '');
 const supabaseAdmin = supabaseServiceKey ? createClient(supabaseUrl, supabaseServiceKey) : null;
+
+// Initialize email services
+const emailService = new EmailService();
+const gmailEmailService = new GmailEmailService();
 
 if (!supabaseUrl) {
   console.error('❌ VITE_SUPABASE_URL is required');
@@ -275,6 +281,9 @@ app.use((req, res, next) => {
 
 // In-memory rate limit for push registration
 const recentRegistrations = new Map();
+
+// Rate limiting for email verification
+const emailVerificationAttempts = new Map();
 
 // Push: register device token
 app.post('/api/push/register', async (req, res) => {
@@ -891,6 +900,307 @@ app.get('/api/auth/admin-test', authenticateToken, requireRole('admin'), (req, r
     message: 'Admin endpoint accessed successfully',
     user: req.user
   });
+});
+
+// Email Verification Endpoints
+
+// Send verification code
+app.post('/api/auth/send-verification', async (req, res) => {
+  try {
+    const { email, username } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email is required',
+        code: 'MISSING_EMAIL'
+      });
+    }
+
+    // Rate limiting: max 3 attempts per email per 5 minutes
+    const now = Date.now();
+    const emailKey = email.toLowerCase();
+    const attempts = emailVerificationAttempts.get(emailKey) || [];
+    
+    // Clean old attempts (older than 5 minutes)
+    const recentAttempts = attempts.filter(timestamp => now - timestamp < 5 * 60 * 1000);
+    
+    if (recentAttempts.length >= 3) {
+      return res.status(429).json({
+        success: false,
+        error: 'Too many verification attempts. Please wait 5 minutes before trying again.',
+        code: 'RATE_LIMITED'
+      });
+    }
+
+    // Add current attempt
+    recentAttempts.push(now);
+    emailVerificationAttempts.set(emailKey, recentAttempts);
+
+    // Generate 6-digit verification code
+    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Set expiration time (10 minutes from now)
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+
+    // Clean up any existing verification codes for this email
+    if (supabaseAdmin) {
+      const { error: deleteError } = await supabaseAdmin
+        .from('email_verifications')
+        .delete()
+        .eq('email', email);
+      
+      if (deleteError) {
+        console.warn('Warning: Could not delete existing verification codes:', deleteError);
+      }
+    }
+
+    // Send verification email first - try Gmail, then Brevo
+    let emailSent = false;
+    
+    // Try Gmail first
+    try {
+      emailSent = await gmailEmailService.sendVerificationEmail(email, verificationCode, username || 'User');
+      if (emailSent) {
+        console.log('✅ Email sent via Gmail SMTP');
+      }
+    } catch (gmailError) {
+      console.log('⚠️  Gmail sending failed, trying Brevo...');
+    }
+    
+    // If Gmail failed, try Brevo
+    if (!emailSent) {
+      try {
+        emailSent = await emailService.sendVerificationEmail(email, verificationCode, username || 'User');
+        if (emailSent) {
+          console.log('✅ Email sent via Brevo');
+        }
+      } catch (brevoError) {
+        console.log('⚠️  Brevo sending failed');
+      }
+    }
+
+    if (!emailSent) {
+      console.error('Failed to send verification email to:', email);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to send verification email',
+        code: 'EMAIL_SEND_ERROR'
+      });
+    }
+
+    // Only insert verification code if email was sent successfully
+    const { data: verificationData, error: insertError } = await supabaseAdmin
+      ? await supabaseAdmin
+          .from('email_verifications')
+          .insert({
+            email,
+            code: verificationCode,
+            attempts: 0,
+            max_attempts: 5,
+            expires_at: expiresAt
+          })
+          .select()
+          .single()
+      : await supabase
+          .from('email_verifications')
+          .insert({
+            email,
+            code: verificationCode,
+            attempts: 0,
+            max_attempts: 5,
+            expires_at: expiresAt
+          })
+          .select()
+          .single();
+
+    if (insertError) {
+      console.error('Error inserting verification code:', insertError);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to create verification code',
+        code: 'DATABASE_ERROR'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Verification code sent successfully',
+      expiresAt
+    });
+
+  } catch (error) {
+    console.error('Send verification error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      code: 'INTERNAL_ERROR'
+    });
+  }
+});
+
+// Verify email code
+app.post('/api/auth/verify-email', async (req, res) => {
+  try {
+    const { email, code } = req.body;
+
+    if (!email || !code) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email and verification code are required',
+        code: 'MISSING_CREDENTIALS'
+      });
+    }
+
+    // Find the verification record
+    const { data: verification, error: fetchError } = await supabaseAdmin
+      ? await supabaseAdmin
+          .from('email_verifications')
+          .select('*')
+          .eq('email', email)
+          .eq('code', code)
+          .single()
+      : await supabase
+          .from('email_verifications')
+          .select('*')
+          .eq('email', email)
+          .eq('code', code)
+          .single();
+
+    if (fetchError || !verification) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid verification code',
+        code: 'INVALID_CODE'
+      });
+    }
+
+    // Check if code is expired
+    if (new Date(verification.expires_at) < new Date()) {
+      return res.status(400).json({
+        success: false,
+        error: 'Verification code has expired',
+        code: 'CODE_EXPIRED'
+      });
+    }
+
+    // Check if already verified
+    if (verification.verified_at) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email already verified',
+        code: 'ALREADY_VERIFIED'
+      });
+    }
+
+    // Check attempt limit
+    if (verification.attempts >= verification.max_attempts) {
+      return res.status(400).json({
+        success: false,
+        error: 'Too many verification attempts',
+        code: 'TOO_MANY_ATTEMPTS'
+      });
+    }
+
+    // Mark as verified
+    const { error: updateError } = await supabaseAdmin
+      ? await supabaseAdmin
+          .from('email_verifications')
+          .update({
+            verified_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', verification.id)
+      : await supabase
+          .from('email_verifications')
+          .update({
+            verified_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', verification.id);
+
+    if (updateError) {
+      console.error('Error updating verification:', updateError);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to verify email',
+        code: 'UPDATE_ERROR'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Email verified successfully'
+    });
+
+  } catch (error) {
+    console.error('Verify email error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      code: 'INTERNAL_ERROR'
+    });
+  }
+});
+
+// Check verification status
+app.get('/api/auth/verification-status/:email', async (req, res) => {
+  try {
+    const { email } = req.params;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email is required',
+        code: 'MISSING_EMAIL'
+      });
+    }
+
+    // Find the verification record
+    const { data: verification, error: fetchError } = await supabaseAdmin
+      ? await supabaseAdmin
+          .from('email_verifications')
+          .select('*')
+          .eq('email', email)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single()
+      : await supabase
+          .from('email_verifications')
+          .select('*')
+          .eq('email', email)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+
+    if (fetchError || !verification) {
+      return res.json({
+        success: true,
+        verified: false,
+        message: 'No verification record found'
+      });
+    }
+
+    const isVerified = !!verification.verified_at;
+    const isExpired = new Date(verification.expires_at) < new Date();
+
+    res.json({
+      success: true,
+      verified: isVerified,
+      expired: isExpired,
+      attempts: verification.attempts,
+      maxAttempts: verification.max_attempts,
+      expiresAt: verification.expires_at
+    });
+
+  } catch (error) {
+    console.error('Check verification status error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      code: 'INTERNAL_ERROR'
+    });
+  }
 });
 
 // Reports: like/unlike using service role (supports JWT-authenticated users)
