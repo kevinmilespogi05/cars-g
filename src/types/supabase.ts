@@ -34,6 +34,8 @@ export interface Database {
           id: string
           username: string
           email: string
+          first_name: string | null
+          last_name: string | null
           full_name: string | null
           avatar_url: string | null
           bio: string | null
@@ -48,6 +50,8 @@ export interface Database {
           id: string
           username: string
           email: string
+          first_name?: string | null
+          last_name?: string | null
           full_name?: string | null
           avatar_url?: string | null
           bio?: string | null
@@ -62,6 +66,8 @@ export interface Database {
           id?: string
           username?: string
           email?: string
+          first_name?: string | null
+          last_name?: string | null
           full_name?: string | null
           avatar_url?: string | null
           bio?: string | null

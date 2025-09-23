@@ -850,7 +850,7 @@ export const reportsService = {
       const [profilesData, userLikes] = await Promise.all([
         uncachedUserIds.length > 0 ? supabase
           .from('profiles')
-          .select('id, username, avatar_url')
+          .select('id, username, first_name, avatar_url')
           .in('id', uncachedUserIds) : Promise.resolve({ data: [], error: null }),
         user ? supabase
           .from('likes')
@@ -920,12 +920,17 @@ export const reportsService = {
     limit?: number;
   }): Promise<Report[]> {
     try {
-      // Create cache key based on filters
-      const cacheKey = JSON.stringify(filters || {});
-      const cacheKeyHash = btoa(cacheKey).slice(0, 20);
+      // Create stable cache key based on explicit filter parts to avoid collisions
+      const cacheKeyHash = [
+        `status=${String(filters?.status ?? 'All')}`,
+        `category=${String(filters?.category ?? 'All')}`,
+        `priority=${String(filters?.priority ?? 'All')}`,
+        `search=${String(filters?.search ?? '')}`,
+        `limit=${String((filters?.limit as any) ?? '')}`
+      ].join('|');
       
-      // Check memory cache first
-      const cached = sessionStorage.getItem(`reports_${cacheKeyHash}`);
+      // Check session cache first
+      const cached = sessionStorage.getItem(`reports_cache_${cacheKeyHash}`);
       if (cached) {
         const { data, timestamp } = JSON.parse(cached);
         if (Date.now() - timestamp < 30000) { // 30 second cache
@@ -1051,8 +1056,8 @@ export const reportsService = {
         rating_count: report.rating_count?.[0]?.count || 0
       }));
 
-      // Cache the result
-      sessionStorage.setItem(`reports_${cacheKeyHash}`, JSON.stringify({
+      // Cache the result with the new namespace to prevent key collisions across pages
+      sessionStorage.setItem(`reports_cache_${cacheKeyHash}`, JSON.stringify({
         data: result,
         timestamp: Date.now()
       }));
@@ -1230,7 +1235,7 @@ export const reportsService = {
             // Get user profile for the new report
             const { data: profile, error: profileError } = await supabase
               .from('profiles')
-              .select('id, username, avatar_url')
+              .select('id, username, first_name, avatar_url')
               .eq('id', payload.new.user_id)
               .single();
 

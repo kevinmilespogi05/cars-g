@@ -741,15 +741,15 @@ export function Reports() {
                       {report.user_profile?.avatar_url ? (
                         <img 
                           src={report.user_profile.avatar_url} 
-                          alt={report.user_profile.username || 'User'} 
+                          alt={(report.user_profile as any).first_name || report.user_profile.username || 'User'} 
                           className="w-6 h-6 rounded-full object-cover ring-2 ring-gray-200" 
                         />
                       ) : (
                         <div className="w-6 h-6 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center text-gray-600 text-xs font-semibold">
-                          {(report.user_profile?.username || 'A').slice(0,1).toUpperCase()}
+                          {(((report.user_profile as any).first_name || report.user_profile?.username || 'A') as string).slice(0,1).toUpperCase()}
                         </div>
                       )}
-                      <span className="text-gray-700 font-medium truncate max-w-[120px]">{report.user_profile?.username || 'Anonymous'}</span>
+                      <span className="text-gray-700 font-medium truncate max-w-[120px]">{(report.user_profile as any)?.first_name || report.user_profile?.username || 'Anonymous'}</span>
                     </div>
                     <div className="flex items-center gap-1.5 text-gray-500">
                       <Calendar className="h-4 w-4" />

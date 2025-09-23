@@ -704,7 +704,7 @@ app.post('/api/auth/login', async (req, res) => {
     // Get user profile from Supabase
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('id, email, username, role, points, avatar_url')
+      .select('id, email, username, first_name, last_name, role, points, avatar_url')
       .eq('id', authData.user.id)
       .single();
 
@@ -730,6 +730,8 @@ app.post('/api/auth/login', async (req, res) => {
         id: profile.id,
         email: profile.email,
         username: profile.username,
+        first_name: profile.first_name,
+        last_name: profile.last_name,
         role: profile.role || 'user',
         points: profile.points || 0,
         avatar_url: profile.avatar_url
@@ -774,7 +776,7 @@ app.post('/api/auth/refresh', async (req, res) => {
     // Get user profile
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('id, email, username, role, points, avatar_url')
+      .select('id, email, username, first_name, last_name, role, points, avatar_url')
       .eq('id', decoded.userId)
       .single();
 
@@ -800,6 +802,8 @@ app.post('/api/auth/refresh', async (req, res) => {
         id: profile.id,
         email: profile.email,
         username: profile.username,
+        first_name: profile.first_name,
+        last_name: profile.last_name,
         role: profile.role || 'user',
         points: profile.points || 0,
         avatar_url: profile.avatar_url
@@ -831,7 +835,7 @@ app.get('/api/auth/me', authenticateToken, async (req, res) => {
   try {
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('id, email, username, role, points, avatar_url')
+      .select('id, email, username, first_name, last_name, role, points, avatar_url')
       .eq('id', req.user.id)
       .single();
 
@@ -849,6 +853,8 @@ app.get('/api/auth/me', authenticateToken, async (req, res) => {
         id: profile.id,
         email: profile.email,
         username: profile.username,
+        first_name: profile.first_name,
+        last_name: profile.last_name,
         role: profile.role || 'user',
         points: profile.points || 0,
         avatar_url: profile.avatar_url
@@ -980,13 +986,21 @@ app.post('/api/auth/send-verification', async (req, res) => {
       }
     }
 
+    // In development, allow verification without actually sending email
+    let devBypass = false;
     if (!emailSent) {
-      console.error('Failed to send verification email to:', email);
-      return res.status(500).json({
-        success: false,
-        error: 'Failed to send verification email',
-        code: 'EMAIL_SEND_ERROR'
-      });
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('⚠️  Email not sent, but continuing in development mode with code:', verificationCode);
+        devBypass = true;
+        emailSent = true;
+      } else {
+        console.error('Failed to send verification email to:', email);
+        return res.status(500).json({
+          success: false,
+          error: 'Failed to send verification email',
+          code: 'EMAIL_SEND_ERROR'
+        });
+      }
     }
 
     // Only insert verification code if email was sent successfully
@@ -1026,7 +1040,9 @@ app.post('/api/auth/send-verification', async (req, res) => {
     res.json({
       success: true,
       message: 'Verification code sent successfully',
-      expiresAt
+      expiresAt,
+      // Expose code in development to unblock local testing
+      code: devBypass ? verificationCode : undefined
     });
 
   } catch (error) {

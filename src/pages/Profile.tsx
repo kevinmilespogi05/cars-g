@@ -535,7 +535,9 @@ export function Profile() {
                   ) : (
                     <div className="flex items-center gap-3 mb-2">
                       <h1 className="text-4xl font-bold text-white drop-shadow-lg">
-                        {user?.username || 'Not set'}
+                        {(user?.first_name || user?.last_name)
+                          ? `${user?.first_name ?? ''} ${user?.last_name ?? ''}`.trim()
+                          : (user?.username || 'Not set')}
                       </h1>
                       {user?.role === 'patrol' && patrolGroup && (
                         <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-emerald-400/20 text-emerald-100 border border-emerald-300/30">

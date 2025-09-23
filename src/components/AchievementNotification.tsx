@@ -36,7 +36,7 @@ export const AchievementNotification: React.FC<AchievementNotificationProps> = (
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: -50, scale: 0.9 }}
           transition={{ duration: 0.3, ease: "easeOut" }}
-          className="fixed top-4 right-4 z-50 max-w-sm w-full"
+          className="fixed top-4 right-4 z-[4000] max-w-sm w-full"
         >
           <div className="bg-gradient-to-r from-yellow-400 to-orange-500 rounded-lg shadow-lg border border-yellow-300 p-4">
             <div className="flex items-start gap-3">

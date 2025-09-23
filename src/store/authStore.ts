@@ -22,7 +22,7 @@ interface AuthState {
   signIn: (email: string, password: string) => Promise<void>;
   signInWithUsername: (username: string, password: string) => Promise<void>;
   signInWithEmailOrUsername: (emailOrUsername: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, username: string) => Promise<void>;
+  signUp: (email: string, password: string, username: string, firstName?: string, lastName?: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signInWithFacebook: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -101,7 +101,7 @@ export const useAuthStore = create<AuthState>((set) => ({
           .eq('id', session.user.id)
           .single();
           
-        if (profileError && profileError.code !== 'PGRST116') {
+        if (profileError && profileError.code !== 'PGRST116' && String((profileError as any).status) !== '406') {
           throw profileError;
         }
         
@@ -121,13 +121,21 @@ export const useAuthStore = create<AuthState>((set) => ({
               notification_settings: { push: true, email: true }
             });
             
-          if (createError) throw createError;
+          if (createError) {
+            // If FK violation or RLS/format errors, skip creating profile (likely not a Supabase-auth user)
+            const code = (createError as any).code || '';
+            if (code === '23503' || String((createError as any).status) === '406' || String((createError as any).status) === '409') {
+              console.warn('Skipping profile auto-create due to database constraint/status:', createError);
+            } else {
+              throw createError;
+            }
+          } else {
+            // Initialize user stats
+            await debugDatabaseIssue();
+            await verifyDatabaseSchema();
+            await initializeUserStats(session.user.id);
+          }
 
-          // Initialize user stats
-          await debugDatabaseIssue();
-          await verifyDatabaseSchema();
-          await initializeUserStats(session.user.id);
-          
           // Fetch the newly created profile
           const { data: newProfile, error: fetchError } = await supabase
             .from('profiles')
@@ -135,10 +143,10 @@ export const useAuthStore = create<AuthState>((set) => ({
             .eq('id', session.user.id)
             .single();
             
-          if (fetchError) throw fetchError;
+          if (fetchError && String((fetchError as any).status) !== '406') throw fetchError;
           
           set({ 
-            user: { ...newProfile, email: session.user.email },
+            user: newProfile ? { ...newProfile, email: session.user.email } : { id: session.user.id, email: session.user.email } as any,
             isAuthenticated: true,
           });
         } else {
@@ -150,9 +158,13 @@ export const useAuthStore = create<AuthState>((set) => ({
           }
           // Initialize user stats if they don't exist
           // First debug the database issue and verify the schema
-          await debugDatabaseIssue();
-          await verifyDatabaseSchema();
-          await initializeUserStats(session.user.id);
+          try {
+            await debugDatabaseIssue();
+            await verifyDatabaseSchema();
+            await initializeUserStats(session.user.id);
+          } catch (e) {
+            console.warn('Skipping stats initialization:', e);
+          }
           
           set({ 
             user: { ...profile, email: session.user.email },
@@ -172,7 +184,7 @@ export const useAuthStore = create<AuthState>((set) => ({
               .eq('id', session.user.id)
               .single();
               
-            if (profileError && profileError.code !== 'PGRST116') {
+            if (profileError && profileError.code !== 'PGRST116' && String((profileError as any).status) !== '406') {
               throw profileError;
             }
             
@@ -192,7 +204,19 @@ export const useAuthStore = create<AuthState>((set) => ({
                   notification_settings: { push: true, email: true }
                 });
                 
-              if (createError) throw createError;
+              if (createError) {
+                const code = (createError as any).code || '';
+                if (code === '23503' || String((createError as any).status) === '406' || String((createError as any).status) === '409') {
+                  console.warn('Skipping profile auto-create due to database constraint/status:', createError);
+                } else {
+                  throw createError;
+                }
+              } else {
+                // Initialize user stats
+                await debugDatabaseIssue();
+                await verifyDatabaseSchema();
+                await initializeUserStats(session.user.id);
+              }
 
               // Initialize user stats
               await debugDatabaseIssue();
@@ -206,10 +230,10 @@ export const useAuthStore = create<AuthState>((set) => ({
                 .eq('id', session.user.id)
                 .single();
                 
-              if (fetchError) throw fetchError;
+              if (fetchError && String((fetchError as any).status) !== '406') throw fetchError;
               
               set({ 
-                user: { ...newProfile, email: session.user.email },
+                user: newProfile ? { ...newProfile, email: session.user.email } : { id: session.user.id, email: session.user.email } as any,
                 isAuthenticated: true,
               });
             } else {
@@ -219,7 +243,11 @@ export const useAuthStore = create<AuthState>((set) => ({
                 return;
               }
               // Initialize user stats if they don't exist
-              await initializeUserStats(session.user.id);
+              try {
+                await initializeUserStats(session.user.id);
+              } catch (e) {
+                console.warn('Skipping stats initialization:', e);
+              }
               
               set({ 
                 user: { ...existingProfile, email: session.user.email },
@@ -566,7 +594,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
   
-  signUp: async (email: string, password: string, username: string) => {
+  signUp: async (email: string, password: string, username: string, firstName?: string, lastName?: string) => {
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -622,6 +650,8 @@ export const useAuthStore = create<AuthState>((set) => ({
               id: data.user.id,
               username: username,
               email: data.user.email || '',
+              first_name: firstName || null,
+              last_name: lastName || null,
               points: 0,
               role: 'user',
               created_at: new Date().toISOString(),

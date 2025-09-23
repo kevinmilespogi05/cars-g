@@ -30,6 +30,8 @@ export function Register() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSocialLoading, setIsSocialLoading] = useState<'google' | null>(null);
@@ -96,7 +98,7 @@ export function Register() {
 
     try {
       // Now complete the registration
-      await signUp(email, password, username);
+      await signUp(email, password, username, firstName, lastName);
       setRegistrationStep('complete');
       
       // Navigate to login after a short delay
@@ -226,6 +228,59 @@ export function Register() {
           
             {/* Input Fields */}
             <div className="space-y-6">
+              {/* Name Fields */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label htmlFor="firstName" className="text-sm font-semibold text-gray-700 flex items-center space-x-2">
+                    <User className="h-4 w-4" />
+                    <span>First name</span>
+                  </label>
+                  <div className="relative group">
+                    <div className={`absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none transition-colors duration-200 ${
+                      isFocused === 'firstName' ? 'text-red-600' : 'text-gray-400'
+                    }`}>
+                      <User className="h-5 w-5" />
+                    </div>
+                    <input
+                      id="firstName"
+                      name="firstName"
+                      type="text"
+                      required
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      onFocus={() => setIsFocused('firstName')}
+                      onBlur={() => setIsFocused(null)}
+                      className="block w-full pl-12 pr-4 py-4 border-2 border-gray-200 rounded-2xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all duration-200 bg-gray-50/50 hover:bg-white group-hover:border-gray-300"
+                      placeholder="Your first name"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="lastName" className="text-sm font-semibold text-gray-700 flex items-center space-x-2">
+                    <User className="h-4 w-4" />
+                    <span>Last name</span>
+                  </label>
+                  <div className="relative group">
+                    <div className={`absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none transition-colors duration-200 ${
+                      isFocused === 'lastName' ? 'text-red-600' : 'text-gray-400'
+                    }`}>
+                      <User className="h-5 w-5" />
+                    </div>
+                    <input
+                      id="lastName"
+                      name="lastName"
+                      type="text"
+                      required
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      onFocus={() => setIsFocused('lastName')}
+                      onBlur={() => setIsFocused(null)}
+                      className="block w-full pl-12 pr-4 py-4 border-2 border-gray-200 rounded-2xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all duration-200 bg-gray-50/50 hover:bg-white group-hover:border-gray-300"
+                      placeholder="Your last name"
+                    />
+                  </div>
+                </div>
+              </div>
               {/* Username Field */}
               <div className="space-y-2">
                 <label htmlFor="username" className="text-sm font-semibold text-gray-700 flex items-center space-x-2">

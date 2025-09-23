@@ -80,6 +80,13 @@ class GmailEmailService {
    * @returns {string} - HTML content
    */
   getVerificationEmailTemplate(code, username) {
+    const baseUrl = (process.env.FRONTEND_URL || '').replace(/\/$/, '');
+    const logoUrl = `${baseUrl || ''}/images/logo.jpg`;
+    const primary = '#800000';
+    const primaryDark = '#660000';
+    const grayBg = '#F7F7F8';
+    const textColor = '#1F2937';
+    const subtle = '#6B7280';
     return `
       <!DOCTYPE html>
       <html>
@@ -88,42 +95,46 @@ class GmailEmailService {
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Verify Your Email</title>
       </head>
-      <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px; text-align: center; margin-bottom: 30px;">
-          <h1 style="color: white; margin: 0; font-size: 28px;">Welcome to Cars-G!</h1>
-          <p style="color: white; margin: 10px 0 0 0; font-size: 16px;">Your community for car enthusiasts</p>
+      <body style="font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: ${textColor}; max-width: 640px; margin: 0 auto; padding: 24px; background: #ffffff;">
+        <!-- Header -->
+        <div style="background: linear-gradient(135deg, ${primary} 0%, ${primaryDark} 100%); padding: 28px; border-radius: 16px; text-align: center; margin-bottom: 24px;">
+          <div style="display:inline-flex; align-items:center; gap:12px;">
+            <img src="${logoUrl}" alt="Cars-G" width="40" height="40" style="border-radius: 8px; object-fit: cover;" />
+            <span style="color:#ffffff; font-size: 22px; font-weight: 800; letter-spacing:.3px;">Cars-G</span>
+          </div>
+          <h1 style="color: #ffffff; margin: 14px 0 0 0; font-size: 24px; font-weight: 700;">Verify your email</h1>
+          <p style="color: #F3F4F6; margin: 6px 0 0 0; font-size: 14px;">Your community for car enthusiasts</p>
         </div>
         
-        <div style="background: #f8f9fa; padding: 30px; border-radius: 10px; margin-bottom: 30px;">
-          <h2 style="color: #333; margin-top: 0;">Hi ${username}!</h2>
-          <p style="font-size: 16px; margin-bottom: 25px;">
-            Thank you for registering with Cars-G! To complete your registration and start exploring our community, 
-            please verify your email address using the code below:
+        <div style="background: ${grayBg}; padding: 28px; border-radius: 16px; margin-bottom: 24px;">
+          <h2 style="color: ${textColor}; margin: 0 0 8px 0; font-size: 18px;">Hi ${username}!</h2>
+          <p style="font-size: 14px; margin: 0 0 18px 0; color: ${subtle};">
+            Thanks for joining Cars-G. Please verify your email to complete your registration.
           </p>
-          
-          <div style="background: white; border: 2px dashed #667eea; border-radius: 8px; padding: 25px; text-align: center; margin: 25px 0;">
-            <p style="margin: 0 0 10px 0; font-size: 14px; color: #666;">Your verification code is:</p>
-            <div style="font-size: 32px; font-weight: bold; color: #667eea; letter-spacing: 5px; font-family: 'Courier New', monospace;">
+
+          <div style="background: #ffffff; border: 1px dashed ${primary}; border-radius: 12px; padding: 24px; text-align: center; margin: 18px 0;">
+            <p style="margin: 0 0 6px 0; font-size: 12px; color: ${subtle};">Your verification code</p>
+            <div style="font-size: 36px; font-weight: 800; color: ${primary}; letter-spacing: 6px; font-family: 'SFMono-Regular', Menlo, Consolas, 'Courier New', monospace;">
               ${code}
             </div>
           </div>
-          
-          <p style="font-size: 14px; color: #666; margin-top: 20px;">
-            This code will expire in 10 minutes for security reasons.
-          </p>
+
+          <p style="font-size: 12px; color: ${subtle}; margin: 0;">This code expires in 10 minutes.</p>
         </div>
         
-        <div style="text-align: center; padding: 20px; background: #f8f9fa; border-radius: 10px;">
-          <p style="margin: 0; font-size: 14px; color: #666;">
+        <div style="text-align: center; padding: 16px; background: ${grayBg}; border-radius: 12px;">
+          <p style="margin: 0; font-size: 12px; color: ${subtle};">
             If you didn't create an account with Cars-G, you can safely ignore this email.
           </p>
         </div>
         
-        <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
-          <p style="margin: 0; font-size: 12px; color: #999;">
-            © 2024 Cars-G. All rights reserved.
-          </p>
-        </div>
+        <table role="presentation" width="100%" cellPadding="0" cellSpacing="0" style="margin-top: 24px;">
+          <tr>
+            <td align="center" style="font-size: 12px; color: ${subtle};">
+              © ${new Date().getFullYear()} Cars-G. All rights reserved.
+            </td>
+          </tr>
+        </table>
       </body>
       </html>
     `;

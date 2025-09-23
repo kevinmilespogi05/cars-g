@@ -52,3 +52,4 @@ logs
 # Misc
 .DS_Store
 Thumbs.db
+server/env.example
