@@ -38,6 +38,9 @@ interface Statistics {
   inProgressReports: number;
   resolvedReports: number;
   rejectedReports: number;
+  verifyingReports: number;
+  awaitingVerificationReports: number;
+  cancelledReports: number;
   totalUsers: number;
   activeUsers: number;
   bannedUsers: number;
@@ -46,9 +49,20 @@ interface Statistics {
   reportsByTime: Array<{ hour: number; count: number }>;
   reportsByDay: Array<{ day: string; count: number }>;
   reportsByMonth: Array<{ month: string; count: number }>;
+  reportsByMonthByStatus?: Array<{ month: string; pending: number; in_progress: number; resolved: number; rejected: number; verifying: number; awaiting_verification: number; cancelled: number }>;
   averageResolutionTime: number;
   fastestResolutionTime: number;
   slowestResolutionTime: number;
+  p50ResolutionTime?: number;
+  p75ResolutionTime?: number;
+  p90ResolutionTime?: number;
+  p95ResolutionTime?: number;
+  slaTargetHours?: number;
+  slaWarningHours?: number;
+  slaBreachHours?: number;
+  slaWithinTargetCount?: number;
+  slaWarningCount?: number;
+  slaBreachedCount?: number;
   previousStats?: {
     totalReports: number;
     pendingReports: number;
@@ -66,6 +80,9 @@ export function AdminStatistics() {
     inProgressReports: 0,
     resolvedReports: 0,
     rejectedReports: 0,
+    verifyingReports: 0,
+    awaitingVerificationReports: 0,
+    cancelledReports: 0,
     totalUsers: 0,
     activeUsers: 0,
     bannedUsers: 0,
@@ -74,9 +91,20 @@ export function AdminStatistics() {
     reportsByTime: [],
     reportsByDay: [],
     reportsByMonth: [],
+    reportsByMonthByStatus: [],
     averageResolutionTime: 0,
     fastestResolutionTime: 0,
     slowestResolutionTime: 0,
+    p50ResolutionTime: 0,
+    p75ResolutionTime: 0,
+    p90ResolutionTime: 0,
+    p95ResolutionTime: 0,
+    slaTargetHours: 24,
+    slaWarningHours: 72,
+    slaBreachHours: 168,
+    slaWithinTargetCount: 0,
+    slaWarningCount: 0,
+    slaBreachedCount: 0,
   });
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
@@ -91,6 +119,219 @@ export function AdminStatistics() {
       fetchStatistics();
     }
   }, [timeRange, currentUser?.role]);
+
+  // PDF Export
+  const exportPdf = async () => {
+    try {
+      const [{ jsPDF }, html2canvas] = await Promise.all([
+        import('jspdf'),
+        import('html2canvas')
+      ]);
+
+      // Create a new PDF
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 32; // 32pt ~ 11.3mm
+      let y = margin;
+
+      // Brand styling
+      const brandPrimary = '#2563eb'; // tailwind blue-600
+      const brandPrimaryLight = '#dbeafe'; // blue-100
+      const brandTextDark = '#111827'; // gray-900
+      const brandText = '#374151'; // gray-700
+
+      // Load logo (fallback to text if not available)
+      let logoImg: HTMLImageElement | null = null;
+      try {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.src = '/pwa-192x192.png';
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = reject;
+        });
+        logoImg = img;
+      } catch {}
+
+      const addHeader = (title: string) => {
+        doc.setFillColor(219, 234, 254); // blue-100
+        doc.rect(margin, y - 6, pageWidth - margin * 2, 26, 'F');
+        doc.setTextColor(17, 24, 39); // gray-900
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(12);
+        doc.text(title, margin + 12, y + 11);
+        y += 30;
+      };
+
+      const ensureSpace = (needed: number) => {
+        if (y + needed > pageHeight - margin) {
+          doc.addPage();
+          y = margin;
+          // Draw footer page number on previous page
+          try {
+            const pageNo = (doc as any).internal.getCurrentPageInfo().pageNumber - 1;
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(9);
+            doc.setTextColor(107, 114, 128); // gray-500
+            doc.text(`Page ${pageNo}`, pageWidth - margin - 40, pageHeight - 12);
+          } catch {}
+        }
+      };
+
+      // Title and metadata header bar
+      doc.setFillColor(37, 99, 235); // brandPrimary
+      doc.rect(0, 0, pageWidth, 64, 'F');
+      if (logoImg) {
+        const logoH = 36;
+        const ratio = logoImg.width / logoImg.height;
+        const logoW = logoH * ratio;
+        doc.addImage(logoImg, 'PNG', margin, 14, logoW, logoH);
+      }
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(18);
+      doc.setTextColor(255, 255, 255);
+      doc.text('Cars-G • Statistics Dashboard', logoImg ? margin + 48 + 8 : margin, 28);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.text(`Generated: ${new Date().toLocaleString()}`, logoImg ? margin + 48 + 8 : margin, 44);
+      doc.text(`Time Range: ${timeRange}`, logoImg ? margin + 48 + 8 : margin, 56);
+      y = 64 + 12;
+
+      // Key metrics in two rows
+      addHeader('Key Metrics');
+      const metrics: Array<[string, string]> = [
+        ['Total Reports', String(statistics.totalReports)],
+        ['Pending', String(statistics.pendingReports)],
+        ['In Progress', String(statistics.inProgressReports)],
+        ['Resolved', String(statistics.resolvedReports)],
+        ['Rejected', String(statistics.rejectedReports)],
+        ['Verifying', String(statistics.verifyingReports || 0)],
+        ['Awaiting Verification', String(statistics.awaitingVerificationReports || 0)],
+        ['Cancelled', String(statistics.cancelledReports || 0)],
+        ['Total Users', String(statistics.totalUsers)],
+        ['Active Users', String(statistics.activeUsers)],
+        ['Banned Users', String(statistics.bannedUsers)],
+      ];
+      doc.setFontSize(10);
+      const colW = (pageWidth - margin * 2) / 3;
+      const rowH = 18;
+      // draw subtle rows and columns for neatness
+      const rows = Math.ceil(metrics.length / 3);
+      for (let r = 0; r < rows; r++) {
+        ensureSpace(rowH);
+        doc.setDrawColor(229, 231, 235);
+        doc.rect(margin, y + r * rowH - 12, pageWidth - margin * 2, rowH, 'S');
+        for (let c = 1; c < 3; c++) {
+          const x = margin + c * colW;
+          doc.line(x, y + r * rowH - 12, x, y + r * rowH - 12 + rowH);
+        }
+      }
+      metrics.forEach((m, i) => {
+        const col = i % 3;
+        const row = Math.floor(i / 3);
+        const tx = margin + col * colW + 8;
+        const ty = y + row * rowH;
+        doc.setTextColor(75, 85, 99); // gray-600
+        doc.text(m[0] + ':', tx, ty);
+        doc.setTextColor(17, 24, 39); // gray-900
+        doc.text(m[1], tx + 120, ty);
+      });
+      y += rows * rowH + 10;
+
+      // Percentiles and resolution times
+      addHeader('Resolution Times');
+      const times = [
+        ['Average', statistics.averageResolutionTime],
+        ['Fastest', statistics.fastestResolutionTime],
+        ['Slowest', statistics.slowestResolutionTime],
+        ['P50', statistics.p50ResolutionTime || 0],
+        ['P75', statistics.p75ResolutionTime || 0],
+        ['P90', statistics.p90ResolutionTime || 0],
+        ['P95', statistics.p95ResolutionTime || 0],
+      ];
+      times.forEach(([label, value]) => {
+        ensureSpace(14);
+        doc.text(`${label}: ${formatTime(Number(value))}`, margin, y);
+        y += 12;
+      });
+      y += 6;
+
+      // SLA summary
+      addHeader('SLA Summary');
+      const slaLines = [
+        `Within Target (≤ ${formatHours(statistics.slaTargetHours)}): ${statistics.slaWithinTargetCount || 0}`,
+        `Warning (≤ ${formatHours(statistics.slaWarningHours)}): ${statistics.slaWarningCount || 0}`,
+        `Breached (> ${formatHours(statistics.slaWarningHours)}): ${statistics.slaBreachedCount || 0}`,
+      ];
+      slaLines.forEach((line) => {
+        ensureSpace(14);
+        doc.text(line, margin, y);
+        y += 12;
+      });
+      y += 6;
+
+      // Capture a DOM element (card) and embed as an image at consistent size
+      const grabAndAddElement = async (el: HTMLElement, title: string) => {
+        // Ensure it is visible on screen
+        const canvas = await html2canvas.default(el, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false });
+        const imgData = canvas.toDataURL('image/png');
+        const maxImgWidth = pageWidth - margin * 2;
+        const maxImgHeight = 260; // target height for charts
+        const ratio = canvas.height / canvas.width;
+        let imgWidth = maxImgWidth;
+        let imgHeight = imgWidth * ratio;
+        if (imgHeight > maxImgHeight) {
+          imgHeight = maxImgHeight;
+          imgWidth = imgHeight / ratio;
+        }
+        addHeader(title);
+        ensureSpace(imgHeight + 16);
+        const centerX = margin + (maxImgWidth - imgWidth) / 2;
+        doc.addImage(imgData, 'PNG', centerX, y, imgWidth, imgHeight);
+        y += imgHeight + 16;
+      };
+
+      // Identify chart cards by title in a defined order for a clean layout
+      const desiredTitles = [
+        'Reports Status Distribution',
+        'User Activity Overview',
+        'Reports by Category',
+        'Reports by Time of Day',
+        'Reports by Day of Week',
+        'Monthly Reports Trend',
+        'Monthly Status Breakdown',
+        'Resolution Time Comparison',
+        'Reports Processing Efficiency',
+        'Resolution Time Percentiles',
+        'SLA Compliance',
+      ];
+
+      // Find blocks by matching h4 text
+      const foundBlocks: Array<{title: string; el: HTMLElement}> = [];
+      desiredTitles.forEach(t => {
+        const header = Array.from(document.querySelectorAll('h4'))
+          .find(h => (h.textContent || '').trim() === t) as HTMLElement | undefined;
+        if (header) {
+          const card = header.closest('.bg-white.overflow-hidden.shadow.rounded-lg') as HTMLElement | null;
+          if (card) foundBlocks.push({ title: t, el: card });
+        }
+      });
+
+      // Add charts to PDF, two per page if needed (handled by ensureSpace)
+      for (const { title, el } of foundBlocks) {
+        await grabAndAddElement(el, title);
+      }
+
+      // Save
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0];
+      doc.save(`cars-g-statistics-${timeRange}-${timestamp}.pdf`);
+      setNotification({ message: `PDF exported for ${timeRange}`, type: 'success' });
+    } catch (error) {
+      console.error('PDF export failed', error);
+      setNotification({ message: 'Failed to export PDF. Please try again.', type: 'error' });
+    }
+  };
 
   const fetchStatistics = async () => {
     setLoading(true);
@@ -171,6 +412,9 @@ export function AdminStatistics() {
       const inProgressReports = reports?.filter(r => r.status === 'in_progress').length || 0;
       const resolvedReports = reports?.filter(r => r.status === 'resolved').length || 0;
       const rejectedReports = reports?.filter(r => r.status === 'rejected').length || 0;
+      const verifyingReports = reports?.filter(r => r.status === 'verifying').length || 0;
+      const awaitingVerificationReports = reports?.filter(r => r.status === 'awaiting_verification').length || 0;
+      const cancelledReports = reports?.filter(r => r.status === 'cancelled').length || 0;
       const totalUsers = users?.length || 0;
       const activeUsers = users?.filter(u => !u.is_banned).length || 0;
       const bannedUsers = users?.filter(u => u.is_banned).length || 0;
@@ -251,6 +495,20 @@ export function AdminStatistics() {
         }).length,
       }));
 
+      // Calculate monthly status breakdown (stacked)
+      const reportsByMonthByStatus = months.map(month => {
+        const base = { month, pending: 0, in_progress: 0, resolved: 0, rejected: 0, verifying: 0, awaiting_verification: 0, cancelled: 0 } as { month: string; [k: string]: number };
+        (reports || []).forEach(r => {
+          try {
+            if (months[new Date(r.created_at).getMonth()] === month) {
+              const s = String(r.status || '').toLowerCase();
+              if (base[s] !== undefined) base[s]++;
+            }
+          } catch {}
+        });
+        return base as { month: string; pending: number; in_progress: number; resolved: number; rejected: number; verifying: number; awaiting_verification: number; cancelled: number };
+      });
+
       // Calculate resolution times with better error handling
       const resolvedReportsWithTimes = (reports || []).filter(r => {
         try {
@@ -294,6 +552,8 @@ export function AdminStatistics() {
 
       // Ensure we have at least some variation in resolution times
       let averageResolutionTime, fastestResolutionTime, slowestResolutionTime;
+      let p50ResolutionTime = 0, p75ResolutionTime = 0, p90ResolutionTime = 0, p95ResolutionTime = 0;
+      let slaWithinTargetCount = 0, slaWarningCount = 0, slaBreachedCount = 0;
       
       if (resolutionTimes.length > 0) {
         const totalResolutionTime = resolutionTimes.reduce((acc, time) => acc + time, 0);
@@ -317,12 +577,37 @@ export function AdminStatistics() {
           fastestResolutionTime = Math.min(...resolutionTimes);
           slowestResolutionTime = Math.max(...resolutionTimes);
         }
+        // Percentiles
+        const sortedTimes = [...resolutionTimes].sort((a, b) => a - b);
+        const percentile = (arr: number[], p: number) => {
+          if (arr.length === 0) return 0;
+          const idx = Math.min(arr.length - 1, Math.ceil((p / 100) * arr.length) - 1);
+          return arr[idx];
+        };
+        p50ResolutionTime = percentile(sortedTimes, 50);
+        p75ResolutionTime = percentile(sortedTimes, 75);
+        p90ResolutionTime = percentile(sortedTimes, 90);
+        p95ResolutionTime = percentile(sortedTimes, 95);
+
+        // SLA bands (defaults: target 24h, warning 72h, breach >72h)
+        const targetMs = (statistics.slaTargetHours || 24) * 60 * 60 * 1000;
+        const warningMs = (statistics.slaWarningHours || 72) * 60 * 60 * 1000;
+        slaWithinTargetCount = resolutionTimes.filter(t => t <= targetMs).length;
+        slaWarningCount = resolutionTimes.filter(t => t > targetMs && t <= warningMs).length;
+        slaBreachedCount = resolutionTimes.filter(t => t > warningMs).length;
       } else {
         // Fallback values if no resolved reports - generate sample data for demonstration
         const sampleTime = 2 * 60 * 60 * 1000; // 2 hours in milliseconds
         averageResolutionTime = sampleTime;
         fastestResolutionTime = sampleTime * 0.5; // 1 hour
         slowestResolutionTime = sampleTime * 2; // 4 hours
+        p50ResolutionTime = sampleTime;
+        p75ResolutionTime = sampleTime * 1.25;
+        p90ResolutionTime = sampleTime * 1.5;
+        p95ResolutionTime = sampleTime * 1.75;
+        slaWithinTargetCount = 0;
+        slaWarningCount = 0;
+        slaBreachedCount = 0;
         
         console.log('No resolved reports found, generating sample resolution times for demonstration:', {
           average: averageResolutionTime,
@@ -354,6 +639,9 @@ export function AdminStatistics() {
         inProgressReports,
         resolvedReports,
         rejectedReports,
+        verifyingReports,
+        awaitingVerificationReports,
+        cancelledReports,
         totalUsers,
         activeUsers,
         bannedUsers,
@@ -362,9 +650,20 @@ export function AdminStatistics() {
         reportsByTime,
         reportsByDay,
         reportsByMonth,
+        reportsByMonthByStatus,
         averageResolutionTime,
         fastestResolutionTime,
         slowestResolutionTime,
+        p50ResolutionTime,
+        p75ResolutionTime,
+        p90ResolutionTime,
+        p95ResolutionTime,
+        slaTargetHours: statistics.slaTargetHours || 24,
+        slaWarningHours: statistics.slaWarningHours || 72,
+        slaBreachHours: statistics.slaBreachHours || 168,
+        slaWithinTargetCount,
+        slaWarningCount,
+        slaBreachedCount,
         previousStats,
       };
 
@@ -391,6 +690,9 @@ export function AdminStatistics() {
         inProgressReports: 0,
         resolvedReports: 0,
         rejectedReports: 0,
+        verifyingReports: 0,
+        awaitingVerificationReports: 0,
+        cancelledReports: 0,
         totalUsers: 0,
         activeUsers: 0,
         bannedUsers: 0,
@@ -399,9 +701,17 @@ export function AdminStatistics() {
         reportsByTime: Array.from({ length: 24 }, (_, hour) => ({ hour, count: 0 })),
         reportsByDay: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map(day => ({ day, count: 0 })),
         reportsByMonth: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map(month => ({ month, count: 0 })),
+        reportsByMonthByStatus: [],
         averageResolutionTime: 0,
         fastestResolutionTime: 0,
         slowestResolutionTime: 0,
+        p50ResolutionTime: 0,
+        p75ResolutionTime: 0,
+        p90ResolutionTime: 0,
+        p95ResolutionTime: 0,
+        slaWithinTargetCount: 0,
+        slaWarningCount: 0,
+        slaBreachedCount: 0,
       }));
     } finally {
       setLoading(false);
@@ -435,6 +745,11 @@ export function AdminStatistics() {
     return `${hours}h ${minutes}m`;
   };
 
+  const formatHours = (hours: number | undefined) => {
+    if (!hours || isNaN(hours as any)) return '0h';
+    return `${Number(hours).toFixed(0)}h`;
+  };
+
   // Chart data configurations with fallbacks
   console.log('Preparing chart data with statistics:', {
     resolutionTimes: {
@@ -451,17 +766,20 @@ export function AdminStatistics() {
   });
 
   const reportsStatusData = {
-    labels: ['Pending', 'In Progress', 'Resolved', 'Rejected'],
+    labels: ['Verifying', 'Awaiting Verification', 'Pending', 'In Progress', 'Resolved', 'Rejected', 'Cancelled'],
     datasets: [
       {
         data: [
-          Number(statistics.pendingReports) || 0, 
-          Number(statistics.inProgressReports) || 0, 
+          Number(statistics.verifyingReports) || 0,
+          Number(statistics.awaitingVerificationReports) || 0,
+          Number(statistics.pendingReports) || 0,
+          Number(statistics.inProgressReports) || 0,
           Number(statistics.resolvedReports) || 0,
-          Number(statistics.rejectedReports) || 0
+          Number(statistics.rejectedReports) || 0,
+          Number(statistics.cancelledReports) || 0
         ],
-        backgroundColor: ['#f59e0b', '#3b82f6', '#10b981', '#ef4444'],
-        borderColor: ['#d97706', '#2563eb', '#059669', '#dc2626'],
+        backgroundColor: ['#8b5cf6', '#fb923c', '#f59e0b', '#3b82f6', '#10b981', '#ef4444', '#6b7280'],
+        borderColor: ['#7c3aed', '#f97316', '#d97706', '#2563eb', '#059669', '#dc2626', '#4b5563'],
         borderWidth: 2,
       },
     ],
@@ -542,6 +860,55 @@ export function AdminStatistics() {
     ],
   };
 
+  // Stacked monthly chart across statuses
+  const stackedMonthlyStatusData = {
+    labels: (statistics.reportsByMonthByStatus || []).map(item => item.month.substring(0, 3)),
+    datasets: [
+      {
+        label: 'Verifying',
+        data: (statistics.reportsByMonthByStatus || []).map(item => Number(item.verifying) || 0),
+        backgroundColor: 'rgba(139, 92, 246, 0.8)',
+        stack: 'status'
+      },
+      {
+        label: 'Awaiting Verification',
+        data: (statistics.reportsByMonthByStatus || []).map(item => Number(item.awaiting_verification) || 0),
+        backgroundColor: 'rgba(251, 146, 60, 0.8)',
+        stack: 'status'
+      },
+      {
+        label: 'Pending',
+        data: (statistics.reportsByMonthByStatus || []).map(item => Number(item.pending) || 0),
+        backgroundColor: 'rgba(245, 158, 11, 0.8)',
+        stack: 'status'
+      },
+      {
+        label: 'In Progress',
+        data: (statistics.reportsByMonthByStatus || []).map(item => Number(item.in_progress) || 0),
+        backgroundColor: 'rgba(59, 130, 246, 0.8)',
+        stack: 'status'
+      },
+      {
+        label: 'Resolved',
+        data: (statistics.reportsByMonthByStatus || []).map(item => Number(item.resolved) || 0),
+        backgroundColor: 'rgba(16, 185, 129, 0.8)',
+        stack: 'status'
+      },
+      {
+        label: 'Rejected',
+        data: (statistics.reportsByMonthByStatus || []).map(item => Number(item.rejected) || 0),
+        backgroundColor: 'rgba(239, 68, 68, 0.8)',
+        stack: 'status'
+      },
+      {
+        label: 'Cancelled',
+        data: (statistics.reportsByMonthByStatus || []).map(item => Number(item.cancelled) || 0),
+        backgroundColor: 'rgba(107, 114, 128, 0.8)',
+        stack: 'status'
+      }
+    ]
+  };
+
   const userActivityData = {
     labels: ['Active Users', 'Banned Users'],
     datasets: [
@@ -577,6 +944,54 @@ export function AdminStatistics() {
     ],
   };
 
+  // Percentile chart
+  const resolutionPercentilesData = {
+    labels: ['P50', 'P75', 'P90', 'P95'],
+    datasets: [
+      {
+        label: 'Resolution Time (hours)',
+        data: [
+          Math.max(0, Number(statistics.p50ResolutionTime || 0) / (1000 * 60 * 60)),
+          Math.max(0, Number(statistics.p75ResolutionTime || 0) / (1000 * 60 * 60)),
+          Math.max(0, Number(statistics.p90ResolutionTime || 0) / (1000 * 60 * 60)),
+          Math.max(0, Number(statistics.p95ResolutionTime || 0) / (1000 * 60 * 60))
+        ],
+        backgroundColor: [
+          'rgba(59, 130, 246, 0.8)',
+          'rgba(16, 185, 129, 0.8)',
+          'rgba(245, 158, 11, 0.8)',
+          'rgba(239, 68, 68, 0.8)'
+        ],
+        borderColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444'],
+        borderWidth: 2,
+        borderRadius: 4,
+      }
+    ]
+  };
+
+  // SLA bands chart
+  const slaBandsData = {
+    labels: ['Within Target', 'Warning', 'Breached'],
+    datasets: [
+      {
+        label: 'Resolved Reports',
+        data: [
+          Number(statistics.slaWithinTargetCount || 0),
+          Number(statistics.slaWarningCount || 0),
+          Number(statistics.slaBreachedCount || 0)
+        ],
+        backgroundColor: [
+          'rgba(16, 185, 129, 0.8)',
+          'rgba(245, 158, 11, 0.8)',
+          'rgba(239, 68, 68, 0.8)'
+        ],
+        borderColor: ['#10b981', '#f59e0b', '#ef4444'],
+        borderWidth: 2,
+        borderRadius: 4,
+      }
+    ]
+  };
+
   // Validate chart data
   console.log('Resolution time chart data:', {
     labels: resolutionTimeComparisonData.labels,
@@ -589,7 +1004,7 @@ export function AdminStatistics() {
   });
 
   const reportsEfficiencyData = {
-    labels: ['Resolved', 'In Progress', 'Pending', 'Rejected'],
+    labels: ['Resolved', 'In Progress', 'Pending', 'Rejected', 'Verifying', 'Awaiting Verification', 'Cancelled'],
     datasets: [
       {
         label: 'Reports Count',
@@ -597,15 +1012,21 @@ export function AdminStatistics() {
           Math.max(0, Number(statistics.resolvedReports) || 0),
           Math.max(0, Number(statistics.inProgressReports) || 0),
           Math.max(0, Number(statistics.pendingReports) || 0),
-          Math.max(0, Number(statistics.rejectedReports) || 0)
+          Math.max(0, Number(statistics.rejectedReports) || 0),
+          Math.max(0, Number(statistics.verifyingReports) || 0),
+          Math.max(0, Number(statistics.awaitingVerificationReports) || 0),
+          Math.max(0, Number(statistics.cancelledReports) || 0)
         ],
         backgroundColor: [
           'rgba(16, 185, 129, 0.8)',
           'rgba(59, 130, 246, 0.8)',
           'rgba(245, 158, 11, 0.8)',
-          'rgba(239, 68, 68, 0.8)'
+          'rgba(239, 68, 68, 0.8)',
+          'rgba(139, 92, 246, 0.8)',
+          'rgba(251, 146, 60, 0.8)',
+          'rgba(107, 114, 128, 0.8)'
         ],
-        borderColor: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'],
+        borderColor: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#fb923c', '#6b7280'],
         borderWidth: 2,
         borderRadius: 4,
       },
@@ -656,6 +1077,15 @@ export function AdminStatistics() {
         ['Rejected Reports', statistics.rejectedReports,
          statistics.totalReports > 0 ? ((statistics.rejectedReports / statistics.totalReports) * 100).toFixed(1) + '%' : '0%',
          'Reports that were rejected'],
+        ['Verifying Reports', statistics.verifyingReports,
+         statistics.totalReports > 0 ? ((statistics.verifyingReports / statistics.totalReports) * 100).toFixed(1) + '%' : '0%',
+         'Reports in verification'],
+        ['Awaiting Verification', statistics.awaitingVerificationReports,
+         statistics.totalReports > 0 ? ((statistics.awaitingVerificationReports / statistics.totalReports) * 100).toFixed(1) + '%' : '0%',
+         'Waiting for verification'],
+        ['Cancelled Reports', statistics.cancelledReports,
+         statistics.totalReports > 0 ? ((statistics.cancelledReports / statistics.totalReports) * 100).toFixed(1) + '%' : '0%',
+         'Cancelled by admin or user'],
         ['Total Users', statistics.totalUsers, '100%', 'All registered users'],
         ['Active Users', statistics.activeUsers,
          statistics.totalUsers > 0 ? ((statistics.activeUsers / statistics.totalUsers) * 100).toFixed(1) + '%' : '0%',
@@ -691,6 +1121,10 @@ export function AdminStatistics() {
         ['Average Resolution Time', formatTime(statistics.averageResolutionTime), 'time', 'Mean time to resolve reports'],
         ['Fastest Resolution', formatTime(statistics.fastestResolutionTime), 'time', 'Quickest report resolution'],
         ['Slowest Resolution', formatTime(statistics.slowestResolutionTime), 'time', 'Longest report resolution'],
+        ['P50 (Median)', formatTime(statistics.p50ResolutionTime || 0), 'time', '50th percentile'],
+        ['P75', formatTime(statistics.p75ResolutionTime || 0), 'time', '75th percentile'],
+        ['P90', formatTime(statistics.p90ResolutionTime || 0), 'time', '90th percentile'],
+        ['P95', formatTime(statistics.p95ResolutionTime || 0), 'time', '95th percentile'],
         ['Total Resolved Reports', statistics.resolvedReports, 'count', 'Reports used for time calculation'],
         [],
         
@@ -754,6 +1188,12 @@ export function AdminStatistics() {
         // Chart Data for External Analysis
         ['CHART DATA - REPORTS STATUS DISTRIBUTION'],
         ['Status', 'Count', 'Percentage', 'Color'],
+        ['Verifying', statistics.verifyingReports,
+         statistics.totalReports > 0 ? ((statistics.verifyingReports / statistics.totalReports) * 100).toFixed(1) + '%' : '0%',
+         '#8b5cf6'],
+        ['Awaiting Verification', statistics.awaitingVerificationReports,
+         statistics.totalReports > 0 ? ((statistics.awaitingVerificationReports / statistics.totalReports) * 100).toFixed(1) + '%' : '0%',
+         '#fb923c'],
         ['Pending', statistics.pendingReports, 
          statistics.totalReports > 0 ? ((statistics.pendingReports / statistics.totalReports) * 100).toFixed(1) + '%' : '0%',
          '#f59e0b'],
@@ -766,6 +1206,17 @@ export function AdminStatistics() {
         ['Rejected', statistics.rejectedReports,
          statistics.totalReports > 0 ? ((statistics.rejectedReports / statistics.totalReports) * 100).toFixed(1) + '%' : '0%',
          '#ef4444'],
+        ['Cancelled', statistics.cancelledReports,
+         statistics.totalReports > 0 ? ((statistics.cancelledReports / statistics.totalReports) * 100).toFixed(1) + '%' : '0%',
+         '#6b7280'],
+        [],
+
+        // SLA Summary
+        ['SLA SUMMARY'],
+        ['Band', 'Threshold', 'Count'],
+        ['Within Target', `${formatHours(statistics.slaTargetHours)} or less`, statistics.slaWithinTargetCount || 0],
+        ['Warning', `${formatHours(statistics.slaTargetHours)} - ${formatHours(statistics.slaWarningHours)}`, statistics.slaWarningCount || 0],
+        ['Breached', `> ${formatHours(statistics.slaWarningHours)}`, statistics.slaBreachedCount || 0],
         [],
         
         ['CHART DATA - USER ACTIVITY'],
@@ -892,7 +1343,7 @@ export function AdminStatistics() {
   }
 
   return (
-    <div className="w-full px-2 sm:px-4 lg:px-6">
+    <div className="w-full px-2 sm:px-4 lg:px-6" data-statistics-root>
       <div className="bg-white shadow sm:rounded-lg">
         <div className="px-3 py-4 sm:px-6 sm:py-5">
           {/* Mobile Header */}
@@ -968,11 +1419,20 @@ export function AdminStatistics() {
                 <Download className={`h-4 w-4 mr-2 ${exporting ? 'animate-pulse' : ''}`} />
                 {exporting ? 'Exporting...' : 'Export CSV'}
               </button>
+              <button
+                onClick={exportPdf}
+                disabled={loading}
+                className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Export dashboard as PDF"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Export PDF
+              </button>
             </div>
           </div>
 
           {/* Key Metrics Cards */}
-          <div className="mt-4 sm:mt-6 grid grid-cols-2 gap-3 sm:gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-4 sm:mt-6 grid grid-cols-2 gap-3 sm:gap-5 sm:grid-cols-2 lg:grid-cols-5">
             <div className="bg-white overflow-hidden shadow rounded-lg">
               <div className="p-3 sm:p-5">
                 <div className="flex items-center">
@@ -1314,6 +1774,34 @@ export function AdminStatistics() {
               </div>
             </div>
 
+            {/* Monthly Status Breakdown (Stacked) */}
+            <div className="bg-white overflow-hidden shadow rounded-lg">
+              <div className="p-4 sm:p-5">
+                <div className="flex items-center mb-4">
+                  <BarChart3 className="h-5 w-5 text-indigo-500 mr-2" />
+                  <h4 className="text-base sm:text-lg font-medium text-gray-900">Monthly Status Breakdown</h4>
+                </div>
+                <div className="h-64">
+                  <Bar 
+                    data={stackedMonthlyStatusData}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      plugins: {
+                        legend: {
+                          position: 'bottom',
+                        }
+                      },
+                      scales: {
+                        x: { stacked: true },
+                        y: { stacked: true, beginAtZero: true }
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+
             {/* Additional Analytics Charts */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="bg-white overflow-hidden shadow rounded-lg">
@@ -1395,6 +1883,63 @@ export function AdminStatistics() {
                         }
                       }}
                     />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Percentiles and SLA */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+            <div className="bg-white overflow-hidden shadow rounded-lg">
+              <div className="p-4 sm:p-5">
+                <div className="flex items-center mb-4">
+                  <Clock className="h-5 w-5 text-indigo-500 mr-2" />
+                  <h4 className="text-base sm:text-lg font-medium text-gray-900">Resolution Time Percentiles</h4>
+                </div>
+                <div className="h-64">
+                  <Bar 
+                    data={resolutionPercentilesData}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      plugins: { legend: { display: false } },
+                      scales: { y: { beginAtZero: true, title: { display: true, text: 'Hours' } } }
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white overflow-hidden shadow rounded-lg">
+              <div className="p-4 sm:p-5">
+                <div className="flex items-center mb-4">
+                  <Activity className="h-5 w-5 text-yellow-500 mr-2" />
+                  <h4 className="text-base sm:text-lg font-medium text-gray-900">SLA Compliance</h4>
+                </div>
+                <div className="h-64">
+                  <Bar 
+                    data={slaBandsData}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      plugins: { legend: { display: false } },
+                      scales: { y: { beginAtZero: true } }
+                    }}
+                  />
+                </div>
+                <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+                  <div className="p-2 bg-green-50 rounded">
+                    <div className="text-xs text-green-700">Target</div>
+                    <div className="text-sm font-semibold text-green-800">{formatHours(statistics.slaTargetHours)} max</div>
+                  </div>
+                  <div className="p-2 bg-yellow-50 rounded">
+                    <div className="text-xs text-yellow-700">Warning</div>
+                    <div className="text-sm font-semibold text-yellow-800">{formatHours(statistics.slaWarningHours)}</div>
+                  </div>
+                  <div className="p-2 bg-red-50 rounded">
+                    <div className="text-xs text-red-700">Breach</div>
+                    <div className="text-sm font-semibold text-red-800">{'>'}{formatHours(statistics.slaWarningHours)}</div>
                   </div>
                 </div>
               </div>

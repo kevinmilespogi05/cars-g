@@ -8,7 +8,7 @@ import { FocusTrap } from './FocusTrap';
 import { awardPoints } from '../lib/points';
 import { caseService } from '../services/caseService';
 
-type StatusFilter = 'All' | 'pending' | 'in_progress' | 'resolved' | 'rejected';
+type StatusFilter = 'All' | 'verifying' | 'pending' | 'in_progress' | 'resolved' | 'rejected';
 
 export function AdminReports() {
   const [reports, setReports] = useState<Report[]>([]);
@@ -329,6 +329,7 @@ export function AdminReports() {
             className="w-full sm:w-48 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
           >
             <option>All</option>
+            <option value="verifying">Verifying</option>
             <option value="pending">Pending</option>
             <option value="in_progress">In Progress</option>
             <option value="resolved">Resolved</option>

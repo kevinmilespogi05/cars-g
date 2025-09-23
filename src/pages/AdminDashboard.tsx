@@ -107,7 +107,7 @@ export function AdminDashboard() {
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Page header */}
       <div className="sticky top-0 z-40 border-b border-gray-200 bg-white/80 supports-[backdrop-filter]:bg-white/70 backdrop-blur">
-        <div className="max-w-6xl mx-auto px-4 py-4">
+        <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="h-8 w-8 rounded-xl bg-blue-600 flex items-center justify-center shadow-sm">
@@ -203,7 +203,7 @@ export function AdminDashboard() {
 
       {/* Main Content */}
       <main className="flex-1 overflow-hidden">
-        <div className="relative max-w-6xl mx-auto px-4 py-4">
+        <div className="relative max-w-7xl mx-auto px-4 py-4">
           {activeSection === 'reports' && (
             <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3 md:p-4">
               <AdminReports />
