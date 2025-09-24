@@ -162,24 +162,45 @@ export function ProfileTabContent({
               <BarChart3 className="w-5 h-5 text-green-600" />
               Quick Stats
             </h4>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-green-900">{user?.points || 0}</div>
-                <div className="text-sm text-green-700">Total Points</div>
+            {user?.role === 'patrol' ? (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-900">{userStats.patrol_level}</div>
+                  <div className="text-sm text-green-700">Patrol Level</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-900">{userStats.patrol_experience_points}</div>
+                  <div className="text-sm text-green-700">Experience</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-900">{userStats.patrol_reports_accepted}</div>
+                  <div className="text-sm text-green-700">Accepted</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-900">{userStats.patrol_reports_completed}</div>
+                  <div className="text-sm text-green-700">Completed</div>
+                </div>
               </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-green-900">{userStats.reports_submitted}</div>
-                <div className="text-sm text-green-700">Reports</div>
+            ) : (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-900">{user?.points || 0}</div>
+                  <div className="text-sm text-green-700">Total Points</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-900">{userStats.reports_submitted}</div>
+                  <div className="text-sm text-green-700">Reports</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-900">{userStats.reports_verified}</div>
+                  <div className="text-sm text-green-700">Verified</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-900">{userStats.reports_resolved}</div>
+                  <div className="text-sm text-green-700">Resolved</div>
+                </div>
               </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-green-900">{userStats.reports_verified}</div>
-                <div className="text-sm text-green-700">Verified</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-green-900">{userStats.reports_resolved}</div>
-                <div className="text-sm text-green-700">Resolved</div>
-              </div>
-            </div>
+            )}
           </div>
         </div>
       </div>

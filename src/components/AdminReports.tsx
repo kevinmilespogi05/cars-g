@@ -6,7 +6,7 @@ import { reportsService } from '../services/reportsService';
 import type { Report } from '../types';
 import { supabase } from '../lib/supabase';
 import { FocusTrap } from './FocusTrap';
-import { awardPoints } from '../lib/points';
+import { awardPoints, awardCustomPoints } from '../lib/points';
 import { caseService } from '../services/caseService';
 
 type StatusFilter = 'All' | 'verifying' | 'pending' | 'in_progress' | 'resolved' | 'rejected';
@@ -71,76 +71,14 @@ export function AdminReports() {
 
   const givePatrolRewards = async (patrolUserId: string, priority: string) => {
     try {
-      // Calculate rewards based on priority
-      let points = 0;
-      
-      switch (priority) {
-        case 'low':
-          points = 5;
-          break;
-        case 'medium':
-          points = 15;
-          break;
-        case 'high':
-          points = 30;
-          break;
-        default:
-          points = 10;
-      }
+      // Align patrol reward points with patrol experience mapping
+      // low:10, medium:25, high:50
+      const points = priority === 'high' ? 50 : priority === 'medium' ? 25 : 10;
 
-      // Update patrol officer's stats in the database
-      const { error: statsError } = await supabase
-        .from('user_stats')
-        .upsert({
-          user_id: patrolUserId,
-          total_points: points,
-          reports_resolved: 1,
-          updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'user_id'
-        });
-
-      if (statsError) {
-        console.error('Error updating patrol stats:', statsError);
-        // Try alternative approach if RPC functions don't exist
-        const { data: currentStats } = await supabase
-          .from('user_stats')
-          .select('total_points, reports_resolved')
-          .eq('user_id', patrolUserId)
-          .single();
-
-        if (currentStats) {
-          const { error: updateError } = await supabase
-            .from('user_stats')
-            .update({
-              total_points: (currentStats.total_points || 0) + points,
-              reports_resolved: (currentStats.reports_resolved || 0) + 1,
-              updated_at: new Date().toISOString()
-            })
-            .eq('user_id', patrolUserId);
-
-          if (updateError) {
-            console.error('Error updating patrol stats (fallback):', updateError);
-          }
-        } else {
-          // Create new stats record if none exists
-          const { error: insertError } = await supabase
-            .from('user_stats')
-            .insert({
-              user_id: patrolUserId,
-              total_points: points,
-              reports_resolved: 1,
-              updated_at: new Date().toISOString()
-            });
-
-          if (insertError) {
-            console.error('Error creating patrol stats:', insertError);
-          }
-        }
-      }
+      // Use unified points system so profile "Total Points" stays consistent
+      await awardCustomPoints(patrolUserId, points, 'PATROL_RESOLVED');
 
       console.log(`Patrol officer rewarded: +${points} points`);
-
     } catch (error) {
       console.error('Error giving patrol rewards:', error);
     }

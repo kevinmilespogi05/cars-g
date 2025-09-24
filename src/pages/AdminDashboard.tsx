@@ -106,7 +106,7 @@ export function AdminDashboard() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Page header */}
-      <div className="sticky top-0 z-40 border-b border-gray-200 bg-white/80 supports-[backdrop-filter]:bg-white/70 backdrop-blur">
+      <div className="relative z-10 border-b border-gray-200 bg-white/80 supports-[backdrop-filter]:bg-white/70 backdrop-blur">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -244,7 +244,7 @@ export function AdminDashboard() {
 
       {/* Right-side Info Drawer */}
       {showInfo && (
-        <aside className="fixed right-0 top-[64px] bottom-0 w-80 max-w-[85vw] bg-white border-l border-gray-200 shadow-xl z-40 p-4 overflow-y-auto">
+        <aside className="fixed right-0 top-20 sm:top-24 bottom-0 w-80 max-w-[85vw] bg-white border-l border-gray-200 shadow-xl z-[2200] p-4 overflow-y-auto">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-gray-900">Section Info</h3>
             <button onClick={() => setShowInfo(false)} className="px-2 py-1 text-sm rounded-md border border-gray-200 hover:bg-gray-50">Close</button>

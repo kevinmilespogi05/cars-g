@@ -139,8 +139,10 @@ export function Profile() {
 
   useEffect(() => {
     if (isOwnProfile) {
-      if (currentUser) {
+      if (currentUser?.id) {
         setEditedUsername(currentUser.username || '');
+        // Always refresh own profile from DB so points and stats are up-to-date
+        fetchProfile(currentUser.id);
         fetchUserStats(currentUser.id);
         fetchMyReports(currentUser.id);
         if (currentUser.role === 'patrol') {
@@ -152,7 +154,7 @@ export function Profile() {
       fetchUserStats(id);
       fetchMyReports(id);
     }
-  }, [id, currentUser, isOwnProfile]);
+  }, [id, currentUser?.id, isOwnProfile]);
 
   // Determine current shift based on local time
   const getCurrentShift = () => {
@@ -232,6 +234,19 @@ export function Profile() {
 
       console.log('Fetched profile:', data);
       setProfileData(data);
+      // If viewing own profile, also update auth store so header widgets reflect latest points
+      if (isOwnProfile && currentUser && currentUser.id === data.id) {
+        const shouldUpdate = (
+          currentUser.username !== data.username ||
+          currentUser.avatar_url !== data.avatar_url ||
+          currentUser.role !== data.role ||
+          currentUser.points !== data.points ||
+          currentUser.created_at !== data.created_at
+        );
+        if (shouldUpdate) {
+          setUser({ ...currentUser, ...data });
+        }
+      }
       
       // Also fetch user stats
       await fetchUserStats(userId);
@@ -575,21 +590,38 @@ export function Profile() {
               <div className="flex flex-col lg:items-end gap-4">
                 <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-6 text-center">
                   <div className="text-3xl font-bold text-white mb-1">
-                    {user?.points || 0}
+                    {user?.role === 'patrol' ? userStats.patrol_experience_points : (user?.points || 0)}
                   </div>
-                  <div className="text-white/90 font-medium">Total Points</div>
+                  <div className="text-white/90 font-medium">
+                    {user?.role === 'patrol' ? 'Experience Points' : 'Total Points'}
+                  </div>
                 </div>
                 
                 {/* Quick Stats */}
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-white/20 backdrop-blur-sm rounded-xl p-3 text-center">
-                    <div className="text-xl font-bold text-white">{userStats.reports_submitted}</div>
-                    <div className="text-xs text-white/80">Reports</div>
-                  </div>
-                  <div className="bg-white/20 backdrop-blur-sm rounded-xl p-3 text-center">
-                    <div className="text-xl font-bold text-white">{userStats.reports_verified}</div>
-                    <div className="text-xs text-white/80">Verified</div>
-                  </div>
+                  {user?.role === 'patrol' ? (
+                    <>
+                      <div className="bg-white/20 backdrop-blur-sm rounded-xl p-3 text-center">
+                        <div className="text-xl font-bold text-white">{userStats.patrol_reports_accepted}</div>
+                        <div className="text-xs text-white/80">Accepted</div>
+                      </div>
+                      <div className="bg-white/20 backdrop-blur-sm rounded-xl p-3 text-center">
+                        <div className="text-xl font-bold text-white">{userStats.patrol_reports_completed}</div>
+                        <div className="text-xs text-white/80">Completed</div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="bg-white/20 backdrop-blur-sm rounded-xl p-3 text-center">
+                        <div className="text-xl font-bold text-white">{userStats.reports_submitted}</div>
+                        <div className="text-xs text-white/80">Reports</div>
+                      </div>
+                      <div className="bg-white/20 backdrop-blur-sm rounded-xl p-3 text-center">
+                        <div className="text-xl font-bold text-white">{userStats.reports_verified}</div>
+                        <div className="text-xs text-white/80">Verified</div>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
