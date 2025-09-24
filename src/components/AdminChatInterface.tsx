@@ -123,8 +123,9 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
         }
       });
 
-      const chatList = Array.from(chatMap.values());
-      console.log('Loaded chats:', chatList);
+      const chatList = Array.from(chatMap.values())
+        .sort((a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime());
+      console.log('Loaded chats (sorted by newest first):', chatList);
       setChats(chatList);
       
     } catch (error) {
@@ -173,16 +174,16 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
           setChats(prev => {
             const existingChatIndex = prev.findIndex(chat => chat.user_id === message.sender_id);
             
+            let updatedChats;
             if (existingChatIndex >= 0) {
               // Update existing chat
-              const updatedChats = [...prev];
+              updatedChats = [...prev];
               updatedChats[existingChatIndex] = {
                 ...updatedChats[existingChatIndex],
                 last_message: message.message,
                 last_message_at: message.created_at,
                 unread_count: updatedChats[existingChatIndex].unread_count + 1
               };
-              return updatedChats;
             } else {
               // Create new chat entry
               const newChat: AdminChat = {
@@ -197,8 +198,13 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
                 updated_at: message.created_at,
                 user: message.sender
               };
-              return [newChat, ...prev];
+              updatedChats = [newChat, ...prev];
             }
+            
+            // Sort by newest first to maintain order
+            return updatedChats.sort((a, b) => 
+              new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime()
+            );
           });
         };
 
@@ -431,11 +437,11 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 w-full h-full flex overflow-hidden">
         {/* Chat List Sidebar */}
         <div className="w-80 border-r border-gray-200/50 flex flex-col bg-gradient-to-b from-gray-50/80 to-white/80">
-          <div className="p-6 border-b border-gray-200/50 bg-gradient-to-r from-blue-50/80 to-indigo-50/80 backdrop-blur-sm">
-            <div className="flex items-center mb-4">
+          <div className="p-8 border-b-2 border-gray-300/60 bg-gradient-to-r from-blue-50/90 to-indigo-50/90 backdrop-blur-sm">
+            <div className="flex items-center mb-6">
               <div className="flex items-center space-x-3">
                 <div className="relative">
-                  <Users className="w-6 h-6 text-blue-600" />
+                  <Users className="w-8 h-8 text-blue-700" />
                   {isLoading && (
                     <motion.div
                       animate={{ rotate: 360 }}
@@ -446,7 +452,7 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
                     </motion.div>
                   )}
                 </div>
-                <h2 className="text-lg font-bold text-gray-900">Admin Chat</h2>
+                <h2 className="text-2xl font-bold text-gray-900">Admin Chat</h2>
               </div>
             </div>
             
@@ -494,8 +500,8 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
                 <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center">
                   <MessageCircle className="w-8 h-8 text-gray-400" />
                 </div>
-                <p className="text-sm font-medium text-gray-600">No active chats</p>
-                <p className="text-xs text-gray-400 mt-1">Users will appear here when they send messages</p>
+                <p className="text-base font-semibold text-gray-700">No active chats</p>
+                <p className="text-sm text-gray-500 mt-2">Users will appear here when they send messages</p>
               </div>
             ) : (
               <div className="space-y-1 p-2">
@@ -503,10 +509,10 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
                   <button
                     key={chat.id}
                     onClick={() => handleChatSelect(chat)}
-                    className={`w-full p-4 text-left rounded-xl transition-all duration-200 ${
+                    className={`w-full p-6 text-left rounded-xl transition-all duration-200 ${
                       selectedChat?.id === chat.id 
-                        ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 shadow-md' 
-                        : 'hover:bg-gray-50/80 border border-transparent hover:border-gray-200'
+                        ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-300 shadow-lg' 
+                        : 'hover:bg-gray-50/90 border border-transparent hover:border-gray-300'
                     }`}
                   >
                       <div className="flex items-center space-x-3">
@@ -518,14 +524,14 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
                               className="w-12 h-12 rounded-full border-2 border-white shadow-sm"
                             />
                           ) : (
-                            <div className="w-12 h-12 bg-gradient-to-br from-gray-300 to-gray-400 rounded-full flex items-center justify-center border-2 border-white shadow-sm">
-                              <span className="text-sm font-semibold text-white">
+                            <div className="w-16 h-16 bg-gradient-to-br from-gray-300 to-gray-400 rounded-full flex items-center justify-center border-2 border-white shadow-sm">
+                              <span className="text-lg font-bold text-white">
                                 {chat.user?.username?.charAt(0).toUpperCase() || 'U'}
                               </span>
                             </div>
                           )}
                           {chat.unread_count > 0 && (
-                            <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold shadow-lg">
+                            <div className="absolute -top-1 -right-1 bg-red-500 text-white text-sm rounded-full w-7 h-7 flex items-center justify-center font-bold shadow-lg">
                               {chat.unread_count}
                             </div>
                           )}
@@ -533,17 +539,17 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
                         
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between mb-1">
-                            <p className="text-sm font-semibold text-gray-900 truncate">
+                            <p className="text-base font-bold text-gray-900 truncate">
                               {chat.user?.username || 'Unknown User'}
                             </p>
-                            <div className="flex items-center space-x-1">
-                              <Clock className="w-3 h-3 text-gray-400" />
-                              <p className="text-xs text-gray-400">
+                            <div className="flex items-center space-x-2">
+                              <Clock className="w-4 h-4 text-gray-500" />
+                              <p className="text-sm font-medium text-gray-600">
                                 {formatTime(chat.last_message_at)}
                               </p>
                             </div>
                           </div>
-                          <p className="text-xs text-gray-600 truncate leading-relaxed">
+                          <p className="text-sm text-gray-700 truncate leading-relaxed font-medium">
                             {chat.last_message}
                           </p>
                         </div>
@@ -560,18 +566,18 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
           {selectedChat ? (
             <>
               {/* Chat Header */}
-              <div className="p-6 border-b border-gray-200/50 bg-gradient-to-r from-white/80 to-gray-50/80 backdrop-blur-sm">
+              <div className="p-8 border-b-2 border-gray-300/60 bg-gradient-to-r from-white/90 to-gray-50/90 backdrop-blur-sm">
                 <div className="flex items-center space-x-4">
                   <div className="flex-shrink-0 relative">
                     {selectedChat.user?.avatar_url ? (
                       <img
                         src={selectedChat.user.avatar_url}
                         alt={selectedChat.user.username}
-                        className="w-12 h-12 rounded-full border-2 border-white shadow-md"
+                        className="w-16 h-16 rounded-full border-2 border-white shadow-lg"
                       />
                     ) : (
-                      <div className="w-12 h-12 bg-gradient-to-br from-gray-300 to-gray-400 rounded-full flex items-center justify-center border-2 border-white shadow-md">
-                        <span className="text-sm font-semibold text-white">
+                      <div className="w-16 h-16 bg-gradient-to-br from-gray-300 to-gray-400 rounded-full flex items-center justify-center border-2 border-white shadow-lg">
+                        <span className="text-lg font-bold text-white">
                           {selectedChat.user?.username?.charAt(0).toUpperCase() || 'U'}
                         </span>
                       </div>
@@ -579,17 +585,17 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
                     <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-400 border-2 border-white rounded-full"></div>
                   </div>
                   <div className="flex-1">
-                    <p className="text-lg font-semibold text-gray-900">
+                    <p className="text-xl font-bold text-gray-900">
                       {selectedChat.user?.username || 'Unknown User'}
                     </p>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-base text-gray-600 font-medium">
                       {selectedChat.user?.email || 'User'}
                     </p>
                   </div>
                   <button
-                    className="p-2 hover:bg-gray-200/80 rounded-full transition-all duration-200"
+                    className="p-3 hover:bg-gray-200/80 rounded-full transition-all duration-200"
                   >
-                    <MoreVertical className="w-5 h-5 text-gray-500" />
+                    <MoreVertical className="w-6 h-6 text-gray-600" />
                   </button>
                 </div>
               </div>
@@ -597,22 +603,22 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
                {/* Messages */}
                <div 
                  ref={messagesContainerRef} 
-                 className="flex-1 overflow-y-auto p-6 space-y-4 relative"
+                 className="flex-1 overflow-y-auto p-8 space-y-6 relative"
                  onWheel={(e) => e.stopPropagation()}
                  onTouchMove={(e) => e.stopPropagation()}
                >
                 {isLoading ? (
                   <div className="text-center text-gray-500 py-12">
                     <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-500" />
-                    <p className="text-sm font-medium">Loading messages...</p>
+                    <p className="text-base font-semibold">Loading messages...</p>
                   </div>
                 ) : messages.length === 0 ? (
                   <div className="text-center text-gray-500 py-12">
                     <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-full flex items-center justify-center shadow-lg">
                       <MessageCircle className="w-10 h-10 text-blue-400" />
                     </div>
-                    <p className="text-sm font-medium text-gray-600">No messages yet</p>
-                    <p className="text-xs text-gray-400 mt-1">Start the conversation with this user</p>
+                    <p className="text-base font-semibold text-gray-700">No messages yet</p>
+                    <p className="text-sm text-gray-500 mt-2">Start the conversation with this user</p>
                   </div>
                 ) : (
                   messages.map((message, index) => {
@@ -624,27 +630,29 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
                         className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}
                       >
                         <div 
-                          className={`max-w-xs lg:max-w-md px-4 py-3 rounded-2xl shadow-md ${
+                          className={`max-w-sm lg:max-w-lg px-6 py-4 rounded-2xl shadow-lg ${
                             isOwn
-                              ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white'
-                              : 'bg-white text-gray-900 border border-gray-100'
+                              ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white'
+                              : 'bg-white text-gray-900 border-2 border-gray-200'
                           }`}
                         >
-                            <p className="text-sm leading-relaxed">{message.message}</p>
-                            <div className={`flex items-center justify-between mt-2 ${
-                              isOwn ? 'text-blue-100' : 'text-gray-500'
+                            <p className={`text-base leading-relaxed font-medium ${
+                              isOwn ? 'text-white' : 'text-gray-900'
+                            }`}>{message.message}</p>
+                            <div className={`flex items-center justify-between mt-3 ${
+                              isOwn ? 'text-blue-100' : 'text-gray-600'
                             }`}>
-                              <p className="text-xs">
+                              <p className="text-sm font-medium">
                                 {formatTime(message.created_at)}
                               </p>
                               {isOwn && (
                                 <div className="flex items-center">
                                   {message.seen_at ? (
-                                    <CheckCheck className="w-3 h-3 text-blue-200" />
+                                    <CheckCheck className="w-4 h-4 text-blue-100" />
                                   ) : message.is_read ? (
-                                    <Check className="w-3 h-3 text-blue-200" />
+                                    <Check className="w-4 h-4 text-blue-100" />
                                   ) : (
-                                    <Check className="w-3 h-3 text-blue-200 opacity-50" />
+                                    <Check className="w-4 h-4 text-blue-100 opacity-50" />
                                   )}
                                 </div>
                               )}
@@ -660,9 +668,9 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
                 {showScrollButton && (
                   <button
                     onClick={scrollToBottom}
-                    className="absolute bottom-4 right-4 p-3 bg-blue-500 text-white rounded-full shadow-lg hover:bg-blue-600 transition-colors duration-200 z-10"
+                    className="absolute bottom-6 right-6 p-4 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-colors duration-200 z-10"
                   >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
                     </svg>
                   </button>
@@ -670,14 +678,14 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
               </div>
 
               {/* Message Input */}
-              <div className="p-6 border-t border-gray-200/50 bg-white/80 backdrop-blur-sm">
+              <div className="p-8 border-t-2 border-gray-300/60 bg-white/90 backdrop-blur-sm">
                 <div className="flex items-end space-x-3">
                   <div className="flex-1 relative">
                     <div className="relative">
                       <input
                         type="text"
-                        placeholder="Type your message..."
-                        className="w-full px-4 py-3 pr-12 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-300 transition-all duration-200 bg-white shadow-sm hover:shadow-md"
+                        placeholder="Type your message here..."
+                        className="w-full px-6 py-4 pr-16 border-2 border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400 transition-all duration-200 bg-white shadow-md hover:shadow-lg text-base"
                         onKeyPress={(e) => {
                           if (e.key === 'Enter') {
                             handleSendMessage(e.currentTarget.value);
@@ -687,16 +695,16 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
                       />
                       
                       {/* Attachment and emoji buttons */}
-                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center space-x-1">
+                      <div className="absolute right-4 top-1/2 transform -translate-y-1/2 flex items-center space-x-2">
                         <button
-                          className="p-1.5 text-gray-400 hover:text-gray-600 transition-colors"
+                          className="p-2 text-gray-500 hover:text-gray-700 transition-colors"
                         >
-                          <Paperclip className="w-4 h-4" />
+                          <Paperclip className="w-5 h-5" />
                         </button>
                         <button
-                          className="p-1.5 text-gray-400 hover:text-gray-600 transition-colors"
+                          className="p-2 text-gray-500 hover:text-gray-700 transition-colors"
                         >
-                          <Smile className="w-4 h-4" />
+                          <Smile className="w-5 h-5" />
                         </button>
                       </div>
                     </div>
@@ -710,9 +718,9 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
                         input.value = '';
                       }
                     }}
-                    className="p-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-2xl shadow-lg hover:shadow-xl hover:from-blue-600 hover:to-blue-700 transition-all duration-200"
+                    className="p-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-2xl shadow-lg hover:shadow-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200"
                   >
-                    <Send className="w-5 h-5" />
+                    <Send className="w-6 h-6" />
                   </button>
                 </div>
               </div>

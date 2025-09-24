@@ -591,7 +591,7 @@ export function AdminHistory() {
       {/* Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Quick Category Chips */}
-        <div className="mb-6 overflow-x-auto">
+        <div className="mb-6 overflow-x-auto admin-nav-scroll">
           <div className="inline-flex items-center gap-2 bg-white border border-gray-200 rounded-xl p-1 shadow-sm min-w-max">
             {(() => {
               const items: Array<{ key: string; label: string; count: number }> = [];
@@ -716,7 +716,7 @@ export function AdminHistory() {
               <p className="text-gray-500">Try adjusting your search or filters</p>
             </div>
           ) : viewMode === 'table' ? (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto admin-nav-scroll">
               <table className="min-w-full text-sm">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr className="text-left text-gray-600">

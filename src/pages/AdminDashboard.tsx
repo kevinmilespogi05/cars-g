@@ -187,8 +187,8 @@ export function AdminDashboard() {
           </div>
 
           {/* Top tabs */}
-          <div className="mt-4 flex items-center gap-2 overflow-x-auto">
-            <div className="inline-flex items-center gap-2 bg-white border border-gray-200 rounded-xl p-1 shadow-sm">
+          <div className="mt-4 flex items-center gap-2 overflow-x-auto pb-2 admin-nav-scroll">
+            <div className="inline-flex items-center gap-2 bg-white border border-gray-200 rounded-xl p-1 shadow-sm min-w-max">
               <TabButton icon={FileText} label="Reports" value="reports" />
               <TabButton icon={ClipboardList} label="Requests" value="requests" />
               <TabButton icon={ClipboardList} label="Duty" value="duty" />

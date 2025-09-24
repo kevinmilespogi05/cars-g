@@ -423,7 +423,8 @@ app.get('/api/test/chat-messages', async (req, res) => {
       return res.status(503).json({ error: 'Admin privileges required' });
     }
 
-    // Check if table exists and get sample data with sender information
+    // Get all messages sent to admin (receiver_id = admin ID)
+    const adminId = 'c5e7d75b-3f1b-4f85-b5a5-6b3786daea48'; // Admin user ID
     const { data: messages, error } = await supabaseAdmin
       .from('chat_messages')
       .select(`
@@ -431,7 +432,8 @@ app.get('/api/test/chat-messages', async (req, res) => {
         sender:profiles!sender_id(id, username, avatar_url, role),
         receiver:profiles!receiver_id(id, username, avatar_url, role)
       `)
-      .limit(5);
+      .eq('receiver_id', adminId)
+      .order('created_at', { ascending: true });
 
     if (error) {
       return res.status(500).json({ 
