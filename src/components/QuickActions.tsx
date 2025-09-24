@@ -9,9 +9,11 @@ import {
   Bell,
   Camera,
   AlertTriangle,
-  X
+  X,
+  MessageCircle
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
+import { ChatWindow } from './ChatWindow';
 
 interface QuickAction {
   id: string;
@@ -30,6 +32,7 @@ interface QuickActionsProps {
 export function QuickActions({ hideEmergencyActions = false }: QuickActionsProps) {
   const { user } = useAuthStore();
   const [isOpen, setIsOpen] = React.useState(false);
+  const [isChatOpen, setIsChatOpen] = React.useState(false);
 
   const getQuickActions = (): QuickAction[] => {
     if (user?.role === 'admin') {
@@ -181,6 +184,25 @@ export function QuickActions({ hideEmergencyActions = false }: QuickActionsProps
                   </motion.div>
                 ))}
                 
+                {/* Support Chat (mobile only) */}
+                {user?.role !== 'admin' && user?.role !== 'patrol' && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={{ duration: 0.2, delay: quickActions.length * 0.05 }}
+                  >
+                    <button
+                      type="button"
+                      className="flex items-center gap-3 pl-3 pr-3 py-2 rounded-full bg-white border border-gray-200 shadow-md hover:shadow-lg active:scale-95 transition-all"
+                      onClick={() => { setIsChatOpen(true); setIsOpen(false); }}
+                    >
+                      <div className="h-9 w-9 bg-green-100 rounded-full flex items-center justify-center">
+                        <MessageCircle className="h-5 w-5 text-green-600" />
+                      </div>
+                      <span className="text-sm font-medium text-gray-900 whitespace-nowrap">Support Chat</span>
+                    </button>
+                  </motion.div>
+                )}
                 
                 {/* Emergency actions (mobile) */}
                 {user?.role !== 'admin' && !hideEmergencyActions && (
@@ -225,6 +247,11 @@ export function QuickActions({ hideEmergencyActions = false }: QuickActionsProps
           </button>
         </div>
       </div>
+
+      {/* Chat Window for mobile access */}
+      {isChatOpen && (
+        <ChatWindow isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
+      )}
 
     </>
   );

@@ -29,6 +29,8 @@ export function LandingPage() {
   const [scrolled, setScrolled] = useState(false);
   const { scrollY } = useScroll();
   const y = useTransform(scrollY, [0, 300], [0, -50]);
+  const [installPrompt, setInstallPrompt] = useState<any>(null);
+  const [isStandalone, setIsStandalone] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -37,6 +39,39 @@ export function LandingPage() {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  useEffect(() => {
+    const onBeforeInstall = (e: any) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', onBeforeInstall as EventListener);
+
+    // Detect if already running as PWA
+    const standalone = window.matchMedia('(display-mode: standalone)').matches || (window as any).navigator.standalone;
+    setIsStandalone(!!standalone);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onBeforeInstall as EventListener);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (isStandalone) {
+      // Already installed; do nothing or provide feedback
+      alert('App is already installed. You can open it from your home screen.');
+      return;
+    }
+    if (installPrompt) {
+      installPrompt.prompt();
+      try {
+        await installPrompt.userChoice;
+      } catch {}
+      setInstallPrompt(null);
+    } else {
+      alert('To install, open your browser menu and choose "Add to Home screen".');
+    }
+  };
 
   const features = [
     {
@@ -103,11 +138,8 @@ export function LandingPage() {
     <div className="min-h-screen bg-gray-50">
       {/* Navigation */}
       <motion.nav 
-        className={`fixed w-full z-50 transition-all duration-300 ${
-          scrolled 
-            ? 'bg-white/95 backdrop-blur-md shadow-lg border-b border-gray-200/50' 
-            : 'bg-white/80 backdrop-blur-sm border-b border-gray-200/30'
-        }`}
+        className="fixed w-full z-50 transition-all duration-300 shadow-lg"
+        style={{ backgroundColor: '#800000' }}
         initial={{ y: -100 }}
         animate={{ y: 0 }}
         transition={{ duration: 0.6 }}
@@ -122,22 +154,22 @@ export function LandingPage() {
                 <div className="absolute -top-1 -right-1 h-4 w-4 bg-green-500 rounded-full border-2 border-white animate-pulse"></div>
               </div>
               <div>
-                <span className="text-xl lg:text-2xl font-bold text-gray-900">
+                <span className="text-xl lg:text-2xl font-bold text-white">
                   CARS-G
                 </span>
-                <p className="text-xs text-gray-500 -mt-1">Community Safety</p>
+                <p className="text-xs text-gray-200 -mt-1">Community Safety</p>
               </div>
             </Link>
             
             {/* Desktop Navigation */}
             <div className="hidden lg:flex items-center space-x-8">
-              <a href="#features" className="text-gray-600 hover:text-gray-900 transition-colors font-medium">
+              <a href="#features" className="text-white hover:text-gray-200 transition-colors font-medium">
                 Features
               </a>
-              <a href="#how-it-works" className="text-gray-600 hover:text-gray-900 transition-colors font-medium">
+              <a href="#how-it-works" className="text-white hover:text-gray-200 transition-colors font-medium">
                 How It Works
               </a>
-              <a href="#stats" className="text-gray-600 hover:text-gray-900 transition-colors font-medium">
+              <a href="#stats" className="text-white hover:text-gray-200 transition-colors font-medium">
                 Stats
               </a>
             </div>
@@ -146,7 +178,7 @@ export function LandingPage() {
             <div className="hidden lg:flex items-center space-x-4">
               <Link
                 to="/login"
-                className="text-gray-600 hover:text-gray-900 transition-colors font-medium px-4 py-2 rounded-lg hover:bg-gray-100"
+                className="text-white hover:text-gray-200 transition-colors font-medium px-4 py-2 rounded-lg hover:bg-white/10"
               >
                 Sign In
               </Link>
@@ -165,7 +197,7 @@ export function LandingPage() {
             {/* Mobile Menu Button */}
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="lg:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors"
+              className="lg:hidden p-2 rounded-lg hover:bg-white/10 transition-colors text-white"
             >
               {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </button>
@@ -179,20 +211,20 @@ export function LandingPage() {
           animate={{ opacity: isMenuOpen ? 1 : 0, height: isMenuOpen ? 'auto' : 0 }}
           transition={{ duration: 0.3 }}
         >
-          <div className="px-4 py-6 space-y-4 bg-white/95 backdrop-blur-md border-t border-gray-200/50">
-            <a href="#features" className="block text-gray-600 hover:text-gray-900 transition-colors font-medium py-2">
+          <div className="px-4 py-6 space-y-4" style={{backgroundColor: '#800000'}}>
+            <a href="#features" className="block text-white hover:text-gray-200 transition-colors font-medium py-2">
               Features
             </a>
-            <a href="#how-it-works" className="block text-gray-600 hover:text-gray-900 transition-colors font-medium py-2">
+            <a href="#how-it-works" className="block text-white hover:text-gray-200 transition-colors font-medium py-2">
               How It Works
             </a>
-            <a href="#stats" className="block text-gray-600 hover:text-gray-900 transition-colors font-medium py-2">
+            <a href="#stats" className="block text-white hover:text-gray-200 transition-colors font-medium py-2">
               Stats
             </a>
             <div className="pt-4 space-y-3">
               <Link
                 to="/login"
-                className="block text-center text-gray-600 hover:text-gray-900 transition-colors font-medium py-3 px-4 rounded-lg hover:bg-gray-100"
+                className="block text-center text-white hover:text-gray-200 transition-colors font-medium py-3 px-4 rounded-lg hover:bg-white/10"
               >
                 Sign In
               </Link>
@@ -255,8 +287,8 @@ export function LandingPage() {
                 to="/register"
                   className="group text-white px-8 py-4 rounded-xl text-lg font-semibold transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 flex items-center justify-center space-x-2"
                   style={{backgroundColor: '#800000'}}
-                  onMouseEnter={(e) => e.target.style.backgroundColor = '#660000'}
-                  onMouseLeave={(e) => e.target.style.backgroundColor = '#800000'}
+                  onMouseEnter={(e) => (e.currentTarget as HTMLElement).style.backgroundColor = '#660000'}
+                  onMouseLeave={(e) => (e.currentTarget as HTMLElement).style.backgroundColor = '#800000'}
               >
                   <Zap className="h-5 w-5 group-hover:rotate-12 transition-transform duration-300" />
                   <span>Start Protecting Your Community</span>
@@ -496,7 +528,7 @@ export function LandingPage() {
                 className="group relative"
               >
                 <div className="bg-white p-8 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 group-hover:-translate-y-2 border border-gray-100 h-full">
-                  <div className={`h-16 w-16 ${feature.color} rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300`}>
+                  <div className={`h-16 w-16 bg-gradient-to-br ${feature.color} rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300`}>
                     <feature.icon className="h-8 w-8 text-white" />
                   </div>
                   <h3 className="text-xl font-bold text-gray-900 mb-4">{feature.title}</h3>
@@ -523,16 +555,17 @@ export function LandingPage() {
               <p className="text-gray-600 mb-6 max-w-2xl mx-auto">
                 Join thousands of community members who are already using CARS-G to make their neighborhoods safer.
               </p>
-              <Link
-                to="/register"
+              <button
+                type="button"
+                onClick={handleInstallClick}
                 className="inline-flex items-center space-x-2 text-white px-8 py-4 rounded-xl font-semibold transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105"
                 style={{backgroundColor: '#800000'}}
-                onMouseEnter={(e) => e.target.style.backgroundColor = '#660000'}
-                onMouseLeave={(e) => e.target.style.backgroundColor = '#800000'}
+                onMouseEnter={(e) => (e.currentTarget as HTMLElement).style.backgroundColor = '#660000'}
+                onMouseLeave={(e) => (e.currentTarget as HTMLElement).style.backgroundColor = '#800000'}
               >
                 <Download className="h-5 w-5" />
                 <span>Download App</span>
-              </Link>
+              </button>
             </div>
           </motion.div>
         </div>

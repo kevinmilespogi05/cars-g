@@ -26,6 +26,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ isOpen, onClose, adminId
   const [error, setError] = useState<string | null>(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isMobile, setIsMobile] = useState<boolean>(typeof window !== 'undefined' ? window.innerWidth < 640 : false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
@@ -278,6 +279,10 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ isOpen, onClose, adminId
 
   // Calculate position for chat window
   const getChatPosition = () => {
+    if (isMobile) {
+      // Anchor to bottom on mobile so expand grows upward
+      return { mobile: true } as const;
+    }
     if (position) {
       // Position chat window near the button but adjust to fit on screen
       const chatWidth = isExpanded ? 384 : 320; // w-96 = 384px, w-80 = 320px
@@ -303,18 +308,33 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ isOpen, onClose, adminId
 
   const chatPosition = getChatPosition();
 
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 640);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
   return (
     <div 
       className={`fixed z-50 bg-white rounded-3xl shadow-2xl border border-gray-300/50 flex flex-col overflow-hidden transition-all duration-300 ease-in-out backdrop-blur-sm ${
-        isExpanded 
-          ? 'w-96 h-[600px]' 
-          : 'w-80 h-96'
+        isMobile
+          ? (isExpanded ? 'w-auto h-[70vh]' : 'w-auto h-[55vh]')
+          : (isExpanded ? 'w-96 h-[600px]' : 'w-80 h-96')
       }`}
-      style={{
-        left: `${chatPosition.x}px`,
-        top: `${chatPosition.y}px`,
-        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.1)'
-      }}
+      style={
+        (chatPosition as any).mobile
+          ? {
+              left: 12,
+              right: 12,
+              bottom: 90,
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.1)'
+            }
+          : {
+              left: `${(chatPosition as any).x}px`,
+              top: `${(chatPosition as any).y}px`,
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.1)'
+            }
+      }
     >
       <ChatHeader
         onClose={onClose}

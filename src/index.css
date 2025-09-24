@@ -1180,12 +1180,47 @@ img {
   --safe-area-inset-right: env(safe-area-inset-right);
 }
 
+.pwa-safe-area-top {
+  padding-top: calc(var(--safe-area-inset-top, 0px));
+}
+
+.pwa-safe-area-bottom {
+  padding-bottom: calc(var(--safe-area-inset-bottom, 0px));
+}
+
+.pwa-fixed-bottom {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding-bottom: calc( env(safe-area-inset-bottom) + 0.75rem );
+}
+
+.pwa-fixed-top {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  padding-top: calc( env(safe-area-inset-top) + 0.75rem );
+}
+
 .pwa-mode .navigation {
   padding-top: calc(1rem + var(--safe-area-inset-top));
 }
 
 .pwa-mode main {
   padding-bottom: calc(1rem + var(--safe-area-inset-bottom));
+}
+
+/* Improve tap targets for PWA bottom navs */
+.pwa-bottom-nav .nav-item {
+  min-height: 48px;
+  min-width: 48px;
+}
+
+/* Full-height mobile containers accounting for safe areas */
+.pwa-full-height {
+  min-height: calc(100vh + var(--safe-area-inset-top, 0px) + var(--safe-area-inset-bottom, 0px));
 }
 
 /* PWA installation prompt styles */
