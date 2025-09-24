@@ -335,6 +335,58 @@ app.post('/api/push/register', async (req, res) => {
   }
 });
 
+// Comments: create report comment via service role for logging
+// Helper to handle comment creation
+async function handleCreateComment(req, res) {
+  try {
+    const { reportId } = req.params;
+    const { userId, comment, commentType = 'comment' } = req.body || {};
+
+    if (!reportId || !userId || !comment) {
+      return res.status(400).json({ error: 'reportId, userId and comment are required' });
+    }
+
+    if (!supabaseAdmin) {
+      return res.status(503).json({ error: 'Admin privileges required' });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('report_comments')
+      .insert({
+        report_id: reportId,
+        user_id: userId,
+        comment: comment,
+        comment_type: commentType
+      })
+      .select('*')
+      .single();
+
+    if (error) {
+      return res.status(500).json({ error: error.message || 'Failed to add comment' });
+    }
+
+    // Fetch minimal profile info for convenience
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('username, avatar_url')
+      .eq('id', userId)
+      .single();
+
+    res.json({
+      ...data,
+      user_profile: profile || { username: 'Unknown', avatar_url: null }
+    });
+  } catch (e) {
+    console.error('Create comment error:', e);
+    res.status(500).json({ error: 'Failed to create comment' });
+  }
+}
+
+// Primary route
+app.post('/api/reports/:reportId/comments', handleCreateComment);
+// Alias route (in case reverse proxy strips /api)
+app.post('/reports/:reportId/comments', handleCreateComment);
+
 // Push: send test notification
 app.post('/api/push/send', async (req, res) => {
   try {

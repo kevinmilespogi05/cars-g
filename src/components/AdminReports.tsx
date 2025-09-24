@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { Search, Filter, CheckCircle2, XCircle, Wrench, RefreshCw, Eye, Trash2, User2, Calendar, MapPin, X, Navigation, Hash, CalendarDays } from 'lucide-react';
 import { getStatusColor as badgeStatusColor } from '../lib/badges';
 import { reportsService } from '../services/reportsService';
@@ -472,7 +473,9 @@ export function AdminReports() {
               <div className="flex items-start justify-between gap-2 sm:gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-                    <h3 className="font-medium text-gray-900 truncate text-sm sm:text-base">{r.title}</h3>
+                    <h3 className="font-medium text-gray-900 truncate text-sm sm:text-base">
+                      <Link to={`/reports/${r.id}`} className="hover:underline">{r.title}</Link>
+                    </h3>
                     <span className={`text-xs px-1.5 py-0.5 rounded-full ${badgeStatusColor(r.status)}`}>{r.status.replace('_', ' ')}</span>
                     {r.priority && (
                       <span className={`text-xs px-1.5 py-0.5 rounded-full ${r.priority === 'high' ? 'bg-red-100 text-red-800' : r.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>{r.priority}</span>
@@ -486,14 +489,14 @@ export function AdminReports() {
                   </div>
                 </div>
                 <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-                  <button
-                    onClick={() => handleView(r)}
+                  <Link
+                    to={`/reports/${r.id}`}
                     className="p-1.5 sm:p-2 rounded-md border border-gray-200 text-gray-600 hover:bg-gray-50"
                     title="View"
                     aria-label="View"
                   >
                     <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                  </button>
+                  </Link>
                   <button
                     onClick={() => handleDelete(r.id)}
                     className="p-1.5 sm:p-2 rounded-md border border-red-200 text-red-600 hover:bg-red-50"

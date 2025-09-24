@@ -23,6 +23,7 @@ export function PatrolDashboard() {
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'in_progress' | 'awaiting_verification'>('all');
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [proofUploading, setProofUploading] = useState(false);
+  const [proofPreviewUrl, setProofPreviewUrl] = useState<string | null>(null);
   const [quickFilter, setQuickFilter] = useState<'all' | 'mine' | 'unassigned'>(() => {
     try {
       const saved = localStorage.getItem('patrol.quickFilter');
@@ -220,6 +221,18 @@ export function PatrolDashboard() {
         .eq('id', reportId);
       if (updateErr) throw updateErr;
 
+      // Optimistically update UI to show the new image immediately
+      setSelectedReport(prev => prev && ({
+        ...prev,
+        status: 'awaiting_verification',
+        images: nextImages
+      }));
+      setReports(prev => prev.map(r => r.id === reportId ? ({
+        ...r,
+        status: 'awaiting_verification',
+        images: nextImages
+      } as Report) : r));
+
       await loadReports();
       await loadAllReportsStats();
       setSelectedReport(null);
@@ -243,6 +256,20 @@ export function PatrolDashboard() {
       localStorage.setItem('patrol.quickFilter', quickFilter);
     } catch {}
   }, [quickFilter]);
+
+  // Generate a local preview for the selected proof image
+  useEffect(() => {
+    if (!proofFile) {
+      if (proofPreviewUrl) URL.revokeObjectURL(proofPreviewUrl);
+      setProofPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(proofFile);
+    setProofPreviewUrl(url);
+    return () => {
+      URL.revokeObjectURL(url);
+    };
+  }, [proofFile]);
 
   // Sync priority level input when modal opens/changes selection
   useEffect(() => {
@@ -332,7 +359,7 @@ export function PatrolDashboard() {
         
       if (error) throw error;
 
-      // Log acceptance in comments
+      // Log acceptance in comments (service handles auth fallback)
       try {
         const { CommentsService } = await import('../services/commentsService');
         await CommentsService.addComment(reportId, `Job accepted by ${patrollerName}`, 'assignment');
@@ -450,7 +477,7 @@ export function PatrolDashboard() {
       });
       handleUpdateReport(updatedReport);
       
-      // Add a comment about the assignment
+      // Add a comment about the assignment (service handles auth fallback)
       const { CommentsService } = await import('../services/commentsService');
       await CommentsService.addComment(reportId, `Assigned to ${group}`, 'assignment');
     } catch (error) {
@@ -479,7 +506,7 @@ export function PatrolDashboard() {
         .eq('id', reportId);
       if (error) throw error;
 
-      // Log cancellation/unaccept in comments
+      // Log cancellation/unaccept in comments (service handles auth fallback)
       try {
         const { CommentsService } = await import('../services/commentsService');
         await CommentsService.addComment(reportId, 'Job acceptance cancelled', 'status_update');
@@ -515,7 +542,7 @@ export function PatrolDashboard() {
       });
       handleUpdateReport(updatedReport);
       
-      // Add a comment about the priority change
+      // Add a comment about the priority change (service handles auth fallback)
       const { CommentsService } = await import('../services/commentsService');
       await CommentsService.addComment(reportId, `Priority level set to ${priorityLevel}`, 'status_update');
     } catch (error) {
@@ -1149,22 +1176,28 @@ export function PatrolDashboard() {
                   </div>
                 )}
                 
-                {Array.isArray(selectedReport.images) && selectedReport.images.length > 0 && (
+                {(Array.isArray(selectedReport.images) && selectedReport.images.length > 0) || proofPreviewUrl ? (
                   <div className="bg-white border border-gray-200 rounded-xl p-4">
                     <p className="text-sm font-medium text-gray-900 mb-2">Images</p>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                      {selectedReport.images.map((src, idx) => (
-                        <img
-                          key={idx}
-                          src={src}
-                          alt={`Report image ${idx+1}`}
-                          className="w-full h-32 md:h-40 object-cover rounded-lg border cursor-pointer hover:opacity-90 transition-opacity"
-                          onClick={() => setLightboxIndex(idx)}
-                        />
+                      {[proofPreviewUrl, ...(selectedReport.images || [])].filter(Boolean).map((src, idx) => (
+                        <div key={idx} className="relative">
+                          <img
+                            src={src as string}
+                            alt={`Report image ${idx+1}`}
+                            className="w-full h-32 md:h-40 object-cover rounded-lg border cursor-pointer hover:opacity-90 transition-opacity"
+                            onClick={() => setLightboxIndex(idx)}
+                          />
+                          {idx === 0 && proofPreviewUrl && (
+                            <span className="absolute top-2 left-2 text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
+                              Pending upload
+                            </span>
+                          )}
+                        </div>
                       ))}
                     </div>
                   </div>
-                )}
+                ) : null}
               </div>
               
               <div className="bg-gray-50 px-6 py-4 flex items-center justify-between">

@@ -2,6 +2,7 @@ import { supabase } from '../lib/supabase';
 import type { ReportComment } from '../types';
 import { reportsService } from './reportsService';
 import { useAuthStore } from '../store/authStore';
+import { getApiUrl } from '../lib/config';
 
 // Helper function to get current user from auth store
 function getCurrentUser() {
@@ -20,7 +21,7 @@ export class CommentsService {
         .from('report_comments')
         .select('*')
         .eq('report_id', reportId)
-        .order('created_at', { ascending: true });
+        .order('created_at', { ascending: false });
 
       if (commentsError) throw commentsError;
 
@@ -110,21 +111,57 @@ export class CommentsService {
     commentType: 'comment' | 'status_update' | 'assignment' | 'resolution' = 'comment'
   ): Promise<ReportComment> {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
+      // Try Supabase session first
+      const getUserRes = await supabase.auth.getUser();
+      let user = getUserRes.data.user as any;
+      const hasSupabaseSession = !!user;
+      // Fallback to app auth store if Supabase session is missing
+      if (!user) {
+        try {
+          const storeUser = getCurrentUser();
+          // Create a minimal user-like object for downstream fields
+          user = { id: storeUser.id } as any;
+        } catch (e) {
+          throw new Error('User not authenticated');
+        }
+      }
 
-      const { data, error } = await supabase
-        .from('report_comments')
-        .insert({
-          report_id: reportId,
-          user_id: user.id,
-          comment,
-          comment_type: commentType
-        })
-        .select('*')
-        .single();
+      // Try direct insert first only if we have a Supabase session
+      let data: any;
+      if (hasSupabaseSession) {
+        try {
+          const insertRes = await supabase
+            .from('report_comments')
+            .insert({
+              report_id: reportId,
+              user_id: user.id,
+              comment,
+              comment_type: commentType
+            })
+            .select('*')
+            .single();
+          if (insertRes.error) throw insertRes.error;
+          data = insertRes.data;
+        } catch (clientErr: any) {
+          // Fall through to server endpoint
+        }
+      }
 
-      if (error) throw error;
+      if (!data) {
+        // Use server endpoint with service role
+        const res = await fetch(getApiUrl(`/api/reports/${reportId}/comments`), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: user.id, comment, commentType })
+        });
+        if (!res.ok) {
+          const errText = await res.text();
+          throw new Error(errText || 'Failed to add comment');
+        }
+        data = await res.json();
+      }
+
+      // data is set by either client insert or server fallback above
 
       // Fetch user profile for the new comment
       const { data: profile } = await supabase

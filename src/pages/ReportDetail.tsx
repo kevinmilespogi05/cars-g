@@ -200,6 +200,7 @@ export function ReportDetail() {
   const fetchReportComments = async () => {
     try {
       const commentsData = await CommentsService.getComments(id!);
+      // Ensure newest first
       setReportComments(commentsData);
     } catch (error) {
       console.error('Error fetching report comments:', error);
@@ -213,7 +214,7 @@ export function ReportDetail() {
         .from('comments')
         .select('*')
         .eq('report_id', id)
-        .order('created_at', { ascending: true });
+        .order('created_at', { ascending: false });
 
       if (commentsError) throw commentsError;
 
