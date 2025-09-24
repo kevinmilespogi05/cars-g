@@ -30,6 +30,13 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ isOpen, onClose, adminId
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
+  // Mobile detection effect - must be at the top with other hooks
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 640);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -307,12 +314,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ isOpen, onClose, adminId
   };
 
   const chatPosition = getChatPosition();
-
-  useEffect(() => {
-    const onResize = () => setIsMobile(window.innerWidth < 640);
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, []);
 
   return (
     <div 
