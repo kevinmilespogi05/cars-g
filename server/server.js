@@ -387,6 +387,108 @@ app.post('/api/reports/:reportId/comments', handleCreateComment);
 // Alias route (in case reverse proxy strips /api)
 app.post('/reports/:reportId/comments', handleCreateComment);
 
+// Reports: create via service role to avoid client RLS/session issues
+app.post('/api/reports', authenticateToken, async (req, res) => {
+  try {
+    if (!supabaseAdmin) {
+      return res.status(503).json({ error: 'Admin privileges required' });
+    }
+
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const {
+      title,
+      description,
+      category,
+      priority,
+      priority_level,
+      location_lat,
+      location_lng,
+      location_address,
+      images,
+      assigned_group,
+      can_cancel
+    } = req.body || {};
+
+    if (!title || !description || !category || !priority || typeof location_lat !== 'number' || typeof location_lng !== 'number') {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const payload = {
+      user_id: userId,
+      title: String(title).trim(),
+      description: String(description).trim(),
+      category: String(category),
+      priority: String(priority),
+      status: 'verifying',
+      location: { lat: location_lat, lng: location_lng },
+      location_address: location_address || `${location_lat}, ${location_lng}`,
+      images: Array.isArray(images) ? images : [],
+      priority_level: Number.isFinite(priority_level) ? priority_level : (priority === 'high' ? 5 : priority === 'medium' ? 3 : 1),
+      assigned_group: assigned_group || null,
+      can_cancel: can_cancel !== false
+    };
+
+    const { data, error } = await supabaseAdmin
+      .from('reports')
+      .insert([payload])
+      .select('id, user_id, title, description, category, priority, status, location, location_address, images, created_at, updated_at, case_number, priority_level, assigned_group, assigned_patroller_name, can_cancel')
+      .single();
+
+    if (error) {
+      return res.status(500).json({ error: error.message || 'Failed to create report' });
+    }
+
+    res.json(data);
+  } catch (e) {
+    console.error('Create report error:', e);
+    res.status(500).json({ error: 'Failed to create report' });
+  }
+});
+
+// Activities: create via service role (JWT-protected)
+app.post('/api/activities', authenticateToken, async (req, res) => {
+  try {
+    if (!supabaseAdmin) {
+      return res.status(503).json({ error: 'Admin privileges required' });
+    }
+
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const { type, description, metadata } = req.body || {};
+    if (!type || !description) {
+      return res.status(400).json({ error: 'type and description are required' });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('activities')
+      .insert([
+        {
+          user_id: userId,
+          type: String(type),
+          description: String(description),
+          metadata: metadata ?? null
+        }
+      ])
+      .select('*')
+      .single();
+
+    if (error) {
+      return res.status(500).json({ error: error.message || 'Failed to create activity' });
+    }
+    res.json(data);
+  } catch (e) {
+    console.error('Create activity error:', e);
+    res.status(500).json({ error: 'Failed to create activity' });
+  }
+});
+
 // Push: send test notification
 app.post('/api/push/send', async (req, res) => {
   try {

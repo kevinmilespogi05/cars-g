@@ -55,18 +55,56 @@ export const activityService = {
   },
 
   async createActivity(activity: Omit<Activity, 'id' | 'created_at'>): Promise<Activity | null> {
-    const { data, error } = await supabase
-      .from('activities')
-      .insert([activity])
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Error creating activity:', error);
+    try {
+      // Prefer direct insert when Supabase session exists
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session || !session.user) {
+          throw new Error('no-session');
+        }
+        const { data, error } = await supabase
+          .from('activities')
+          .insert([activity])
+          .select()
+          .single();
+        if (error) throw error;
+        return data;
+      } catch (clientErr: any) {
+        // Fall back to server endpoint using JWT
+        const { authenticatedRequest } = await import('../lib/jwt');
+        const { getApiUrl } = await import('../lib/config');
+        const baseUrl = getApiUrl('/api/activities');
+        let resp = await authenticatedRequest(baseUrl, {
+          method: 'POST',
+          body: JSON.stringify({
+            type: activity.type,
+            description: activity.description,
+            metadata: activity.metadata || null
+          })
+        });
+        // Fallback to alias without /api if reverse proxy strips prefix
+        if (resp.status === 404) {
+          const altUrl = getApiUrl('/activities');
+          resp = await authenticatedRequest(altUrl, {
+            method: 'POST',
+            body: JSON.stringify({
+              type: activity.type,
+              description: activity.description,
+              metadata: activity.metadata || null
+            })
+          });
+        }
+        if (!resp.ok) {
+          const text = await resp.text().catch(() => '');
+          throw new Error(`Failed to create activity (api): HTTP ${resp.status} ${text}`);
+        }
+        const json = await resp.json();
+        return json as Activity;
+      }
+    } catch (e) {
+      console.error('Error creating activity:', e);
       return null;
     }
-
-    return data;
   },
 
   async createAchievement(achievement: Omit<Achievement, 'id' | 'earned_at'>): Promise<Achievement | null> {

@@ -142,6 +142,43 @@ export const reportsService = {
     } as any;
 
     try {
+      // If there is no Supabase session, use backend immediately (JWT flow)
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session || !session.user) {
+          const { authenticatedRequest } = await import('../lib/jwt');
+          const { getApiUrl } = await import('../lib/config');
+          const url = `${getApiUrl('/api/reports')}`;
+          const resp = await authenticatedRequest(url, {
+            method: 'POST',
+            body: JSON.stringify({
+              title: (reportData as any).title,
+              description: (reportData as any).description,
+              category: (reportData as any).category,
+              priority: (reportData as any).priority,
+              priority_level: (reportData as any).priority_level,
+              location_lat: (reportData as any).location_lat,
+              location_lng: (reportData as any).location_lng,
+              location_address: (reportData as any).location_address,
+              images: (reportData as any).images,
+              assigned_group: (reportData as any).assigned_group,
+              can_cancel: (reportData as any).can_cancel
+            })
+          });
+          if (!resp.ok) {
+            const body = await resp.text().catch(() => '');
+            throw new ReportsServiceError(`Failed to create report (api): HTTP ${resp.status} ${body}`);
+          }
+          const data = await resp.json();
+          return {
+            ...data,
+            likes: { count: 0 },
+            comments: { count: 0 }
+          } as any;
+        }
+      } catch (prefetchErr) {
+        // proceed to client insert path
+      }
       // Helper: derive priority_level from priority when not explicitly set
       const deriveLevelFromPriority = (priority?: Report['priority']): number | null => {
         switch (priority) {
@@ -179,7 +216,51 @@ export const reportsService = {
         .select('id, user_id, title, description, category, priority, status, location, location_address, images, created_at, updated_at, case_number, priority_level, assigned_group, assigned_patroller_name, can_cancel')
         .single();
 
-      if (error) throw error;
+      if (error) {
+        // Fallback to server endpoint if RLS/401 prevents insert
+        const message = (error as any)?.message || '';
+        if (message.includes('row-level security') || (error as any)?.code === '42501' || (error as any)?.status === 401) {
+          try {
+            const { authenticatedRequest } = await import('../lib/jwt');
+            const { getApiUrl } = await import('../lib/config');
+            const url = `${getApiUrl('/api/reports')}`;
+            const resp = await authenticatedRequest(url, {
+              method: 'POST',
+              body: JSON.stringify({
+                title: payload.title,
+                description: payload.description,
+                category: payload.category,
+                priority: payload.priority,
+                priority_level: payload.priority_level,
+                location_lat: payload.location?.lat,
+                location_lng: payload.location?.lng,
+                location_address: payload.location_address,
+                images: payload.images,
+                assigned_group: payload.assigned_group,
+                can_cancel: payload.can_cancel
+              })
+            });
+            if (!resp.ok) {
+              const body = await resp.text().catch(() => '');
+              throw new ReportsServiceError(`Failed to create report (api): HTTP ${resp.status} ${body}`);
+            }
+            const apiData = await resp.json();
+            // Cache the user profile for future use
+            if (apiData.user_id) {
+              _cacheProfile(apiData.user_id, optimisticReport.user_profile!);
+            }
+            return {
+              ...apiData,
+              likes: { count: 0 },
+              comments: { count: 0 }
+            } as any;
+          } catch (apiErr: any) {
+            const msg = apiErr?.message || message || 'Unknown error';
+            throw new ReportsServiceError(`Failed to create report: ${msg}`);
+          }
+        }
+        throw error;
+      }
 
       // Cache the user profile for future use
       if (data.user_id) {
