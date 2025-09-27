@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { User, Upload } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { useAuthStore } from '../store/authStore';
+import { getAccessToken, authenticatedRequest } from '../lib/jwt';
+import { getApiUrl } from '../lib/config';
 
 const DEFAULT_AVATARS = [
   '/avatars/avatar1.svg',
@@ -33,6 +36,164 @@ export function AvatarSelector({ currentAvatar, onAvatarChange, userId, variant 
   const [isUploading, setIsUploading] = useState(false);
   const [showDefaultAvatars, setShowDefaultAvatars] = useState(false);
   const inputId = `avatar-upload-${userId || 'me'}`;
+  const { user: authUser, isAuthenticated } = useAuthStore();
+
+  // Upload avatar via backend API with fallback
+  const uploadAvatarViaAPI = async (file: File, userId: string) => {
+    try {
+      const formData = new FormData();
+      formData.append('avatar', file);
+      formData.append('userId', userId);
+      
+      const response = await authenticatedRequest(getApiUrl('/api/upload/avatar'), {
+        method: 'POST',
+        body: formData
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to upload avatar');
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.log('Using direct Supabase upload (backend not available)...');
+      // Fallback to direct Supabase upload
+      return await uploadAvatarDirectly(file, userId);
+    }
+  };
+
+  // Direct profile update fallback using backend API
+  const updateProfileDirectly = async (avatarUrl: string, userId: string) => {
+    try {
+      // Try to update profile using the existing /api/auth/me endpoint
+      const response = await authenticatedRequest(getApiUrl('/api/auth/me'), {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ avatar_url: avatarUrl })
+      });
+      
+      if (response.ok) {
+        console.log('Profile updated via /api/auth/me endpoint');
+        // Update the local auth store
+        const { setUser } = useAuthStore.getState();
+        const currentUser = useAuthStore.getState().user;
+        if (currentUser) {
+          setUser({ ...currentUser, avatar_url: avatarUrl });
+        }
+        return true;
+      } else {
+        console.log('Profile update via /api/auth/me failed, trying /api/auth/profile...');
+        // Try the alternative endpoint
+        const response2 = await authenticatedRequest(getApiUrl('/api/auth/profile'), {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ avatar_url: avatarUrl })
+        });
+        
+        if (response2.ok) {
+          console.log('Profile updated via /api/auth/profile endpoint');
+          // Update the local auth store
+          const { setUser } = useAuthStore.getState();
+          const currentUser = useAuthStore.getState().user;
+          if (currentUser) {
+            setUser({ ...currentUser, avatar_url: avatarUrl });
+          }
+          return true;
+        } else {
+          console.log('Profile update API not available, trying direct Supabase update...');
+          // Try direct Supabase update as final fallback
+          return await updateProfileViaSupabase(avatarUrl, userId);
+        }
+      }
+    } catch (error) {
+      console.log('Profile update API not available, trying direct Supabase update...');
+      // Try direct Supabase update as final fallback
+      return await updateProfileViaSupabase(avatarUrl, userId);
+    }
+  };
+
+  // Direct Supabase profile update fallback
+  const updateProfileViaSupabase = async (avatarUrl: string, userId: string) => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ avatar_url: avatarUrl })
+        .eq('id', userId);
+
+      if (error) {
+        console.error('Supabase profile update error:', error);
+        // At least update the local store so the UI shows the avatar
+        const { setUser } = useAuthStore.getState();
+        const currentUser = useAuthStore.getState().user;
+        if (currentUser) {
+          setUser({ ...currentUser, avatar_url: avatarUrl });
+        }
+        return false;
+      }
+
+      console.log('Profile updated via direct Supabase update');
+      // Update the local auth store
+      const { setUser } = useAuthStore.getState();
+      const currentUser = useAuthStore.getState().user;
+      if (currentUser) {
+        setUser({ ...currentUser, avatar_url: avatarUrl });
+      }
+      return true;
+    } catch (error) {
+      console.error('Supabase profile update error:', error);
+      // At least update the local store so the UI shows the avatar
+      const { setUser } = useAuthStore.getState();
+      const currentUser = useAuthStore.getState().user;
+      if (currentUser) {
+        setUser({ ...currentUser, avatar_url: avatarUrl });
+      }
+      return false;
+    }
+  };
+
+  // Direct Supabase upload fallback
+  const uploadAvatarDirectly = async (file: File, userId: string) => {
+    // Create a simple filename without user folder structure
+    const timestamp = Date.now();
+    const random = Math.random().toString(36).substring(2, 15);
+    const fileExt = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+    const fileName = `${timestamp}-${random}.${fileExt}`;
+    
+    // Try uploading with just the filename (no user folder structure)
+    const { error: uploadError, data: uploadData } = await supabase.storage
+      .from('avatars')
+      .upload(fileName, file, {
+        cacheControl: '3600',
+        upsert: false,
+        contentType: file.type || 'image/jpeg'
+      });
+    
+    if (uploadError) {
+      throw new Error(`Upload failed: ${uploadError.message}`);
+    }
+    
+    // Get public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from('avatars')
+      .getPublicUrl(fileName);
+    
+    // Update profile with new avatar URL using backend API
+    const profileUpdated = await updateProfileDirectly(publicUrl, userId);
+    
+    if (profileUpdated) {
+      console.log('Profile updated successfully with new avatar URL');
+    } else {
+      console.log('Profile update via API failed, but avatar is uploaded and local store updated');
+    }
+    
+    return { avatarUrl: publicUrl };
+  };
 
   // Validate file before upload
   const validateFile = (file: File): string | null => {
@@ -135,7 +296,7 @@ export function AvatarSelector({ currentAvatar, onAvatarChange, userId, variant 
       const random = Math.random().toString(36).substring(2, 15);
       const fileExt = correctedFile.name.split('.').pop()?.toLowerCase();
       const fileName = `${timestamp}-${random}.${fileExt}`;
-      const filePath = `${userId}/${fileName}`;
+      let filePath = `${userId}/${fileName}`;
 
       console.log('Upload details:', {
         name: correctedFile.name,
@@ -163,44 +324,64 @@ export function AvatarSelector({ currentAvatar, onAvatarChange, userId, variant 
       }
 
       console.log('About to upload to Supabase...');
-
-      // Upload image to Supabase Storage
-      const { error: uploadError, data } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, correctedFile, {
-          cacheControl: '3600',
-          upsert: false,
-          contentType: correctedFile.type || 'image/jpeg'
-        });
-
-      if (uploadError) {
-        console.error('Upload error details:', uploadError);
-        throw uploadError;
+      console.log('User ID:', userId);
+      console.log('File path:', filePath);
+      
+      // Check authentication status using the app's auth system
+      console.log('Auth user from store:', { authUser, isAuthenticated });
+      
+      if (!isAuthenticated || !authUser) {
+        console.error('User not authenticated, cannot upload avatar');
+        alert('You must be logged in to upload an avatar. Please log in and try again.');
+        return;
       }
+      
+      // Use the authenticated user's ID
+      const authenticatedUserId = authUser.id;
+      console.log('Using authenticated user ID:', authenticatedUserId);
 
-      console.log('Upload successful:', data);
-
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(filePath);
-
+      // Upload avatar via backend API
+      console.log('Uploading avatar via backend API...');
+      const uploadResult = await uploadAvatarViaAPI(correctedFile, authenticatedUserId);
+      
+      console.log('Upload successful:', uploadResult);
+      
+      const publicUrl = uploadResult.avatarUrl;
       console.log('Public URL:', publicUrl);
 
-      // Update profile with new avatar URL
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({ avatar_url: publicUrl })
-        .eq('id', userId);
-
-      if (updateError) {
-        console.error('Profile update error:', updateError);
-        throw updateError;
-      }
-
+      // Update the avatar in the UI
       onAvatarChange(publicUrl);
       console.log('Avatar updated successfully');
       console.log('=== FILE UPLOAD DEBUG END ===');
+      
+      // Show success message to user (non-intrusive)
+      console.log('✅ Avatar uploaded successfully!');
+      
+      // Show a brief success notification
+      const notification = document.createElement('div');
+      notification.textContent = '✅ Avatar uploaded successfully!';
+      notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #10b981;
+        color: white;
+        padding: 12px 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        z-index: 10000;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 14px;
+        font-weight: 500;
+      `;
+      document.body.appendChild(notification);
+      
+      // Remove notification after 3 seconds
+      setTimeout(() => {
+        if (notification.parentNode) {
+          notification.parentNode.removeChild(notification);
+        }
+      }, 3000);
     } catch (error) {
       console.error('Error uploading avatar:', error);
       

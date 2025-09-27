@@ -208,15 +208,15 @@ export default defineConfig({
     },
     proxy: {
       '/api': {
-        target: 'https://cars-g-api.onrender.com',
+        target: process.env.NODE_ENV === 'development' ? 'http://localhost:3001' : 'https://cars-g-api.onrender.com',
         changeOrigin: true,
-        secure: true,
+        secure: process.env.NODE_ENV !== 'development',
         rewrite: (path) => path
       },
       '/socket.io': {
-        target: 'https://cars-g-api.onrender.com',
+        target: process.env.NODE_ENV === 'development' ? 'http://localhost:3001' : 'https://cars-g-api.onrender.com',
         changeOrigin: true,
-        secure: true,
+        secure: process.env.NODE_ENV !== 'development',
         ws: true
       }
     }

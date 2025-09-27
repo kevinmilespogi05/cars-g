@@ -32,3 +32,13 @@ services:
         value: carsg-d5bed
       - key: GOOGLE_SERVICE_ACCOUNT_JSON
         sync: false
+      - key: JWT_SECRET
+        value: cf8f1086c09c228fd85ce5b7f0d7f085521633ff99f9b2786dfe1f52b0e70e9c229642b7cfd0fbc0ab6c2971b1fddc0567f890323859afcc98460854af7eafb4
+      - key: JWT_EXPIRES_IN
+        value: 24h
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: 7d
+      - key: JWT_ISSUER
+        value: cars-g-app
+      - key: JWT_AUDIENCE
+        value: cars-g-users

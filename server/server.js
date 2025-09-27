@@ -10,6 +10,7 @@ import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
 import fetch from 'node-fetch';
 import { GoogleAuth } from 'google-auth-library';
+import multer from 'multer';
 import { generateTokenPair, verifyToken, extractTokenFromHeader } from './lib/jwt.js';
 import { authenticateToken, requireRole } from './middleware/auth.js';
 import EmailService from './lib/emailService.js';
@@ -138,6 +139,23 @@ app.use(cors({
   optionsSuccessStatus: 200
 }));
 app.use(express.json());
+
+// Configure multer for file uploads
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    // Check file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only images are allowed.'), false);
+    }
+  }
+});
 
 // Handle CORS preflight requests
 app.options('*', (req, res) => {
@@ -1027,6 +1045,87 @@ app.get('/api/auth/me', authenticateToken, async (req, res) => {
   }
 });
 
+// Update user profile
+app.put('/api/auth/me', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ 
+        success: false,
+        error: 'Authentication required' 
+      });
+    }
+
+    const { avatar_url, username, first_name, last_name } = req.body;
+    
+    if (!supabaseAdmin) {
+      return res.status(503).json({ 
+        success: false,
+        error: 'Admin privileges required' 
+      });
+    }
+
+    // Build update object with only provided fields
+    const updateData = {};
+    if (avatar_url !== undefined) updateData.avatar_url = avatar_url;
+    if (username !== undefined) updateData.username = username;
+    if (first_name !== undefined) updateData.first_name = first_name;
+    if (last_name !== undefined) updateData.last_name = last_name;
+    
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'No valid fields to update' 
+      });
+    }
+
+    // Add updated timestamp
+    updateData.updated_at = new Date().toISOString();
+
+    // Update profile in database
+    const { data: updatedProfile, error: updateError } = await supabaseAdmin
+      .from('profiles')
+      .update(updateData)
+      .eq('id', userId)
+      .select('id, email, username, first_name, last_name, role, points, avatar_url')
+      .single();
+
+    if (updateError) {
+      console.error('Profile update error:', updateError);
+      return res.status(500).json({ 
+        success: false,
+        error: 'Failed to update profile',
+        details: updateError.message 
+      });
+    }
+
+    console.log(`Profile updated successfully for user ${userId}`);
+
+    res.json({
+      success: true,
+      user: {
+        id: updatedProfile.id,
+        email: updatedProfile.email,
+        username: updatedProfile.username,
+        first_name: updatedProfile.first_name,
+        last_name: updatedProfile.last_name,
+        role: updatedProfile.role || 'user',
+        points: updatedProfile.points || 0,
+        avatar_url: updatedProfile.avatar_url
+      },
+      message: 'Profile updated successfully'
+    });
+
+  } catch (error) {
+    console.error('Profile update error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to update profile',
+      details: error.message 
+    });
+  }
+});
+
 // Logout endpoint
 app.post('/api/auth/logout', authenticateToken, async (req, res) => {
   try {
@@ -1697,6 +1796,151 @@ app.post('/api/cloudinary/batch-delete', async (req, res) => {
     console.error('Error in batch deletion:', error);
     res.status(500).json({ 
       error: 'Failed to process batch deletion',
+      details: error.message 
+    });
+  }
+});
+
+// Profile update endpoint
+app.put('/api/auth/profile', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const { avatar_url, username, first_name, last_name } = req.body;
+    
+    if (!supabaseAdmin) {
+      return res.status(503).json({ error: 'Admin privileges required' });
+    }
+
+    // Build update object with only provided fields
+    const updateData = {};
+    if (avatar_url !== undefined) updateData.avatar_url = avatar_url;
+    if (username !== undefined) updateData.username = username;
+    if (first_name !== undefined) updateData.first_name = first_name;
+    if (last_name !== undefined) updateData.last_name = last_name;
+    
+    if (Object.keys(updateData).length === 0) {
+      return res.status(400).json({ error: 'No valid fields to update' });
+    }
+
+    // Add updated timestamp
+    updateData.updated_at = new Date().toISOString();
+
+    // Update profile in database
+    const { data: updatedProfile, error: updateError } = await supabaseAdmin
+      .from('profiles')
+      .update(updateData)
+      .eq('id', userId)
+      .select('*')
+      .single();
+
+    if (updateError) {
+      console.error('Profile update error:', updateError);
+      return res.status(500).json({ 
+        error: 'Failed to update profile',
+        details: updateError.message 
+      });
+    }
+
+    console.log(`Profile updated successfully for user ${userId}`);
+
+    res.json({
+      success: true,
+      user: updatedProfile,
+      message: 'Profile updated successfully'
+    });
+
+  } catch (error) {
+    console.error('Profile update error:', error);
+    res.status(500).json({ 
+      error: 'Failed to update profile',
+      details: error.message 
+    });
+  }
+});
+
+// Avatar upload endpoint
+app.post('/api/upload/avatar', authenticateToken, upload.single('avatar'), async (req, res) => {
+  try {
+    const { userId } = req.body;
+    const file = req.file;
+    
+    if (!file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+    
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID is required' });
+    }
+    
+    // Verify the user is uploading for themselves
+    if (req.user.id !== userId) {
+      return res.status(403).json({ error: 'Unauthorized: You can only upload avatars for yourself' });
+    }
+    
+    // Upload to Supabase storage using admin client
+    if (!supabaseAdmin) {
+      return res.status(503).json({ error: 'Admin privileges required' });
+    }
+    
+    // Create a unique filename
+    const timestamp = Date.now();
+    const random = Math.random().toString(36).substring(2, 15);
+    const fileExt = file.originalname.split('.').pop()?.toLowerCase() || 'jpg';
+    const fileName = `${timestamp}-${random}.${fileExt}`;
+    const filePath = `${userId}/${fileName}`;
+    
+    // Upload to Supabase storage
+    const { error: uploadError, data: uploadData } = await supabaseAdmin.storage
+      .from('avatars')
+      .upload(filePath, file.buffer, {
+        cacheControl: '3600',
+        upsert: false,
+        contentType: file.mimetype
+      });
+    
+    if (uploadError) {
+      console.error('Supabase upload error:', uploadError);
+      return res.status(500).json({ 
+        error: 'Failed to upload avatar',
+        details: uploadError.message 
+      });
+    }
+    
+    // Get public URL
+    const { data: { publicUrl } } = supabaseAdmin.storage
+      .from('avatars')
+      .getPublicUrl(filePath);
+    
+    // Update user profile with new avatar URL
+    const { error: updateError } = await supabaseAdmin
+      .from('profiles')
+      .update({ avatar_url: publicUrl })
+      .eq('id', userId);
+    
+    if (updateError) {
+      console.error('Profile update error:', updateError);
+      return res.status(500).json({ 
+        error: 'Failed to update profile',
+        details: updateError.message 
+      });
+    }
+    
+    console.log(`Avatar uploaded successfully for user ${userId}: ${publicUrl}`);
+    
+    res.json({
+      success: true,
+      avatarUrl: publicUrl,
+      message: 'Avatar uploaded successfully'
+    });
+    
+  } catch (error) {
+    console.error('Avatar upload error:', error);
+    res.status(500).json({ 
+      error: 'Failed to upload avatar',
       details: error.message 
     });
   }
