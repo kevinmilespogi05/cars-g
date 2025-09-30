@@ -99,7 +99,7 @@ export const useAuthStore = create<AuthState>((set) => ({
           .from('profiles')
           .select('*')
           .eq('id', session.user.id)
-          .single();
+          .maybeSingle();
           
         if (profileError && profileError.code !== 'PGRST116' && String((profileError as any).status) !== '406') {
           throw profileError;
@@ -109,7 +109,7 @@ export const useAuthStore = create<AuthState>((set) => ({
           // Create profile for new user
           const { error: createError } = await supabase
             .from('profiles')
-            .insert({
+            .upsert({
               id: session.user.id,
               username: session.user.email?.split('@')[0] || 'user',
               email: session.user.email || '',
@@ -119,7 +119,7 @@ export const useAuthStore = create<AuthState>((set) => ({
               updated_at: new Date().toISOString(),
               avatar_url: session.user.user_metadata.avatar_url || null,
               notification_settings: { push: true, email: true }
-            });
+            }, { onConflict: 'id', ignoreDuplicates: false });
             
           if (createError) {
             // If FK violation or RLS/format errors, skip creating profile (likely not a Supabase-auth user)
@@ -141,7 +141,7 @@ export const useAuthStore = create<AuthState>((set) => ({
             .from('profiles')
             .select('*')
             .eq('id', session.user.id)
-            .single();
+            .maybeSingle();
             
           if (fetchError && String((fetchError as any).status) !== '406') throw fetchError;
           
@@ -182,7 +182,7 @@ export const useAuthStore = create<AuthState>((set) => ({
               .from('profiles')
               .select('*')
               .eq('id', session.user.id)
-              .single();
+              .maybeSingle();
               
             if (profileError && profileError.code !== 'PGRST116' && String((profileError as any).status) !== '406') {
               throw profileError;
@@ -192,7 +192,7 @@ export const useAuthStore = create<AuthState>((set) => ({
               // Create profile for new user
               const { error: createError } = await supabase
                 .from('profiles')
-                .insert({
+                .upsert({
                   id: session.user.id,
                   username: session.user.email?.split('@')[0] || 'user',
                   email: session.user.email || '',
@@ -202,7 +202,7 @@ export const useAuthStore = create<AuthState>((set) => ({
                   updated_at: new Date().toISOString(),
                   avatar_url: session.user.user_metadata.avatar_url || null,
                   notification_settings: { push: true, email: true }
-                });
+                }, { onConflict: 'id', ignoreDuplicates: false });
                 
               if (createError) {
                 const code = (createError as any).code || '';
@@ -228,7 +228,7 @@ export const useAuthStore = create<AuthState>((set) => ({
                 .from('profiles')
                 .select('*')
                 .eq('id', session.user.id)
-                .single();
+                .maybeSingle();
                 
               if (fetchError && String((fetchError as any).status) !== '406') throw fetchError;
               
@@ -264,7 +264,7 @@ export const useAuthStore = create<AuthState>((set) => ({
                 .from('profiles')
                 .select('*')
                 .eq('id', session.user.id)
-                .single();
+                .maybeSingle();
                 
               if (profile) {
                 if (profile.is_banned) {
@@ -322,7 +322,7 @@ export const useAuthStore = create<AuthState>((set) => ({
           .from('profiles')
           .select('*')
           .eq('id', data.user.id)
-          .single();
+          .maybeSingle();
           
         if (profileError) throw profileError;
 
@@ -379,7 +379,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         .from('profiles')
         .select('email')
         .eq('username', username)
-        .single();
+        .maybeSingle();
 
       if (profileError || !profile) {
         throw new Error('Invalid username or password. Please try again.');
@@ -394,11 +394,11 @@ export const useAuthStore = create<AuthState>((set) => ({
       if (error) throw error;
       
       if (data.user) {
-        const { data: fullProfile, error: fullProfileError } = await supabase
+      const { data: fullProfile, error: fullProfileError } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', data.user.id)
-          .single();
+        .maybeSingle();
           
         if (fullProfileError) throw fullProfileError;
 
@@ -464,7 +464,7 @@ export const useAuthStore = create<AuthState>((set) => ({
           .from('profiles')
           .select('email')
           .eq('username', emailOrUsername)
-          .single();
+          .maybeSingle();
 
         if (profileError || !profile) {
           throw new Error('Invalid username or email. Please try again.');
@@ -491,11 +491,11 @@ export const useAuthStore = create<AuthState>((set) => ({
       if (error) throw error;
       
       if (data.user) {
-        const { data: fullProfile, error: fullProfileError } = await supabase
+      const { data: fullProfile, error: fullProfileError } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', data.user.id)
-          .single();
+        .maybeSingle();
           
         if (fullProfileError) throw fullProfileError;
 

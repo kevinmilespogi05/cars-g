@@ -55,7 +55,9 @@ export function Register() {
     setIsLoading(true);
 
     try {
-      // Send verification email first
+      // Send verification email first with timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 12000);
       const response = await fetch(getApiUrl('/api/auth/send-verification'), {
         method: 'POST',
         headers: {
@@ -64,18 +66,31 @@ export function Register() {
         body: JSON.stringify({
           email,
           username
-        })
+        }),
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        let serverMessage = '';
+        try {
+          const errJson = await response.json();
+          serverMessage = errJson?.error || errJson?.message || '';
+        } catch {}
+        throw new Error(serverMessage || `Failed to send verification email (${response.status})`);
+      }
 
       const data = await response.json();
-
-      if (data.success) {
+      if (data?.success) {
         setRegistrationStep('verification');
       } else {
-        setError(data.error || 'Failed to send verification email');
+        throw new Error(data?.error || 'Failed to send verification email');
       }
     } catch (err) {
-      setError('Network error. Please try again.');
+      const message = err instanceof Error
+        ? (err.name === 'AbortError' ? 'Request timed out. Please try again.' : err.message)
+        : 'Network error. Please try again.';
+      setError(message);
     } finally {
       setIsLoading(false);
     }
@@ -125,6 +140,8 @@ export function Register() {
 
   const handleResendVerification = async () => {
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 12000);
       const response = await fetch(getApiUrl('/api/auth/send-verification'), {
         method: 'POST',
         headers: {
@@ -133,15 +150,29 @@ export function Register() {
         body: JSON.stringify({
           email,
           username
-        })
+        }),
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        let serverMessage = '';
+        try {
+          const errJson = await response.json();
+          serverMessage = errJson?.error || errJson?.message || '';
+        } catch {}
+        throw new Error(serverMessage || `Failed to resend verification email (${response.status})`);
+      }
 
       const data = await response.json();
-      if (!data.success) {
-        setError(data.error || 'Failed to resend verification email');
+      if (!data?.success) {
+        setError(data?.error || 'Failed to resend verification email');
       }
     } catch (err) {
-      setError('Network error. Please try again.');
+      const message = err instanceof Error
+        ? (err.name === 'AbortError' ? 'Request timed out. Please try again.' : err.message)
+        : 'Network error. Please try again.';
+      setError(message);
     }
   };
 

@@ -444,6 +444,63 @@ export const reportsService = {
       const user = getCurrentUser();
       if (!user) throw new ReportsServiceError('User not authenticated');
 
+      // If replying to a mock reply (client-side stored for report comments),
+      // update localStorage tree instead of hitting Supabase
+      if (parentId.startsWith('mock-')) {
+        const profile = _getCachedProfile(user.id) || (() => ({ username: user.email?.split('@')[0] || 'User', avatar_url: null }))();
+
+        const newReply: CommentReply = {
+          id: `mock-${Date.now()}`,
+          parent_reply_id: parentId,
+          user_id: user.id,
+          content,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          user: { username: profile.username, avatar_url: profile.avatar_url },
+          replies: [],
+          reply_depth: 1,
+          likes_count: 0,
+          is_liked: false,
+        } as CommentReply;
+
+        const repliesKey = 'report_comment_replies';
+        const stored = JSON.parse(localStorage.getItem(repliesKey) || '{}');
+
+        // Find the comment thread that contains this mock parent reply and append
+        const tryAttachToTree = (list: any[]): boolean => {
+          if (!Array.isArray(list)) return false;
+          for (let i = 0; i < list.length; i++) {
+            const item = list[i];
+            if (item && item.id === parentId) {
+              if (!Array.isArray(item.replies)) item.replies = [];
+              item.replies.push(newReply);
+              return true;
+            }
+            if (item && Array.isArray(item.replies) && tryAttachToTree(item.replies)) {
+              return true;
+            }
+          }
+          return false;
+        };
+
+        let attached = false;
+        for (const key of Object.keys(stored)) {
+          if (tryAttachToTree(stored[key])) {
+            attached = true;
+            break;
+          }
+        }
+
+        // If not found anywhere (unexpected), place under a fallback bucket keyed by the parent
+        if (!attached) {
+          if (!Array.isArray(stored[parentId])) stored[parentId] = [];
+          stored[parentId].push(newReply);
+        }
+
+        localStorage.setItem(repliesKey, JSON.stringify(stored));
+        return newReply;
+      }
+
       // Check if this is a report comment
       const { data: reportComment, error: reportCommentError } = await supabase
         .from('report_comments')

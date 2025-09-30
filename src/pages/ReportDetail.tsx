@@ -536,6 +536,37 @@ export function ReportDetail() {
         })
       );
       
+      // Also update report comments tree so report-comments UI reflects immediately
+      setReportComments(prev => 
+        prev.map(comment => {
+          if (comment.id === commentId) {
+            const addNestedReply = (replies: CommentReply[]): CommentReply[] => {
+              return replies.map(reply => {
+                if (reply.id === replyId) {
+                  return {
+                    ...reply,
+                    replies: [...(reply.replies || []), nestedReply]
+                  };
+                }
+                if (reply.replies) {
+                  return {
+                    ...reply,
+                    replies: addNestedReply(reply.replies)
+                  };
+                }
+                return reply;
+              });
+            };
+
+            return {
+              ...comment,
+              replies: addNestedReply(comment.replies || [])
+            };
+          }
+          return comment;
+        })
+      );
+      
       // Clear the nested reply form
       setNestedReplyForms(prev => {
         const newState = { ...prev };

@@ -39,21 +39,26 @@ export function AuthCallback() {
             .from('profiles')
             .select('*')
             .eq('id', data.session.user.id)
-            .single();
+            .maybeSingle();
             
-          if (profileError) {
+          if (profileError && String((profileError as any).status) !== '406') {
             console.error('Error fetching profile:', profileError);
             setError('Failed to load user profile. Please try again.');
             setIsProcessing(false);
             return;
           }
           
-          setUser({ ...profile, email: data.session.user.email });
+          if (profile) {
+            setUser({ ...profile, email: data.session.user.email });
+          } else {
+            // If no profile yet, set a minimal user object so routing works
+            setUser({ id: data.session.user.id, email: data.session.user.email } as any);
+          }
           
           // Redirect based on user role from database
-          if (profile.role === 'admin') {
+          if (profile?.role === 'admin') {
             navigate('/admin', { replace: true });
-          } else if (profile.role === 'patrol') {
+          } else if (profile?.role === 'patrol') {
             navigate('/patrol', { replace: true });
           } else {
             navigate('/reports', { replace: true });
