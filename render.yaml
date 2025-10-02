@@ -5,6 +5,13 @@ services:
     plan: free
     buildCommand: cd server && npm install
     startCommand: cd server && node server.js
+    # Performance optimizations
+    healthCheckPath: /health
+    autoDeploy: false  # Prevent unnecessary deployments
+    # Resource optimization
+    disk: 512  # MB - minimum for better performance
+    # Keep service warm
+    preDeployCommand: echo "Preparing deployment..."
     envVars:
       - key: NODE_ENV
         value: production

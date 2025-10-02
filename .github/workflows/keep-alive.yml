@@ -1,0 +1,73 @@
+name: Keep Alive Ping
+
+on:
+  schedule:
+    # Ping every 5 minutes (GitHub Actions minimum is 5 minutes)
+    - cron: '*/5 * * * *'
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  keep-alive:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Ping Backend Health Endpoint
+      run: |
+        echo "🏃 Pinging backend to keep it alive..."
+        
+        # Ping main health endpoint
+        response=$(curl -s -w "%{http_code}" -o /tmp/response.txt "https://cars-g-api.onrender.com/health")
+        
+        if [ "$response" = "200" ]; then
+          echo "✅ Backend health ping successful (HTTP $response)"
+          cat /tmp/response.txt
+        else
+          echo "⚠️  Backend health ping returned HTTP $response"
+          cat /tmp/response.txt
+        fi
+        
+        # Ping smart ping endpoint to track GitHub Actions pings
+        echo ""
+        echo "🏓 Pinging smart ping endpoint..."
+        ping_response=$(curl -s -w "%{http_code}" -o /tmp/ping.txt "https://cars-g-api.onrender.com/ping/github")
+        
+        if [ "$ping_response" = "200" ]; then
+          echo "✅ Smart ping successful (HTTP $ping_response)"
+          cat /tmp/ping.txt
+        else
+          echo "⚠️  Smart ping returned HTTP $ping_response"
+        fi
+        
+        # Also ping the status endpoint to warm up more services
+        echo ""
+        echo "🔍 Pinging status endpoint..."
+        status_response=$(curl -s -w "%{http_code}" -o /tmp/status.txt "https://cars-g-api.onrender.com/api/status")
+        
+        if [ "$status_response" = "200" ]; then
+          echo "✅ Status ping successful (HTTP $status_response)"
+        else
+          echo "⚠️  Status ping returned HTTP $status_response"
+        fi
+        
+        # Ping frontend to ensure it's also warm
+        echo ""
+        echo "🌐 Pinging frontend..."
+        frontend_response=$(curl -s -w "%{http_code}" -o /dev/null "https://cars-g.vercel.app/")
+        
+        if [ "$frontend_response" = "200" ]; then
+          echo "✅ Frontend ping successful (HTTP $frontend_response)"
+        else
+          echo "⚠️  Frontend ping returned HTTP $frontend_response"
+        fi
+        
+        echo ""
+        echo "🕐 Ping completed at $(date)"
+
+    - name: Log Ping Results
+      if: always()
+      run: |
+        echo "📊 Keep-alive ping summary:"
+        echo "- Backend Health: $(curl -s -w "%{http_code}" -o /dev/null "https://cars-g-api.onrender.com/health")"
+        echo "- Backend Status: $(curl -s -w "%{http_code}" -o /dev/null "https://cars-g-api.onrender.com/api/status")"
+        echo "- Frontend: $(curl -s -w "%{http_code}" -o /dev/null "https://cars-g.vercel.app/")"
+        echo "- Timestamp: $(date -u)"

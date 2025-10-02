@@ -15,6 +15,8 @@ import { generateTokenPair, verifyToken, extractTokenFromHeader } from './lib/jw
 import { authenticateToken, requireRole } from './middleware/auth.js';
 import EmailService from './lib/emailService.js';
 import GmailEmailService from './lib/gmailEmailService.js';
+import { createKeepAlive } from './keepalive.js';
+import { WarmupService } from './warmup.js';
 
 // Load environment variables
 dotenv.config();
@@ -55,6 +57,16 @@ if (process.env.NODE_ENV === 'development') {
 
 const app = express();
 const server = createServer(app);
+
+// Initialize warmup service
+const warmupService = new WarmupService();
+
+// Initialize keep-alive service
+const keepAlive = createKeepAlive({
+  url: process.env.RENDER_EXTERNAL_URL || 'https://cars-g-api.onrender.com',
+  interval: 14 * 60 * 1000, // 14 minutes
+  enabled: process.env.NODE_ENV === 'production'
+});
 
 // Initialize Socket.IO
 const io = new Server(server, {
@@ -139,6 +151,9 @@ app.use(cors({
   optionsSuccessStatus: 200
 }));
 app.use(express.json());
+
+// Add warmup middleware
+app.use(warmupService.middleware());
 
 // Configure multer for file uploads
 const upload = multer({
@@ -566,7 +581,78 @@ app.get('/health', (req, res) => {
     timestamp: new Date().toISOString(),
     supabase: 'connected',
     cors: 'configured',
+    environment: process.env.NODE_ENV || 'development',
+    warmup: warmupService.getStatus(),
+    keepAlive: keepAlive.getStatus()
+  });
+});
+
+// Smart ping endpoint for cron services
+let pingStats = {
+  github: { count: 0, lastPing: null },
+  cronjob: { count: 0, lastPing: null },
+  uptimerobot: { count: 0, lastPing: null },
+  manual: { count: 0, lastPing: null }
+};
+
+app.get('/ping/:source?', (req, res) => {
+  const source = req.params.source || req.query.source || 'manual';
+  const userAgent = req.get('User-Agent') || '';
+  const timestamp = new Date().toISOString();
+  
+  // Update ping statistics
+  if (!pingStats[source]) {
+    pingStats[source] = { count: 0, lastPing: null };
+  }
+  
+  pingStats[source].count++;
+  pingStats[source].lastPing = timestamp;
+  
+  // Log the ping (useful for debugging)
+  console.log(`🏓 Ping from ${source} (${userAgent.substring(0, 50)})`);
+  
+  res.json({
+    status: 'pong',
+    timestamp: timestamp,
+    source: source,
+    uptime: Math.floor(process.uptime()),
+    memory: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) + 'MB',
     environment: process.env.NODE_ENV || 'development'
+  });
+});
+
+// Ping statistics endpoint
+app.get('/api/ping-stats', (req, res) => {
+  const totalPings = Object.values(pingStats).reduce((sum, stat) => sum + stat.count, 0);
+  const lastActivity = Math.max(...Object.values(pingStats)
+    .map(stat => stat.lastPing ? new Date(stat.lastPing).getTime() : 0));
+  
+  res.json({
+    stats: pingStats,
+    summary: {
+      totalPings,
+      activeSources: Object.keys(pingStats).filter(key => pingStats[key].count > 0).length,
+      lastActivity: lastActivity > 0 ? new Date(lastActivity).toISOString() : null,
+      uptime: Math.floor(process.uptime())
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Detailed status endpoint
+app.get('/api/status', (req, res) => {
+  res.json({
+    server: {
+      status: 'running',
+      uptime: process.uptime(),
+      memory: process.memoryUsage(),
+      environment: process.env.NODE_ENV || 'development'
+    },
+    services: {
+      warmup: warmupService.getStatus(),
+      keepAlive: keepAlive.getStatus()
+    },
+    timestamp: new Date().toISOString()
   });
 });
 
@@ -2525,10 +2611,18 @@ const startServer = async () => {
   try {
     await testSupabaseConnection();
     
-    server.listen(PORT, () => {
+    server.listen(PORT, async () => {
       console.log(`🚀 Server running on port ${PORT}`);
       console.log(`🌐 Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:5173'}`);
       console.log(`📊 Health check: http://localhost:${PORT}/health`);
+      
+      // Start warmup process
+      console.log('🔥 Starting service warmup...');
+      await warmupService.warmup();
+      
+      // Start keep-alive service
+      keepAlive.start();
+      
       console.log('\n✅ Server is ready!');
     });
 
