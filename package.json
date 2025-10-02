@@ -28,8 +28,6 @@
     "server:install": "cd server && npm install",
     "server:start": "cd server && npm start",
     "server:dev": "cd server && npm run dev",
-    "server:optimized": "cd server && node server-optimized.js",
-    "server:minimal": "cd server && node -r dotenv/config server-optimized.js",
     "test:deployment": "powershell -ExecutionPolicy Bypass -File scripts/test-deployment.ps1",
     "test:deployment:frontend": "powershell -ExecutionPolicy Bypass -File scripts/test-deployment.ps1 -SkipBackend -SkipDatabase -SkipCloudinary -SkipPerformance",
     "test:deployment:backend": "powershell -ExecutionPolicy Bypass -File scripts/test-deployment.ps1 -SkipFrontend -SkipDatabase -SkipCloudinary -SkipPerformance",
@@ -41,15 +39,7 @@
     "test:e2e:deployment:open": "cypress open --config specPattern='cypress/e2e/deployment.cy.js'",
     "test:health": "curl -f https://cars-g.vercel.app/ && curl -f https://cars-g-api.onrender.com/health",
     "test:quick": "npm run test:deployment:frontend && npm run test:deployment:backend",
-    "deploy:backend": "powershell -ExecutionPolicy Bypass -File scripts/deploy-backend.ps1",
-    "warmup": "node scripts/warmup-deployment.js",
-    "deploy:warmup": "npm run deploy:full && npm run warmup",
-    "monitor:start": "node scripts/monitor-cold-starts.js start",
-    "monitor:status": "node scripts/monitor-cold-starts.js status",
-    "monitor:check": "node scripts/monitor-cold-starts.js once",
-    "ping:test": "curl -s https://cars-g-api.onrender.com/ping/manual | jq",
-    "ping:stats": "curl -s https://cars-g-api.onrender.com/api/ping-stats | jq",
-    "ping:health": "curl -s https://cars-g-api.onrender.com/health | jq"
+    "deploy:backend": "powershell -ExecutionPolicy Bypass -File scripts/deploy-backend.ps1"
   },
   "dependencies": {
     "@googlemaps/js-api-loader": "^1.16.6",

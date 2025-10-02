@@ -15,7 +15,6 @@ import { WelcomeGuide } from './components/WelcomeGuide';
 import { usePushNotifications } from './hooks/usePushNotifications';
 import { PerformanceMonitor } from './components/PerformanceMonitor';
 import { useAchievementNotifications, AchievementNotification } from './components/AchievementNotification';
-import { ResourcePreloader } from './components/ResourcePreloader';
 
 // Configure future flags for React Router v7
 const routerConfig = {
@@ -156,8 +155,6 @@ function AppContent() {
   return (
     <ErrorBoundary>
       <Providers>
-        {/* Preload critical resources */}
-        <ResourcePreloader />
         <div className="min-h-screen bg-gray-100">
           {/* Only show Navigation on non-landing pages */}
           {!isLandingPage && <Navigation />}

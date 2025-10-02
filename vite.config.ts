@@ -196,42 +196,7 @@ export default defineConfig({
   build: {
     sourcemap: true,
     target: 'esnext',
-    assetsInlineLimit: 4096, // Inline small assets to reduce HTTP requests
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          // Vendor chunks for better caching
-          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-          'ui-vendor': ['framer-motion', 'lucide-react'],
-          'map-vendor': ['leaflet', 'react-leaflet'],
-          'chart-vendor': ['chart.js', 'react-chartjs-2'],
-          'supabase-vendor': ['@supabase/supabase-js'],
-          'socket-vendor': ['socket.io-client']
-        },
-        // Optimize chunk file names for better caching
-        chunkFileNames: (chunkInfo) => {
-          const facadeModuleId = chunkInfo.facadeModuleId ? chunkInfo.facadeModuleId.split('/').pop().replace('.tsx', '').replace('.ts', '') : 'chunk';
-          return `js/${facadeModuleId}-[hash].js`;
-        },
-        entryFileNames: 'js/[name]-[hash].js',
-        assetFileNames: (assetInfo) => {
-          const info = assetInfo.name.split('.');
-          const ext = info[info.length - 1];
-          if (/png|jpe?g|svg|gif|tiff|bmp|ico/i.test(ext)) {
-            return `images/[name]-[hash][extname]`;
-          }
-          if (/css/i.test(ext)) {
-            return `css/[name]-[hash][extname]`;
-          }
-          return `assets/[name]-[hash][extname]`;
-        }
-      }
-    },
-    // Optimize for production
-    minify: 'esbuild',
-    cssMinify: true,
-    reportCompressedSize: false, // Faster builds
-    chunkSizeWarningLimit: 1000
+    assetsInlineLimit: 0
   },
   server: {
     port: 5173,
