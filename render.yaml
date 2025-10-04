@@ -50,3 +50,7 @@ services:
         value: your_gmail_user_here
       - key: GMAIL_APP_PASSWORD
         value: your_gmail_app_password_here
+      - key: EMAIL_FALLBACK_MODE
+        value: true
+      - key: EMAIL_DEBUG_MODE
+        value: true

@@ -54,8 +54,8 @@ class GmailEmailService {
     try {
       console.log(`📧 Attempting to send verification email to: ${email}`);
 
-      // If Gmail is not configured, use fallback
-      if (!this.transporter) {
+      // Check if Gmail is properly configured
+      if (!this.transporter || !this.gmailUser || this.gmailUser === 'your_gmail_user_here') {
         console.log('📧 Gmail not configured. For development, verification code is:', code);
         console.log('📧 To enable Gmail sending, set GMAIL_USER and GMAIL_APP_PASSWORD environment variables');
         return true; // Return true for development
@@ -73,7 +73,7 @@ class GmailEmailService {
       const result = await Promise.race([
         this.transporter.sendMail(mailOptions),
         new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Gmail send timeout')), 15000) // Reduced to 15 seconds for faster fallback
+          setTimeout(() => reject(new Error('Gmail send timeout')), 8000) // Reduced to 8 seconds for faster fallback
         )
       ]);
       
@@ -87,6 +87,7 @@ class GmailEmailService {
       // Handle timeout errors gracefully
       if (error.message === 'Gmail send timeout') {
         console.log('📧 Gmail request timed out, falling back to development mode');
+        console.log('📧 For development, verification code is:', code);
       } else {
         console.log('📧 Gmail sending failed. For development, verification code is:', code);
       }

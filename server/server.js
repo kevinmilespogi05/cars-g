@@ -1319,7 +1319,7 @@ app.post('/api/auth/send-verification', async (req, res) => {
     try {
       const gmailPromise = gmailEmailService.sendVerificationEmail(email, verificationCode, username || 'User');
       const gmailTimeout = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Gmail timeout')), 10000) // Reduced to 10 seconds for faster fallback
+        setTimeout(() => reject(new Error('Gmail timeout')), 6000) // Reduced to 6 seconds for faster fallback
       );
       
       emailSent = await Promise.race([gmailPromise, gmailTimeout]);
@@ -1336,7 +1336,7 @@ app.post('/api/auth/send-verification', async (req, res) => {
       try {
         const brevoPromise = emailService.sendVerificationEmail(email, verificationCode, username || 'User');
         const brevoTimeout = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Brevo timeout')), 10000) // 10 second timeout
+          setTimeout(() => reject(new Error('Brevo timeout')), 6000) // 6 second timeout
         );
         
         emailSent = await Promise.race([brevoPromise, brevoTimeout]);

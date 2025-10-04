@@ -1,0 +1,27 @@
+{
+  "env": {
+    "NODE_ENV": "production",
+    "PORT": "3001",
+    "FRONTEND_URL": "https://cars-g.vercel.app",
+    "VITE_SUPABASE_URL": "https://mffuqdwqjdxbwpbhuxby.supabase.co",
+    "VITE_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1mZnVxZHdxamR4YndwYmh1eGJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM5MTI4NzMsImV4cCI6MjA1OTQ4ODg3M30.3ALtkwlAO-V_98e-Y263l9pYSWjW1h1AY3qhqSTMkW0",
+    "SUPABASE_SERVICE_ROLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1mZnVxZHdxamR4YndwYmh1eGJ5Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0MzkxMjg3MywiZXhwIjoyMDU5NDg4ODczfQ.VK8WhHWV1kElmQ-CvfqBhyzxO29MoBLz1peHCixb4dw",
+    "VITE_CLOUDINARY_CLOUD_NAME": "dzqtdl5aa",
+    "VITE_CLOUDINARY_API_KEY": "829735821883862",
+    "VITE_CLOUDINARY_API_SECRET": "jp8xklrseBVvN13Jba7zPJ7BXPc",
+    "VITE_CLOUDINARY_UPLOAD_PRESET": "cars-g-uploads",
+    "FIREBASE_SERVER_KEY": "your_firebase_server_key_here",
+    "FCM_PROJECT_ID": "carsg-d5bed",
+    "JWT_SECRET": "cf8f1086c09c228fd85ce5b7f0d7f085521633ff99f9b2786dfe1f52b0e70e9c229642b7cfd0fbc0ab6c2971b1fddc0567f890323859afcc98460854af7eafb4",
+    "JWT_EXPIRES_IN": "24h",
+    "JWT_REFRESH_EXPIRES_IN": "7d",
+    "JWT_ISSUER": "cars-g-app",
+    "JWT_AUDIENCE": "cars-g-users",
+    "BREVO_API_KEY": "your_brevo_api_key_here",
+    "BREVO_SENDER_EMAIL": "noreply@cars-g.com",
+    "GMAIL_USER": "your_gmail_user_here",
+    "GMAIL_APP_PASSWORD": "your_gmail_app_password_here",
+    "EMAIL_FALLBACK_MODE": "true",
+    "EMAIL_DEBUG_MODE": "true"
+  }
+}
