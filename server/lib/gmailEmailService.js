@@ -27,7 +27,17 @@ class GmailEmailService {
       auth: {
         user: this.gmailUser,
         pass: this.gmailAppPassword
-      }
+      },
+      // Add connection options for better reliability on deployed systems
+      pool: true,
+      maxConnections: 1,
+      maxMessages: 3,
+      rateDelta: 20000,
+      rateLimit: 5,
+      // Increase timeouts for deployed systems
+      connectionTimeout: 60000,
+      greetingTimeout: 30000,
+      socketTimeout: 60000
     });
 
     console.log('✅ Gmail SMTP transporter initialized');
@@ -59,11 +69,11 @@ class GmailEmailService {
         text: this.getVerificationEmailText(code, username)
       };
 
-      // Add timeout to prevent hanging requests
+      // Add timeout to prevent hanging requests (optimized for deployed systems)
       const result = await Promise.race([
         this.transporter.sendMail(mailOptions),
         new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Gmail send timeout')), 10000)
+          setTimeout(() => reject(new Error('Gmail send timeout')), 15000) // Reduced to 15 seconds for faster fallback
         )
       ]);
       

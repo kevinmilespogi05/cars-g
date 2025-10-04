@@ -15,7 +15,6 @@ import { generateTokenPair, verifyToken, extractTokenFromHeader } from './lib/jw
 import { authenticateToken, requireRole } from './middleware/auth.js';
 import EmailService from './lib/emailService.js';
 import GmailEmailService from './lib/gmailEmailService.js';
-import ResendEmailService from './lib/resendEmailService.js';
 
 // Load environment variables
 dotenv.config();
@@ -87,7 +86,6 @@ const supabaseAdmin = supabaseServiceKey ? createClient(supabaseUrl, supabaseSer
 // Initialize email services
 const emailService = new EmailService();
 const gmailEmailService = new GmailEmailService();
-const resendEmailService = new ResendEmailService();
 
 if (!supabaseUrl) {
   console.error('❌ VITE_SUPABASE_URL is required');
@@ -140,7 +138,18 @@ app.use(cors({
   allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
   optionsSuccessStatus: 200
 }));
-app.use(express.json());
+// Enhanced JSON parsing with better error handling
+app.use(express.json({
+  limit: '10mb',
+  verify: (req, res, buf, encoding) => {
+    try {
+      JSON.parse(buf);
+    } catch (e) {
+      console.error('❌ Invalid JSON received:', buf.toString());
+      throw new Error('Invalid JSON format');
+    }
+  }
+}));
 
 // Configure multer for file uploads
 const upload = multer({
@@ -1242,6 +1251,16 @@ app.post('/api/auth/send-verification', async (req, res) => {
   }, 30000); // 30 second timeout for the entire request
 
   try {
+    // Validate request body
+    if (!req.body || typeof req.body !== 'object') {
+      clearTimeout(requestTimeout);
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid request body',
+        code: 'INVALID_BODY'
+      });
+    }
+
     const { email, username } = req.body;
 
     if (!email) {
@@ -1292,39 +1311,24 @@ app.post('/api/auth/send-verification', async (req, res) => {
       }
     }
 
-    // Send verification email with timeout protection
+    // Send verification email with improved strategy
     let emailSent = false;
+    let emailServiceUsed = '';
     
-    // Try Resend first (most reliable for deployed systems)
+    // Try Gmail first with shorter timeout for faster fallback
     try {
-      const resendPromise = resendEmailService.sendVerificationEmail(email, verificationCode, username || 'User');
-      const resendTimeout = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Resend timeout')), 15000) // 15 second timeout
+      const gmailPromise = gmailEmailService.sendVerificationEmail(email, verificationCode, username || 'User');
+      const gmailTimeout = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Gmail timeout')), 10000) // Reduced to 10 seconds for faster fallback
       );
       
-      emailSent = await Promise.race([resendPromise, resendTimeout]);
+      emailSent = await Promise.race([gmailPromise, gmailTimeout]);
       if (emailSent) {
-        console.log('✅ Email sent via Resend');
+        console.log('✅ Email sent via Gmail SMTP');
+        emailServiceUsed = 'Gmail';
       }
-    } catch (resendError) {
-      console.log('⚠️  Resend sending failed, trying Gmail...', resendError.message);
-    }
-    
-    // If Resend failed, try Gmail with timeout
-    if (!emailSent) {
-      try {
-        const gmailPromise = gmailEmailService.sendVerificationEmail(email, verificationCode, username || 'User');
-        const gmailTimeout = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Gmail timeout')), 15000) // 15 second timeout
-        );
-        
-        emailSent = await Promise.race([gmailPromise, gmailTimeout]);
-        if (emailSent) {
-          console.log('✅ Email sent via Gmail SMTP');
-        }
-      } catch (gmailError) {
-        console.log('⚠️  Gmail sending failed, trying Brevo...', gmailError.message);
-      }
+    } catch (gmailError) {
+      console.log('⚠️  Gmail sending failed, trying Brevo...', gmailError.message);
     }
     
     // If Gmail failed, try Brevo with timeout
@@ -1332,12 +1336,13 @@ app.post('/api/auth/send-verification', async (req, res) => {
       try {
         const brevoPromise = emailService.sendVerificationEmail(email, verificationCode, username || 'User');
         const brevoTimeout = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Brevo timeout')), 15000) // 15 second timeout
+          setTimeout(() => reject(new Error('Brevo timeout')), 10000) // 10 second timeout
         );
         
         emailSent = await Promise.race([brevoPromise, brevoTimeout]);
         if (emailSent) {
           console.log('✅ Email sent via Brevo');
+          emailServiceUsed = 'Brevo';
         }
       } catch (brevoError) {
         console.log('⚠️  Brevo sending failed:', brevoError.message);
@@ -1349,10 +1354,13 @@ app.post('/api/auth/send-verification', async (req, res) => {
     let devBypass = false;
     if (!emailSent) {
       console.warn('⚠️  Email not sent, but continuing with verification code:', verificationCode);
-      console.warn('⚠️  To enable email sending, configure BREVO_API_KEY and GMAIL credentials');
-      console.warn('⚠️  This is normal for development or when email services are not configured');
+      console.warn('⚠️  Gmail and Brevo both failed - using fallback mode');
+      console.warn('⚠️  To enable email sending, check Gmail credentials and activate Brevo SMTP account');
+      console.warn('⚠️  Contact contact@brevo.com to activate Brevo SMTP account');
       devBypass = true;
       emailSent = true;
+    } else {
+      console.log(`✅ Email successfully sent via ${emailServiceUsed}`);
     }
 
     // Only insert verification code if email was sent successfully
@@ -1396,11 +1404,12 @@ app.post('/api/auth/send-verification', async (req, res) => {
     res.json({
       success: true,
       message: devBypass 
-        ? 'Verification code generated successfully (email service unavailable)' 
-        : 'Verification code sent successfully',
+        ? `Verification code generated successfully (${emailServiceUsed ? emailServiceUsed + ' failed' : 'email service unavailable'})` 
+        : `Verification code sent successfully via ${emailServiceUsed}`,
       expiresAt,
-      // Expose code in development to unblock local testing
-      code: devBypass ? verificationCode : undefined
+      // Always expose code when email services fail to ensure registration can continue
+      code: devBypass ? verificationCode : undefined,
+      emailService: emailServiceUsed || 'fallback'
     });
 
   } catch (error) {
@@ -2089,9 +2098,25 @@ app.get('/api/performance', (req, res) => {
 
 
 // General error handling
+// Global error handler with better JSON error handling
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ error: 'Something went wrong!' });
+  console.error('Error:', err);
+  
+  // Handle JSON parsing errors specifically
+  if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+    return res.status(400).json({ 
+      success: false,
+      error: 'Invalid JSON format in request body',
+      code: 'INVALID_JSON'
+    });
+  }
+  
+  // Handle other errors
+  res.status(500).json({ 
+    success: false,
+    error: 'Internal server error',
+    code: 'INTERNAL_ERROR'
+  });
 });
 
 // Set default environment
