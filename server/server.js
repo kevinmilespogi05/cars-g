@@ -138,7 +138,18 @@ app.use(cors({
   allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
   optionsSuccessStatus: 200
 }));
-app.use(express.json());
+// Enhanced JSON parsing with better error handling
+app.use(express.json({
+  limit: '10mb',
+  verify: (req, res, buf, encoding) => {
+    try {
+      JSON.parse(buf);
+    } catch (e) {
+      console.error('❌ Invalid JSON received:', buf.toString());
+      throw new Error('Invalid JSON format');
+    }
+  }
+}));
 
 // Configure multer for file uploads
 const upload = multer({
@@ -1240,6 +1251,16 @@ app.post('/api/auth/send-verification', async (req, res) => {
   }, 30000); // 30 second timeout for the entire request
 
   try {
+    // Validate request body
+    if (!req.body || typeof req.body !== 'object') {
+      clearTimeout(requestTimeout);
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid request body',
+        code: 'INVALID_BODY'
+      });
+    }
+
     const { email, username } = req.body;
 
     if (!email) {
@@ -2070,9 +2091,25 @@ app.get('/api/performance', (req, res) => {
 
 
 // General error handling
+// Global error handler with better JSON error handling
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ error: 'Something went wrong!' });
+  console.error('Error:', err);
+  
+  // Handle JSON parsing errors specifically
+  if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+    return res.status(400).json({ 
+      success: false,
+      error: 'Invalid JSON format in request body',
+      code: 'INVALID_JSON'
+    });
+  }
+  
+  // Handle other errors
+  res.status(500).json({ 
+    success: false,
+    error: 'Internal server error',
+    code: 'INTERNAL_ERROR'
+  });
 });
 
 // Set default environment
