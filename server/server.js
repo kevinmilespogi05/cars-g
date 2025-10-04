@@ -15,6 +15,7 @@ import { generateTokenPair, verifyToken, extractTokenFromHeader } from './lib/jw
 import { authenticateToken, requireRole } from './middleware/auth.js';
 import EmailService from './lib/emailService.js';
 import GmailEmailService from './lib/gmailEmailService.js';
+import ResendEmailService from './lib/resendEmailService.js';
 
 // Load environment variables
 dotenv.config();
@@ -86,6 +87,7 @@ const supabaseAdmin = supabaseServiceKey ? createClient(supabaseUrl, supabaseSer
 // Initialize email services
 const emailService = new EmailService();
 const gmailEmailService = new GmailEmailService();
+const resendEmailService = new ResendEmailService();
 
 if (!supabaseUrl) {
   console.error('❌ VITE_SUPABASE_URL is required');
@@ -1314,19 +1316,36 @@ app.post('/api/auth/send-verification', async (req, res) => {
     // Send verification email with timeout protection
     let emailSent = false;
     
-    // Try Gmail first with timeout
+    // Try Resend first (most reliable for deployed systems)
     try {
-      const gmailPromise = gmailEmailService.sendVerificationEmail(email, verificationCode, username || 'User');
-      const gmailTimeout = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Gmail timeout')), 15000) // 15 second timeout
+      const resendPromise = resendEmailService.sendVerificationEmail(email, verificationCode, username || 'User');
+      const resendTimeout = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Resend timeout')), 15000) // 15 second timeout
       );
       
-      emailSent = await Promise.race([gmailPromise, gmailTimeout]);
+      emailSent = await Promise.race([resendPromise, resendTimeout]);
       if (emailSent) {
-        console.log('✅ Email sent via Gmail SMTP');
+        console.log('✅ Email sent via Resend');
       }
-    } catch (gmailError) {
-      console.log('⚠️  Gmail sending failed, trying Brevo...', gmailError.message);
+    } catch (resendError) {
+      console.log('⚠️  Resend sending failed, trying Gmail...', resendError.message);
+    }
+    
+    // If Resend failed, try Gmail with timeout
+    if (!emailSent) {
+      try {
+        const gmailPromise = gmailEmailService.sendVerificationEmail(email, verificationCode, username || 'User');
+        const gmailTimeout = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Gmail timeout')), 15000) // 15 second timeout
+        );
+        
+        emailSent = await Promise.race([gmailPromise, gmailTimeout]);
+        if (emailSent) {
+          console.log('✅ Email sent via Gmail SMTP');
+        }
+      } catch (gmailError) {
+        console.log('⚠️  Gmail sending failed, trying Brevo...', gmailError.message);
+      }
     }
     
     // If Gmail failed, try Brevo with timeout
