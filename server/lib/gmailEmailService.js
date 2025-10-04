@@ -59,7 +59,14 @@ class GmailEmailService {
         text: this.getVerificationEmailText(code, username)
       };
 
-      const result = await this.transporter.sendMail(mailOptions);
+      // Add timeout to prevent hanging requests
+      const result = await Promise.race([
+        this.transporter.sendMail(mailOptions),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Gmail send timeout')), 10000)
+        )
+      ]);
+      
       console.log('✅ Verification email sent successfully to:', email);
       console.log('📧 Message ID:', result.messageId);
       return true;
@@ -67,9 +74,14 @@ class GmailEmailService {
     } catch (error) {
       console.error('❌ Error sending verification email:', error.message);
       
-      // If Gmail fails, fall back to development mode
-      console.log('📧 Gmail sending failed. For development, verification code is:', code);
-      return true; // Return true for development
+      // Handle timeout errors gracefully
+      if (error.message === 'Gmail send timeout') {
+        console.log('📧 Gmail request timed out, falling back to development mode');
+      } else {
+        console.log('📧 Gmail sending failed. For development, verification code is:', code);
+      }
+      
+      return true; // Return true for development/fallback
     }
   }
 

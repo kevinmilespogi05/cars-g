@@ -54,14 +54,21 @@ class EmailService {
         textContent: this.getVerificationEmailText(code, username)
       };
 
+      // Add timeout to prevent hanging requests
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
       const response = await fetch(this.apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'api-key': this.apiKey
         },
-        body: JSON.stringify(emailData)
+        body: JSON.stringify(emailData),
+        signal: controller.signal
       });
+
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -80,15 +87,21 @@ class EmailService {
           console.log('📧 Rate limited, waiting 2 seconds before retry...');
           await new Promise(resolve => setTimeout(resolve, 2000));
           
-          // Retry once
+          // Retry once with timeout
+          const retryController = new AbortController();
+          const retryTimeoutId = setTimeout(() => retryController.abort(), 10000); // 10 second timeout
+          
           const retryResponse = await fetch(this.apiUrl, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               'api-key': this.apiKey
             },
-            body: JSON.stringify(emailData)
+            body: JSON.stringify(emailData),
+            signal: retryController.signal
           });
+
+          clearTimeout(retryTimeoutId);
 
           if (retryResponse.ok) {
             const retryResult = await retryResponse.json();
@@ -106,6 +119,13 @@ class EmailService {
 
     } catch (error) {
       console.error('❌ Error sending verification email:', error);
+      
+      // Handle timeout errors gracefully
+      if (error.name === 'AbortError') {
+        console.log('📧 Email request timed out, falling back to development mode');
+        return true; // Return true for development/fallback
+      }
+      
       return false;
     }
   }

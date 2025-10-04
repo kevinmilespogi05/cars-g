@@ -1228,10 +1228,22 @@ app.get('/api/auth/admin-test', authenticateToken, requireRole('admin'), (req, r
 
 // Send verification code
 app.post('/api/auth/send-verification', async (req, res) => {
+  // Set a maximum timeout for the entire request
+  const requestTimeout = setTimeout(() => {
+    if (!res.headersSent) {
+      res.status(408).json({
+        success: false,
+        error: 'Request timeout. Please try again.',
+        code: 'REQUEST_TIMEOUT'
+      });
+    }
+  }, 30000); // 30 second timeout for the entire request
+
   try {
     const { email, username } = req.body;
 
     if (!email) {
+      clearTimeout(requestTimeout);
       return res.status(400).json({
         success: false,
         error: 'Email is required',
@@ -1248,6 +1260,7 @@ app.post('/api/auth/send-verification', async (req, res) => {
     const recentAttempts = attempts.filter(timestamp => now - timestamp < 5 * 60 * 1000);
     
     if (recentAttempts.length >= 3) {
+      clearTimeout(requestTimeout);
       return res.status(429).json({
         success: false,
         error: 'Too many verification attempts. Please wait 5 minutes before trying again.',
@@ -1277,28 +1290,38 @@ app.post('/api/auth/send-verification', async (req, res) => {
       }
     }
 
-    // Send verification email first - try Gmail, then Brevo
+    // Send verification email with timeout protection
     let emailSent = false;
     
-    // Try Gmail first
+    // Try Gmail first with timeout
     try {
-      emailSent = await gmailEmailService.sendVerificationEmail(email, verificationCode, username || 'User');
+      const gmailPromise = gmailEmailService.sendVerificationEmail(email, verificationCode, username || 'User');
+      const gmailTimeout = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Gmail timeout')), 15000) // 15 second timeout
+      );
+      
+      emailSent = await Promise.race([gmailPromise, gmailTimeout]);
       if (emailSent) {
         console.log('✅ Email sent via Gmail SMTP');
       }
     } catch (gmailError) {
-      console.log('⚠️  Gmail sending failed, trying Brevo...');
+      console.log('⚠️  Gmail sending failed, trying Brevo...', gmailError.message);
     }
     
-    // If Gmail failed, try Brevo
+    // If Gmail failed, try Brevo with timeout
     if (!emailSent) {
       try {
-        emailSent = await emailService.sendVerificationEmail(email, verificationCode, username || 'User');
+        const brevoPromise = emailService.sendVerificationEmail(email, verificationCode, username || 'User');
+        const brevoTimeout = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Brevo timeout')), 15000) // 15 second timeout
+        );
+        
+        emailSent = await Promise.race([brevoPromise, brevoTimeout]);
         if (emailSent) {
           console.log('✅ Email sent via Brevo');
         }
       } catch (brevoError) {
-        console.log('⚠️  Brevo sending failed');
+        console.log('⚠️  Brevo sending failed:', brevoError.message);
       }
     }
 
@@ -1308,6 +1331,7 @@ app.post('/api/auth/send-verification', async (req, res) => {
     if (!emailSent) {
       console.warn('⚠️  Email not sent, but continuing with verification code:', verificationCode);
       console.warn('⚠️  To enable email sending, configure BREVO_API_KEY and GMAIL credentials');
+      console.warn('⚠️  This is normal for development or when email services are not configured');
       devBypass = true;
       emailSent = true;
     }
@@ -1338,6 +1362,7 @@ app.post('/api/auth/send-verification', async (req, res) => {
           .single();
 
     if (insertError) {
+      clearTimeout(requestTimeout);
       console.error('Error inserting verification code:', insertError);
       return res.status(500).json({
         success: false,
@@ -1346,15 +1371,23 @@ app.post('/api/auth/send-verification', async (req, res) => {
       });
     }
 
+    // Clear the request timeout since we're responding successfully
+    clearTimeout(requestTimeout);
+    
     res.json({
       success: true,
-      message: 'Verification code sent successfully',
+      message: devBypass 
+        ? 'Verification code generated successfully (email service unavailable)' 
+        : 'Verification code sent successfully',
       expiresAt,
       // Expose code in development to unblock local testing
       code: devBypass ? verificationCode : undefined
     });
 
   } catch (error) {
+    // Clear the request timeout since we're responding with an error
+    clearTimeout(requestTimeout);
+    
     console.error('Send verification error:', error);
     res.status(500).json({
       success: false,
