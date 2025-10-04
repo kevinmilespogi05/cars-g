@@ -43,7 +43,7 @@ services:
       - key: JWT_AUDIENCE
         value: cars-g-users
       - key: RESEND_API_KEY
-        value: your_resend_api_key_here
+        value: re_iaQYnUfA_5YiVEyk9SeJiGhtdrj3xQ8SF
       - key: RESEND_FROM_EMAIL
         value: Cars-G <noreply@cars-g.com>
       - key: BREVO_API_KEY
