@@ -1,0 +1,14 @@
+# Email Configuration for Deployment
+# Copy these to your deployment platform (Render/Vercel)
+
+# Gmail SMTP Configuration (Recommended)
+GMAIL_USER=cars.gsanpablo@gmail.com
+GMAIL_APP_PASSWORD=uzft zdmm nmhk esxm
+
+# Brevo API Configuration (Alternative)
+BREVO_API_KEY=your-brevo-api-key-here
+BREVO_SENDER_EMAIL=no-reply@cars-g.app
+
+# Email Fallback Settings
+EMAIL_FALLBACK_MODE=true
+EMAIL_DEBUG_MODE=true

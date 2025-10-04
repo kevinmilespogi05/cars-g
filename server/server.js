@@ -142,14 +142,32 @@ app.use(cors({
 app.use(express.json({
   limit: '10mb',
   verify: (req, res, buf, encoding) => {
-    try {
-      JSON.parse(buf);
-    } catch (e) {
-      console.error('❌ Invalid JSON received:', buf.toString());
-      throw new Error('Invalid JSON format');
+    // Only validate JSON if there's actual content
+    if (buf && buf.length > 0) {
+      try {
+        JSON.parse(buf);
+      } catch (e) {
+        console.error('❌ Invalid JSON received:', buf.toString());
+        // Don't throw error, let express handle it gracefully
+        return false;
+      }
     }
+    return true;
   }
 }));
+
+// Error handler for JSON parsing errors
+app.use((error, req, res, next) => {
+  if (error instanceof SyntaxError && error.status === 400 && 'body' in error) {
+    console.error('❌ JSON parsing error:', error.message);
+    return res.status(400).json({
+      success: false,
+      error: 'Invalid JSON format',
+      code: 'INVALID_JSON'
+    });
+  }
+  next(error);
+});
 
 // Configure multer for file uploads
 const upload = multer({
@@ -1263,6 +1281,16 @@ app.post('/api/auth/send-verification', async (req, res) => {
 
     const { email, username } = req.body;
 
+    // Additional validation for email format
+    if (email && typeof email === 'string' && !email.includes('@')) {
+      clearTimeout(requestTimeout);
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid email format',
+        code: 'INVALID_EMAIL_FORMAT'
+      });
+    }
+
     if (!email) {
       clearTimeout(requestTimeout);
       return res.status(400).json({
@@ -1428,6 +1456,15 @@ app.post('/api/auth/send-verification', async (req, res) => {
 // Verify email code
 app.post('/api/auth/verify-email', async (req, res) => {
   try {
+    // Validate request body exists and is an object
+    if (!req.body || typeof req.body !== 'object') {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid request body',
+        code: 'INVALID_BODY'
+      });
+    }
+
     const { email, code } = req.body;
 
     if (!email || !code) {

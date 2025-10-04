@@ -47,9 +47,9 @@ services:
       - key: BREVO_SENDER_EMAIL
         value: noreply@cars-g.com
       - key: GMAIL_USER
-        value: your_gmail_user_here
+        value: cars.gsanpablo@gmail.com
       - key: GMAIL_APP_PASSWORD
-        value: your_gmail_app_password_here
+        value: uzft zdmm nmhk esxm
       - key: EMAIL_FALLBACK_MODE
         value: true
       - key: EMAIL_DEBUG_MODE

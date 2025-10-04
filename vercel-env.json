@@ -19,8 +19,8 @@
     "JWT_AUDIENCE": "cars-g-users",
     "BREVO_API_KEY": "your_brevo_api_key_here",
     "BREVO_SENDER_EMAIL": "noreply@cars-g.com",
-    "GMAIL_USER": "your_gmail_user_here",
-    "GMAIL_APP_PASSWORD": "your_gmail_app_password_here",
+    "GMAIL_USER": "cars.gsanpablo@gmail.com",
+    "GMAIL_APP_PASSWORD": "uzft zdmm nmhk esxm",
     "EMAIL_FALLBACK_MODE": "true",
     "EMAIL_DEBUG_MODE": "true"
   }

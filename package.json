@@ -42,7 +42,9 @@
     "deploy:backend": "powershell -ExecutionPolicy Bypass -File scripts/deploy-backend.ps1",
     "test:email": "node scripts/test-email-complete.js",
     "test:email:config": "node scripts/test-email-config.js",
-    "setup:email": "node scripts/setup-email-config.js"
+    "setup:email": "node scripts/setup-email-config.js",
+    "test:verification": "node scripts/test-verification-endpoints.js",
+    "deploy:email": "node scripts/deploy-email-config.js"
   },
   "dependencies": {
     "@googlemaps/js-api-loader": "^1.16.6",
