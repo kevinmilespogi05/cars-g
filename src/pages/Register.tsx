@@ -39,6 +39,7 @@ export function Register() {
   const [isFocused, setIsFocused] = useState<string | null>(null);
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [verificationCode, setVerificationCode] = useState<string | null>(null);
   
   // Registration steps: 'form' | 'verification' | 'complete'
   const [registrationStep, setRegistrationStep] = useState<'form' | 'verification' | 'complete'>('form');
@@ -82,6 +83,10 @@ export function Register() {
 
       const data = await response.json();
       if (data?.success) {
+        // Store verification code if provided (when email services are not configured)
+        if (data.code) {
+          setVerificationCode(data.code);
+        }
         setRegistrationStep('verification');
       } else {
         throw new Error(data?.error || 'Failed to send verification email');
@@ -546,6 +551,7 @@ export function Register() {
             <EmailVerification
               email={email}
               username={username}
+              preFilledCode={verificationCode}
               onVerified={handleEmailVerified}
               onBack={handleBackToForm}
               onResend={handleResendVerification}

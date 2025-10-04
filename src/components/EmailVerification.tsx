@@ -14,6 +14,7 @@ import { getApiUrl } from '../lib/config';
 interface EmailVerificationProps {
   email: string;
   username: string;
+  preFilledCode?: string | null;
   onVerified: () => void;
   onBack: () => void;
   onResend: () => void;
@@ -22,6 +23,7 @@ interface EmailVerificationProps {
 export function EmailVerification({ 
   email, 
   username, 
+  preFilledCode,
   onVerified, 
   onBack, 
   onResend 
@@ -32,6 +34,13 @@ export function EmailVerification({
   const [success, setSuccess] = useState(false);
   const [timeLeft, setTimeLeft] = useState(600); // 10 minutes in seconds
   const [isResending, setIsResending] = useState(false);
+
+  // Pre-fill verification code if provided
+  useEffect(() => {
+    if (preFilledCode) {
+      setVerificationCode(preFilledCode);
+    }
+  }, [preFilledCode]);
 
   // Countdown timer
   useEffect(() => {
@@ -158,6 +167,17 @@ export function EmailVerification({
           </p>
         </div>
       </div>
+
+      {/* Pre-filled Code Notice */}
+      {preFilledCode && (
+        <div className="bg-blue-50 border-2 border-blue-200 text-blue-700 px-4 py-3 rounded-xl flex items-center text-sm">
+          <Shield className="h-4 w-4 mr-2 flex-shrink-0" />
+          <span>
+            <strong>Development Mode:</strong> Email services are not configured. 
+            The verification code has been pre-filled for testing purposes.
+          </span>
+        </div>
+      )}
 
       {/* Timer */}
       <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">

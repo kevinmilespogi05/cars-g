@@ -42,3 +42,11 @@ services:
         value: cars-g-app
       - key: JWT_AUDIENCE
         value: cars-g-users
+      - key: BREVO_API_KEY
+        value: your_brevo_api_key_here
+      - key: BREVO_SENDER_EMAIL
+        value: noreply@cars-g.com
+      - key: GMAIL_USER
+        value: your_gmail_user_here
+      - key: GMAIL_APP_PASSWORD
+        value: your_gmail_app_password_here
