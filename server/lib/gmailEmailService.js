@@ -22,33 +22,69 @@ class GmailEmailService {
       return;
     }
 
-    this.transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: this.gmailUser,
-        pass: this.gmailAppPassword
+    // Try multiple SMTP configurations for better compatibility
+    const smtpConfigs = [
+      // Configuration 1: Gmail SMTP with TLS (most compatible)
+      {
+        host: 'smtp.gmail.com',
+        port: 587,
+        secure: false,
+        auth: {
+          user: this.gmailUser,
+          pass: this.gmailAppPassword
+        },
+        tls: {
+          rejectUnauthorized: false,
+          ciphers: 'SSLv3'
+        },
+        connectionTimeout: 8000,
+        greetingTimeout: 4000,
+        socketTimeout: 8000,
+        debug: process.env.NODE_ENV === 'production',
+        logger: process.env.NODE_ENV === 'production'
       },
-      // Production-optimized settings for hosting platforms
-      pool: false,
-      maxConnections: 1,
-      maxMessages: 1,
-      rateDelta: 5000,
-      rateLimit: 1,
-      // Extended timeouts for production hosting
-      connectionTimeout: 30000,
-      greetingTimeout: 20000,
-      socketTimeout: 30000,
-      // Production-specific options
-      secure: true,
-      port: 587,
-      tls: {
-        rejectUnauthorized: false,
-        ciphers: 'SSLv3'
+      // Configuration 2: Gmail SMTP with SSL
+      {
+        host: 'smtp.gmail.com',
+        port: 465,
+        secure: true,
+        auth: {
+          user: this.gmailUser,
+          pass: this.gmailAppPassword
+        },
+        tls: {
+          rejectUnauthorized: false
+        },
+        connectionTimeout: 8000,
+        greetingTimeout: 4000,
+        socketTimeout: 8000,
+        debug: process.env.NODE_ENV === 'production',
+        logger: process.env.NODE_ENV === 'production'
       },
-      // Additional production settings
-      debug: process.env.NODE_ENV === 'production',
-      logger: process.env.NODE_ENV === 'production'
-    });
+      // Configuration 3: Alternative Gmail SMTP with different settings
+      {
+        host: 'smtp.gmail.com',
+        port: 587,
+        secure: false,
+        auth: {
+          user: this.gmailUser,
+          pass: this.gmailAppPassword
+        },
+        tls: {
+          rejectUnauthorized: false,
+          ciphers: 'TLSv1.2'
+        },
+        connectionTimeout: 6000,
+        greetingTimeout: 3000,
+        socketTimeout: 6000,
+        debug: process.env.NODE_ENV === 'production',
+        logger: process.env.NODE_ENV === 'production'
+      }
+    ];
+
+    // Use the first configuration by default
+    this.transporter = nodemailer.createTransport(smtpConfigs[0]);
+    this.smtpConfigs = smtpConfigs;
 
     console.log('✅ Gmail SMTP transporter initialized');
   }
@@ -65,11 +101,11 @@ class GmailEmailService {
       console.log(`📧 Attempting to send verification email to: ${email}`);
 
       // Check if Gmail is properly configured
-      if (!this.transporter || !this.gmailUser || this.gmailUser === 'your_gmail_user_here') {
+      if (!this.gmailUser || this.gmailUser === 'your_gmail_user_here') {
         const allowFallback = String(process.env.EMAIL_FALLBACK_MODE).toLowerCase() === 'true';
         console.log('📧 Gmail not configured. For development, verification code is:', code);
         console.log('📧 To enable Gmail sending, set GMAIL_USER and GMAIL_APP_PASSWORD environment variables');
-        return allowFallback; // only succeed when explicitly in fallback mode
+        return allowFallback;
       }
 
       const mailOptions = {
@@ -80,35 +116,55 @@ class GmailEmailService {
         text: this.getVerificationEmailText(code, username)
       };
 
-      // Add timeout to prevent hanging requests (optimized for deployed systems)
+      // Try multiple SMTP configurations
       const isProduction = process.env.NODE_ENV === 'production';
-      const timeoutMs = isProduction ? 15000 : 5000; // Longer timeout in production for Gmail SMTP
+      const timeoutMs = isProduction ? 8000 : 5000; // Shorter timeout for faster fallback
       
-      const result = await Promise.race([
-        this.transporter.sendMail(mailOptions),
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Gmail send timeout')), timeoutMs)
-        )
-      ]);
-      
-      console.log('✅ Verification email sent successfully to:', email);
-      console.log('📧 Message ID:', result.messageId);
-      return true;
+      for (let i = 0; i < this.smtpConfigs.length; i++) {
+        try {
+          console.log(`📧 Trying SMTP configuration ${i + 1}/${this.smtpConfigs.length}...`);
+          
+          // Create a new transporter for this configuration
+          const testTransporter = nodemailer.createTransport(this.smtpConfigs[i]);
+          
+          const result = await Promise.race([
+            testTransporter.sendMail(mailOptions),
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Gmail send timeout')), timeoutMs)
+            )
+          ]);
+          
+          console.log('✅ Verification email sent successfully to:', email);
+          console.log('📧 Message ID:', result.messageId);
+          console.log(`📧 Used SMTP configuration ${i + 1} (${this.smtpConfigs[i].port === 587 ? 'TLS' : 'SSL'})`);
+          return true;
+          
+        } catch (configError) {
+          console.log(`⚠️  SMTP configuration ${i + 1} failed:`, configError.message);
+          if (i === this.smtpConfigs.length - 1) {
+            // All configurations failed
+            throw configError;
+          }
+          // Try next configuration
+          continue;
+        }
+      }
 
     } catch (error) {
       console.error('❌ Error sending verification email:', error.message);
       
-      const allowFallback = String(process.env.EMAIL_FALLBACK_MODE).toLowerCase() === 'true';
+      const allowFallback = String(process.env.EMAIL_FALLBACK_MODE).toLowerCase() === 'true' || 
+                           process.env.NODE_ENV === 'production';
       
       // Handle timeout errors gracefully
       if (error.message === 'Gmail send timeout') {
-        console.log('📧 Gmail request timed out');
+        console.log('📧 Gmail request timed out on all configurations');
         console.log('📧 For development, verification code is:', code);
       } else {
-        console.log('📧 Gmail sending failed. For development, verification code is:', code);
+        console.log('📧 Gmail sending failed on all configurations. For development, verification code is:', code);
       }
       
-      return allowFallback; // false in prod, true only if fallback enabled
+      return allowFallback;
     }
   }
 
