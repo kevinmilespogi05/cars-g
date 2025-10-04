@@ -340,6 +340,33 @@ export function getCurrentStoredUser(): User | null {
 }
 
 /**
+ * Generate JWT tokens for OAuth users
+ */
+export async function generateOAuthTokens(userId: string): Promise<AuthResponse> {
+  const response = await fetch(`${getApiUrl()}/api/auth/oauth-tokens`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ userId }),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error || 'Failed to generate OAuth tokens');
+  }
+
+  if (data.success) {
+    // Store tokens and user data
+    storeTokens(data.tokens);
+    storeUser(data.user);
+  }
+
+  return data;
+}
+
+/**
  * Get stored access token
  */
 export function getAccessToken(): string | null {

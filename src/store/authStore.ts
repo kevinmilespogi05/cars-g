@@ -12,7 +12,8 @@ import {
   getCurrentStoredUser,
   clearTokens,
   storeTokens,
-  storeUser
+  storeUser,
+  generateOAuthTokens
 } from '../lib/jwt';
 
 interface AuthState {
@@ -232,6 +233,16 @@ export const useAuthStore = create<AuthState>((set) => ({
                 
               if (fetchError && String((fetchError as any).status) !== '406') throw fetchError;
               
+              // Generate JWT tokens for OAuth user
+              try {
+                console.log('Generating JWT tokens for OAuth user in auth state change...');
+                await generateOAuthTokens(session.user.id);
+                console.log('JWT tokens generated successfully in auth state change');
+              } catch (jwtError) {
+                console.warn('Failed to generate JWT tokens for OAuth user in auth state change:', jwtError);
+                // Continue without JWT tokens - user can still use the app
+              }
+              
               set({ 
                 user: newProfile ? { ...newProfile, email: session.user.email } : { id: session.user.id, email: session.user.email } as any,
                 isAuthenticated: true,
@@ -247,6 +258,16 @@ export const useAuthStore = create<AuthState>((set) => ({
                 await initializeUserStats(session.user.id);
               } catch (e) {
                 console.warn('Skipping stats initialization:', e);
+              }
+              
+              // Generate JWT tokens for OAuth user
+              try {
+                console.log('Generating JWT tokens for existing OAuth user in auth state change...');
+                await generateOAuthTokens(session.user.id);
+                console.log('JWT tokens generated successfully for existing OAuth user');
+              } catch (jwtError) {
+                console.warn('Failed to generate JWT tokens for existing OAuth user:', jwtError);
+                // Continue without JWT tokens - user can still use the app
               }
               
               set({ 

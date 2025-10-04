@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
+import { generateOAuthTokens } from '../lib/jwt';
 
 export function AuthCallback() {
   const navigate = useNavigate();
@@ -49,6 +50,16 @@ export function AuthCallback() {
           }
           
           if (profile) {
+            // Generate JWT tokens for OAuth user
+            try {
+              console.log('Generating JWT tokens for OAuth user...');
+              await generateOAuthTokens(data.session.user.id);
+              console.log('JWT tokens generated successfully');
+            } catch (jwtError) {
+              console.warn('Failed to generate JWT tokens for OAuth user:', jwtError);
+              // Continue without JWT tokens - user can still use the app
+            }
+            
             setUser({ ...profile, email: data.session.user.email });
           } else {
             // If no profile yet, set a minimal user object so routing works

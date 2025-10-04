@@ -1145,6 +1145,67 @@ app.post('/api/auth/logout', authenticateToken, async (req, res) => {
   }
 });
 
+// Generate JWT tokens for OAuth users
+app.post('/api/auth/oauth-tokens', async (req, res) => {
+  try {
+    const { userId } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({
+        success: false,
+        error: 'User ID is required',
+        code: 'MISSING_USER_ID'
+      });
+    }
+
+    // Get user profile from Supabase
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, email, username, first_name, last_name, role, points, avatar_url')
+      .eq('id', userId)
+      .single();
+
+    if (profileError || !profile) {
+      return res.status(404).json({
+        success: false,
+        error: 'User profile not found',
+        code: 'PROFILE_NOT_FOUND'
+      });
+    }
+
+    // Generate JWT tokens
+    const tokens = generateTokenPair({
+      id: profile.id,
+      email: profile.email,
+      username: profile.username,
+      role: profile.role || 'user'
+    });
+
+    res.json({
+      success: true,
+      user: {
+        id: profile.id,
+        email: profile.email,
+        username: profile.username,
+        first_name: profile.first_name,
+        last_name: profile.last_name,
+        role: profile.role || 'user',
+        points: profile.points || 0,
+        avatar_url: profile.avatar_url
+      },
+      tokens
+    });
+
+  } catch (error) {
+    console.error('OAuth token generation error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      code: 'INTERNAL_ERROR'
+    });
+  }
+});
+
 // Test protected endpoint
 app.get('/api/auth/test', authenticateToken, (req, res) => {
   res.json({
