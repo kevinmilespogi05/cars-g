@@ -56,9 +56,10 @@ class GmailEmailService {
 
       // Check if Gmail is properly configured
       if (!this.transporter || !this.gmailUser || this.gmailUser === 'your_gmail_user_here') {
+        const allowFallback = String(process.env.EMAIL_FALLBACK_MODE).toLowerCase() === 'true';
         console.log('📧 Gmail not configured. For development, verification code is:', code);
         console.log('📧 To enable Gmail sending, set GMAIL_USER and GMAIL_APP_PASSWORD environment variables');
-        return true; // Return true for development
+        return allowFallback; // only succeed when explicitly in fallback mode
       }
 
       const mailOptions = {
@@ -84,15 +85,17 @@ class GmailEmailService {
     } catch (error) {
       console.error('❌ Error sending verification email:', error.message);
       
+      const allowFallback = String(process.env.EMAIL_FALLBACK_MODE).toLowerCase() === 'true';
+      
       // Handle timeout errors gracefully
       if (error.message === 'Gmail send timeout') {
-        console.log('📧 Gmail request timed out, falling back to development mode');
+        console.log('📧 Gmail request timed out');
         console.log('📧 For development, verification code is:', code);
       } else {
         console.log('📧 Gmail sending failed. For development, verification code is:', code);
       }
       
-      return true; // Return true for development/fallback
+      return allowFallback; // false in prod, true only if fallback enabled
     }
   }
 

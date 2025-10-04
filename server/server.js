@@ -1343,11 +1343,11 @@ app.post('/api/auth/send-verification', async (req, res) => {
     let emailSent = false;
     let emailServiceUsed = '';
     
-    // Try Gmail first with shorter timeout for faster fallback
+    // Try Gmail first with slightly longer timeout
     try {
       const gmailPromise = gmailEmailService.sendVerificationEmail(email, verificationCode, username || 'User');
       const gmailTimeout = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Gmail timeout')), 6000) // Reduced to 6 seconds for faster fallback
+        setTimeout(() => reject(new Error('Gmail timeout')), 10000) // 10 second timeout
       );
       
       emailSent = await Promise.race([gmailPromise, gmailTimeout]);
@@ -1364,7 +1364,7 @@ app.post('/api/auth/send-verification', async (req, res) => {
       try {
         const brevoPromise = emailService.sendVerificationEmail(email, verificationCode, username || 'User');
         const brevoTimeout = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Brevo timeout')), 6000) // 6 second timeout
+          setTimeout(() => reject(new Error('Brevo timeout')), 8000) // 8 second timeout
         );
         
         emailSent = await Promise.race([brevoPromise, brevoTimeout]);
@@ -1377,16 +1377,20 @@ app.post('/api/auth/send-verification', async (req, res) => {
       }
     }
 
-    // Allow verification to continue even if email sending fails
-    // This ensures the registration process doesn't break when email services are not configured
+    // Handle fallback mode based on EMAIL_FALLBACK_MODE setting
     let devBypass = false;
     if (!emailSent) {
-      console.warn('⚠️  Email not sent, but continuing with verification code:', verificationCode);
-      console.warn('⚠️  Gmail and Brevo both failed - using fallback mode');
-      console.warn('⚠️  To enable email sending, check Gmail credentials and activate Brevo SMTP account');
-      console.warn('⚠️  Contact contact@brevo.com to activate Brevo SMTP account');
-      devBypass = true;
-      emailSent = true;
+      const allowFallback = String(process.env.EMAIL_FALLBACK_MODE).toLowerCase() === 'true';
+      if (allowFallback) {
+        console.warn('⚠️  Email not sent. Using fallback mode with console code.');
+        console.warn('⚠️  Verification code:', verificationCode);
+        devBypass = true;
+        emailServiceUsed = 'fallback';
+        emailSent = true; // only in fallback mode
+      } else {
+        console.error('❌ Email could not be sent via Gmail or Brevo');
+        console.error('❌ Set EMAIL_FALLBACK_MODE=true for development mode');
+      }
     } else {
       console.log(`✅ Email successfully sent via ${emailServiceUsed}`);
     }

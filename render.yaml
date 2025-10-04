@@ -43,7 +43,7 @@ services:
       - key: JWT_AUDIENCE
         value: cars-g-users
       - key: BREVO_API_KEY
-        value: your_brevo_api_key_here
+        value: 
       - key: BREVO_SENDER_EMAIL
         value: noreply@cars-g.com
       - key: GMAIL_USER
@@ -51,6 +51,6 @@ services:
       - key: GMAIL_APP_PASSWORD
         value: uzft zdmm nmhk esxm
       - key: EMAIL_FALLBACK_MODE
-        value: true
+        value: false
       - key: EMAIL_DEBUG_MODE
         value: true

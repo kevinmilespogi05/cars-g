@@ -29,11 +29,13 @@ class EmailService {
    */
   async sendVerificationEmail(email, code, username = 'User') {
     try {
+      const allowFallback = String(process.env.EMAIL_FALLBACK_MODE).toLowerCase() === 'true';
+      
       // Check if API key is properly configured
       if (!this.apiKey || this.apiKey === 'your_brevo_api_key_here') {
         console.log('📧 Brevo API key not configured. For development, verification code is:', code);
         console.log('📧 Please set BREVO_API_KEY environment variable to enable email sending');
-        return true; // Return true for development/fallback
+        return allowFallback; // false unless fallback
       }
 
       console.log(`📧 Attempting to send verification email to: ${email}`);
@@ -74,20 +76,20 @@ class EmailService {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        console.error('❌ Brevo email send failed:', response.status, errorData);
+        console.log('❌ Brevo email send failed:', response.status, errorData);
         
         // Handle specific error cases
         if (errorData.code === 'permission_denied' && errorData.message?.includes('SMTP account is not yet activated')) {
-          console.log('📧 SMTP account not activated. For development, verification code is:', code);
-          console.log('📧 Please contact contact@brevo.com to activate your SMTP account');
-          return true; // Return true for development purposes
+          console.log('📧 SMTP account not activated. For activation, contact contact@brevo.com');
+          console.log('📧 For development, verification code is:', code);
+          return allowFallback; // false in prod, true only if fallback enabled
         }
 
         // Handle invalid API key
         if (errorData.code === 'unauthorized' || response.status === 401) {
-          console.log('📧 Invalid Brevo API key. For development, verification code is:', code);
-          console.log('📧 Please check your BREVO_API_KEY environment variable');
-          return true; // Return true for development purposes
+          console.log('📧 Invalid Brevo API key');
+          console.log('📧 For development, verification code is:', code);
+          return allowFallback; // false in prod, true only if fallback enabled
         }
 
         // Handle rate limiting with single retry
@@ -116,13 +118,13 @@ class EmailService {
             return true;
           } else {
             console.log('📧 Retry failed. For development, verification code is:', code);
-            return true; // Return true for development purposes
+            return allowFallback; // false in prod, true only if fallback enabled
           }
         }
 
         // For other errors, log and fallback to development mode
         console.log('📧 Email sending failed. For development, verification code is:', code);
-        return true; // Return true for development/fallback
+        return allowFallback; // false in prod, true only if fallback enabled
       }
 
       const result = await response.json();
@@ -132,16 +134,19 @@ class EmailService {
     } catch (error) {
       console.error('❌ Error sending verification email:', error);
       
+      const allowFallback = String(process.env.EMAIL_FALLBACK_MODE).toLowerCase() === 'true';
+      
       // Handle timeout errors gracefully
       if (error.name === 'AbortError') {
-        console.log('📧 Email request timed out, falling back to development mode');
+        console.log('📧 Email request timed out');
         console.log('📧 For development, verification code is:', code);
-        return true; // Return true for development/fallback
+        return allowFallback;
       }
       
       // For any other error, fallback to development mode
-      console.log('📧 Email service error. For development, verification code is:', code);
-      return true; // Return true for development/fallback
+      console.log('📧 Email service error:', error.message);
+      console.log('📧 For development, verification code is:', code);
+      return allowFallback;
     }
   }
 
