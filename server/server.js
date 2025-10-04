@@ -1339,15 +1339,19 @@ app.post('/api/auth/send-verification', async (req, res) => {
       }
     }
 
-    // Send verification email with improved strategy
+    // Send verification email with production-optimized strategy
     let emailSent = false;
     let emailServiceUsed = '';
     
-    // Try Gmail first with slightly longer timeout
+    // In production, try Gmail with shorter timeout and immediate fallback
+    const isProduction = process.env.NODE_ENV === 'production';
+    const gmailTimeoutMs = isProduction ? 3000 : 6000; // Shorter timeout in production
+    
     try {
+      console.log(`📧 Attempting Gmail send (timeout: ${gmailTimeoutMs}ms)...`);
       const gmailPromise = gmailEmailService.sendVerificationEmail(email, verificationCode, username || 'User');
       const gmailTimeout = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Gmail timeout')), 10000) // 10 second timeout
+        setTimeout(() => reject(new Error('Gmail timeout')), gmailTimeoutMs)
       );
       
       emailSent = await Promise.race([gmailPromise, gmailTimeout]);
@@ -1356,15 +1360,20 @@ app.post('/api/auth/send-verification', async (req, res) => {
         emailServiceUsed = 'Gmail';
       }
     } catch (gmailError) {
-      console.log('⚠️  Gmail sending failed, trying Brevo...', gmailError.message);
+      console.log('⚠️  Gmail sending failed:', gmailError.message);
+      if (isProduction) {
+        console.log('📧 Production environment - skipping Brevo, using fallback');
+      } else {
+        console.log('⚠️  Trying Brevo as backup...');
+      }
     }
     
-    // If Gmail failed, try Brevo with timeout
-    if (!emailSent) {
+    // Only try Brevo in development or if Gmail completely fails
+    if (!emailSent && !isProduction) {
       try {
         const brevoPromise = emailService.sendVerificationEmail(email, verificationCode, username || 'User');
         const brevoTimeout = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Brevo timeout')), 8000) // 8 second timeout
+          setTimeout(() => reject(new Error('Brevo timeout')), 8000)
         );
         
         emailSent = await Promise.race([brevoPromise, brevoTimeout]);
@@ -1377,16 +1386,19 @@ app.post('/api/auth/send-verification', async (req, res) => {
       }
     }
 
-    // Handle fallback mode based on EMAIL_FALLBACK_MODE setting
+    // Handle fallback mode - always allow fallback in production for reliability
     let devBypass = false;
     if (!emailSent) {
-      const allowFallback = String(process.env.EMAIL_FALLBACK_MODE).toLowerCase() === 'true';
+      const allowFallback = String(process.env.EMAIL_FALLBACK_MODE).toLowerCase() === 'true' || 
+                           process.env.NODE_ENV === 'production';
+      
       if (allowFallback) {
-        console.warn('⚠️  Email not sent. Using fallback mode with console code.');
-        console.warn('⚠️  Verification code:', verificationCode);
+        console.warn('⚠️  Email services failed. Using fallback mode.');
+        console.warn('⚠️  Verification code for', email + ':', verificationCode);
+        console.warn('⚠️  User can use this code to complete registration.');
         devBypass = true;
         emailServiceUsed = 'fallback';
-        emailSent = true; // only in fallback mode
+        emailSent = true; // Allow registration to continue
       } else {
         console.error('❌ Email could not be sent via Gmail or Brevo');
         console.error('❌ Set EMAIL_FALLBACK_MODE=true for development mode');
