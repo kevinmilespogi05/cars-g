@@ -1343,9 +1343,9 @@ app.post('/api/auth/send-verification', async (req, res) => {
     let emailSent = false;
     let emailServiceUsed = '';
     
-    // In production, try Gmail with shorter timeout and immediate fallback
+    // In production, try Gmail with extended timeout for better reliability
     const isProduction = process.env.NODE_ENV === 'production';
-    const gmailTimeoutMs = isProduction ? 3000 : 6000; // Shorter timeout in production
+    const gmailTimeoutMs = isProduction ? 18000 : 6000; // Extended timeout in production for Gmail SMTP
     
     try {
       console.log(`📧 Attempting Gmail send (timeout: ${gmailTimeoutMs}ms)...`);

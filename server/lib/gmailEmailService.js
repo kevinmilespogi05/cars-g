@@ -28,21 +28,26 @@ class GmailEmailService {
         user: this.gmailUser,
         pass: this.gmailAppPassword
       },
-      // Optimized settings for deployed systems
-      pool: false, // Disable pooling for better reliability
+      // Production-optimized settings for hosting platforms
+      pool: false,
       maxConnections: 1,
       maxMessages: 1,
-      rateDelta: 10000,
-      rateLimit: 2,
-      // Reduced timeouts for faster fallback
-      connectionTimeout: 15000,
-      greetingTimeout: 10000,
-      socketTimeout: 15000,
-      // Additional reliability options
+      rateDelta: 5000,
+      rateLimit: 1,
+      // Extended timeouts for production hosting
+      connectionTimeout: 30000,
+      greetingTimeout: 20000,
+      socketTimeout: 30000,
+      // Production-specific options
       secure: true,
+      port: 587,
       tls: {
-        rejectUnauthorized: false
-      }
+        rejectUnauthorized: false,
+        ciphers: 'SSLv3'
+      },
+      // Additional production settings
+      debug: process.env.NODE_ENV === 'production',
+      logger: process.env.NODE_ENV === 'production'
     });
 
     console.log('✅ Gmail SMTP transporter initialized');
@@ -77,7 +82,7 @@ class GmailEmailService {
 
       // Add timeout to prevent hanging requests (optimized for deployed systems)
       const isProduction = process.env.NODE_ENV === 'production';
-      const timeoutMs = isProduction ? 3000 : 5000; // Even shorter timeout in production
+      const timeoutMs = isProduction ? 15000 : 5000; // Longer timeout in production for Gmail SMTP
       
       const result = await Promise.race([
         this.transporter.sendMail(mailOptions),
@@ -215,14 +220,30 @@ If you didn't create an account with Cars-G, you can safely ignore this email.
         return false;
       }
 
-      // Test the connection
-      await this.transporter.verify();
+      // Test the connection with extended timeout for production
+      const isProduction = process.env.NODE_ENV === 'production';
+      const testTimeout = isProduction ? 20000 : 10000;
+      
+      console.log(`🔍 Testing Gmail SMTP connection (timeout: ${testTimeout}ms)...`);
+      
+      const verifyPromise = this.transporter.verify();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Gmail connection test timeout')), testTimeout)
+      );
+      
+      await Promise.race([verifyPromise, timeoutPromise]);
+      
       console.log('✅ Gmail email service configured and ready');
       console.log(`   User: ${this.gmailUser}`);
+      console.log(`   Environment: ${isProduction ? 'Production' : 'Development'}`);
       return true;
 
     } catch (error) {
       console.error('❌ Error testing Gmail configuration:', error.message);
+      if (error.message.includes('timeout')) {
+        console.log('⚠️  Gmail connection timed out - this is common in production environments');
+        console.log('💡 The service will still attempt to send emails with fallback mode');
+      }
       return false;
     }
   }
