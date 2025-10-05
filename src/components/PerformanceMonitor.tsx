@@ -28,14 +28,18 @@ export const PerformanceMonitor: React.FC = () => {
     try {
       // Use the correct server URL (port 3001)
       const serverUrl = config.api.baseUrl;
+      console.debug('PerformanceMonitor: Using API URL:', serverUrl);
       const response = await fetch(`${serverUrl}/api/performance`);
       if (response.ok) {
         const metrics = await response.json();
         setServerMetrics(metrics);
+      } else {
+        console.warn('PerformanceMonitor: API responded with status:', response.status);
       }
     } catch (error) {
-      // Silently ignore performance API errors for now
-      console.debug('Performance API not available:', error);
+      // Log the error for debugging
+      console.warn('PerformanceMonitor: API not available:', error);
+      console.debug('PerformanceMonitor: Attempted URL:', `${config.api.baseUrl}/api/performance`);
     }
   }, []);
 

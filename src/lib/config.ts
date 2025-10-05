@@ -2,9 +2,31 @@
 export const config = {
   // API Configuration
   api: {
-    baseUrl: import.meta.env.DEV 
-      ? 'http://localhost:3001' 
-      : (import.meta.env.VITE_API_URL || 'https://cars-g-api.onrender.com')
+    baseUrl: (() => {
+      // Check if we're in development mode
+      const isDev = import.meta.env.DEV || 
+                   window.location.hostname === 'localhost' || 
+                   window.location.hostname === '127.0.0.1';
+      
+      if (isDev) {
+        return 'http://localhost:3001';
+      }
+      
+      // In production, use VITE_API_URL if set, otherwise use the default production URL
+      const apiUrl = import.meta.env.VITE_API_URL || 'https://cars-g-api.onrender.com';
+      
+      // Log configuration for debugging (only in production)
+      if (!isDev) {
+        console.debug('Cars-G Config:', {
+          environment: 'production',
+          apiUrl,
+          hasViteApiUrl: !!import.meta.env.VITE_API_URL,
+          hostname: window.location.hostname
+        });
+      }
+      
+      return apiUrl;
+    })()
   },
   
   // Supabase Configuration

@@ -33,7 +33,9 @@ export const RealTimePerformanceMonitor: React.FC<RealTimePerformanceMonitorProp
 
   const fetchMetrics = useCallback(async () => {
     try {
-      const response = await fetch(`${config.api.baseUrl}/api/performance`);
+      const apiUrl = `${config.api.baseUrl}/api/performance`;
+      console.debug('RealTimePerformanceMonitor: Using API URL:', config.api.baseUrl);
+      const response = await fetch(apiUrl);
       if (response.ok) {
         const data = await response.json();
         setMetrics(prev => ({
@@ -46,9 +48,12 @@ export const RealTimePerformanceMonitor: React.FC<RealTimePerformanceMonitorProp
           uptime: data.uptime || 0,
           lastUpdate: new Date()
         }));
+      } else {
+        console.warn('RealTimePerformanceMonitor: API responded with status:', response.status);
       }
     } catch (error) {
-      console.error('Failed to fetch performance metrics:', error);
+      console.warn('RealTimePerformanceMonitor: Failed to fetch performance metrics:', error);
+      console.debug('RealTimePerformanceMonitor: Attempted URL:', `${config.api.baseUrl}/api/performance`);
     }
   }, []);
 
