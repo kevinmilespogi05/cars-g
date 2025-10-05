@@ -1214,20 +1214,35 @@ app.post('/api/auth/send-verification', async (req, res) => {
       }
     }
 
-    // Send verification email
+    // Send verification email with timeout
     let emailSent = false;
+    let devBypass = false;
     
     try {
-      emailSent = await emailService.sendVerificationEmail(email, verificationCode, username || 'User');
+      // Wrap email sending in a timeout promise
+      const emailPromise = emailService.sendVerificationEmail(email, verificationCode, username || 'User');
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Email sending timeout')), 10000)
+      );
+      
+      emailSent = await Promise.race([emailPromise, timeoutPromise]);
       if (emailSent) {
         console.log('✅ Email sent successfully');
       }
     } catch (emailError) {
       console.log('⚠️  Email sending failed:', emailError.message);
+      
+      // In production, if email fails, still allow registration but log the issue
+      // Store the verification code so user can still verify
+      if (process.env.NODE_ENV === 'production') {
+        console.error('⚠️  Production email failure - storing code for manual verification');
+        // Continue with storing the code in database
+        devBypass = true;
+        emailSent = true;
+      }
     }
 
     // In development, allow verification without actually sending email
-    let devBypass = false;
     if (!emailSent) {
       if (process.env.NODE_ENV !== 'production') {
         console.warn('⚠️  Email not sent, but continuing in development mode with code:', verificationCode);
@@ -1237,7 +1252,7 @@ app.post('/api/auth/send-verification', async (req, res) => {
         console.error('Failed to send verification email to:', email);
         return res.status(500).json({
           success: false,
-          error: 'Failed to send verification email',
+          error: 'Failed to send verification email. Please check your email configuration.',
           code: 'EMAIL_SEND_ERROR'
         });
       }
@@ -1279,10 +1294,13 @@ app.post('/api/auth/send-verification', async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Verification code sent successfully',
+      message: devBypass && process.env.NODE_ENV === 'production' 
+        ? 'Verification code created. If you don\'t receive an email, please contact support.'
+        : 'Verification code sent successfully',
       expiresAt,
       // Expose code in development to unblock local testing
-      code: devBypass ? verificationCode : undefined
+      code: devBypass && process.env.NODE_ENV !== 'production' ? verificationCode : undefined,
+      emailSent: !devBypass
     });
 
   } catch (error) {

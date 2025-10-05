@@ -226,7 +226,7 @@ export function Register() {
     try {
       // Send verification email first with timeout
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 12000);
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // Increased to 15 seconds
       const response = await fetch(getApiUrl('/api/auth/send-verification'), {
         method: 'POST',
         headers: {
@@ -310,7 +310,7 @@ export function Register() {
   const handleResendVerification = async () => {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 12000);
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // Increased to 15 seconds
       const response = await fetch(getApiUrl('/api/auth/send-verification'), {
         method: 'POST',
         headers: {

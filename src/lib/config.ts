@@ -92,6 +92,6 @@ export const getApiUrl = (endpoint: string = ''): string => {
 if (typeof window !== 'undefined') {
   // Run debug after a short delay to ensure everything is loaded
   setTimeout(() => {
-    debugApiConfig();
+    debugApiConfig(config.api.baseUrl);
   }, 100);
 } 

@@ -1,5 +1,5 @@
 // Debug utility for API configuration
-export const debugApiConfig = () => {
+export const debugApiConfig = (apiBaseUrl?: string) => {
   const hostname = window.location.hostname;
   const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
   const isVercelDev = hostname.includes('vercel.app') && import.meta.env.DEV;
@@ -19,7 +19,7 @@ export const debugApiConfig = () => {
     importMetaDev: import.meta.env.DEV,
     importMetaProd: import.meta.env.PROD,
     viteApiUrl: import.meta.env.VITE_API_URL,
-    currentApiUrl: config.api.baseUrl,
+    currentApiUrl: apiBaseUrl,
     userAgent: navigator.userAgent,
     protocol: window.location.protocol,
     origin: window.location.origin

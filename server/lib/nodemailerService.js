@@ -47,7 +47,10 @@ class NodemailerEmailService {
       auth: {
         user: gmailUser,
         pass: gmailAppPassword
-      }
+      },
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 10000
     });
 
     console.log('✅ Gmail SMTP transporter initialized');
@@ -67,7 +70,10 @@ class NodemailerEmailService {
       auth: {
         user: outlookUser,
         pass: outlookPassword
-      }
+      },
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 10000
     });
 
     console.log('✅ Outlook SMTP transporter initialized');
@@ -92,7 +98,10 @@ class NodemailerEmailService {
       auth: {
         user: smtpUser,
         pass: smtpPassword
-      }
+      },
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 10000
     });
 
     console.log(`✅ Custom SMTP transporter initialized (${smtpHost}:${smtpPort})`);

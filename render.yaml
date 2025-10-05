@@ -42,3 +42,11 @@ services:
         value: cars-g-app
       - key: JWT_AUDIENCE
         value: cars-g-users
+      - key: EMAIL_PROVIDER
+        value: gmail
+      - key: GMAIL_USER
+        sync: false
+      - key: GMAIL_APP_PASSWORD
+        sync: false
+      - key: EMAIL_SENDER
+        value: CARS-G <noreply@cars-g.com>
