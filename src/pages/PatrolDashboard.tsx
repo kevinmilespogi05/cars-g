@@ -7,6 +7,7 @@ import { useAuthStore } from '../store/authStore';
 import { reportsService } from '../services/reportsService';
 import { cloudinary } from '../lib/cloudinary';
 import { AnnouncementCarousel } from '../components/AnnouncementCarousel';
+import { CommentsService } from '../services/commentsService';
 
 
 export function PatrolDashboard() {
@@ -361,7 +362,6 @@ export function PatrolDashboard() {
 
       // Log acceptance in comments (service handles auth fallback)
       try {
-        const { CommentsService } = await import('../services/commentsService');
         await CommentsService.addComment(reportId, `Job accepted by ${patrollerName}`, 'assignment');
       } catch (logErr) {
         console.warn('Failed to log acceptance comment:', logErr);
@@ -478,7 +478,6 @@ export function PatrolDashboard() {
       handleUpdateReport(updatedReport);
       
       // Add a comment about the assignment (service handles auth fallback)
-      const { CommentsService } = await import('../services/commentsService');
       await CommentsService.addComment(reportId, `Assigned to ${group}`, 'assignment');
     } catch (error) {
       console.error('Error assigning to group:', error);
@@ -508,7 +507,6 @@ export function PatrolDashboard() {
 
       // Log cancellation/unaccept in comments (service handles auth fallback)
       try {
-        const { CommentsService } = await import('../services/commentsService');
         await CommentsService.addComment(reportId, 'Job acceptance cancelled', 'status_update');
       } catch (logErr) {
         console.warn('Failed to log unaccept comment:', logErr);
@@ -543,7 +541,6 @@ export function PatrolDashboard() {
       handleUpdateReport(updatedReport);
       
       // Add a comment about the priority change (service handles auth fallback)
-      const { CommentsService } = await import('../services/commentsService');
       await CommentsService.addComment(reportId, `Priority level set to ${priorityLevel}`, 'status_update');
     } catch (error) {
       console.error('Error setting priority:', error);

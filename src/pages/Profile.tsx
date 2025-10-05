@@ -11,6 +11,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Report } from '../types';
 import { deleteMultipleImages } from '../lib/cloudinaryStorage';
 import { ConfirmationDialog } from '../components/ConfirmationDialog';
+import { getUserStatsWithCache } from '../lib/achievements';
 
 interface UserStats {
   reports_submitted: number;
@@ -258,7 +259,6 @@ export function Profile() {
   const fetchUserStats = async (userId: string) => {
     try {
       // Use the achievements system to get comprehensive stats
-      const { getUserStatsWithCache } = await import('../lib/achievements');
       const stats = await getUserStatsWithCache(userId);
       
       // Get patrol-specific stats if user is a patrol officer

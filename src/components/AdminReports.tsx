@@ -8,6 +8,7 @@ import { supabase } from '../lib/supabase';
 import { FocusTrap } from './FocusTrap';
 import { awardPoints, awardCustomPoints } from '../lib/points';
 import { caseService } from '../services/caseService';
+import { CommentsService } from '../services/commentsService';
 
 type StatusFilter = 'All' | 'verifying' | 'pending' | 'in_progress' | 'resolved' | 'rejected';
 
@@ -192,7 +193,6 @@ export function AdminReports() {
       // Log assignment responsibility as a status update comment if provided
       if (responsibility) {
         try {
-          const { CommentsService } = await import('../services/commentsService');
           await CommentsService.addComment(reportId, `Assigned to ${group}${assignee ? ` (${assignee})` : ''} · Task: ${responsibility}`, 'assignment');
         } catch {}
       }

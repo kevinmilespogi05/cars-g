@@ -196,7 +196,53 @@ export default defineConfig({
   build: {
     sourcemap: true,
     target: 'esnext',
-    assetsInlineLimit: 0
+    assetsInlineLimit: 0,
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Vendor chunks
+          'react-vendor': ['react', 'react-dom'],
+          'router-vendor': ['react-router-dom'],
+          'ui-vendor': ['framer-motion', 'lucide-react'],
+          'supabase-vendor': ['@supabase/supabase-js'],
+          'socket-vendor': ['socket.io-client'],
+          'firebase-vendor': ['firebase/app', 'firebase/messaging'],
+          'map-vendor': ['leaflet', 'react-leaflet'],
+          'chart-vendor': ['chart.js', 'react-chartjs-2'],
+          'date-vendor': ['date-fns'],
+          'utils-vendor': ['zustand'],
+          // App chunks
+          'auth': [
+            './src/store/authStore.ts',
+            './src/lib/jwt.ts',
+            './src/lib/supabase.ts'
+          ],
+          'services': [
+            './src/services/adminService.ts',
+            './src/services/reportsService.ts',
+            './src/services/commentsService.ts',
+            './src/services/activityService.ts'
+          ],
+          'components-admin': [
+            './src/components/AdminChatInterface.tsx',
+            './src/components/AnnouncementManagement.tsx',
+            './src/components/UserManagement.tsx',
+            './src/components/AvatarSelector.tsx'
+          ],
+          'components-chat': [
+            './src/components/ChatWindow.tsx',
+            './src/components/EmailVerification.tsx'
+          ],
+          'lib-utils': [
+            './src/lib/config.ts',
+            './src/lib/cloudinaryStorage.ts',
+            './src/lib/firebase.ts',
+            './src/lib/socket.ts'
+          ]
+        }
+      }
+    }
   },
   server: {
     port: 5173,
@@ -222,7 +268,23 @@ export default defineConfig({
     }
   },
   optimizeDeps: {
-    include: ['react', 'react-dom', 'react-router-dom'],
+    include: [
+      'react', 
+      'react-dom', 
+      'react-router-dom',
+      'framer-motion',
+      'lucide-react',
+      '@supabase/supabase-js',
+      'socket.io-client',
+      'firebase/app',
+      'firebase/messaging',
+      'leaflet',
+      'react-leaflet',
+      'chart.js',
+      'react-chartjs-2',
+      'date-fns',
+      'zustand'
+    ],
     esbuildOptions: {
       target: 'es2020'
     }
