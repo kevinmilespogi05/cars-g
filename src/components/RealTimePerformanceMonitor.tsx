@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Activity, Wifi, WifiOff, Clock, MessageCircle, Users } from 'lucide-react';
+import { config } from '../lib/config';
 
 interface PerformanceMetrics {
   connectionQuality: 'excellent' | 'good' | 'poor';
@@ -32,7 +33,7 @@ export const RealTimePerformanceMonitor: React.FC<RealTimePerformanceMonitorProp
 
   const fetchMetrics = useCallback(async () => {
     try {
-      const response = await fetch('/api/performance');
+      const response = await fetch(`${config.api.baseUrl}/api/performance`);
       if (response.ok) {
         const data = await response.json();
         setMetrics(prev => ({
