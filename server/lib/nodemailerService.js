@@ -21,6 +21,13 @@ class NodemailerEmailService {
         case 'hotmail':
           this.setupOutlookTransporter();
           break;
+        case 'brevo':
+        case 'sendinblue':
+          this.setupBrevoTransporter();
+          break;
+        case 'sendgrid':
+          this.setupSendGridTransporter();
+          break;
         case 'custom':
           this.setupCustomTransporter();
           break;
@@ -77,6 +84,54 @@ class NodemailerEmailService {
     });
 
     console.log('✅ Outlook SMTP transporter initialized');
+  }
+
+  setupBrevoTransporter() {
+    const brevoApiKey = process.env.BREVO_API_KEY;
+    
+    if (!brevoApiKey) {
+      console.warn('⚠️  Brevo API key not set - email sending will not work');
+      return;
+    }
+
+    this.transporter = nodemailer.createTransport({
+      host: 'smtp-relay.brevo.com',
+      port: 587,
+      secure: false, // Use TLS
+      auth: {
+        user: process.env.BREVO_SENDER_EMAIL || 'cars.gsanpablo@gmail.com',
+        pass: brevoApiKey
+      },
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 10000
+    });
+
+    console.log('✅ Brevo SMTP transporter initialized');
+  }
+
+  setupSendGridTransporter() {
+    const sendgridApiKey = process.env.SENDGRID_API_KEY;
+    
+    if (!sendgridApiKey) {
+      console.warn('⚠️  SendGrid API key not set - email sending will not work');
+      return;
+    }
+
+    this.transporter = nodemailer.createTransport({
+      host: 'smtp.sendgrid.net',
+      port: 587,
+      secure: false, // Use TLS
+      auth: {
+        user: 'apikey', // SendGrid uses 'apikey' as username
+        pass: sendgridApiKey
+      },
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 10000
+    });
+
+    console.log('✅ SendGrid SMTP transporter initialized');
   }
 
   setupCustomTransporter() {
@@ -167,6 +222,11 @@ class NodemailerEmailService {
       case 'outlook':
       case 'hotmail':
         return process.env.OUTLOOK_USER || 'Cars-G <noreply@cars-g.com>';
+      case 'brevo':
+      case 'sendinblue':
+        return process.env.BREVO_SENDER_EMAIL || 'Cars-G <noreply@cars-g.com>';
+      case 'sendgrid':
+        return process.env.SENDGRID_FROM_EMAIL || 'Cars-G <noreply@cars-g.com>';
       case 'custom':
         return process.env.SMTP_USER || 'Cars-G <noreply@cars-g.com>';
       default:
