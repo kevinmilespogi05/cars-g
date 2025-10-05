@@ -45,12 +45,12 @@ services:
       - key: BREVO_API_KEY
         value: your_brevo_api_key_here
       - key: BREVO_SENDER_EMAIL
-        value: noreply@cars-g.com
+        value: Cars-G <cars.gsanpablo@gmail.com>
       - key: GMAIL_USER
         value: cars.gsanpablo@gmail.com
       - key: GMAIL_APP_PASSWORD
-        value: uzft zdmm nmhk esxm
+        value: uzftzdmmnmhkesxm
       - key: EMAIL_FALLBACK_MODE
-        value: true
+        value: false
       - key: EMAIL_DEBUG_MODE
-        value: true
+        value: false
