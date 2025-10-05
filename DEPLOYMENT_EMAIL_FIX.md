@@ -32,33 +32,13 @@
 
 ## Email Configuration for Production
 
-⚠️ **IMPORTANT FOR RENDER USERS**: Render blocks outbound SMTP ports (25, 465, 587) on free tier, which means Gmail and Outlook SMTP will NOT work. See `RENDER_EMAIL_FIX.md` for the complete solution.
+The timeout issue is likely caused by missing or incorrect email configuration in your deployed environment. 
 
 ### Required Environment Variables
 
-Add these to your deployment platform:
+Add these to your deployment platform (Vercel/Netlify/Render):
 
-#### Option 1: SendGrid (Recommended for Render)
-```env
-EMAIL_PROVIDER=sendgrid
-SENDGRID_API_KEY=SG.your-sendgrid-api-key
-SENDGRID_FROM_EMAIL=CARS-G <your-verified-email@example.com>
-```
-
-**Why SendGrid?**
-- ✅ Works on Render free tier (bypasses SMTP port blocks)
-- ✅ Free for 100 emails/day
-- ✅ Reliable delivery
-- ✅ Easy setup
-
-**Setup Steps:**
-1. Create account at [SendGrid.com](https://sendgrid.com/)
-2. Create API key (Settings → API Keys)
-3. Verify sender email (Settings → Sender Authentication)
-4. Add environment variables to Render
-5. See `RENDER_EMAIL_FIX.md` for detailed instructions
-
-#### Option 2: Gmail (Works on Vercel/Netlify, NOT Render)
+#### Option 1: Gmail (Recommended)
 ```env
 EMAIL_PROVIDER=gmail
 GMAIL_USER=your-email@gmail.com
@@ -73,7 +53,7 @@ EMAIL_SENDER=CARS-G <your-email@gmail.com>
 4. Generate a new app password for "Mail"
 5. Use the 16-character password (no spaces)
 
-#### Option 3: Outlook/Hotmail (Works on Vercel/Netlify, NOT Render)
+#### Option 2: Outlook/Hotmail
 ```env
 EMAIL_PROVIDER=outlook
 OUTLOOK_USER=your-email@outlook.com
@@ -81,7 +61,7 @@ OUTLOOK_PASSWORD=your-password
 EMAIL_SENDER=CARS-G <your-email@outlook.com>
 ```
 
-#### Option 4: Custom SMTP
+#### Option 3: Custom SMTP
 ```env
 EMAIL_PROVIDER=custom
 SMTP_HOST=smtp.your-provider.com
@@ -97,17 +77,14 @@ EMAIL_SENDER=CARS-G <noreply@your-domain.com>
 After deploying, you can test if emails are working by:
 
 1. Check server logs for email initialization messages:
-   - `✅ SendGrid SMTP transporter initialized` (SendGrid working)
-   - `✅ Gmail SMTP transporter initialized` (Gmail working)
-   - `⚠️  SendGrid API key not set` (missing SendGrid config)
-   - `⚠️  Gmail credentials not set` (missing Gmail config)
+   - `✅ Gmail SMTP transporter initialized` (success)
+   - `⚠️  Gmail credentials not set` (missing config)
 
 2. Try registering - even if email fails, registration should now proceed
 
 3. Check server logs during registration:
    - `✅ Email sent successfully` (working)
    - `⚠️  Email sending failed: [error]` (configuration issue)
-   - `❌ Connection timeout` (SMTP ports blocked - use SendGrid instead)
 
 ## Deployment Steps
 
@@ -147,12 +124,10 @@ With these fixes:
 3. Check server logs for detailed error messages
 
 ### Email not sending?
-1. **If on Render**: Use SendGrid instead of Gmail/Outlook (see `RENDER_EMAIL_FIX.md`)
-2. Verify environment variables are set correctly
-3. Check Gmail/Outlook security settings
-4. For Gmail, ensure App Password is used (not regular password)
-5. Check server logs for specific email errors
-6. If you see "Connection timeout", your platform blocks SMTP ports - switch to SendGrid
+1. Verify environment variables are set correctly
+2. Check Gmail/Outlook security settings
+3. For Gmail, ensure App Password is used (not regular password)
+4. Check server logs for specific email errors
 
 ### Need to manually verify users?
 If email is not working, you can manually verify users by:

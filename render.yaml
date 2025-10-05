@@ -43,15 +43,7 @@ services:
       - key: JWT_AUDIENCE
         value: cars-g-users
       - key: EMAIL_PROVIDER
-        value: brevo
-      - key: BREVO_API_KEY
-        sync: false
-      - key: BREVO_SENDER_EMAIL
-        value: Cars-G <cars.gsanpablo@gmail.com>
-      - key: SENDGRID_API_KEY
-        sync: false
-      - key: SENDGRID_FROM_EMAIL
-        value: CARS-G <noreply@cars-g.com>
+        value: gmail
       - key: GMAIL_USER
         sync: false
       - key: GMAIL_APP_PASSWORD
