@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
+import { supabase } from '../lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   UserPlus, 
@@ -40,8 +41,168 @@ export function Register() {
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   
+  // Validation states
+  const [usernameError, setUsernameError] = useState('');
+  const [emailError, setEmailError] = useState('');
+  const [isValidatingUsername, setIsValidatingUsername] = useState(false);
+  const [isValidatingEmail, setIsValidatingEmail] = useState(false);
+  const [usernameValid, setUsernameValid] = useState(false);
+  const [emailValid, setEmailValid] = useState(false);
+  
   // Registration steps: 'form' | 'verification' | 'complete'
   const [registrationStep, setRegistrationStep] = useState<'form' | 'verification' | 'complete'>('form');
+
+  // Validation functions
+  const validateUsername = async (username: string) => {
+    if (!username || username.length < 3) {
+      setUsernameError('Username must be at least 3 characters long');
+      return false;
+    }
+
+    // Check for alphanumeric characters only
+    const alphanumericRegex = /^[a-zA-Z0-9]+$/;
+    if (!alphanumericRegex.test(username)) {
+      setUsernameError('Username can only contain letters and numbers (no special characters)');
+      return false;
+    }
+
+    setIsValidatingUsername(true);
+    setUsernameError('');
+
+    try {
+      // Use the server endpoint to check username availability
+      const response = await fetch(getApiUrl('/api/auth/check-username'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        setUsernameError(result.error || 'Failed to validate username. Please try again.');
+        return false;
+      }
+
+      if (!result.success) {
+        setUsernameError(result.error || 'Failed to validate username. Please try again.');
+        return false;
+      }
+
+      if (!result.available) {
+        setUsernameError('This username is already taken. Please choose a different username.');
+        return false;
+      }
+
+      setUsernameError('');
+      setUsernameValid(true);
+      return true;
+    } catch (error) {
+      setUsernameError('Failed to validate username. Please try again.');
+      return false;
+    } finally {
+      setIsValidatingUsername(false);
+    }
+  };
+
+  const validateEmail = async (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email || !emailRegex.test(email)) {
+      setEmailError('Please enter a valid email address');
+      return false;
+    }
+
+    setIsValidatingEmail(true);
+    setEmailError('');
+
+    try {
+      // Check both profiles table and auth.users table
+      const [profilesResult, authResult] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('id')
+          .eq('email', email)
+          .maybeSingle(),
+        // Use the admin client to check auth.users
+        fetch(getApiUrl('/api/auth/check-email'), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email }),
+        })
+      ]);
+
+      // Check profiles table
+      if (profilesResult.error) {
+        setEmailError('Failed to validate email. Please try again.');
+        return false;
+      }
+
+      if (profilesResult.data) {
+        setEmailError('An account with this email already exists. Please try signing in instead.');
+        return false;
+      }
+
+      // Check auth.users table via API
+      if (authResult.ok) {
+        const authData = await authResult.json();
+        if (!authData.success) {
+          setEmailError(authData.error || 'Failed to validate email. Please try again.');
+          return false;
+        }
+        if (!authData.available) {
+          setEmailError('An account with this email already exists. Please try signing in instead.');
+          return false;
+        }
+      }
+
+      setEmailError('');
+      setEmailValid(true);
+      return true;
+    } catch (error) {
+      setEmailError('Failed to validate email. Please try again.');
+      return false;
+    } finally {
+      setIsValidatingEmail(false);
+    }
+  };
+
+  // Debounced validation functions
+  const debouncedValidateUsername = React.useCallback(
+    debounce((username: string) => {
+      // Only proceed with server validation if format is valid
+      if (username.length >= 3) {
+        const alphanumericRegex = /^[a-zA-Z0-9]+$/;
+        if (alphanumericRegex.test(username)) {
+          validateUsername(username);
+        }
+      }
+    }, 500),
+    []
+  );
+
+  const debouncedValidateEmail = React.useCallback(
+    debounce((email: string) => {
+      // Only proceed with server validation if format is valid
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (email && emailRegex.test(email)) {
+        validateEmail(email);
+      }
+    }, 500),
+    []
+  );
+
+  // Debounce utility function
+  function debounce<T extends (...args: any[]) => any>(func: T, wait: number): T {
+    let timeout: NodeJS.Timeout;
+    return ((...args: any[]) => {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => func(...args), wait);
+    }) as T;
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,6 +210,14 @@ export function Register() {
     
     if (!privacyAccepted) {
       setError('Please accept the Privacy Policy and Terms of Service to continue.');
+      return;
+    }
+
+    // Validate username and email before proceeding
+    const isUsernameValid = await validateUsername(username);
+    const isEmailValid = await validateEmail(email);
+
+    if (!isUsernameValid || !isEmailValid) {
       return;
     }
     
@@ -319,8 +488,8 @@ export function Register() {
                   <span>Username</span>
                 </label>
                 <div className="relative group">
-                  <div            className={`absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none transition-colors duration-200 ${
-             isFocused === 'username' ? 'text-red-600' : 'text-gray-400'
+                  <div className={`absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none transition-colors duration-200 ${
+                    isFocused === 'username' ? 'text-red-600' : usernameValid ? 'text-green-600' : 'text-gray-400'
            }`}>
                     <User className="h-5 w-5" />
                   </div>
@@ -330,13 +499,69 @@ export function Register() {
                     type="text"
                     required
                     value={username}
-                    onChange={(e) => setUsername(e.target.value)}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setUsername(value);
+                      setUsernameValid(false);
+                      
+                      // Immediate format validation
+                      if (value.length > 0 && value.length < 3) {
+                        setUsernameError('Username must be at least 3 characters long');
+                      } else if (value.length > 0) {
+                        const alphanumericRegex = /^[a-zA-Z0-9]+$/;
+                        if (!alphanumericRegex.test(value)) {
+                          setUsernameError('Username can only contain letters and numbers (no special characters)');
+                        } else {
+                          setUsernameError(''); // Clear format errors
+                          debouncedValidateUsername(value);
+                        }
+                      } else {
+                        setUsernameError('');
+                      }
+                    }}
                     onFocus={() => setIsFocused('username')}
                     onBlur={() => setIsFocused(null)}
-                    className="block w-full pl-12 pr-4 py-4 border-2 border-gray-200 rounded-2xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all duration-200 bg-gray-50/50 hover:bg-white group-hover:border-gray-300"
+                    className={`block w-full pl-12 ${usernameValid && !usernameError ? 'pr-12' : 'pr-4'} py-4 border-2 rounded-2xl placeholder-gray-400 focus:outline-none focus:ring-2 transition-all duration-200 bg-gray-50/50 hover:bg-white group-hover:border-gray-300 ${
+                      usernameError 
+                        ? 'border-red-500 focus:ring-red-500/20 focus:border-red-500' 
+                        : usernameValid
+                        ? 'border-green-500 focus:ring-green-500/20 focus:border-green-500'
+                        : 'border-gray-200 focus:ring-red-500/20 focus:border-red-500'
+                    }`}
                     placeholder="Choose a unique username"
                   />
+                  {/* Success icon */}
+                  {usernameValid && !usernameError && (
+                    <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                    </div>
+                  )}
                 </div>
+                {/* Username validation error */}
+                {usernameError && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex items-center text-red-600 text-sm mt-1"
+                  >
+                    <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
+                    <span>{usernameError}</span>
+                    {isValidatingUsername && (
+                      <div className="ml-2 animate-spin h-4 w-4 border-2 border-red-600 border-t-transparent rounded-full"></div>
+                    )}
+                  </motion.div>
+                )}
+                {/* Username success indicator */}
+                {usernameValid && !usernameError && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex items-center text-green-600 text-sm mt-1"
+                  >
+                    <CheckCircle className="h-4 w-4 mr-2 flex-shrink-0" />
+                    <span>Username is available!</span>
+                  </motion.div>
+                )}
               </div>
 
               {/* Email Field */}
@@ -347,7 +572,7 @@ export function Register() {
                 </label>
                 <div className="relative group">
                   <div className={`absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none transition-colors duration-200 ${
-                    isFocused === 'email' ? 'text-red-600' : 'text-gray-400'
+                    isFocused === 'email' ? 'text-red-600' : emailValid ? 'text-green-600' : 'text-gray-400'
                   }`}>
                     <Mail className="h-5 w-5" />
                   </div>
@@ -357,13 +582,67 @@ export function Register() {
                     type="email"
                     required
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setEmail(value);
+                      setEmailValid(false);
+                      
+                      // Immediate format validation
+                      if (value.length > 0) {
+                        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                        if (!emailRegex.test(value)) {
+                          setEmailError('Please enter a valid email address');
+                        } else {
+                          setEmailError(''); // Clear format errors
+                          debouncedValidateEmail(value);
+                        }
+                      } else {
+                        setEmailError('');
+                      }
+                    }}
                     onFocus={() => setIsFocused('email')}
                     onBlur={() => setIsFocused(null)}
-                    className="block w-full pl-12 pr-4 py-4 border-2 border-gray-200 rounded-2xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all duration-200 bg-gray-50/50 hover:bg-white group-hover:border-gray-300"
+                    className={`block w-full pl-12 ${emailValid && !emailError ? 'pr-12' : 'pr-4'} py-4 border-2 rounded-2xl placeholder-gray-400 focus:outline-none focus:ring-2 transition-all duration-200 bg-gray-50/50 hover:bg-white group-hover:border-gray-300 ${
+                      emailError 
+                        ? 'border-red-500 focus:ring-red-500/20 focus:border-red-500' 
+                        : emailValid
+                        ? 'border-green-500 focus:ring-green-500/20 focus:border-green-500'
+                        : 'border-gray-200 focus:ring-red-500/20 focus:border-red-500'
+                    }`}
                     placeholder="Enter your email address"
                   />
+                  {/* Success icon */}
+                  {emailValid && !emailError && (
+                    <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                      <CheckCircle className="h-5 w-5 text-green-600" />
+                    </div>
+                  )}
                 </div>
+                {/* Email validation error */}
+                {emailError && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex items-center text-red-600 text-sm mt-1"
+                  >
+                    <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
+                    <span>{emailError}</span>
+                    {isValidatingEmail && (
+                      <div className="ml-2 animate-spin h-4 w-4 border-2 border-red-600 border-t-transparent rounded-full"></div>
+                    )}
+                  </motion.div>
+                )}
+                {/* Email success indicator */}
+                {emailValid && !emailError && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex items-center text-green-600 text-sm mt-1"
+                  >
+                    <CheckCircle className="h-4 w-4 mr-2 flex-shrink-0" />
+                    <span>Email is available!</span>
+                  </motion.div>
+                )}
               </div>
               
               {/* Password Field */}
@@ -444,7 +723,7 @@ export function Register() {
             {/* Create Account Button */}
             <motion.button
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || usernameError || emailError || !usernameValid || !emailValid || !username || !email}
               className="group w-full flex justify-center items-center py-4 px-6 border border-transparent rounded-2xl text-lg font-semibold text-white focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 disabled:transform-none"
               style={{backgroundColor: '#800000'}}
               onMouseEnter={(e) => e.target.style.backgroundColor = '#660000'}
@@ -465,6 +744,17 @@ export function Register() {
                 </div>
               )}
             </motion.button>
+            
+            {/* Validation status message */}
+            {(usernameError || emailError || !usernameValid || !emailValid) && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-center text-sm text-gray-600 mt-2"
+              >
+                Please fix the validation errors above to continue
+              </motion.div>
+            )}
           </motion.form>
         
           {/* Social Login Section */}

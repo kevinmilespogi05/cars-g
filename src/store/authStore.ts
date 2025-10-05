@@ -596,6 +596,50 @@ export const useAuthStore = create<AuthState>((set) => ({
   
   signUp: async (email: string, password: string, username: string, firstName?: string, lastName?: string) => {
     try {
+      // Check if username already exists using API endpoint
+      const usernameResponse = await fetch('/api/auth/check-username', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username }),
+      });
+
+      if (!usernameResponse.ok) {
+        throw new Error('Failed to validate username. Please try again.');
+      }
+
+      const usernameResult = await usernameResponse.json();
+      if (!usernameResult.success) {
+        throw new Error(usernameResult.error || 'Failed to validate username. Please try again.');
+      }
+      
+      if (!usernameResult.available) {
+        throw new Error('This username is already taken. Please choose a different username.');
+      }
+
+      // Check if email already exists using API endpoint
+      const emailResponse = await fetch('/api/auth/check-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      if (!emailResponse.ok) {
+        throw new Error('Failed to validate email. Please try again.');
+      }
+
+      const emailResult = await emailResponse.json();
+      if (!emailResult.success) {
+        throw new Error(emailResult.error || 'Failed to validate email. Please try again.');
+      }
+      
+      if (!emailResult.available) {
+        throw new Error('An account with this email already exists. Please try signing in instead.');
+      }
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password,

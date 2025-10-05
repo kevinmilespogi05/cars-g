@@ -1474,6 +1474,155 @@ app.get('/api/auth/verification-status/:email', async (req, res) => {
   }
 });
 
+// Check username availability
+app.post('/api/auth/check-username', async (req, res) => {
+  try {
+    const { username } = req.body;
+
+    if (!username) {
+      return res.status(400).json({
+        success: false,
+        error: 'Username is required',
+        code: 'MISSING_USERNAME'
+      });
+    }
+
+    // Validate username format (alphanumeric only)
+    const alphanumericRegex = /^[a-zA-Z0-9]+$/;
+    if (!alphanumericRegex.test(username)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Username can only contain letters and numbers (no special characters)',
+        code: 'INVALID_USERNAME_FORMAT'
+      });
+    }
+
+    // Check minimum length
+    if (username.length < 3) {
+      return res.status(400).json({
+        success: false,
+        error: 'Username must be at least 3 characters long',
+        code: 'USERNAME_TOO_SHORT'
+      });
+    }
+
+    // Check if username already exists in profiles table
+    const { data: existingProfile, error: profileError } = await supabaseAdmin
+      ? await supabaseAdmin
+          .from('profiles')
+          .select('id')
+          .eq('username', username)
+          .maybeSingle()
+      : await supabase
+          .from('profiles')
+          .select('id')
+          .eq('username', username)
+          .maybeSingle();
+
+    if (profileError) {
+      console.error('Error checking username:', profileError);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to validate username',
+        code: 'VALIDATION_ERROR'
+      });
+    }
+
+    const available = !existingProfile;
+
+    res.json({
+      success: true,
+      available,
+      username
+    });
+
+  } catch (error) {
+    console.error('Check username error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      code: 'INTERNAL_ERROR'
+    });
+  }
+});
+
+// Check email availability
+app.post('/api/auth/check-email', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email is required',
+        code: 'MISSING_EMAIL'
+      });
+    }
+
+    // Check both profiles table and auth.users table
+    const [profilesResult, authResult] = await Promise.all([
+      // Check profiles table
+      supabaseAdmin
+        ? supabaseAdmin
+            .from('profiles')
+            .select('id')
+            .eq('email', email)
+            .maybeSingle()
+        : supabase
+            .from('profiles')
+            .select('id')
+            .eq('email', email)
+            .maybeSingle(),
+      // Check auth.users table using admin client
+      supabaseAdmin
+        ? supabaseAdmin.auth.admin.listUsers({
+            page: 1,
+            perPage: 1000
+          })
+        : Promise.resolve({ data: { users: [] }, error: null })
+    ]);
+
+    // Check profiles table
+    if (profilesResult.error) {
+      console.error('Error checking profiles table:', profilesResult.error);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to validate email',
+        code: 'VALIDATION_ERROR'
+      });
+    }
+
+    // Check auth.users table
+    if (authResult.error) {
+      console.error('Error checking auth.users table:', authResult.error);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to validate email',
+        code: 'VALIDATION_ERROR'
+      });
+    }
+
+    const emailExistsInProfiles = !!profilesResult.data;
+    const emailExistsInAuth = authResult.data?.users?.some(user => user.email === email) || false;
+
+    const available = !emailExistsInProfiles && !emailExistsInAuth;
+
+    res.json({
+      success: true,
+      available,
+      email
+    });
+
+  } catch (error) {
+    console.error('Check email error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      code: 'INTERNAL_ERROR'
+    });
+  }
+});
+
 // Reports: like/unlike using service role (supports JWT-authenticated users)
 app.post('/api/reports/:reportId/likes', authenticateToken, async (req, res) => {
   try {
