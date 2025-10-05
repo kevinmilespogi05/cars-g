@@ -1,6 +1,9 @@
 import { supabase } from '../lib/supabase';
 import { Report, LikeDetail, Comment, CommentReply, CommentLike } from '../types';
 import { useAuthStore } from '../store/authStore';
+import { authenticatedRequest } from '../lib/jwt';
+import { getApiUrl } from '../lib/config';
+import { checkAchievements } from '../lib/achievements';
 
 export class ReportsServiceError extends Error {
   constructor(message: string) {
@@ -146,8 +149,7 @@ export const reportsService = {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session || !session.user) {
-          const { authenticatedRequest } = await import('../lib/jwt');
-          const { getApiUrl } = await import('../lib/config');
+          // Using static imports instead of dynamic imports
           const url = `${getApiUrl('/api/reports')}`;
           const resp = await authenticatedRequest(url, {
             method: 'POST',
@@ -221,8 +223,7 @@ export const reportsService = {
         const message = (error as any)?.message || '';
         if (message.includes('row-level security') || (error as any)?.code === '42501' || (error as any)?.status === 401) {
           try {
-            const { authenticatedRequest } = await import('../lib/jwt');
-            const { getApiUrl } = await import('../lib/config');
+            // Using static imports instead of dynamic imports
             const url = `${getApiUrl('/api/reports')}`;
             const resp = await authenticatedRequest(url, {
               method: 'POST',
@@ -285,7 +286,7 @@ export const reportsService = {
 
       // Check for achievements asynchronously
       try {
-        const { checkAchievements } = await import('../lib/achievements');
+        // Using static import instead of dynamic import
         const newAchievements = await checkAchievements(payload.user_id);
         if (newAchievements.length > 0) {
           console.log('New achievements unlocked:', newAchievements.map(a => a.title));
@@ -1204,8 +1205,7 @@ export const reportsService = {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session || !session.user) {
-        const { authenticatedRequest } = await import('../lib/jwt');
-        const { getApiUrl } = await import('../lib/config');
+        // Using static imports instead of dynamic imports
         const url = `${getApiUrl(`/api/reports/${reportId}/likes/toggle`)}`;
         const resp = await authenticatedRequest(url, { method: 'POST' });
         if (!resp.ok) {
@@ -1250,8 +1250,7 @@ export const reportsService = {
     } catch (sessionError) {
       // If 401 or RLS due to no Supabase session, fallback to backend with JWT
       try {
-        const { authenticatedRequest } = await import('../lib/jwt');
-        const { getApiUrl } = await import('../lib/config');
+        // Using static imports instead of dynamic imports
         const url = `${getApiUrl(`/api/reports/${reportId}/likes/toggle`)}`;
         const resp = await authenticatedRequest(url, { method: 'POST' });
         if (!resp.ok) {

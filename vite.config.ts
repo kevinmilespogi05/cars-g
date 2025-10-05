@@ -196,7 +196,24 @@ export default defineConfig({
   build: {
     sourcemap: true,
     target: 'esnext',
-    assetsInlineLimit: 0
+    assetsInlineLimit: 0,
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Vendor chunks
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'supabase-vendor': ['@supabase/supabase-js'],
+          'ui-vendor': ['bootstrap', 'lucide-react', 'framer-motion'],
+          'utils-vendor': ['date-fns', 'zustand', 'socket.io-client'],
+          'charts-vendor': ['chart.js', 'react-chartjs-2'],
+          'maps-vendor': ['leaflet', 'react-leaflet', '@googlemaps/js-api-loader'],
+          // Feature chunks
+          'auth': ['src/lib/jwt.ts', 'src/lib/config.ts', 'src/store/authStore.ts'],
+          'services': ['src/services/reportsService.ts', 'src/services/activityService.ts']
+        }
+      }
+    }
   },
   server: {
     port: 5173,
@@ -222,9 +239,21 @@ export default defineConfig({
     }
   },
   optimizeDeps: {
-    include: ['react', 'react-dom', 'react-router-dom'],
+    include: [
+      'react', 
+      'react-dom', 
+      'react-router-dom', 
+      '@supabase/supabase-js',
+      'bootstrap',
+      'lucide-react',
+      'framer-motion',
+      'date-fns',
+      'zustand',
+      'socket.io-client'
+    ],
     esbuildOptions: {
-      target: 'es2020'
+      target: 'es2020',
+      treeShaking: true
     }
   },
   resolve: {

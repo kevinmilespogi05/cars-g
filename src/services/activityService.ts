@@ -2,6 +2,8 @@ import { supabase } from '../lib/supabase';
 import { Activity, Achievement } from '../types';
 import { checkAchievements } from '../lib/achievements';
 import { initializeUserStats } from '../lib/initAchievements';
+import { authenticatedRequest } from '../lib/jwt';
+import { getApiUrl } from '../lib/config';
 
 export const activityService = {
   async getRecentActivities(userId: string, limit: number = 5): Promise<Activity[]> {
@@ -71,8 +73,7 @@ export const activityService = {
         return data;
       } catch (clientErr: any) {
         // Fall back to server endpoint using JWT
-        const { authenticatedRequest } = await import('../lib/jwt');
-        const { getApiUrl } = await import('../lib/config');
+        // Using static imports instead of dynamic imports
         const baseUrl = getApiUrl('/api/activities');
         let resp = await authenticatedRequest(baseUrl, {
           method: 'POST',
