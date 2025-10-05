@@ -13,8 +13,7 @@ import { GoogleAuth } from 'google-auth-library';
 import multer from 'multer';
 import { generateTokenPair, verifyToken, extractTokenFromHeader } from './lib/jwt.js';
 import { authenticateToken, requireRole } from './middleware/auth.js';
-import EmailService from './lib/emailService.js';
-import GmailEmailService from './lib/gmailEmailService.js';
+import NodemailerEmailService from './lib/nodemailerService.js';
 
 // Load environment variables
 dotenv.config();
@@ -83,9 +82,8 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabase = createClient(supabaseUrl, supabaseAnonKey || '');
 const supabaseAdmin = supabaseServiceKey ? createClient(supabaseUrl, supabaseServiceKey) : null;
 
-// Initialize email services
-const emailService = new EmailService();
-const gmailEmailService = new GmailEmailService();
+// Initialize email service
+const emailService = new NodemailerEmailService();
 
 if (!supabaseUrl) {
   console.error('❌ VITE_SUPABASE_URL is required');
@@ -1216,29 +1214,16 @@ app.post('/api/auth/send-verification', async (req, res) => {
       }
     }
 
-    // Send verification email first - try Gmail, then Brevo
+    // Send verification email
     let emailSent = false;
     
-    // Try Gmail first
     try {
-      emailSent = await gmailEmailService.sendVerificationEmail(email, verificationCode, username || 'User');
+      emailSent = await emailService.sendVerificationEmail(email, verificationCode, username || 'User');
       if (emailSent) {
-        console.log('✅ Email sent via Gmail SMTP');
+        console.log('✅ Email sent successfully');
       }
-    } catch (gmailError) {
-      console.log('⚠️  Gmail sending failed, trying Brevo...');
-    }
-    
-    // If Gmail failed, try Brevo
-    if (!emailSent) {
-      try {
-        emailSent = await emailService.sendVerificationEmail(email, verificationCode, username || 'User');
-        if (emailSent) {
-          console.log('✅ Email sent via Brevo');
-        }
-      } catch (brevoError) {
-        console.log('⚠️  Brevo sending failed');
-      }
+    } catch (emailError) {
+      console.log('⚠️  Email sending failed:', emailError.message);
     }
 
     // In development, allow verification without actually sending email
