@@ -1343,9 +1343,9 @@ app.post('/api/auth/send-verification', async (req, res) => {
     let emailSent = false;
     let emailServiceUsed = '';
     
-    // In production, try Gmail with optimized timeout for faster fallback
+    // In production, try Gmail with longer timeout for better reliability
     const isProduction = process.env.NODE_ENV === 'production';
-    const gmailTimeoutMs = isProduction ? 5000 : 3000; // Reduced timeout for faster fallback
+    const gmailTimeoutMs = isProduction ? 15000 : 5000; // Longer timeout for production
     
     try {
       console.log(`📧 Attempting Gmail send (timeout: ${gmailTimeoutMs}ms)...`);
@@ -1374,7 +1374,7 @@ app.post('/api/auth/send-verification', async (req, res) => {
         console.log('📧 Attempting Brevo send as fallback...');
         const brevoPromise = emailService.sendVerificationEmail(email, verificationCode, username || 'User');
         const brevoTimeout = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Brevo timeout')), 8000)
+          setTimeout(() => reject(new Error('Brevo timeout')), isProduction ? 12000 : 8000)
         );
         
         emailSent = await Promise.race([brevoPromise, brevoTimeout]);

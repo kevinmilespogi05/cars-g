@@ -37,9 +37,9 @@ class GmailEmailService {
           rejectUnauthorized: false,
           ciphers: 'SSLv3'
         },
-        connectionTimeout: 5000,
-        greetingTimeout: 3000,
-        socketTimeout: 5000,
+        connectionTimeout: 8000,
+        greetingTimeout: 5000,
+        socketTimeout: 8000,
         debug: process.env.NODE_ENV === 'production',
         logger: process.env.NODE_ENV === 'production'
       },
@@ -55,9 +55,9 @@ class GmailEmailService {
         tls: {
           rejectUnauthorized: false
         },
-        connectionTimeout: 5000,
-        greetingTimeout: 3000,
-        socketTimeout: 5000,
+        connectionTimeout: 8000,
+        greetingTimeout: 5000,
+        socketTimeout: 8000,
         debug: process.env.NODE_ENV === 'production',
         logger: process.env.NODE_ENV === 'production'
       },
@@ -74,9 +74,9 @@ class GmailEmailService {
           rejectUnauthorized: false,
           ciphers: 'TLSv1.2'
         },
-        connectionTimeout: 4000,
-        greetingTimeout: 2000,
-        socketTimeout: 4000,
+        connectionTimeout: 6000,
+        greetingTimeout: 4000,
+        socketTimeout: 6000,
         debug: process.env.NODE_ENV === 'production',
         logger: process.env.NODE_ENV === 'production'
       }
@@ -118,7 +118,7 @@ class GmailEmailService {
 
       // Try multiple SMTP configurations
       const isProduction = process.env.NODE_ENV === 'production';
-      const timeoutMs = isProduction ? 4000 : 3000; // Much shorter timeout for faster fallback
+      const timeoutMs = isProduction ? 12000 : 5000; // Longer timeout for production reliability
       
       for (let i = 0; i < this.smtpConfigs.length; i++) {
         try {

@@ -60,7 +60,9 @@ class EmailService {
 
       // Add timeout to prevent hanging requests (optimized for deployed systems)
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000); // Reduced to 8 seconds for faster fallback
+      const isProduction = process.env.NODE_ENV === 'production';
+      const timeoutMs = isProduction ? 15000 : 8000; // Longer timeout for production
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
       const response = await fetch(this.apiUrl, {
         method: 'POST',
@@ -99,7 +101,8 @@ class EmailService {
           
           // Retry once with shorter timeout
           const retryController = new AbortController();
-          const retryTimeoutId = setTimeout(() => retryController.abort(), 6000); // 6 second timeout for retry
+          const retryTimeoutMs = isProduction ? 10000 : 6000; // Longer timeout for production retry
+          const retryTimeoutId = setTimeout(() => retryController.abort(), retryTimeoutMs);
           
           const retryResponse = await fetch(this.apiUrl, {
             method: 'POST',

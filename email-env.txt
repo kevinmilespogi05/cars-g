@@ -3,7 +3,7 @@
 
 # Gmail SMTP Configuration (Recommended)
 GMAIL_USER=cars.gsanpablo@gmail.com
-GMAIL_APP_PASSWORD=uzft zdmm nmhk esxm
+GMAIL_APP_PASSWORD=uzftzdmmnmhkesxm
 
 # Brevo API Configuration (Alternative)
 BREVO_API_KEY=your-brevo-api-key-here
