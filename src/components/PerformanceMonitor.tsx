@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { BarChart3, Zap, Clock, Users, MessageSquare, Activity } from 'lucide-react';
 import { reportsService } from '../services/reportsService';
 import { config } from '../lib/config';
+import { apiConfig } from '../lib/apiConfig';
 
 interface PerformanceMetrics {
   uptime: number;
@@ -26,20 +27,36 @@ export const PerformanceMonitor: React.FC = () => {
 
   const fetchServerMetrics = useCallback(async () => {
     try {
-      // Use the correct server URL (port 3001)
-      const serverUrl = config.api.baseUrl;
-      console.debug('PerformanceMonitor: Using API URL:', serverUrl);
-      const response = await fetch(`${serverUrl}/api/performance`);
+      // Use the reliable API configuration
+      const fullUrl = apiConfig.getUrl('/api/performance');
+      
+      // Log detailed information for debugging
+      console.log('PerformanceMonitor: Fetching metrics from:', fullUrl);
+      console.log('PerformanceMonitor: API Config:', {
+        baseUrl: apiConfig.baseUrl,
+        isProduction: apiConfig.isProduction(),
+        isDevelopment: apiConfig.isDevelopment(),
+        hostname: window.location.hostname
+      });
+      
+      const response = await fetch(fullUrl);
       if (response.ok) {
         const metrics = await response.json();
         setServerMetrics(metrics);
+        console.log('PerformanceMonitor: Successfully fetched metrics:', metrics);
       } else {
         console.warn('PerformanceMonitor: API responded with status:', response.status);
+        console.warn('PerformanceMonitor: Response headers:', Object.fromEntries(response.headers.entries()));
       }
     } catch (error) {
       // Log the error for debugging
-      console.warn('PerformanceMonitor: API not available:', error);
-      console.debug('PerformanceMonitor: Attempted URL:', `${config.api.baseUrl}/api/performance`);
+      console.error('PerformanceMonitor: API not available:', error);
+      console.error('PerformanceMonitor: Attempted URL:', apiConfig.getUrl('/api/performance'));
+      console.error('PerformanceMonitor: Error details:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      });
     }
   }, []);
 

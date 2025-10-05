@@ -1,30 +1,52 @@
+// Import debug utility
+import { debugApiConfig } from './debug';
+
 // Environment configuration
 export const config = {
   // API Configuration
   api: {
     baseUrl: (() => {
-      // Check if we're in development mode
-      const isDev = import.meta.env.DEV || 
-                   window.location.hostname === 'localhost' || 
-                   window.location.hostname === '127.0.0.1';
+      // More explicit environment detection
+      const hostname = window.location.hostname;
+      const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
+      const isVercelDev = hostname.includes('vercel.app') && import.meta.env.DEV;
+      const isDev = import.meta.env.DEV && (isLocalhost || isVercelDev);
       
-      if (isDev) {
+      // Force production URL for any deployed environment
+      const isDeployed = hostname.includes('vercel.app') || 
+                        hostname.includes('netlify.app') || 
+                        hostname.includes('github.io') ||
+                        hostname.includes('firebase.app') ||
+                        (!isLocalhost && !hostname.includes('localhost'));
+      
+      // Log all environment details for debugging
+      console.log('Cars-G Environment Detection:', {
+        hostname,
+        isLocalhost,
+        isVercelDev,
+        isDev,
+        isDeployed,
+        importMetaDev: import.meta.env.DEV,
+        importMetaProd: import.meta.env.PROD,
+        viteApiUrl: import.meta.env.VITE_API_URL
+      });
+      
+      // If we're in a deployed environment, always use production URL
+      if (isDeployed) {
+        const apiUrl = import.meta.env.VITE_API_URL || 'https://cars-g-api.onrender.com';
+        console.log('Using production API URL:', apiUrl);
+        return apiUrl;
+      }
+      
+      // Only use localhost for actual local development
+      if (isDev && isLocalhost) {
+        console.log('Using development API URL: http://localhost:3001');
         return 'http://localhost:3001';
       }
       
-      // In production, use VITE_API_URL if set, otherwise use the default production URL
+      // Default to production for any other case
       const apiUrl = import.meta.env.VITE_API_URL || 'https://cars-g-api.onrender.com';
-      
-      // Log configuration for debugging (only in production)
-      if (!isDev) {
-        console.debug('Cars-G Config:', {
-          environment: 'production',
-          apiUrl,
-          hasViteApiUrl: !!import.meta.env.VITE_API_URL,
-          hostname: window.location.hostname
-        });
-      }
-      
+      console.log('Defaulting to production API URL:', apiUrl);
       return apiUrl;
     })()
   },
@@ -64,4 +86,12 @@ export const config = {
 // Helper function to get API URL
 export const getApiUrl = (endpoint: string = ''): string => {
   return `${config.api.baseUrl}${endpoint}`;
-}; 
+};
+
+// Debug the configuration on load
+if (typeof window !== 'undefined') {
+  // Run debug after a short delay to ensure everything is loaded
+  setTimeout(() => {
+    debugApiConfig();
+  }, 100);
+} 

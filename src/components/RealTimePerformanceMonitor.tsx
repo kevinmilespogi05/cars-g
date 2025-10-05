@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Activity, Wifi, WifiOff, Clock, MessageCircle, Users } from 'lucide-react';
 import { config } from '../lib/config';
+import { apiConfig } from '../lib/apiConfig';
 
 interface PerformanceMetrics {
   connectionQuality: 'excellent' | 'good' | 'poor';
@@ -33,8 +34,8 @@ export const RealTimePerformanceMonitor: React.FC<RealTimePerformanceMonitorProp
 
   const fetchMetrics = useCallback(async () => {
     try {
-      const apiUrl = `${config.api.baseUrl}/api/performance`;
-      console.debug('RealTimePerformanceMonitor: Using API URL:', config.api.baseUrl);
+      const apiUrl = apiConfig.getUrl('/api/performance');
+      console.log('RealTimePerformanceMonitor: Using API URL:', apiConfig.baseUrl);
       const response = await fetch(apiUrl);
       if (response.ok) {
         const data = await response.json();
@@ -53,7 +54,7 @@ export const RealTimePerformanceMonitor: React.FC<RealTimePerformanceMonitorProp
       }
     } catch (error) {
       console.warn('RealTimePerformanceMonitor: Failed to fetch performance metrics:', error);
-      console.debug('RealTimePerformanceMonitor: Attempted URL:', `${config.api.baseUrl}/api/performance`);
+      console.debug('RealTimePerformanceMonitor: Attempted URL:', apiConfig.getUrl('/api/performance'));
     }
   }, []);
 
