@@ -58,15 +58,10 @@ const server = createServer(app);
 // Initialize Socket.IO
 const io = new Server(server, {
   cors: {
-    origin: [
-      process.env.FRONTEND_URL || "http://localhost:5173",
-      "http://localhost:5173",
-      "http://localhost:3000",
-      "https://cars-g.vercel.app",
-      "https://cars-g.vercel.app/",
-      "https://cars-g-git-main-kevinmccarthy.vercel.app",
-      "https://cars-g-git-main-kevinmccarthy.vercel.app/"
-    ],
+    origin: (origin, callback) => {
+      if (isAllowedOrigin(origin)) return callback(null, true);
+      return callback(new Error('Not allowed by CORS'));
+    },
     methods: ["GET", "POST"],
     credentials: true
   }
@@ -121,21 +116,7 @@ const testSupabaseConnection = async () => {
 // Middleware
 app.use(helmet());
 app.use(compression());
-app.use(cors({
-  origin: [
-    process.env.FRONTEND_URL || "http://localhost:5173",
-    "http://localhost:5173",
-    "http://localhost:3000",
-    "https://cars-g.vercel.app",
-    "https://cars-g.vercel.app/",
-    "https://cars-g-git-main-kevinmccarthy.vercel.app",
-    "https://cars-g-git-main-kevinmccarthy.vercel.app/"
-  ],
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
-  optionsSuccessStatus: 200
-}));
+// CORS is configured below using a dynamic allowlist
 app.use(express.json());
 
 // Top-level near other config
@@ -168,17 +149,7 @@ app.use(cors({
   optionsSuccessStatus: 200
 }));
 
-// Also update Socket.IO CORS to match:
-const io = new Server(server, {
-  cors: {
-    origin: (origin, callback) => {
-      if (isAllowedOrigin(origin)) return callback(null, true);
-      return callback(new Error('Not allowed by CORS'));
-    },
-    methods: ['GET','POST'],
-    credentials: true
-  }
-});
+// Socket.IO CORS already configured above using dynamic allowlist
 
 // Configure multer for file uploads
 const upload = multer({
