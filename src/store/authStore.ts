@@ -597,7 +597,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   signUp: async (email: string, password: string, username: string, firstName?: string, lastName?: string) => {
     try {
       // Check if username already exists using API endpoint
-      const usernameResponse = await fetch(getApiUrl('/api/auth/check-username'), {
+      const usernameResponse = await fetch('/api/auth/check-username', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -619,7 +619,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       }
 
       // Check if email already exists using API endpoint
-      const emailResponse = await fetch(getApiUrl('/api/auth/check-email'), {
+      const emailResponse = await fetch('/api/auth/check-email', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
