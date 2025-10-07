@@ -138,6 +138,48 @@ app.use(cors({
 }));
 app.use(express.json());
 
+// Top-level near other config
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean);
+
+// Allow function supports exact matches + Firebase preview channels (optional)
+function isAllowedOrigin(origin) {
+  if (!origin) return true; // non-browser or same-origin
+  if (allowedOrigins.includes(origin)) return true;
+
+  // Optional: allow Firebase preview channels under *.web.app or *.firebaseapp.com
+  if (/^https:\/\/[a-z0-9-]+\.web\.app$/i.test(origin)) return true;
+  if (/^https:\/\/[a-z0-9-]+\.firebaseapp\.com$/i.test(origin)) return true;
+
+  return false;
+}
+
+// Replace your current app.use(cors(...)) with:
+app.use(cors({
+  origin: (origin, callback) => {
+    if (isAllowedOrigin(origin)) return callback(null, true);
+    return callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+  methods: ['GET','POST','PUT','DELETE','OPTIONS'],
+  allowedHeaders: ['Content-Type','Authorization','X-Requested-With'],
+  optionsSuccessStatus: 200
+}));
+
+// Also update Socket.IO CORS to match:
+const io = new Server(server, {
+  cors: {
+    origin: (origin, callback) => {
+      if (isAllowedOrigin(origin)) return callback(null, true);
+      return callback(new Error('Not allowed by CORS'));
+    },
+    methods: ['GET','POST'],
+    credentials: true
+  }
+});
+
 // Configure multer for file uploads
 const upload = multer({
   storage: multer.memoryStorage(),
