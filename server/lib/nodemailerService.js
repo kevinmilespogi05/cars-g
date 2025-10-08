@@ -34,8 +34,9 @@ class NodemailerEmailService {
   }
 
   setupGmailTransporter() {
-    const gmailUser = process.env.GMAIL_USER;
-    const gmailAppPassword = process.env.GMAIL_APP_PASSWORD;
+    // Support either GMAIL_* or EMAIL_USER/EMAIL_PASS
+    const gmailUser = process.env.GMAIL_USER || process.env.EMAIL_USER;
+    const gmailAppPassword = process.env.GMAIL_APP_PASSWORD || process.env.EMAIL_PASS;
     
     if (!gmailUser || !gmailAppPassword) {
       console.warn('⚠️  Gmail credentials not set - email sending will not work');
@@ -122,6 +123,11 @@ class NodemailerEmailService {
       }
 
       const senderEmail = this.getSenderEmail();
+      console.log('📧 Nodemailer about to send', {
+        provider: this.provider,
+        from: senderEmail,
+        to: email
+      });
       const mailOptions = {
         from: senderEmail,
         to: email,
@@ -131,9 +137,18 @@ class NodemailerEmailService {
       };
 
       const info = await this.transporter.sendMail(mailOptions);
-      console.log('✅ Verification email sent successfully to:', email);
-      console.log('📧 Message ID:', info.messageId);
-      return true;
+      console.log('✅ Nodemailer sendMail result:', {
+        messageId: info?.messageId,
+        accepted: info?.accepted,
+        rejected: info?.rejected,
+        envelope: info?.envelope
+      });
+      const accepted = Array.isArray(info?.accepted) ? info.accepted : [];
+      const rejected = Array.isArray(info?.rejected) ? info.rejected : [];
+      if (accepted.length === 0 || rejected.length > 0) {
+        console.warn('⚠️  Nodemailer reported issues delivering email', { accepted, rejected });
+      }
+      return accepted.length > 0 && rejected.length === 0;
 
     } catch (error) {
       console.error('❌ Error sending verification email:', error);
@@ -157,20 +172,25 @@ class NodemailerEmailService {
    */
   getSenderEmail() {
     const customSender = process.env.EMAIL_SENDER;
-    if (customSender) {
-      return customSender;
+    if (customSender) return customSender;
+
+    // If EMAIL_USER + optional EMAIL_SENDERNAME provided, build "Name <email>"
+    const emailUser = process.env.EMAIL_USER;
+    const emailSenderName = process.env.EMAIL_SENDERNAME || '';
+    if (emailUser) {
+      return emailSenderName ? `${emailSenderName} <${emailUser}>` : emailUser;
     }
 
     switch (this.provider.toLowerCase()) {
       case 'gmail':
-        return process.env.GMAIL_USER || 'Cars-G <noreply@cars-g.com>';
+        return process.env.GMAIL_USER || 'Cars-G <sanpablocarsg@gmail.com>';
       case 'outlook':
       case 'hotmail':
-        return process.env.OUTLOOK_USER || 'Cars-G <noreply@cars-g.com>';
+        return process.env.OUTLOOK_USER || 'Cars-G <sanpablocarsg@gmail.com>';
       case 'custom':
-        return process.env.SMTP_USER || 'Cars-G <noreply@cars-g.com>';
+        return process.env.SMTP_USER || 'Cars-G <sanpablocarsg@gmail.com>';
       default:
-        return 'Cars-G <noreply@cars-g.com>';
+        return 'Cars-G <sanpablocarsg@gmail.com>';
     }
   }
 
@@ -340,9 +360,9 @@ This email was sent by Cars-G. If you have any questions, please contact our sup
         return false;
       }
 
-      await this.transporter.verify();
-      console.log('✅ Email service connection verified');
-      return true;
+      const ok = await this.transporter.verify();
+      console.log('✅ Email service connection verified', { provider: this.provider, ok });
+      return !!ok || ok === undefined; // some transports return undefined on success
     } catch (error) {
       console.error('❌ Email service connection failed:', error);
       return false;

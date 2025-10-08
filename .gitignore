@@ -53,3 +53,4 @@ logs
 .DS_Store
 Thumbs.db
 server/env.example
+.env

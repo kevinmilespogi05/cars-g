@@ -13,6 +13,7 @@ import { GoogleAuth } from 'google-auth-library';
 import multer from 'multer';
 import { generateTokenPair, verifyToken, extractTokenFromHeader } from './lib/jwt.js';
 import { authenticateToken, requireRole } from './middleware/auth.js';
+import BrevoEmailService from './lib/brevoEmailService.js';
 import NodemailerEmailService from './lib/nodemailerService.js';
 
 // Load environment variables
@@ -82,8 +83,9 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabase = createClient(supabaseUrl, supabaseAnonKey || '');
 const supabaseAdmin = supabaseServiceKey ? createClient(supabaseUrl, supabaseServiceKey) : null;
 
-// Initialize email service
-const emailService = new NodemailerEmailService();
+// Initialize email services
+const emailService = new BrevoEmailService();
+const fallbackEmailService = new NodemailerEmailService();
 
 if (!supabaseUrl) {
   console.error('❌ VITE_SUPABASE_URL is required');
@@ -164,6 +166,33 @@ app.options('*', (req, res) => {
   res.sendStatus(200);
 });
 
+
+// Brevo: create email campaign
+app.post('/api/brevo/campaigns', async (req, res) => {
+  try {
+    const { name, subject, sender, htmlContent, listIds, scheduledAt } = req.body || {};
+    if (!name || !subject || !htmlContent || !Array.isArray(listIds) || listIds.length === 0) {
+      return res.status(400).json({ error: 'name, subject, htmlContent and listIds[] are required' });
+    }
+
+    const result = await emailService.createEmailCampaign({
+      name: String(name),
+      subject: String(subject),
+      sender: sender && sender.email ? { name: String(sender.name || ''), email: String(sender.email) } : undefined,
+      htmlContent: String(htmlContent),
+      listIds: listIds.map(Number).filter(n => Number.isFinite(n)),
+      scheduledAt: typeof scheduledAt === 'string' ? scheduledAt : undefined
+    });
+
+    if (result?.error) {
+      return res.status(502).json({ error: result.error });
+    }
+    return res.json({ success: true, campaign: result });
+  } catch (e) {
+    console.error('Create Brevo campaign error:', e);
+    return res.status(500).json({ error: 'Failed to create campaign' });
+  }
+});
 
 // FCM HTTP v1 helper
 const FCM_PROJECT_ID = process.env.FCM_PROJECT_ID || process.env.VITE_FIREBASE_PROJECT_ID;
@@ -1214,29 +1243,23 @@ app.post('/api/auth/send-verification', async (req, res) => {
       }
     }
 
-    // Send verification email with timeout
+    // Send verification email (email service handles its own timeout)
     let emailSent = false;
     let devBypass = false;
-    
     try {
-      // Wrap email sending in a timeout promise
-      const emailPromise = emailService.sendVerificationEmail(email, verificationCode, username || 'User');
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Email sending timeout')), 10000)
-      );
-      
-      emailSent = await Promise.race([emailPromise, timeoutPromise]);
+      emailSent = await emailService.sendVerificationEmail(email, verificationCode, username || 'User');
+      if (!emailSent) {
+        // Fallback to nodemailer if Brevo fails (e.g., 403 SMTP not activated)
+        console.warn('⚠️  Brevo failed, trying nodemailer fallback...');
+        emailSent = await fallbackEmailService.sendVerificationEmail(email, verificationCode, username || 'User');
+      }
       if (emailSent) {
         console.log('✅ Email sent successfully');
       }
     } catch (emailError) {
       console.log('⚠️  Email sending failed:', emailError.message);
-      
-      // In production, if email fails, still allow registration but log the issue
-      // Store the verification code so user can still verify
       if (process.env.NODE_ENV === 'production') {
         console.error('⚠️  Production email failure - storing code for manual verification');
-        // Continue with storing the code in database
         devBypass = true;
         emailSent = true;
       }
@@ -1310,6 +1333,63 @@ app.post('/api/auth/send-verification', async (req, res) => {
       error: 'Internal server error',
       code: 'INTERNAL_ERROR'
     });
+  }
+});
+
+// OTP via Brevo (simple flow similar to friend's implementation)
+const otpStore = new Map(); // email -> { code, expiresAt }
+
+// Generate and send OTP
+app.post('/api/auth/generate-otp', async (req, res) => {
+  try {
+    const { email } = req.body || {};
+    if (!email) {
+      return res.status(400).json({ success: false, error: 'Email is required' });
+    }
+
+    // 6-digit numeric OTP
+    const otp = String(Math.floor(100000 + Math.random() * 900000));
+    const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
+
+    // Send via Brevo
+    const sent = await emailService.sendOtpEmail(email, otp);
+    if (!sent) {
+      return res.status(502).json({ success: false, error: 'Failed to send OTP email' });
+    }
+
+    otpStore.set(email.toLowerCase(), { code: otp, expiresAt });
+    return res.json({ success: true, message: 'OTP sent to your email.' });
+  } catch (e) {
+    console.error('generate-otp error:', e);
+    return res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+// Verify OTP
+app.post('/api/auth/verify-otp', async (req, res) => {
+  try {
+    const { email, otp } = req.body || {};
+    if (!email || !otp) {
+      return res.status(400).json({ success: false, error: 'Email and OTP are required' });
+    }
+
+    const key = email.toLowerCase();
+    const entry = otpStore.get(key);
+    if (!entry) {
+      return res.status(400).json({ success: false, error: 'Invalid OTP' });
+    }
+    if (Date.now() > entry.expiresAt) {
+      otpStore.delete(key);
+      return res.status(400).json({ success: false, error: 'OTP expired' });
+    }
+    if (String(entry.code) !== String(otp)) {
+      return res.status(400).json({ success: false, error: 'Invalid OTP' });
+    }
+    otpStore.delete(key);
+    return res.json({ success: true, message: 'OTP verified successfully.' });
+  } catch (e) {
+    console.error('verify-otp error:', e);
+    return res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 

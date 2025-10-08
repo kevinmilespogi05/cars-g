@@ -49,4 +49,4 @@ services:
       - key: GMAIL_APP_PASSWORD
         sync: false
       - key: EMAIL_SENDER
-        value: CARS-G <noreply@cars-g.com>
+        value: CARS-G <sanpablocarsg@gmail.com>
