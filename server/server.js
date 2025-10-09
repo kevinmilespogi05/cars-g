@@ -1465,23 +1465,17 @@ app.post('/api/auth/register', async (req, res) => {
       });
     }
 
-    // Send verification email
-    const emailSent = await sendVerificationEmail(email, otp, 'registration');
-    
-    if (!emailSent) {
-      console.error('Failed to send verification email');
-      // Clean up pending registration if email fails
-      await supabaseAdmin
-        .from('pending_registrations')
-        .delete()
-        .eq('id', pendingData.id);
-      
-      return res.status(500).json({
-        success: false,
-        error: 'Failed to send verification email',
-        code: 'EMAIL_SEND_ERROR'
+    // Send verification email in background to avoid blocking the response
+    // If it fails, user can use resend endpoint; we log the error for observability
+    sendVerificationEmail(email, otp, 'registration')
+      .then((ok) => {
+        if (!ok) {
+          console.error('Background: failed to send verification email for', email);
+        }
+      })
+      .catch((e) => {
+        console.error('Background email send error:', e?.message || e);
       });
-    }
 
     res.json({
       success: true,

@@ -7,22 +7,23 @@ dotenv.config();
 const createTransporter = () => {
   return nodemailer.createTransport({
     host: 'smtp.gmail.com',
-    port: 587,
-    secure: false,
+    port: 465,
+    secure: true, // Use SSL (often more reliable on hosting providers)
     auth: {
       user: '202210346@gordoncollege.edu.ph',
       pass: process.env.GORDON_EMAIL_PASSWORD // App password
     },
-    tls: {
-      rejectUnauthorized: false
-    },
+    // Timeouts to prevent long hangs on connection issues
+    connectionTimeout: 10000, // 10s
+    greetingTimeout: 10000,   // 10s
+    socketTimeout: 10000,     // 10s
     // Production optimizations
     pool: true, // Use connection pooling
-    maxConnections: 5, // Maximum number of connections
+    maxConnections: 1, // Keep low to avoid provider throttling
     maxMessages: 100, // Maximum number of messages per connection
     rateDelta: 20000, // Rate limiting: 20 seconds
     rateLimit: 5, // Maximum 5 emails per rateDelta
-    // Retry configuration
+    // Retry configuration (used by our wrapper, not by nodemailer)
     retryDelay: 5000, // 5 seconds between retries
     retryAttempts: 3 // Maximum 3 retry attempts
   });
