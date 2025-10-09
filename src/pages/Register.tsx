@@ -22,12 +22,11 @@ import {
   FileText,
   X
 } from 'lucide-react';
-import { EmailVerification } from '../components/EmailVerification';
 import { getApiUrl } from '../lib/config';
 
 export function Register() {
   const navigate = useNavigate();
-  const { signUp, signInWithGoogle } = useAuthStore();
+  const { signUp, signInWithGoogle, verifyRegistration, resendVerification } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
@@ -41,6 +40,13 @@ export function Register() {
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   
+  // Email verification states
+  const [showVerification, setShowVerification] = useState(false);
+  const [verificationEmail, setVerificationEmail] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [isResending, setIsResending] = useState(false);
+  
   // Validation states
   const [usernameError, setUsernameError] = useState('');
   const [emailError, setEmailError] = useState('');
@@ -49,8 +55,6 @@ export function Register() {
   const [usernameValid, setUsernameValid] = useState(false);
   const [emailValid, setEmailValid] = useState(false);
   
-  // Registration steps: 'form' | 'verification' | 'complete'
-  const [registrationStep, setRegistrationStep] = useState<'form' | 'verification' | 'complete'>('form');
 
   // Validation functions
   const validateUsername = async (username: string) => {
@@ -224,44 +228,72 @@ export function Register() {
     setIsLoading(true);
 
     try {
-      // Send verification email first with timeout
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000); // Increased to 15 seconds
-      const response = await fetch(getApiUrl('/api/auth/send-verification'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email,
-          username
-        }),
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        let serverMessage = '';
-        try {
-          const errJson = await response.json();
-          serverMessage = errJson?.error || errJson?.message || '';
-        } catch {}
-        throw new Error(serverMessage || `Failed to send verification email (${response.status})`);
-      }
-
-      const data = await response.json();
-      if (data?.success) {
-        setRegistrationStep('verification');
+      // Register user with email verification
+      const result = await signUp(email, password, username, firstName, lastName);
+      
+      if (result.requiresVerification) {
+        // Show verification form
+        setVerificationEmail(email);
+        setShowVerification(true);
+        setError('');
       } else {
-        throw new Error(data?.error || 'Failed to send verification email');
+        // Navigate to login after successful registration
+        navigate('/login', { 
+          state: { 
+            message: 'Registration successful! You can now sign in with your credentials.' 
+          } 
+        });
       }
     } catch (err) {
-      const message = err instanceof Error
-        ? (err.name === 'AbortError' ? 'Request timed out. Please try again.' : err.message)
-        : 'Network error. Please try again.';
+      const message = err instanceof Error ? err.message : 'Failed to create account';
       setError(message);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleVerification = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    
+    if (!verificationCode.trim()) {
+      setError('Please enter the verification code.');
+      return;
+    }
+    
+    setIsVerifying(true);
+
+    try {
+      await verifyRegistration(verificationEmail, verificationCode);
+      
+      // Navigate to login after successful verification
+      navigate('/login', { 
+        state: { 
+          message: 'Email verified successfully! You can now sign in with your credentials.' 
+        } 
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Verification failed';
+      setError(message);
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    setError('');
+    setIsResending(true);
+
+    try {
+      await resendVerification(verificationEmail);
+      setError('');
+      // Show success message
+      setError('Verification code sent! Please check your email.');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to resend verification code';
+      setError(message);
+    } finally {
+      setIsResending(false);
     }
   };
 
@@ -276,74 +308,6 @@ export function Register() {
     }
   };
 
-  const handleEmailVerified = async () => {
-    setIsLoading(true);
-    setError('');
-
-    try {
-      // Now complete the registration
-      await signUp(email, password, username, firstName, lastName);
-      setRegistrationStep('complete');
-      
-      // Navigate to login after a short delay
-      setTimeout(() => {
-        navigate('/login', { 
-          state: { 
-            message: 'Registration successful! You can now sign in with your credentials.' 
-          } 
-        });
-      }, 2000);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to create account';
-      setError(errorMessage);
-      setRegistrationStep('form'); // Go back to form if registration fails
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleBackToForm = () => {
-    setRegistrationStep('form');
-    setError('');
-  };
-
-  const handleResendVerification = async () => {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000); // Increased to 15 seconds
-      const response = await fetch(getApiUrl('/api/auth/send-verification'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email,
-          username
-        }),
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        let serverMessage = '';
-        try {
-          const errJson = await response.json();
-          serverMessage = errJson?.error || errJson?.message || '';
-        } catch {}
-        throw new Error(serverMessage || `Failed to resend verification email (${response.status})`);
-      }
-
-      const data = await response.json();
-      if (!data?.success) {
-        setError(data?.error || 'Failed to resend verification email');
-      }
-    } catch (err) {
-      const message = err instanceof Error
-        ? (err.name === 'AbortError' ? 'Request timed out. Please try again.' : err.message)
-        : 'Network error. Please try again.';
-      setError(message);
-    }
-  };
 
 
 
@@ -374,9 +338,7 @@ export function Register() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
         >
-          {/* Conditional Content Based on Registration Step */}
-          {registrationStep === 'form' && (
-            <>
+          {/* Registration Form */}
               {/* Header Section */}
           <motion.div 
             className="text-center space-y-6"
@@ -403,13 +365,14 @@ export function Register() {
           </motion.div>
         
           {/* Form Section */}
-          <motion.form 
-            className="space-y-6"
-            onSubmit={handleSubmit}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-          >
+          {!showVerification && (
+            <motion.form 
+              className="space-y-6"
+              onSubmit={handleSubmit}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+            >
             {/* Error Alert */}
             <AnimatePresence>
               {error && (
@@ -756,14 +719,105 @@ export function Register() {
               </motion.div>
             )}
           </motion.form>
+          )}
+
+          {/* Email Verification Form */}
+          {showVerification && (
+            <motion.div
+              className="space-y-6"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+            >
+              <div className="text-center space-y-4">
+                <div className="flex justify-center">
+                  <div className="h-16 w-16 rounded-2xl flex items-center justify-center bg-green-100">
+                    <Mail className="h-8 w-8 text-green-600" />
+                  </div>
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">Verify Your Email</h2>
+                  <p className="text-gray-600 mt-2">
+                    We've sent a verification code to <strong>{verificationEmail}</strong>
+                  </p>
+                </div>
+              </div>
+
+              <form onSubmit={handleVerification} className="space-y-6">
+                <div>
+                  <label htmlFor="verification-code" className="block text-sm font-medium text-gray-700 mb-2">
+                    Verification Code
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="verification-code"
+                      type="text"
+                      value={verificationCode}
+                      onChange={(e) => setVerificationCode(e.target.value)}
+                      placeholder="Enter 6-digit code"
+                      maxLength={6}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 text-center text-lg font-mono tracking-widest"
+                      disabled={isVerifying}
+                    />
+                  </div>
+                </div>
+
+                {error && (
+                  <motion.div
+                    className="bg-red-50 border border-red-200 rounded-xl p-4"
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <div className="flex items-center">
+                      <AlertCircle className="h-5 w-5 text-red-500 mr-3" />
+                      <p className="text-red-700 text-sm">{error}</p>
+                    </div>
+                  </motion.div>
+                )}
+
+                <div className="space-y-4">
+                  <button
+                    type="submit"
+                    disabled={isVerifying || !verificationCode.trim()}
+                    className="w-full flex justify-center py-3 px-4 border border-transparent rounded-xl shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                  >
+                    {isVerifying ? (
+                      <div className="flex items-center">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        Verifying...
+                      </div>
+                    ) : (
+                      'Verify Email'
+                    )}
+                  </button>
+
+                  <div className="text-center">
+                    <p className="text-sm text-gray-600 mb-2">
+                      Didn't receive the code?
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleResendVerification}
+                      disabled={isResending}
+                      className="text-blue-600 hover:text-blue-700 font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                    >
+                      {isResending ? 'Sending...' : 'Resend Code'}
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </motion.div>
+          )}
         
           {/* Social Login Section */}
-          <motion.div 
-            className="space-y-6"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.4 }}
-          >
+          {!showVerification && (
+            <motion.div 
+              className="space-y-6"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.4 }}
+            >
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
                 <div className="w-full border-t border-gray-200"></div>
@@ -810,6 +864,7 @@ export function Register() {
               )}
             </motion.button>
           </motion.div>
+          )}
 
           {/* Footer */}
           <motion.div 
@@ -828,41 +883,7 @@ export function Register() {
               </Link>
             </p>
           </motion.div>
-            </>
-          )}
 
-          {/* Email Verification Step */}
-          {registrationStep === 'verification' && (
-            <EmailVerification
-              email={email}
-              username={username}
-              onVerified={handleEmailVerified}
-              onBack={handleBackToForm}
-              onResend={handleResendVerification}
-            />
-          )}
-
-          {/* Registration Complete Step */}
-          {registrationStep === 'complete' && (
-            <motion.div 
-              className="text-center space-y-6"
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.5 }}
-            >
-              <div className="flex justify-center">
-                <div className="h-20 w-20 bg-green-100 rounded-full flex items-center justify-center">
-                  <CheckCircle className="h-10 w-10 text-green-600" />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <h2 className="text-2xl font-bold text-gray-900">Registration Complete!</h2>
-                <p className="text-gray-600">
-                  Your account has been created successfully. Redirecting to login...
-                </p>
-              </div>
-            </motion.div>
-          )}
         </motion.div>
       </div>
 

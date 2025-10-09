@@ -596,30 +596,81 @@ export const useAuthStore = create<AuthState>((set) => ({
   
   signUp: async (email: string, password: string, username: string, firstName?: string, lastName?: string) => {
     try {
-      // Check if username already exists using API endpoint
-      const usernameResponse = await fetch('/api/auth/check-username', {
+      // Use the new server-side registration endpoint with email verification
+      const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ username }),
+        body: JSON.stringify({ 
+          email, 
+          password, 
+          username, 
+          firstName: firstName || '', 
+          lastName: lastName || '' 
+        }),
       });
 
-      if (!usernameResponse.ok) {
-        throw new Error('Failed to validate username. Please try again.');
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Registration failed');
       }
 
-      const usernameResult = await usernameResponse.json();
-      if (!usernameResult.success) {
-        throw new Error(usernameResult.error || 'Failed to validate username. Please try again.');
-      }
-      
-      if (!usernameResult.available) {
-        throw new Error('This username is already taken. Please choose a different username.');
+      if (!result.success) {
+        throw new Error(result.error || 'Registration failed');
       }
 
-      // Check if email already exists using API endpoint
-      const emailResponse = await fetch('/api/auth/check-email', {
+      // Return the registration result with verification requirement
+      return {
+        success: true,
+        message: result.message,
+        userId: result.userId,
+        email: result.email,
+        requiresVerification: result.requiresVerification
+      };
+    } catch (error) {
+      console.error('Signup error:', error);
+      throw error;
+    }
+  },
+
+  // New method to verify registration email
+  verifyRegistration: async (email: string, otp: string) => {
+    try {
+      const response = await fetch('/api/auth/verify-registration', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, otp }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Verification failed');
+      }
+
+      if (!result.success) {
+        throw new Error(result.error || 'Verification failed');
+      }
+
+      return {
+        success: true,
+        message: result.message,
+        email: result.email
+      };
+    } catch (error) {
+      console.error('Verification error:', error);
+      throw error;
+    }
+  },
+
+  // New method to resend verification email
+  resendVerification: async (email: string) => {
+    try {
+      const response = await fetch('/api/auth/resend-verification', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -627,99 +678,22 @@ export const useAuthStore = create<AuthState>((set) => ({
         body: JSON.stringify({ email }),
       });
 
-      if (!emailResponse.ok) {
-        throw new Error('Failed to validate email. Please try again.');
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to resend verification');
       }
 
-      const emailResult = await emailResponse.json();
-      if (!emailResult.success) {
-        throw new Error(emailResult.error || 'Failed to validate email. Please try again.');
-      }
-      
-      if (!emailResult.available) {
-        throw new Error('An account with this email already exists. Please try signing in instead.');
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to resend verification');
       }
 
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: null, // Disable email confirmation
-        }
-      });
-      
-      if (error) {
-        console.error('Auth signup error:', error);
-        
-        // Handle specific Supabase errors with user-friendly messages
-        if (error.message?.includes('User already registered')) {
-          throw new Error('An account with this email already exists. Please try signing in instead.');
-        }
-        
-        if (error.message?.includes('Password should be at least')) {
-          throw new Error('Password must be at least 6 characters long.');
-        }
-        
-        if (error.message?.includes('Invalid email')) {
-          throw new Error('Please enter a valid email address.');
-        }
-        
-        if (error.message?.includes('Password is too weak')) {
-          throw new Error('Password is too weak. Please choose a stronger password.');
-        }
-        
-        throw error;
-      }
-      
-      if (data.user) {
-        console.log('User created successfully:', data.user.id);
-        
-        // First check if profile already exists
-        const { data: existingProfiles, error: checkError } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('id', data.user.id)
-          .maybeSingle();
-
-        if (checkError) {
-          console.error('Error checking existing profile:', checkError);
-          throw checkError;
-        }
-
-        if (!existingProfiles) {
-          console.log('Creating new profile for user:', data.user.id);
-          const { error: profileError } = await supabase
-            .from('profiles')
-            .insert({
-              id: data.user.id,
-              username: username,
-              email: data.user.email || '',
-              first_name: firstName || null,
-              last_name: lastName || null,
-              points: 0,
-              role: 'user',
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-              notification_settings: { push: true, email: true }
-            });
-            
-          if (profileError) {
-            console.error('Error creating profile:', profileError);
-            throw profileError;
-          }
-
-          // Initialize user stats
-          await initializeUserStats(data.user.id);
-          
-          console.log('Profile created successfully');
-        } else {
-          console.log('Profile already exists for user:', data.user.id);
-          // Initialize user stats if they don't exist
-          await initializeUserStats(data.user.id);
-        }
-      }
+      return {
+        success: true,
+        message: result.message
+      };
     } catch (error) {
-      console.error('Signup process error:', error);
+      console.error('Resend verification error:', error);
       throw error;
     }
   },

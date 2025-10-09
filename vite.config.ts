@@ -231,8 +231,7 @@ export default defineConfig({
             './src/components/AvatarSelector.tsx'
           ],
           'components-chat': [
-            './src/components/ChatWindow.tsx',
-            './src/components/EmailVerification.tsx'
+            './src/components/ChatWindow.tsx'
           ],
           'lib-utils': [
             './src/lib/config.ts',
