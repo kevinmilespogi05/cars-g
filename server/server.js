@@ -1469,7 +1469,9 @@ app.post('/api/auth/register', async (req, res) => {
 
     // Generate and send verification OTP
     const { default: otpGenerator } = await import('otp-generator');
-    const { sendVerificationEmail } = await import('./utils/nodemailerService.js');
+    
+    // Use Resend email service (works great on Render)
+    const { sendVerificationEmail } = await import('./utils/resendService.js');
     
     const otp = otpGenerator.generate(6, { digits: true, upperCase: false, specialChars: false });
     
@@ -1631,7 +1633,9 @@ app.post('/api/auth/resend-verification', async (req, res) => {
 
     // Generate new OTP
     const { default: otpGenerator } = await import('otp-generator');
-    const { sendVerificationEmail } = await import('./utils/nodemailerService.js');
+    
+    // Use Resend email service (works great on Render)
+    const { sendVerificationEmail } = await import('./utils/resendService.js');
     
     const otp = otpGenerator.generate(6, { digits: true, upperCase: false, specialChars: false });
     
