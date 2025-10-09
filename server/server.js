@@ -1307,7 +1307,7 @@ app.post('/api/auth/check-email', async (req, res) => {
   }
 });
 
-// Registration endpoint with email verification
+// Registration endpoint with email verification (two-step process)
 app.post('/api/auth/register', async (req, res) => {
   try {
     const { email, password, username, firstName, lastName } = req.body;
@@ -1358,29 +1358,33 @@ app.post('/api/auth/register', async (req, res) => {
       });
     }
 
-    // Check if username already exists
-    const { data: existingProfile, error: profileError } = await supabaseAdmin
-      ? await supabaseAdmin
-          .from('profiles')
-          .select('id')
-          .eq('username', username)
-          .maybeSingle()
-      : await supabase
-          .from('profiles')
-          .select('id')
-          .eq('username', username)
-          .maybeSingle();
+    // Check if username already exists in profiles or pending registrations
+    const [existingProfile, existingPending] = await Promise.all([
+      supabaseAdmin
+        ? supabaseAdmin
+            .from('profiles')
+            .select('id')
+            .eq('username', username)
+            .maybeSingle()
+        : supabase
+            .from('profiles')
+            .select('id')
+            .eq('username', username)
+            .maybeSingle(),
+      supabaseAdmin
+        ? supabaseAdmin
+            .from('pending_registrations')
+            .select('id')
+            .eq('username', username)
+            .maybeSingle()
+        : supabase
+            .from('pending_registrations')
+            .select('id')
+            .eq('username', username)
+            .maybeSingle()
+    ]);
 
-    if (profileError) {
-      console.error('Error checking username:', profileError);
-      return res.status(500).json({
-        success: false,
-        error: 'Failed to validate username',
-        code: 'VALIDATION_ERROR'
-      });
-    }
-
-    if (existingProfile) {
+    if (existingProfile.data || existingPending.data) {
       return res.status(400).json({
         success: false,
         error: 'Username is already taken',
@@ -1388,8 +1392,8 @@ app.post('/api/auth/register', async (req, res) => {
       });
     }
 
-    // Check if email already exists
-    const [profilesResult, authResult] = await Promise.all([
+    // Check if email already exists in profiles, auth, or pending registrations
+    const [profilesResult, authResult, pendingResult] = await Promise.all([
       supabaseAdmin
         ? supabaseAdmin
             .from('profiles')
@@ -1406,90 +1410,72 @@ app.post('/api/auth/register', async (req, res) => {
             page: 1,
             perPage: 1000
           })
-        : Promise.resolve({ data: { users: [] }, error: null })
+        : Promise.resolve({ data: { users: [] }, error: null }),
+      supabaseAdmin
+        ? supabaseAdmin
+            .from('pending_registrations')
+            .select('id')
+            .eq('email', email)
+            .maybeSingle()
+        : supabase
+            .from('pending_registrations')
+            .select('id')
+            .eq('email', email)
+            .maybeSingle()
     ]);
 
     const emailExistsInProfiles = !!profilesResult.data;
     const emailExistsInAuth = authResult.data?.users?.some(user => user.email === email) || false;
+    const emailExistsInPending = !!pendingResult.data;
 
-    if (emailExistsInProfiles || emailExistsInAuth) {
+    if (emailExistsInProfiles || emailExistsInAuth || emailExistsInPending) {
       return res.status(400).json({
         success: false,
-        error: 'An account with this email already exists',
+        error: 'An account with this email already exists or is pending verification',
         code: 'EMAIL_EXISTS'
       });
     }
 
-    // Create user in Supabase Auth with email confirmation disabled
-    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: false, // We'll handle verification manually
-      user_metadata: {
-        username,
-        first_name: firstName || '',
-        last_name: lastName || ''
-      }
-    });
-
-    if (authError || !authData.user) {
-      console.error('Auth signup error:', authError);
-      return res.status(500).json({
-        success: false,
-        error: 'Failed to create user account',
-        code: 'AUTH_ERROR'
-      });
-    }
-
-    // Create profile in profiles table
-    const { error: profileCreateError } = await supabaseAdmin
-      .from('profiles')
-      .insert({
-        id: authData.user.id,
-        email: email,
-        username: username,
-        first_name: firstName || '',
-        last_name: lastName || '',
-        role: 'user',
-        points: 0,
-        email_verified: false, // Track verification status
-        created_at: new Date().toISOString()
-      });
-
-    if (profileCreateError) {
-      console.error('Profile creation error:', profileCreateError);
-      // Clean up auth user if profile creation fails
-      await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
-      return res.status(500).json({
-        success: false,
-        error: 'Failed to create user profile',
-        code: 'PROFILE_ERROR'
-      });
-    }
-
-    // Generate and send verification OTP
+    // Generate OTP
     const { default: otpGenerator } = await import('otp-generator');
-    
-    // Use Resend email service (works great on Render)
-    const { sendVerificationEmail } = await import('./utils/resendService.js');
+    const { sendVerificationEmail } = await import('./utils/nodemailerService.js');
     
     const otp = otpGenerator.generate(6, { digits: true, upperCase: false, specialChars: false });
-    
-    // Store OTP temporarily (in production, use Redis or database)
-    if (!global.registrationOTPs) {
-      global.registrationOTPs = {};
+    const otpExpiresAt = new Date(Date.now() + (10 * 60 * 1000)).toISOString(); // 10 minutes
+
+    // Store pending registration in database (store original password, not hash)
+    const { data: pendingData, error: pendingError } = await supabaseAdmin
+      .from('pending_registrations')
+      .insert({
+        email: email,
+        password_hash: password, // Store original password for Supabase Auth
+        username: username,
+        code: otp,
+        expires_at: otpExpiresAt
+      })
+      .select()
+      .single();
+
+    if (pendingError) {
+      console.error('Pending registration error:', pendingError);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to create pending registration',
+        code: 'PENDING_REGISTRATION_ERROR'
+      });
     }
-    global.registrationOTPs[email] = {
-      otp,
-      userId: authData.user.id,
-      expiresAt: Date.now() + (10 * 60 * 1000) // 10 minutes
-    };
 
     // Send verification email
     const emailSent = await sendVerificationEmail(email, otp, 'registration');
     
     if (!emailSent) {
       console.error('Failed to send verification email');
+      // Clean up pending registration if email fails
+      await supabaseAdmin
+        .from('pending_registrations')
+        .delete()
+        .eq('id', pendingData.id);
+      
       return res.status(500).json({
         success: false,
         error: 'Failed to send verification email',
@@ -1499,8 +1485,7 @@ app.post('/api/auth/register', async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Registration successful! Please check your email for verification code.',
-      userId: authData.user.id,
+      message: 'Registration initiated! Please check your email for verification code.',
       email: email,
       requiresVerification: true
     });
@@ -1515,7 +1500,7 @@ app.post('/api/auth/register', async (req, res) => {
   }
 });
 
-// Verify registration email
+// Verify registration email and create user account
 app.post('/api/auth/verify-registration', async (req, res) => {
   try {
     const { email, otp } = req.body;
@@ -1528,8 +1513,14 @@ app.post('/api/auth/verify-registration', async (req, res) => {
       });
     }
 
-    // Check if OTP exists and is valid
-    if (!global.registrationOTPs || !global.registrationOTPs[email]) {
+    // Get pending registration from database
+    const { data: pendingData, error: pendingError } = await supabaseAdmin
+      .from('pending_registrations')
+      .select('*')
+      .eq('email', email)
+      .single();
+
+    if (pendingError || !pendingData) {
       return res.status(400).json({
         success: false,
         error: 'Invalid or expired verification code',
@@ -1537,11 +1528,14 @@ app.post('/api/auth/verify-registration', async (req, res) => {
       });
     }
 
-    const otpData = global.registrationOTPs[email];
-    
     // Check if OTP has expired
-    if (Date.now() > otpData.expiresAt) {
-      delete global.registrationOTPs[email];
+    if (new Date() > new Date(pendingData.expires_at)) {
+      // Clean up expired pending registration
+      await supabaseAdmin
+        .from('pending_registrations')
+        .delete()
+        .eq('id', pendingData.id);
+      
       return res.status(400).json({
         success: false,
         error: 'Verification code has expired',
@@ -1550,7 +1544,7 @@ app.post('/api/auth/verify-registration', async (req, res) => {
     }
 
     // Verify OTP
-    if (otpData.otp !== otp) {
+    if (pendingData.code !== otp) {
       return res.status(400).json({
         success: false,
         error: 'Invalid verification code',
@@ -1558,30 +1552,63 @@ app.post('/api/auth/verify-registration', async (req, res) => {
       });
     }
 
-    // Update user profile to mark email as verified
-    const { error: updateError } = await supabaseAdmin
-      .from('profiles')
-      .update({ 
-        email_verified: true,
-        updated_at: new Date().toISOString()
-      })
-      .eq('email', email);
+    // Create user in Supabase Auth
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+      email: pendingData.email,
+      password: pendingData.password_hash, // This is the original password
+      email_confirm: true, // Mark as confirmed since we verified via OTP
+      user_metadata: {
+        username: pendingData.username,
+        first_name: '', // Default empty since not stored in pending table
+        last_name: ''   // Default empty since not stored in pending table
+      }
+    });
 
-    if (updateError) {
-      console.error('Error updating profile:', updateError);
+    if (authError || !authData.user) {
+      console.error('Auth user creation error:', authError);
       return res.status(500).json({
         success: false,
-        error: 'Failed to verify email',
-        code: 'UPDATE_ERROR'
+        error: 'Failed to create user account',
+        code: 'AUTH_ERROR'
       });
     }
 
-    // Clean up OTP
-    delete global.registrationOTPs[email];
+    // Create profile in profiles table
+    const { error: profileCreateError } = await supabaseAdmin
+      .from('profiles')
+      .insert({
+        id: authData.user.id,
+        email: pendingData.email,
+        username: pendingData.username,
+        first_name: '', // Default empty since not stored in pending table
+        last_name: '',  // Default empty since not stored in pending table
+        role: 'user',
+        points: 0,
+        email_verified: true, // Mark as verified
+        created_at: new Date().toISOString()
+      });
+
+    if (profileCreateError) {
+      console.error('Profile creation error:', profileCreateError);
+      // Clean up auth user if profile creation fails
+      await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to create user profile',
+        code: 'PROFILE_ERROR'
+      });
+    }
+
+    // Clean up pending registration
+    await supabaseAdmin
+      .from('pending_registrations')
+      .delete()
+      .eq('id', pendingData.id);
 
     res.json({
       success: true,
-      message: 'Email verified successfully! You can now sign in.',
+      message: 'Email verified successfully! Your account has been created. You can now sign in.',
+      userId: authData.user.id,
       email: email
     });
 
@@ -1608,46 +1635,60 @@ app.post('/api/auth/resend-verification', async (req, res) => {
       });
     }
 
-    // Check if user exists and is not verified
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .select('id, email_verified')
+    // Check if pending registration exists
+    const { data: pendingData, error: pendingError } = await supabaseAdmin
+      .from('pending_registrations')
+      .select('*')
       .eq('email', email)
       .single();
 
-    if (profileError || !profile) {
+    if (pendingError || !pendingData) {
       return res.status(404).json({
         success: false,
-        error: 'User not found',
-        code: 'USER_NOT_FOUND'
+        error: 'No pending registration found for this email',
+        code: 'NO_PENDING_REGISTRATION'
       });
     }
 
-    if (profile.email_verified) {
+    // Check if OTP has expired
+    if (new Date() > new Date(pendingData.expires_at)) {
+      // Clean up expired pending registration
+      await supabaseAdmin
+        .from('pending_registrations')
+        .delete()
+        .eq('id', pendingData.id);
+      
       return res.status(400).json({
         success: false,
-        error: 'Email is already verified',
-        code: 'ALREADY_VERIFIED'
+        error: 'Verification code has expired. Please register again.',
+        code: 'OTP_EXPIRED'
       });
     }
 
     // Generate new OTP
     const { default: otpGenerator } = await import('otp-generator');
-    
-    // Use Resend email service (works great on Render)
-    const { sendVerificationEmail } = await import('./utils/resendService.js');
+    const { sendVerificationEmail } = await import('./utils/nodemailerService.js');
     
     const otp = otpGenerator.generate(6, { digits: true, upperCase: false, specialChars: false });
+    const otpExpiresAt = new Date(Date.now() + (10 * 60 * 1000)).toISOString(); // 10 minutes
     
-    // Store OTP temporarily
-    if (!global.registrationOTPs) {
-      global.registrationOTPs = {};
+    // Update pending registration with new OTP
+    const { error: updateError } = await supabaseAdmin
+      .from('pending_registrations')
+      .update({
+        code: otp,
+        expires_at: otpExpiresAt
+      })
+      .eq('id', pendingData.id);
+
+    if (updateError) {
+      console.error('Failed to update pending registration:', updateError);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to update verification code',
+        code: 'UPDATE_ERROR'
+      });
     }
-    global.registrationOTPs[email] = {
-      otp,
-      userId: profile.id,
-      expiresAt: Date.now() + (10 * 60 * 1000) // 10 minutes
-    };
 
     // Send verification email
     const emailSent = await sendVerificationEmail(email, otp, 'registration');
@@ -1663,7 +1704,8 @@ app.post('/api/auth/resend-verification', async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Verification code sent to your email'
+      message: 'New verification code sent successfully!',
+      email: email
     });
 
   } catch (error) {

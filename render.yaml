@@ -50,3 +50,5 @@ services:
         sync: false
       - key: EMAIL_SENDER
         value: CARS-G <sanpablocarsg@gmail.com>
+      - key: GORDON_EMAIL_PASSWORD
+        sync: false

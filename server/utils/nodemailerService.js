@@ -6,21 +6,32 @@ dotenv.config();
 // Create transporter with Gordon College SMTP settings
 const createTransporter = () => {
   return nodemailer.createTransport({
-    host: 'smtp.gmail.com', // Gmail SMTP server
+    host: 'smtp.gmail.com',
     port: 587,
-    secure: false, // true for 465, false for other ports
+    secure: false,
     auth: {
       user: '202210346@gordoncollege.edu.ph',
-      pass: process.env.GORDON_EMAIL_PASSWORD || process.env.GMAIL_APP_PASSWORD
+      pass: process.env.GORDON_EMAIL_PASSWORD // App password
     },
     tls: {
       rejectUnauthorized: false
-    }
+    },
+    // Production optimizations
+    pool: true, // Use connection pooling
+    maxConnections: 5, // Maximum number of connections
+    maxMessages: 100, // Maximum number of messages per connection
+    rateDelta: 20000, // Rate limiting: 20 seconds
+    rateLimit: 5, // Maximum 5 emails per rateDelta
+    // Retry configuration
+    retryDelay: 5000, // 5 seconds between retries
+    retryAttempts: 3 // Maximum 3 retry attempts
   });
 };
 
-// Send verification email
-export const sendVerificationEmail = async (toEmail, otp, type = 'registration') => {
+// Send verification email with retry logic
+export const sendVerificationEmail = async (toEmail, otp, type = 'registration', retryCount = 0) => {
+  const maxRetries = 3;
+  
   try {
     const transporter = createTransporter();
     
@@ -165,15 +176,43 @@ export const sendVerificationEmail = async (toEmail, otp, type = 'registration')
       html: htmlContent
     };
 
+    // Send email with async/await
     const result = await transporter.sendMail(mailOptions);
     console.log(`${type} email sent via Nodemailer to:`, toEmail);
     console.log('Message ID:', result.messageId);
     return true;
     
   } catch (error) {
-    console.error(`Error sending ${type} email via Nodemailer:`, error);
+    console.error(`Error sending ${type} email via Nodemailer (attempt ${retryCount + 1}):`, error);
+    console.error('Error details:', error.message);
+    
+    // Retry logic for transient errors
+    if (retryCount < maxRetries && isRetryableError(error)) {
+      console.log(`Retrying email send in 5 seconds... (attempt ${retryCount + 2}/${maxRetries + 1})`);
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      return sendVerificationEmail(toEmail, otp, type, retryCount + 1);
+    }
+    
     return false;
   }
+};
+
+// Check if error is retryable
+const isRetryableError = (error) => {
+  const retryableErrors = [
+    'ECONNRESET',
+    'ETIMEDOUT',
+    'ENOTFOUND',
+    'ECONNREFUSED',
+    'EHOSTUNREACH',
+    'rate limit',
+    'temporary failure'
+  ];
+  
+  return retryableErrors.some(retryableError => 
+    error.message.toLowerCase().includes(retryableError.toLowerCase()) ||
+    error.code === retryableError
+  );
 };
 
 // Test email function
@@ -182,10 +221,22 @@ export const testEmailConnection = async () => {
     const transporter = createTransporter();
     await transporter.verify();
     console.log('✅ Email server connection verified successfully');
+    transporter.close(); // Close the test connection
     return true;
   } catch (error) {
     console.error('❌ Email server connection failed:', error);
     return false;
+  }
+};
+
+// Cleanup function for graceful shutdown
+export const closeEmailTransporter = async () => {
+  try {
+    const transporter = createTransporter();
+    transporter.close();
+    console.log('📧 Email transporter closed gracefully');
+  } catch (error) {
+    console.error('Error closing email transporter:', error);
   }
 };
 

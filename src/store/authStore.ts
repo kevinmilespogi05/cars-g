@@ -626,7 +626,6 @@ export const useAuthStore = create<AuthState>((set) => ({
       return {
         success: true,
         message: result.message,
-        userId: result.userId,
         email: result.email,
         requiresVerification: result.requiresVerification
       };
