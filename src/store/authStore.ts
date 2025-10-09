@@ -2,6 +2,7 @@ import React from 'react';
 import { create } from 'zustand';
 import { User } from '../types';
 import { supabase } from '../lib/supabase';
+import { getApiUrl } from '../lib/config';
 import { initializeUserStats, verifyDatabaseSchema, debugDatabaseIssue } from '../lib/initAchievements';
 import { 
   authenticateWithJWT, 
@@ -597,7 +598,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   signUp: async (email: string, password: string, username: string, firstName?: string, lastName?: string) => {
     try {
       // Use the new server-side registration endpoint with email verification
-      const response = await fetch('/api/auth/register', {
+      const response = await fetch(getApiUrl('/api/auth/register'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -638,7 +639,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   // New method to verify registration email
   verifyRegistration: async (email: string, otp: string) => {
     try {
-      const response = await fetch('/api/auth/verify-registration', {
+      const response = await fetch(getApiUrl('/api/auth/verify-registration'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -670,7 +671,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   // New method to resend verification email
   resendVerification: async (email: string) => {
     try {
-      const response = await fetch('/api/auth/resend-verification', {
+      const response = await fetch(getApiUrl('/api/auth/resend-verification'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

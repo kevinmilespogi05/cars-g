@@ -47,7 +47,7 @@ const sendNotificationEmail = async (to, subject, message) => {
     
     sendSmtpEmail.sender = {
       name: "Cars-G",
-      email: process.env.EMAIL_USER || "sanpablocarsg@gmail.com"
+      email: process.env.EMAIL_USER || "sanpablocarsg16@gmail.com"
     };
     
     sendSmtpEmail.to = [{

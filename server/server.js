@@ -1469,7 +1469,7 @@ app.post('/api/auth/register', async (req, res) => {
 
     // Generate and send verification OTP
     const { default: otpGenerator } = await import('otp-generator');
-    const { default: sendBrevoOtp } = await import('./utils/sendBrevoOtp.js');
+    const { sendVerificationEmail } = await import('./utils/nodemailerService.js');
     
     const otp = otpGenerator.generate(6, { digits: true, upperCase: false, specialChars: false });
     
@@ -1484,7 +1484,7 @@ app.post('/api/auth/register', async (req, res) => {
     };
 
     // Send verification email
-    const emailSent = await sendBrevoOtp(email, otp, 'registration');
+    const emailSent = await sendVerificationEmail(email, otp, 'registration');
     
     if (!emailSent) {
       console.error('Failed to send verification email');
@@ -1631,7 +1631,7 @@ app.post('/api/auth/resend-verification', async (req, res) => {
 
     // Generate new OTP
     const { default: otpGenerator } = await import('otp-generator');
-    const { default: sendBrevoOtp } = await import('./utils/sendBrevoOtp.js');
+    const { sendVerificationEmail } = await import('./utils/nodemailerService.js');
     
     const otp = otpGenerator.generate(6, { digits: true, upperCase: false, specialChars: false });
     
@@ -1646,7 +1646,7 @@ app.post('/api/auth/resend-verification', async (req, res) => {
     };
 
     // Send verification email
-    const emailSent = await sendBrevoOtp(email, otp, 'registration');
+    const emailSent = await sendVerificationEmail(email, otp, 'registration');
     
     if (!emailSent) {
       console.error('Failed to send verification email');
