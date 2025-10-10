@@ -8,6 +8,7 @@ export interface User {
   points?: number;
   role?: string;
   created_at?: string;
+  phone?: string | null;
 }
 
 export interface Report {

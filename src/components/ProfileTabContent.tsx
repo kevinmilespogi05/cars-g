@@ -22,6 +22,8 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { Report } from '../types';
 import { AchievementsPanel } from './AchievementsPanel';
+import { supabase } from '../lib/supabase';
+import { Smartphone } from 'lucide-react';
 
 interface ProfileTabContentProps {
   activeTab: string;
@@ -65,6 +67,206 @@ export function ProfileTabContent({
   setDeleteTarget = () => {}
 }: ProfileTabContentProps) {
   const navigate = useNavigate();
+
+  function PhoneEditor({ initialValue }: { initialValue: string }) {
+    const [value, setValue] = React.useState<string>(initialValue ? `+63 ${initialValue.replace(/[\s-]/g, '').slice(3)}` : '+63 ');
+    const [saving, setSaving] = React.useState(false);
+    const [error, setError] = React.useState('');
+    const [success, setSuccess] = React.useState('');
+    const [editing, setEditing] = React.useState(false);
+
+    const normalize = (rawInput: string) => {
+      let raw = rawInput.replace(/[\s-]/g, '');
+      if (/^0\d{10}$/.test(raw)) raw = '+63' + raw.slice(1);
+      else if (/^63\d{10}$/.test(raw)) raw = '+' + raw;
+      raw = raw.replace(/[^+\d]/g, '');
+      if (!raw.startsWith('+63')) {
+        const digits = raw.replace(/\D/g, '');
+        raw = '+63' + digits.slice(0, 10);
+      } else {
+        const tail = raw.slice(3).replace(/\D/g, '').slice(0, 10);
+        raw = '+63' + tail;
+      }
+      // Return with space for display
+      return raw.length >= 3 ? `+63 ${raw.slice(3)}` : '+63 ';
+    };
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      setSuccess('');
+      const next = normalize(e.target.value);
+      setValue(next);
+      const ok = /^\+63\s\d{10}$/.test(next);
+      setError(ok || next === '+63 ' ? '' : 'Enter a valid PH mobile: +63 9XXXXXXXXX');
+    };
+
+    const handleSave = async () => {
+      try {
+        setSaving(true);
+        setError('');
+        setSuccess('');
+        const ok = /^\+63\s\d{10}$/.test(value) || value === '+63 ';
+        if (!ok) {
+          setError('Enter a valid PH mobile: +63 9XXXXXXXXX');
+          setSaving(false);
+          return;
+        }
+        // Normalize to +639######### for server
+        const serverPhone = value === '+63 ' ? '' : '+63' + value.slice(4);
+        const resp = await fetch('/api/auth/me', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone: serverPhone })
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data?.error || 'Failed to save');
+        setSuccess('Saved');
+        setEditing(false);
+      } catch (e: any) {
+        setError(e?.message || 'Failed to save');
+      } finally {
+        setSaving(false);
+      }
+    };
+
+    React.useEffect(() => {
+      if (!initialValue) return;
+      const clean = initialValue.replace(/[\s-]/g, '');
+      if (/^\+63\d{10}$/.test(clean)) {
+        setValue(`+63 ${clean.slice(3)}`);
+      }
+    }, [initialValue]);
+
+    // If no initial phone passed, fetch the current user's phone via Supabase
+    React.useEffect(() => {
+      const run = async () => {
+        if (initialValue) return;
+        try {
+          const { data: auth } = await supabase.auth.getUser();
+          const uid = auth?.user?.id;
+          if (!uid) return;
+          const { data } = await supabase
+            .from('profiles')
+            .select('phone')
+            .eq('id', uid)
+            .maybeSingle();
+          const phone = (data as any)?.phone as string | undefined;
+          if (phone && /^\+63\d{10}$/.test(phone)) {
+            setValue(`+63 ${phone.slice(3)}`);
+          }
+        } catch {}
+      };
+      run();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    return (
+      <div>
+        {!editing ? (
+          <div className="flex items-center gap-3">
+            <p className="text-green-900 font-medium">{/^\+63\s\d{10}$/.test(value) ? value : 'Not set'}</p>
+            <button onClick={() => setEditing(true)} className="px-3 py-1.5 rounded-lg bg-green-600 text-white text-sm font-semibold hover:bg-green-700">Edit</button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3">
+            <input
+              type="tel"
+              value={value}
+              onChange={handleChange}
+              maxLength={14}
+              className="w-full px-4 py-3 bg-white/80 border border-green-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 shadow-sm"
+              placeholder="+63 9XXXXXXXXX"
+            />
+            <button
+              onClick={handleSave}
+              disabled={!!error || saving}
+              className="px-4 py-2 rounded-xl bg-green-600 text-white font-semibold hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {saving ? 'Saving...' : 'Save'}
+            </button>
+            <button
+              onClick={() => { setEditing(false); setError(''); setSuccess(''); }}
+              className="px-3 py-2 rounded-xl bg-gray-200 text-gray-800 font-semibold hover:bg-gray-300"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
+        {error && <p className="text-red-600 text-sm mt-2">{error}</p>}
+        {success && <p className="text-green-600 text-sm mt-2">{success}</p>}
+      </div>
+    );
+  }
+
+  function EditableEmail({ initialValue }: { initialValue: string }) {
+    const [value, setValue] = React.useState<string>(initialValue || '');
+    const [editing, setEditing] = React.useState(false);
+    const [saving, setSaving] = React.useState(false);
+    const [error, setError] = React.useState('');
+    const [success, setSuccess] = React.useState('');
+
+    const handleSave = async () => {
+      try {
+        setSaving(true);
+        setError('');
+        setSuccess('');
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(value)) {
+          setError('Enter a valid email address');
+          setSaving(false);
+          return;
+        }
+        const resp = await fetch('/api/auth/me', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: value })
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data?.error || 'Failed to save');
+        setSuccess('Saved');
+        setEditing(false);
+      } catch (e: any) {
+        setError(e?.message || 'Failed to save');
+      } finally {
+        setSaving(false);
+      }
+    };
+
+    return (
+      <div>
+        {!editing ? (
+          <div className="flex items-center gap-3">
+            <p className="text-blue-900 font-medium">{value || 'Not set'}</p>
+            <button onClick={() => setEditing(true)} className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700">Edit</button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3">
+            <input
+              type="email"
+              value={value}
+              onChange={(e) => { setValue(e.target.value); setError(''); setSuccess(''); }}
+              className="w-full px-4 py-3 bg-white/80 border border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 shadow-sm"
+              placeholder="name@example.com"
+            />
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="px-4 py-2 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {saving ? 'Saving...' : 'Save'}
+            </button>
+            <button
+              onClick={() => { setEditing(false); setError(''); setSuccess(''); setValue(initialValue || ''); }}
+              className="px-3 py-2 rounded-xl bg-gray-200 text-gray-800 font-semibold hover:bg-gray-300"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
+        {error && <p className="text-red-600 text-sm mt-2">{error}</p>}
+        {success && <p className="text-green-600 text-sm mt-2">{success}</p>}
+      </div>
+    );
+  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -557,7 +759,15 @@ export function ProfileTabContent({
       <div className="space-y-6">
         <div className="bg-blue-50 rounded-2xl p-6">
           <label className="block text-sm font-semibold text-blue-800 mb-2">Email Address</label>
-          <p className="text-blue-900 font-medium">{user?.email || 'Not set'}</p>
+          <EditableEmail initialValue={user?.email || ''} />
+        </div>
+        <div className="bg-green-50 rounded-2xl p-6">
+          <label className="block text-sm font-semibold text-green-800 mb-2 flex items-center gap-2">
+            <Smartphone className="h-4 w-4 text-green-600" />
+            Phone Number
+          </label>
+          <PhoneEditor initialValue={user?.phone || ''} />
+          <p className="text-green-700 text-xs mt-2">Format: +63 9XXXXXXXXX</p>
         </div>
         
         {user?.role === 'admin' && (

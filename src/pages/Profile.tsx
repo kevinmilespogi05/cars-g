@@ -219,7 +219,8 @@ export function Profile() {
           avatar_url,
           role,
           points,
-          created_at
+          created_at,
+          phone
         `)
         .eq('id', userId)
         .single();

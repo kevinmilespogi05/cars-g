@@ -595,7 +595,15 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
   
-  signUp: async (email: string, password: string, username: string, firstName?: string, lastName?: string) => {
+  signUp: async (
+    email: string,
+    password: string,
+    username: string,
+    firstName?: string,
+    lastName?: string,
+    phone?: string,
+    confirmPassword?: string
+  ) => {
     try {
       // Use the server-side registration endpoint (no email verification)
       const response = await fetch(getApiUrl('/api/auth/register'), {
@@ -605,14 +613,16 @@ export const useAuthStore = create<AuthState>((set) => ({
         },
         body: JSON.stringify({ 
           email, 
-          password, 
+          password,
+          confirmPassword,
           username, 
           firstName: firstName || '', 
-          lastName: lastName || '' 
+          lastName: lastName || '',
+          phone: phone || ''
         }),
       });
 
-      const result = await response.json();
+    const result = await response.json();
 
       if (!response.ok) {
         throw new Error(result.error || 'Registration failed');

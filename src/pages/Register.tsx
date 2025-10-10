@@ -32,6 +32,8 @@ export function Register() {
   const [username, setUsername] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [phone, setPhone] = useState('+63 ');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSocialLoading, setIsSocialLoading] = useState<'google' | null>(null);
@@ -49,6 +51,9 @@ export function Register() {
   const [isValidatingEmail, setIsValidatingEmail] = useState(false);
   const [usernameValid, setUsernameValid] = useState(false);
   const [emailValid, setEmailValid] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
+  const [confirmPasswordError, setConfirmPasswordError] = useState('');
+  const [phoneError, setPhoneError] = useState('');
   
 
   // Validation functions
@@ -206,6 +211,9 @@ export function Register() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setPasswordError('');
+    setConfirmPasswordError('');
+    setPhoneError('');
     
     if (!privacyAccepted) {
       setError('Please accept the Privacy Policy and Terms of Service to continue.');
@@ -219,12 +227,38 @@ export function Register() {
     if (!isUsernameValid || !isEmailValid) {
       return;
     }
+
+    // Client-side password strength validation
+    const lengthOK = password.length >= 8;
+    const hasLower = /[a-z]/.test(password);
+    const hasUpper = /[A-Z]/.test(password);
+    const hasDigit = /\d/.test(password);
+    const hasSpecial = /[^A-Za-z0-9]/.test(password);
+    const categories = [hasLower, hasUpper, hasDigit, hasSpecial].filter(Boolean).length;
+    const strongEnough = lengthOK && categories >= 3;
+    if (!strongEnough) {
+      setPasswordError('Use 8+ chars and at least 3 of: upper, lower, number, symbol.');
+      return;
+    }
+
+    if (confirmPassword !== password) {
+      setConfirmPasswordError('Passwords do not match');
+      return;
+    }
+
+    if (phone && phone !== '+63 ') {
+      const phRegex = /^\+63\s\d{10}$/;
+      if (!phRegex.test(phone)) {
+        setPhoneError('Enter a valid PH mobile: +63 followed by 10 digits');
+        return;
+      }
+    }
     
     setIsLoading(true);
 
     try {
       // Register user (no email verification)
-      const result = await signUp(email, password, username, firstName, lastName);
+      const result = await signUp(email, password, username, firstName, lastName, phone, confirmPassword);
       
       // Navigate to login after successful registration
       navigate('/login', { 
@@ -565,13 +599,30 @@ export function Register() {
                   }`}>
                     <Lock className="h-5 w-5" />
                   </div>
-                  <input
+                   <input
                     id="password"
                     name="password"
                     type={showPassword ? 'text' : 'password'}
                     required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                     value={password}
+                     onChange={(e) => {
+                       const val = e.target.value;
+                       setPassword(val);
+                       // Live password feedback
+                       const lengthOK = val.length >= 8;
+                       const hasLower = /[a-z]/.test(val);
+                       const hasUpper = /[A-Z]/.test(val);
+                       const hasDigit = /\d/.test(val);
+                       const hasSpecial = /[^A-Za-z0-9]/.test(val);
+                       const categories = [hasLower, hasUpper, hasDigit, hasSpecial].filter(Boolean).length;
+                       if (!val) {
+                         setPasswordError('');
+                       } else if (!(lengthOK && categories >= 3)) {
+                         setPasswordError('Use 8+ chars and 3 of: upper, lower, number, symbol.');
+                       } else {
+                         setPasswordError('');
+                       }
+                     }}
                     onFocus={() => setIsFocused('password')}
                     onBlur={() => setIsFocused(null)}
                     className="block w-full pl-12 pr-12 py-4 border-2 border-gray-200 rounded-2xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all duration-200 bg-gray-50/50 hover:bg-white group-hover:border-gray-300"
@@ -588,7 +639,156 @@ export function Register() {
                       <Eye className="h-5 w-5" />
                     )}
                   </button>
+               </div>
+               {/* Password helper list */}
+               <div className="text-xs text-gray-600 space-y-1">
+                 <div className="flex items-center">
+                   <span className={`mr-2 ${password.length >= 8 ? 'text-green-600' : 'text-gray-400'}`}>●</span>
+                   At least 8 characters
+                 </div>
+                 <div className="flex items-center">
+                   <span className={`mr-2 ${/[A-Z]/.test(password) ? 'text-green-600' : 'text-gray-400'}`}>●</span>
+                   Uppercase letter
+                 </div>
+                 <div className="flex items-center">
+                   <span className={`mr-2 ${/[a-z]/.test(password) ? 'text-green-600' : 'text-gray-400'}`}>●</span>
+                   Lowercase letter
+                 </div>
+                 <div className="flex items-center">
+                   <span className={`mr-2 ${/\d/.test(password) ? 'text-green-600' : 'text-gray-400'}`}>●</span>
+                   Number
+                 </div>
+                 <div className="flex items-center">
+                   <span className={`mr-2 ${/[^A-Za-z0-9]/.test(password) ? 'text-green-600' : 'text-gray-400'}`}>●</span>
+                   Symbol
+                 </div>
+               </div>
+                {passwordError && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex items-center text-red-600 text-sm mt-1"
+                  >
+                    <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
+                    <span>{passwordError}</span>
+                  </motion.div>
+                )}
+              </div>
+
+              {/* Confirm Password Field */}
+              <div className="space-y-2">
+                <label htmlFor="confirmPassword" className="text-sm font-semibold text-gray-700 flex items-center space-x-2">
+                  <Lock className="h-4 w-4" />
+                  <span>Confirm password</span>
+                </label>
+                <div className="relative group">
+                  <div className={`absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none transition-colors duration-200 ${
+                    isFocused === 'confirmPassword' ? 'text-red-600' : 'text-gray-400'
+                  }`}>
+                    <Lock className="h-5 w-5" />
+                  </div>
+                   <input
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                     value={confirmPassword}
+                     onChange={(e) => {
+                       const val = e.target.value;
+                       setConfirmPassword(val);
+                       setConfirmPasswordError(val && val !== password ? 'Passwords do not match' : '');
+                     }}
+                    onFocus={() => setIsFocused('confirmPassword')}
+                    onBlur={() => setIsFocused(null)}
+                    className="block w-full pl-12 pr-12 py-4 border-2 border-gray-200 rounded-2xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all duration-200 bg-gray-50/50 hover:bg-white group-hover:border-gray-300"
+                    placeholder="Re-enter your password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600 transition-colors duration-200"
+                    aria-label={showPassword ? 'Hide passwords' : 'Show passwords'}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-5 w-5" />
+                    ) : (
+                      <Eye className="h-5 w-5" />
+                    )}
+                  </button>
                 </div>
+                {confirmPasswordError && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex items-center text-red-600 text-sm mt-1"
+                  >
+                    <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
+                    <span>{confirmPasswordError}</span>
+                  </motion.div>
+                )}
+              </div>
+
+              {/* Phone Field */}
+              <div className="space-y-2">
+                <label htmlFor="phone" className="text-sm font-semibold text-gray-700 flex items-center space-x-2">
+                  <Smartphone className="h-4 w-4" />
+                  <span>Phone (optional)</span>
+                </label>
+                <div className="relative group">
+                  <div className={`absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none transition-colors duration-200 ${
+                    isFocused === 'phone' ? 'text-red-600' : 'text-gray-400'
+                  }`}>
+                    <Smartphone className="h-5 w-5" />
+                  </div>
+                   <input
+                    id="phone"
+                    name="phone"
+                    type="tel"
+                     value={phone}
+                     onChange={(e) => {
+                       // Normalize to PH format: +63 <space> followed by 10 digits
+                       let raw = e.target.value;
+                       // Remove spaces and dashes
+                       raw = raw.replace(/[\s-]/g, '');
+                       // If starts with 0, convert 0XXXXXXXXXX to +63XXXXXXXXXX
+                       if (/^0\d{10}$/.test(raw)) {
+                         raw = '+63 ' + raw.slice(1);
+                       }
+                       // If starts with 63 and digits, add +
+                       if (/^63\d{10}$/.test(raw)) {
+                         raw = '+63 ' + raw.slice(2);
+                       }
+                       // Keep plus and digits only, cap to +63 + 10 digits
+                       raw = raw.replace(/[^+\d]/g, '');
+                       if (!raw.startsWith('+63')) {
+                         // enforce prefix as user types
+                         const digits = raw.replace(/\D/g, '');
+                         raw = '+63 ' + digits.slice(0, 10);
+                       } else {
+                         const tail = raw.slice(3).replace(/\D/g, '').slice(0, 10);
+                         raw = '+63 ' + tail;
+                       }
+                       setPhone(raw);
+                       const phOk = /^\+63\s\d{10}$/.test(raw);
+                       setPhoneError(phOk || !raw ? '' : 'Enter a valid PH mobile: +63 followed by 10 digits');
+                     }}
+                     maxLength={14}
+                    onFocus={() => setIsFocused('phone')}
+                    onBlur={() => setIsFocused(null)}
+                     className="block w-full pl-12 pr-4 py-4 border-2 border-gray-200 rounded-2xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all duration-200 bg-gray-50/50 hover:bg-white group-hover:border-gray-300"
+                     placeholder="e.g. +639171234567"
+                  />
+                </div>
+                {phoneError && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex items-center text-red-600 text-sm mt-1"
+                  >
+                    <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
+                    <span>{phoneError}</span>
+                  </motion.div>
+                )}
               </div>
             </div>
 

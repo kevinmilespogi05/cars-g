@@ -872,7 +872,7 @@ app.post('/api/auth/login', async (req, res) => {
     // Get user profile from Supabase
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('id, email, username, first_name, last_name, role, points, avatar_url')
+      .select('id, email, username, first_name, last_name, role, points, avatar_url, phone')
       .eq('id', authData.user.id)
       .single();
 
@@ -902,7 +902,8 @@ app.post('/api/auth/login', async (req, res) => {
         last_name: profile.last_name,
         role: profile.role || 'user',
         points: profile.points || 0,
-        avatar_url: profile.avatar_url
+        avatar_url: profile.avatar_url,
+        phone: profile.phone || null
       },
       tokens
     });
@@ -944,7 +945,7 @@ app.post('/api/auth/refresh', async (req, res) => {
     // Get user profile
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('id, email, username, first_name, last_name, role, points, avatar_url')
+      .select('id, email, username, first_name, last_name, role, points, avatar_url, phone')
       .eq('id', decoded.userId)
       .single();
 
@@ -974,7 +975,8 @@ app.post('/api/auth/refresh', async (req, res) => {
         last_name: profile.last_name,
         role: profile.role || 'user',
         points: profile.points || 0,
-        avatar_url: profile.avatar_url
+        avatar_url: profile.avatar_url,
+        phone: profile.phone || null
       },
       tokens
     });
@@ -1025,7 +1027,8 @@ app.get('/api/auth/me', authenticateToken, async (req, res) => {
         last_name: profile.last_name,
         role: profile.role || 'user',
         points: profile.points || 0,
-        avatar_url: profile.avatar_url
+        avatar_url: profile.avatar_url,
+        phone: profile.phone || null
       }
     });
 
@@ -1050,7 +1053,7 @@ app.put('/api/auth/me', authenticateToken, async (req, res) => {
       });
     }
 
-    const { avatar_url, username, first_name, last_name } = req.body;
+    const { avatar_url, username, first_name, last_name, phone, email } = req.body;
     
     if (!supabaseAdmin) {
       return res.status(503).json({ 
@@ -1065,6 +1068,52 @@ app.put('/api/auth/me', authenticateToken, async (req, res) => {
     if (username !== undefined) updateData.username = username;
     if (first_name !== undefined) updateData.first_name = first_name;
     if (last_name !== undefined) updateData.last_name = last_name;
+    if (typeof phone === 'string') {
+      const raw = phone.replace(/\s|-/g, '');
+      const normalized = raw.startsWith('+63') ? '+63' + raw.slice(3).replace(/\D/g, '').slice(0, 10)
+        : raw.startsWith('63') ? '+63' + raw.slice(2).replace(/\D/g, '').slice(0, 10)
+        : raw.startsWith('0') ? '+63' + raw.slice(1).replace(/\D/g, '').slice(0, 10)
+        : '+63' + raw.replace(/\D/g, '').slice(0, 10);
+      if (/^\+63\d{10}$/.test(normalized)) {
+        updateData.phone = normalized;
+      } else if (phone.trim() === '') {
+        updateData.phone = null;
+      }
+    }
+
+    // Optional email update (validate and ensure uniqueness)
+    if (typeof email === 'string') {
+      const newEmail = String(email).trim();
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(newEmail)) {
+        return res.status(400).json({ success: false, error: 'Invalid email format', code: 'INVALID_EMAIL' });
+      }
+      // Fetch current profile to compare
+      const { data: current } = await supabase
+        .from('profiles')
+        .select('email')
+        .eq('id', userId)
+        .maybeSingle();
+      if (!current || current.email !== newEmail) {
+        // Check uniqueness across profiles and auth
+        const [emailInProfiles, authUsers] = await Promise.all([
+          (supabaseAdmin || supabase).from('profiles').select('id').eq('email', newEmail).maybeSingle(),
+          supabaseAdmin ? supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 }) : Promise.resolve({ data: { users: [] }, error: null })
+        ]);
+        const existsInAuth = authUsers?.data?.users?.some(u => u.email === newEmail);
+        if (emailInProfiles?.data || existsInAuth) {
+          return res.status(400).json({ success: false, error: 'Email already in use', code: 'EMAIL_EXISTS' });
+        }
+        // Update supabase auth user email (confirm immediately)
+        if (supabaseAdmin) {
+          const { error: authUpdErr } = await supabaseAdmin.auth.admin.updateUserById(userId, { email: newEmail, email_confirm: true });
+          if (authUpdErr) {
+            return res.status(500).json({ success: false, error: authUpdErr.message || 'Failed to update auth email', code: 'AUTH_EMAIL_UPDATE_ERROR' });
+          }
+        }
+      }
+      updateData.email = newEmail;
+    }
     
     if (Object.keys(updateData).length === 0) {
       return res.status(400).json({ 
@@ -1077,12 +1126,23 @@ app.put('/api/auth/me', authenticateToken, async (req, res) => {
     updateData.updated_at = new Date().toISOString();
 
     // Update profile in database
-    const { data: updatedProfile, error: updateError } = await supabaseAdmin
+    let { data: updatedProfile, error: updateError } = await supabaseAdmin
       .from('profiles')
       .update(updateData)
       .eq('id', userId)
-      .select('id, email, username, first_name, last_name, role, points, avatar_url')
+      .select('id, email, username, first_name, last_name, role, points, avatar_url, phone')
       .single();
+    if (updateError && String(updateError.message || '').includes("'phone'")) {
+      const { phone: _omit, ...withoutPhone } = updateData;
+      const retry = await supabaseAdmin
+        .from('profiles')
+        .update(withoutPhone)
+        .eq('id', userId)
+        .select('id, email, username, first_name, last_name, role, points, avatar_url')
+        .single();
+      updatedProfile = retry.data;
+      updateError = retry.error || null;
+    }
 
     if (updateError) {
       console.error('Profile update error:', updateError);
@@ -1307,190 +1367,100 @@ app.post('/api/auth/check-email', async (req, res) => {
   }
 });
 
-// Registration endpoint with email verification (two-step process)
+// Registration endpoint (no email/OTP verification)
 app.post('/api/auth/register', async (req, res) => {
   try {
-    const { email, password, username, firstName, lastName } = req.body;
+    const { email, password, username, firstName, lastName, phone } = req.body || {};
 
-    // Validate required fields
     if (!email || !password || !username) {
-      return res.status(400).json({
-        success: false,
-        error: 'Email, password, and username are required',
-        code: 'MISSING_FIELDS'
-      });
+      return res.status(400).json({ success: false, error: 'Email, password, and username are required', code: 'MISSING_FIELDS' });
     }
 
-    // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid email format',
-        code: 'INVALID_EMAIL'
-      });
+      return res.status(400).json({ success: false, error: 'Invalid email format', code: 'INVALID_EMAIL' });
     }
 
-    // Validate password strength
     if (password.length < 6) {
-      return res.status(400).json({
-        success: false,
-        error: 'Password must be at least 6 characters long',
-        code: 'WEAK_PASSWORD'
-      });
+      return res.status(400).json({ success: false, error: 'Password must be at least 6 characters long', code: 'WEAK_PASSWORD' });
     }
 
-    // Validate username format
     const alphanumericRegex = /^[a-zA-Z0-9]+$/;
-    if (!alphanumericRegex.test(username)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Username can only contain letters and numbers',
-        code: 'INVALID_USERNAME_FORMAT'
-      });
+    if (!alphanumericRegex.test(username) || username.length < 3) {
+      return res.status(400).json({ success: false, error: 'Invalid username', code: 'INVALID_USERNAME' });
     }
 
-    if (username.length < 3) {
-      return res.status(400).json({
-        success: false,
-        error: 'Username must be at least 3 characters long',
-        code: 'USERNAME_TOO_SHORT'
-      });
-    }
-
-    // Check if username already exists in profiles or pending registrations
-    const [existingProfile, existingPending] = await Promise.all([
-      supabaseAdmin
-        ? supabaseAdmin
-            .from('profiles')
-            .select('id')
-            .eq('username', username)
-            .maybeSingle()
-        : supabase
-            .from('profiles')
-            .select('id')
-            .eq('username', username)
-            .maybeSingle(),
-      supabaseAdmin
-        ? supabaseAdmin
-            .from('pending_registrations')
-            .select('id')
-            .eq('username', username)
-            .maybeSingle()
-        : supabase
-            .from('pending_registrations')
-            .select('id')
-            .eq('username', username)
-            .maybeSingle()
+    // Uniqueness checks
+    const [byUser, byEmail, authUsers] = await Promise.all([
+      (supabaseAdmin || supabase).from('profiles').select('id').eq('username', username).maybeSingle(),
+      (supabaseAdmin || supabase).from('profiles').select('id').eq('email', email).maybeSingle(),
+      supabaseAdmin ? supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 }) : Promise.resolve({ data: { users: [] }, error: null })
     ]);
+    if (byUser.data) return res.status(400).json({ success: false, error: 'Username is already taken', code: 'USERNAME_TAKEN' });
+    if (byEmail.data || authUsers.data?.users?.some(u => u.email === email)) return res.status(400).json({ success: false, error: 'An account with this email already exists', code: 'EMAIL_EXISTS' });
 
-    if (existingProfile.data || existingPending.data) {
-      return res.status(400).json({
-        success: false,
-        error: 'Username is already taken',
-        code: 'USERNAME_TAKEN'
-      });
+    if (!supabaseAdmin) {
+      return res.status(503).json({ success: false, error: 'Admin privileges required', code: 'SERVICE_UNAVAILABLE' });
     }
 
-    // Check if email already exists in profiles, auth, or pending registrations
-    const [profilesResult, authResult, pendingResult] = await Promise.all([
-      supabaseAdmin
-        ? supabaseAdmin
-            .from('profiles')
-            .select('id')
-            .eq('email', email)
-            .maybeSingle()
-        : supabase
-            .from('profiles')
-            .select('id')
-            .eq('email', email)
-            .maybeSingle(),
-      supabaseAdmin
-        ? supabaseAdmin.auth.admin.listUsers({
-            page: 1,
-            perPage: 1000
-          })
-        : Promise.resolve({ data: { users: [] }, error: null }),
-      supabaseAdmin
-        ? supabaseAdmin
-            .from('pending_registrations')
-            .select('id')
-            .eq('email', email)
-            .maybeSingle()
-        : supabase
-            .from('pending_registrations')
-            .select('id')
-            .eq('email', email)
-            .maybeSingle()
-    ]);
-
-    const emailExistsInProfiles = !!profilesResult.data;
-    const emailExistsInAuth = authResult.data?.users?.some(user => user.email === email) || false;
-    const emailExistsInPending = !!pendingResult.data;
-
-    if (emailExistsInProfiles || emailExistsInAuth || emailExistsInPending) {
-      return res.status(400).json({
-        success: false,
-        error: 'An account with this email already exists or is pending verification',
-        code: 'EMAIL_EXISTS'
-      });
-    }
-
-    // Generate OTP
-    const { default: otpGenerator } = await import('otp-generator');
-    const { sendVerificationEmail } = await import('./utils/nodemailerService.js');
-    
-    const otp = otpGenerator.generate(6, { digits: true, upperCase: false, specialChars: false });
-    const otpExpiresAt = new Date(Date.now() + (10 * 60 * 1000)).toISOString(); // 10 minutes
-
-    // Store pending registration in database (store original password, not hash)
-    const { data: pendingData, error: pendingError } = await supabaseAdmin
-      .from('pending_registrations')
-      .insert({
-        email: email,
-        password_hash: password, // Store original password for Supabase Auth
-        username: username,
-        code: otp,
-        expires_at: otpExpiresAt
-      })
-      .select()
-      .single();
-
-    if (pendingError) {
-      console.error('Pending registration error:', pendingError);
-      return res.status(500).json({
-        success: false,
-        error: 'Failed to create pending registration',
-        code: 'PENDING_REGISTRATION_ERROR'
-      });
-    }
-
-    // Send verification email in background to avoid blocking the response
-    // If it fails, user can use resend endpoint; we log the error for observability
-    sendVerificationEmail(email, otp, 'registration')
-      .then((ok) => {
-        if (!ok) {
-          console.error('Background: failed to send verification email for', email);
-        }
-      })
-      .catch((e) => {
-        console.error('Background email send error:', e?.message || e);
-      });
-
-    res.json({
-      success: true,
-      message: 'Registration initiated! Please check your email for verification code.',
-      email: email,
-      requiresVerification: true
+    // Create user in Supabase Auth
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: { username, first_name: firstName || '', last_name: lastName || '' }
     });
+    if (authError || !authData?.user) {
+      return res.status(500).json({ success: false, error: authError?.message || 'Failed to create user', code: 'AUTH_ERROR' });
+    }
 
+    // Prepare profile payload; include phone if provided and valid
+    const profilePayload = {
+      id: authData.user.id,
+      email,
+      username,
+      first_name: firstName || '',
+      last_name: lastName || '',
+      role: 'user',
+      points: 0,
+      email_verified: true,
+      created_at: new Date().toISOString()
+    };
+
+    // Normalize PH number server-side; accept +63[ ]?########## and store as +63##########
+    if (typeof phone === 'string' && phone.trim()) {
+      const raw = String(phone).replace(/\s|-/g, '');
+      const normalized = raw.startsWith('+63') ? '+63' + raw.slice(3).replace(/\D/g, '').slice(0, 10)
+                        : raw.startsWith('63') ? '+63' + raw.slice(2).replace(/\D/g, '').slice(0, 10)
+                        : raw.startsWith('0') ? '+63' + raw.slice(1).replace(/\D/g, '').slice(0, 10)
+                        : '+63' + raw.replace(/\D/g, '').slice(0, 10);
+      if (/^\+63\d{10}$/.test(normalized)) {
+        // @ts-ignore - field may not exist; we retry without if column missing
+        profilePayload.phone = normalized;
+      }
+    }
+
+    // Try insert with potential phone; if column missing, retry without phone
+    let { error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .insert(profilePayload);
+
+    if (profileError && String(profileError.message || '').includes("'phone'")) {
+      // Retry without phone field
+      const { phone: _omit, ...withoutPhone } = profilePayload;
+      const retry = await supabaseAdmin.from('profiles').insert(withoutPhone);
+      profileError = retry.error || null;
+    }
+
+    if (profileError) {
+      try { await supabaseAdmin.auth.admin.deleteUser(authData.user.id); } catch {}
+      return res.status(500).json({ success: false, error: profileError.message || 'Failed to create profile', code: 'PROFILE_ERROR' });
+    }
+
+    return res.json({ success: true, message: 'Registration successful. You can now sign in.', email, requiresVerification: false });
   } catch (error) {
     console.error('Registration error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Internal server error',
-      code: 'INTERNAL_ERROR'
-    });
+    return res.status(500).json({ success: false, error: 'Internal server error', code: 'INTERNAL_ERROR' });
   }
 });
 
