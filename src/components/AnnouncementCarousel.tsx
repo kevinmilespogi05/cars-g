@@ -27,6 +27,10 @@ export function AnnouncementCarousel({ className = '' }: AnnouncementCarouselPro
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
   const carouselRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const pullStartYRef = useRef<number | null>(null);
+  const pullDistanceRef = useRef(0);
   const [isImageOpen, setIsImageOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [imageIndex, setImageIndex] = useState(0);
@@ -149,6 +153,45 @@ export function AnnouncementCarousel({ className = '' }: AnnouncementCarouselPro
     setImageIndex(0);
   }, [currentIndex]);
 
+  // Mobile pull-to-refresh for announcements
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onTouchStart = (e: TouchEvent) => {
+      if (el.scrollTop === 0) {
+        pullStartYRef.current = e.touches[0].clientY;
+        pullDistanceRef.current = 0;
+      } else {
+        pullStartYRef.current = null;
+      }
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      if (pullStartYRef.current !== null) {
+        pullDistanceRef.current = Math.max(0, e.touches[0].clientY - pullStartYRef.current);
+        const translate = Math.min(60, pullDistanceRef.current * 0.5);
+        (el as HTMLElement).style.transform = `translateY(${translate}px)`;
+      }
+    };
+    const onTouchEnd = async () => {
+      (el as HTMLElement).style.transform = '';
+      if (pullDistanceRef.current > 60) {
+        setIsRefreshing(true);
+        await fetchAnnouncements();
+        setIsRefreshing(false);
+      }
+      pullStartYRef.current = null;
+      pullDistanceRef.current = 0;
+    };
+    el.addEventListener('touchstart', onTouchStart, { passive: true });
+    el.addEventListener('touchmove', onTouchMove, { passive: true });
+    el.addEventListener('touchend', onTouchEnd, { passive: true });
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart as any);
+      el.removeEventListener('touchmove', onTouchMove as any);
+      el.removeEventListener('touchend', onTouchEnd as any);
+    };
+  }, [fetchAnnouncements]);
+
   if (loading) {
     return null;
   }
@@ -164,8 +207,23 @@ export function AnnouncementCarousel({ className = '' }: AnnouncementCarouselPro
     .filter(Boolean);
 
   return (
-    <div className={`bg-white border border-gray-200 rounded-lg shadow-sm mb-4 ${className}`}>
+    <div ref={containerRef} className={`bg-white border border-gray-200 rounded-lg shadow-sm mb-4 ${className}`}>
       <div className="relative">
+        {/* Toast for refresh success */}
+        {isRefreshing && (
+          <div className="absolute top-2 left-0 right-0 flex justify-center pointer-events-none">
+            <div className="px-3 py-1 rounded-full bg-blue-600 text-white text-xs shadow">Refreshing…</div>
+          </div>
+        )}
+        {/* Pull-to-refresh indicator */}
+        {isRefreshing && (
+          <div className="sticky top-0 z-10 flex items-center justify-center py-2">
+            <div className="inline-flex items-center gap-2 px-3 py-1 text-xs font-medium text-blue-700 bg-blue-50 rounded-full">
+              <svg className="animate-spin h-4 w-4 text-blue-600" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path></svg>
+              Refreshing
+            </div>
+          </div>
+        )}
         {/* Close button */}
         <button
           onClick={handleClose}

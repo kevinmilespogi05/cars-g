@@ -242,7 +242,7 @@ export function ProfileTabContent({
     })() : filteredReports;
 
     return (
-      <div className="p-8">
+      <div className="p-4 sm:p-8">
         <div className="flex items-center gap-4 mb-8">
           <div className="p-3 bg-green-500 rounded-xl">
             <FileText className="w-6 h-6 text-white" />
@@ -259,29 +259,29 @@ export function ProfileTabContent({
 
       {/* Search and Filter Controls */}
       {reportsToShow.length > 0 && (
-        <div className="mb-8 bg-gray-50/50 rounded-2xl p-6">
-          <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
-            <div className="flex flex-col sm:flex-row gap-4 flex-1">
+        <div className="mb-6 sm:mb-8 bg-gray-50/50 rounded-2xl p-4 sm:p-6">
+          <div className="flex flex-col lg:flex-row gap-3 sm:gap-4 items-center justify-between">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 flex-1 w-full">
               {/* Search Bar */}
-              <div className="relative flex-1 max-w-md">
-                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+              <div className="relative flex-1 w-full max-w-md">
+                <Search className="absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4 sm:h-5 sm:w-5" />
                 <input
                   type="text"
                   placeholder="Search reports..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3 bg-white/80 backdrop-blur-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 shadow-sm hover:shadow-md"
+                  className="w-full pl-9 sm:pl-12 pr-3 sm:pr-4 py-2.5 sm:py-3 bg-white/80 backdrop-blur-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 shadow-sm hover:shadow-md"
                 />
               </div>
               
               {/* Filter Controls */}
-              <div className="flex gap-3">
+              <div className="flex gap-2 sm:gap-3 w-full sm:w-auto">
                 <div className="relative">
-                  <Filter className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <Filter className="absolute left-3 sm:left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                   <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
-                    className="pl-12 pr-8 py-3 bg-white/80 backdrop-blur-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 shadow-sm hover:shadow-md appearance-none min-w-[160px]"
+                    className="pl-10 sm:pl-12 pr-8 py-2.5 sm:py-3 bg-white/80 backdrop-blur-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 shadow-sm hover:shadow-md appearance-none min-w-[140px] sm:min-w-[160px]"
                   >
                     <option value="">All Statuses</option>
                     <option value="pending">Pending</option>
@@ -296,7 +296,7 @@ export function ProfileTabContent({
                 <select
                   value={priorityFilter}
                   onChange={(e) => setPriorityFilter(e.target.value)}
-                  className="px-4 py-3 bg-white/80 backdrop-blur-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 shadow-sm hover:shadow-md min-w-[140px]"
+                  className="px-3 sm:px-4 py-2.5 sm:py-3 bg-white/80 backdrop-blur-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 shadow-sm hover:shadow-md min-w-[120px] sm:min-w-[140px]"
                 >
                   <option value="">All Priorities</option>
                   <option value="high">High</option>
@@ -310,7 +310,7 @@ export function ProfileTabContent({
             {(searchQuery || statusFilter || priorityFilter) && (
               <button
                 onClick={clearFilters}
-                className="inline-flex items-center gap-2 px-4 py-3 text-sm font-medium text-gray-600 hover:text-gray-800 bg-white/80 hover:bg-white border border-gray-200 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md"
+                className="inline-flex items-center gap-2 px-3 sm:px-4 py-2.5 sm:py-3 text-sm font-medium text-gray-600 hover:text-gray-800 bg-white/80 hover:bg-white border border-gray-200 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md"
               >
                 <XIcon className="h-4 w-4" />
                 Clear Filters
@@ -319,7 +319,7 @@ export function ProfileTabContent({
           </div>
           
           {/* Results Count */}
-          <div className="mt-4 text-sm text-gray-600 font-medium">
+          <div className="mt-3 sm:mt-4 text-sm text-gray-600 font-medium">
             Showing {patrolFilteredReports.length} of {reportsToShow.length} reports
           </div>
         </div>
@@ -365,7 +365,7 @@ export function ProfileTabContent({
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
           {patrolFilteredReports.map((report) => (
             <div
               key={report.id}

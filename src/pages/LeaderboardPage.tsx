@@ -47,6 +47,11 @@ export function LeaderboardPage() {
   const [showTopThree, setShowTopThree] = useState(true);
   const [previousEntries, setPreviousEntries] = useState<LeaderboardEntry[]>([]);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const [showMobileControls, setShowMobileControls] = useState(false);
+  const mobileListRef = useRef<HTMLDivElement>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const pullStartYRef = useRef<number | null>(null);
+  const pullDistanceRef = useRef(0);
 
   useEffect(() => {
     fetchLeaderboard();
@@ -59,6 +64,53 @@ export function LeaderboardPage() {
     }
   }, []);
 
+  // Prefer card view on small screens for better mobile UX
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      setViewMode('card');
+    }
+  }, []);
+
+  // Simple pull-to-refresh for mobile card list
+  useEffect(() => {
+    const el = mobileListRef.current;
+    if (!el) return;
+    const onTouchStart = (e: TouchEvent) => {
+      if (el.scrollTop === 0) {
+        pullStartYRef.current = e.touches[0].clientY;
+        pullDistanceRef.current = 0;
+      } else {
+        pullStartYRef.current = null;
+      }
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      if (pullStartYRef.current !== null) {
+        pullDistanceRef.current = Math.max(0, e.touches[0].clientY - pullStartYRef.current);
+        // Apply a subtle translate for feedback (capped)
+        const translate = Math.min(60, pullDistanceRef.current * 0.5);
+        (el as HTMLElement).style.transform = `translateY(${translate}px)`;
+      }
+    };
+    const onTouchEnd = async () => {
+      (el as HTMLElement).style.transform = '';
+      if (pullDistanceRef.current > 60) {
+        setIsRefreshing(true);
+        await fetchLeaderboard();
+        setIsRefreshing(false);
+      }
+      pullStartYRef.current = null;
+      pullDistanceRef.current = 0;
+    };
+    el.addEventListener('touchstart', onTouchStart, { passive: true });
+    el.addEventListener('touchmove', onTouchMove, { passive: true });
+    el.addEventListener('touchend', onTouchEnd, { passive: true });
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart as any);
+      el.removeEventListener('touchmove', onTouchMove as any);
+      el.removeEventListener('touchend', onTouchEnd as any);
+    };
+  }, [fetchLeaderboard]);
+
   useEffect(() => {
     // Store previous entries for animation
     if (entries.length > 0) {
@@ -66,7 +118,7 @@ export function LeaderboardPage() {
     }
   }, [entries]);
 
-  const fetchLeaderboard = async () => {
+  async function fetchLeaderboard() {
     setLoading(true);
     try {
       // Check cache first
@@ -110,7 +162,7 @@ export function LeaderboardPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   const getRankIcon = (rank: number, sizeClass: string = 'h-8 w-8', colorClass?: string) => {
     switch (rank) {
@@ -177,6 +229,11 @@ export function LeaderboardPage() {
     [sortedAndFilteredEntries]
   );
 
+  const topTenEntries = useMemo(() => 
+    sortedAndFilteredEntries.slice(0, 10), 
+    [sortedAndFilteredEntries]
+  );
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
       <div className="w-full px-4 sm:px-6 lg:px-8 py-8 max-w-7xl mx-auto">
@@ -184,7 +241,20 @@ export function LeaderboardPage() {
         {/* Modern Controls */}
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-6 mb-8">
           <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
-            <div className="flex flex-col sm:flex-row gap-4 flex-1">
+            {/* Mobile controls toggle */}
+            <div className="w-full flex items-center justify-between lg:hidden">
+              <h3 className="text-base font-semibold text-gray-900">Leaderboard Filters</h3>
+              <button
+                onClick={() => setShowMobileControls(!showMobileControls)}
+                className="px-3 py-2 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
+                aria-expanded={showMobileControls}
+                aria-controls="leaderboard-controls"
+              >
+                {showMobileControls ? 'Hide' : 'Show'}
+              </button>
+            </div>
+
+            <div id="leaderboard-controls" className={`flex flex-col sm:flex-row gap-4 flex-1 w-full ${showMobileControls ? 'block' : 'hidden'} lg:flex`}>
               {/* Search Input */}
               <div className="relative flex-1 max-w-md">
                 <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
@@ -389,6 +459,58 @@ export function LeaderboardPage() {
                   )}
                 </div>
               </div>
+
+              {/* Mobile swipeable carousel for top contributors (top 10) */}
+              {topTenEntries.length > 0 && (
+                <div className="md:hidden mt-6 -mx-4 px-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm text-gray-600">Swipe to explore top 10</p>
+                  </div>
+                  <div className="overflow-x-auto [-webkit-overflow-scrolling:touch] snap-x snap-mandatory scrollbar-thin">
+                    <div className="flex gap-3 pr-4">
+                      {topTenEntries.map((entry) => (
+                        <button
+                          key={entry.id}
+                          onClick={() => setSelectedUser(entry)}
+                          className="min-w-[240px] snap-start bg-white/90 border border-gray-200/60 rounded-2xl shadow-sm hover:shadow-md transition-all duration-200 p-4 text-left"
+                        >
+                          <div className="flex items-center gap-3 mb-3">
+                            {entry.avatar_url ? (
+                              <img
+                                src={entry.avatar_url}
+                                alt={`Profile picture of ${entry.username}`}
+                                className="h-10 w-10 rounded-full ring-2 ring-gray-200"
+                                loading="lazy"
+                              />
+                            ) : (
+                              <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center ring-2 ring-gray-200">
+                                <User className="h-5 w-5 text-gray-500" />
+                              </div>
+                            )}
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold text-gray-900 truncate max-w-[150px]">{entry.username}</p>
+                              <div className="flex items-center gap-2 text-xs text-gray-600">
+                                {getRankIcon(entries.findIndex(e => e.id === entry.id) + 1, 'h-4 w-4')}
+                                <span>#{entries.findIndex(e => e.id === entry.id) + 1}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="bg-blue-50 rounded-lg p-2 text-center">
+                              <p className="text-[10px] font-semibold text-blue-600 uppercase tracking-wide">Points</p>
+                              <p className="text-lg font-bold text-blue-700">{entry.points.toLocaleString()}</p>
+                            </div>
+                            <div className="bg-purple-50 rounded-lg p-2 text-center">
+                              <p className="text-[10px] font-semibold text-purple-600 uppercase tracking-wide">Reports</p>
+                              <p className="text-lg font-bold text-purple-700">{entry.reports_submitted || 0}</p>
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -425,14 +547,14 @@ export function LeaderboardPage() {
                 <table className="min-w-full divide-y divide-gray-200/50">
                   <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
                     <tr>
-                      <th className="px-8 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                      <th className="sticky top-0 z-10 px-4 py-3 md:px-8 md:py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider bg-gradient-to-r from-gray-50 to-gray-100">
                         Rank
                       </th>
-                      <th className="px-8 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                      <th className="sticky top-0 z-10 px-4 py-3 md:px-8 md:py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider bg-gradient-to-r from-gray-50 to-gray-100">
                         Contributor
                       </th>
                       <th 
-                        className="px-8 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-200/50 transition-colors duration-200"
+                        className="sticky top-0 z-10 px-4 py-3 md:px-8 md:py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-200/50 transition-colors duration-200 bg-gradient-to-r from-gray-50 to-gray-100"
                         onClick={() => handleSort('points')}
                       >
                         <div className="flex items-center gap-2">
@@ -444,7 +566,7 @@ export function LeaderboardPage() {
                         </div>
                       </th>
                       <th 
-                        className="px-8 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-200/50 transition-colors duration-200"
+                        className="hidden md:table-cell sticky top-0 z-10 px-8 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-200/50 transition-colors duration-200 bg-gradient-to-r from-gray-50 to-gray-100"
                         onClick={() => handleSort('reports_submitted')}
                       >
                         <div className="flex items-center gap-2">
@@ -456,7 +578,7 @@ export function LeaderboardPage() {
                         </div>
                       </th>
                       <th 
-                        className="px-8 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-200/50 transition-colors duration-200"
+                        className="hidden lg:table-cell sticky top-0 z-10 px-8 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-200/50 transition-colors duration-200 bg-gradient-to-r from-gray-50 to-gray-100"
                         onClick={() => handleSort('reports_verified')}
                       >
                         <div className="flex items-center gap-2">
@@ -476,7 +598,7 @@ export function LeaderboardPage() {
                         className="hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-purple-50/50 cursor-pointer group transition-colors duration-200"
                         onClick={() => setSelectedUser(entry)}
                       >
-                          <td className="px-8 py-6 whitespace-nowrap">
+                          <td className="px-4 py-4 md:px-8 md:py-6 whitespace-nowrap">
                             <div className="flex items-center justify-center">
                               <div className="flex items-center gap-2">
                                 {getRankIcon(entries.findIndex(e => e.id === entry.id) + 1, 'h-6 w-6')}
@@ -496,44 +618,45 @@ export function LeaderboardPage() {
                               </div>
                             </div>
                           </td>
-                          <td className="px-8 py-6 whitespace-nowrap">
+                          <td className="px-4 py-4 md:px-8 md:py-6 whitespace-nowrap">
                             <div className="flex items-center gap-4">
-                              <div className="flex-shrink-0 h-12 w-12">
+                              <div className="flex-shrink-0 h-10 w-10 md:h-12 md:w-12">
                                 {entry.avatar_url ? (
                                   <img
-                                    className="h-12 w-12 rounded-full ring-2 ring-gray-200 group-hover:ring-blue-300 transition-all duration-200"
+                                    className="h-10 w-10 md:h-12 md:w-12 rounded-full ring-2 ring-gray-200 group-hover:ring-blue-300 transition-all duration-200"
                                     src={entry.avatar_url}
                                     alt={`Profile picture of ${entry.username}`}
+                                    loading="lazy"
                                   />
                                 ) : (
-                                  <div className="h-12 w-12 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center ring-2 ring-gray-200 group-hover:ring-blue-300 transition-all duration-200">
-                                    <User className="h-6 w-6 text-gray-500" />
+                                  <div className="h-10 w-10 md:h-12 md:w-12 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center ring-2 ring-gray-200 group-hover:ring-blue-300 transition-all duration-200">
+                                    <User className="h-5 w-5 md:h-6 md:w-6 text-gray-500" />
                                   </div>
                                 )}
                               </div>
                               <div>
                                 <Link
                                   to={`/profile/${entry.id}`}
-                                  className="text-base font-semibold text-gray-900 group-hover:text-blue-600 transition-colors duration-200"
+                                  className="text-sm md:text-base font-semibold text-gray-900 group-hover:text-blue-600 transition-colors duration-200 truncate max-w-[140px] md:max-w-none"
                                   onClick={(e) => e.stopPropagation()}
                                 >
                                   {entry.username}
                                 </Link>
-                                <p className="text-sm text-gray-500">Contributor</p>
+                                <p className="text-xs md:text-sm text-gray-500">Contributor</p>
                               </div>
                             </div>
                           </td>
-                          <td className="px-8 py-6 whitespace-nowrap">
-                            <div className="text-lg font-bold text-gray-900 group-hover:text-blue-600 transition-colors duration-200">
+                          <td className="px-4 py-4 md:px-8 md:py-6 whitespace-nowrap">
+                            <div className="text-base md:text-lg font-bold text-gray-900 group-hover:text-blue-600 transition-colors duration-200">
                               {entry.points.toLocaleString()}
                             </div>
                           </td>
-                          <td className="px-8 py-6 whitespace-nowrap">
+                          <td className="hidden md:table-cell px-8 py-6 whitespace-nowrap">
                             <div className="text-base font-medium text-gray-700">
                               {entry.reports_submitted || 0}
                             </div>
                           </td>
-                          <td className="px-8 py-6 whitespace-nowrap">
+                          <td className="hidden lg:table-cell px-8 py-6 whitespace-nowrap">
                             <div className="text-base font-medium text-gray-700">
                               {(entry.reports_verified || 0) > 0 ? entry.reports_verified : '-'}
                             </div>
@@ -544,25 +667,99 @@ export function LeaderboardPage() {
                 </table>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-8">
+              <>
+              {/* Horizontal swipe list on mobile, grid on larger screens */}
+              <div className="md:hidden relative">
+                <div className="sticky top-0 z-10 flex items-center justify-center py-2">
+                  {isRefreshing && (
+                    <div className="inline-flex items-center gap-2 px-3 py-1 text-xs font-medium text-blue-700 bg-blue-50 rounded-full">
+                      <svg className="animate-spin h-4 w-4 text-blue-600" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path></svg>
+                      Refreshing
+                    </div>
+                  )}
+                </div>
+                <div ref={mobileListRef} className="overflow-x-auto whitespace-nowrap px-4 pb-4 [-webkit-overflow-scrolling:touch] snap-x snap-mandatory">
+                  <div className="inline-flex gap-3">
+                    {paginatedEntries.map((entry) => (
+                      <div
+                        key={entry.id}
+                        className="snap-start w-[85vw] max-w-[380px] bg-white/80 backdrop-blur-sm border border-gray-200/50 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group hover:-translate-y-1 overflow-hidden"
+                        onClick={() => setSelectedUser(entry)}
+                      >
+                        <div className="p-4">
+                          <div className="flex items-center gap-3 mb-3">
+                            {entry.avatar_url ? (
+                              <img
+                                className="h-12 w-12 rounded-full ring-4 ring-gray-200 group-hover:ring-blue-300 transition-all duration-300"
+                                src={entry.avatar_url}
+                                alt={`Profile picture of ${entry.username}`}
+                                loading="lazy"
+                              />
+                            ) : (
+                              <div className="h-12 w-12 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center ring-4 ring-gray-200 group-hover:ring-blue-300 transition-all duration-300">
+                                <User className="h-6 w-6 text-gray-500" />
+                              </div>
+                            )}
+                            <div className="min-w-0">
+                              <Link
+                                to={`/profile/${entry.id}`}
+                                className="text-base font-bold text-gray-900 group-hover:text-blue-600 transition-colors duration-200 truncate max-w-[220px]"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                {entry.username}
+                              </Link>
+                              <div className="flex items-center gap-2">
+                                {getRankIcon(entries.findIndex(e => e.id === entry.id) + 1, 'h-5 w-5')}
+                                <span className="text-sm text-gray-600 font-medium">#{entries.findIndex(e => e.id === entry.id) + 1}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="bg-blue-50 rounded-xl p-3 text-center">
+                              <p className="text-[10px] font-semibold text-blue-600 uppercase tracking-wide mb-1">Points</p>
+                              <p className="text-xl font-bold text-blue-700">{entry.points.toLocaleString()}</p>
+                            </div>
+                            <div className="bg-purple-50 rounded-xl p-3 text-center">
+                              <p className="text-[10px] font-semibold text-purple-600 uppercase tracking-wide mb-1">Reports</p>
+                              <p className="text-xl font-bold text-purple-700">{entry.reports_submitted || 0}</p>
+                            </div>
+                            <div className="bg-emerald-50 rounded-xl p-3 text-center">
+                              <p className="text-[10px] font-semibold text-emerald-600 uppercase tracking-wide mb-1">Verified</p>
+                              <p className="text-xl font-bold text-emerald-700">{(entry.reports_verified || 0) > 0 ? entry.reports_verified : '-'}</p>
+                            </div>
+                            <div className="bg-amber-50 rounded-xl p-3 text-center">
+                              <p className="text-[10px] font-semibold text-amber-600 uppercase tracking-wide mb-1">Resolved</p>
+                              <p className="text-xl font-bold text-amber-700">{entry.reports_resolved || 0}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Original grid remains for >= md screens */}
+              <div className="hidden md:grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 p-4 md:p-8">
                 {paginatedEntries.map((entry) => (
                   <div
                     key={entry.id}
                     className="bg-white/80 backdrop-blur-sm border border-gray-200/50 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer group hover:-translate-y-1 overflow-hidden"
                     onClick={() => setSelectedUser(entry)}
                   >
-                      <div className="p-6">
+                      <div className="p-4 md:p-6">
                         <div className="flex items-center gap-4 mb-4">
                           <div className="flex-shrink-0">
                             {entry.avatar_url ? (
                               <img
-                                className="h-16 w-16 rounded-full ring-4 ring-gray-200 group-hover:ring-blue-300 transition-all duration-300"
+                                className="h-12 w-12 md:h-16 md:w-16 rounded-full ring-4 ring-gray-200 group-hover:ring-blue-300 transition-all duration-300"
                                 src={entry.avatar_url}
                                 alt={`Profile picture of ${entry.username}`}
+                                loading="lazy"
                               />
                             ) : (
-                              <div className="h-16 w-16 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center ring-4 ring-gray-200 group-hover:ring-blue-300 transition-all duration-300">
-                                <User className="h-8 w-8 text-gray-500" />
+                              <div className="h-12 w-12 md:h-16 md:w-16 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center ring-4 ring-gray-200 group-hover:ring-blue-300 transition-all duration-300">
+                                <User className="h-6 w-6 md:h-8 md:w-8 text-gray-500" />
                               </div>
                             )}
                           </div>
@@ -570,7 +767,7 @@ export function LeaderboardPage() {
                             <div className="flex items-center gap-2 mb-1">
                               <Link
                                 to={`/profile/${entry.id}`}
-                                className="text-lg font-bold text-gray-900 group-hover:text-blue-600 transition-colors duration-200"
+                                className="text-base md:text-lg font-bold text-gray-900 group-hover:text-blue-600 transition-colors duration-200 truncate"
                                 onClick={(e) => e.stopPropagation()}
                               >
                                 {entry.username}
@@ -596,28 +793,29 @@ export function LeaderboardPage() {
                           </div>
                         </div>
                         
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-2 gap-3 md:gap-4">
                           <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-4 text-center group-hover:from-blue-100 group-hover:to-blue-200 transition-all duration-300">
                             <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide mb-1">Points</p>
-                            <p className="text-2xl font-bold text-blue-700">{entry.points.toLocaleString()}</p>
+                            <p className="text-xl md:text-2xl font-bold text-blue-700">{entry.points.toLocaleString()}</p>
                           </div>
                           <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-4 text-center group-hover:from-purple-100 group-hover:to-purple-200 transition-all duration-300">
                             <p className="text-xs font-semibold text-purple-600 uppercase tracking-wide mb-1">Reports</p>
-                            <p className="text-2xl font-bold text-purple-700">{entry.reports_submitted || 0}</p>
+                            <p className="text-xl md:text-2xl font-bold text-purple-700">{entry.reports_submitted || 0}</p>
                           </div>
                           <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-xl p-4 text-center group-hover:from-emerald-100 group-hover:to-emerald-200 transition-all duration-300">
                             <p className="text-xs font-semibold text-emerald-600 uppercase tracking-wide mb-1">Verified</p>
-                            <p className="text-2xl font-bold text-emerald-700">{(entry.reports_verified || 0) > 0 ? entry.reports_verified : '-'}</p>
+                            <p className="text-xl md:text-2xl font-bold text-emerald-700">{(entry.reports_verified || 0) > 0 ? entry.reports_verified : '-'}</p>
                           </div>
                           <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-xl p-4 text-center group-hover:from-amber-100 group-hover:to-amber-200 transition-all duration-300">
                             <p className="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-1">Resolved</p>
-                            <p className="text-2xl font-bold text-amber-700">{entry.reports_resolved || 0}</p>
+                            <p className="text-xl md:text-2xl font-bold text-amber-700">{entry.reports_resolved || 0}</p>
                           </div>
                         </div>
                       </div>
                     </div>
                   ))}
               </div>
+              </>
             )}
 
             {/* Modern Pagination */}

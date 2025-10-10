@@ -185,6 +185,32 @@
   }
 }
 
+/* Reduce motion and effects for users/devices that prefer less motion */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+  .hover-scale, .hover-scale-sm, .hover-lift, .hover-glow,
+  .animate-fade-in, .animate-fade-in-fast, .animate-slide-up,
+  .animate-scale-in, .animate-bounce-gentle,
+  .animate-slide-up-mobile {
+    animation: none !important;
+    transform: none !important;
+  }
+}
+
+/* Mobile performance tweaks: lighten shadows and transforms */
+@media (max-width: 768px) {
+  .shadow-lg, .shadow-xl, .shadow-2xl, .hover\:shadow-xl, .hover\:shadow-2xl {
+    box-shadow: var(--shadow-sm) !important;
+  }
+  .hover-scale, .hover-scale-sm, .hover-lift {
+    transform: none !important;
+  }
+}
+
 /* Component Styles */
 @layer components {
   .btn {

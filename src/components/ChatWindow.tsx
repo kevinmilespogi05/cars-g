@@ -33,7 +33,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ isOpen, onClose, adminId
   // Mobile detection effect - must be at the top with other hooks
   useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth < 640);
-    window.addEventListener('resize', onResize);
+    window.addEventListener('resize', onResize, { passive: true });
     return () => window.removeEventListener('resize', onResize);
   }, []);
 
@@ -117,7 +117,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ isOpen, onClose, adminId
       setShowScrollButton(!isNearBottom);
     };
 
-    container.addEventListener('scroll', handleScroll);
+    container.addEventListener('scroll', handleScroll, { passive: true });
     return () => container.removeEventListener('scroll', handleScroll);
   }, []);
 

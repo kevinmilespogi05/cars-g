@@ -67,6 +67,7 @@ export function Profile() {
   const [deleteTarget, setDeleteTarget] = useState<Report | null>(null);
   const [deleteSuccess, setDeleteSuccess] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ text: string; type: 'success' | 'error'; visible: boolean }>({ text: '', type: 'success', visible: false });
   
   // Search and filter state
   const [searchQuery, setSearchQuery] = useState('');
@@ -400,8 +401,12 @@ export function Profile() {
       
       // Update local state
       setUser({ ...user, avatar_url: newAvatarUrl });
+      setToast({ text: 'Avatar updated', type: 'success', visible: true });
+      setTimeout(() => setToast(prev => ({ ...prev, visible: false })), 1800);
     } catch (error) {
       console.error('Error updating avatar:', error);
+      setToast({ text: 'Failed to update avatar', type: 'error', visible: true });
+      setTimeout(() => setToast(prev => ({ ...prev, visible: false })), 2200);
     } finally {
       setIsUpdating(false);
     }
@@ -422,8 +427,12 @@ export function Profile() {
       // Update local state
       setUser({ ...user, username: editedUsername });
       setIsEditing(false);
+      setToast({ text: 'Profile saved', type: 'success', visible: true });
+      setTimeout(() => setToast(prev => ({ ...prev, visible: false })), 1800);
     } catch (error) {
       console.error('Error updating profile:', error);
+      setToast({ text: 'Failed to save profile', type: 'error', visible: true });
+      setTimeout(() => setToast(prev => ({ ...prev, visible: false })), 2200);
     } finally {
       setIsUpdating(false);
     }
@@ -495,9 +504,9 @@ export function Profile() {
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-32 translate-x-32"></div>
           <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-24 -translate-x-24"></div>
           
-          <div className="relative px-8 py-12">
-            <div className="flex flex-col lg:flex-row items-start lg:items-end justify-between gap-6">
-              <div className="flex items-end gap-6">
+          <div className="relative px-4 sm:px-8 py-8 lg:py-12">
+            <div className="flex flex-col lg:flex-row items-start lg:items-end justify-between gap-4 lg:gap-6">
+              <div className="flex items-end gap-4 lg:gap-6 w-full">
                 <div className="relative group">
                   <div className="absolute -inset-2 bg-blue-500 rounded-full opacity-0 group-hover:opacity-10 transition-opacity duration-200"></div>
                   {isOwnProfile ? (
@@ -511,24 +520,24 @@ export function Profile() {
                     <img
                       src={user?.avatar_url || '/images/default-avatar.png'}
                       alt={user?.username}
-                      className="h-32 w-32 rounded-full object-cover border-4 border-white shadow-2xl group-hover:scale-105 transition-transform duration-200"
+                      className="h-20 w-20 lg:h-32 lg:w-32 rounded-full object-cover border-4 border-white shadow-2xl group-hover:scale-105 transition-transform duration-200"
                       loading="lazy"
                     />
                   )}
                   {/* Online Status Indicator */}
-                  <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-green-500 border-4 border-white rounded-full flex items-center justify-center">
-                    <div className="w-3 h-3 bg-white rounded-full"></div>
+                  <div className="absolute -bottom-2 -right-2 w-5 h-5 lg:w-8 lg:h-8 bg-green-500 border-4 border-white rounded-full flex items-center justify-center">
+                    <div className="w-2 h-2 lg:w-3 lg:h-3 bg-white rounded-full"></div>
                   </div>
                 </div>
                 
-                <div className="text-white">
+                <div className="text-white flex-1 min-w-0">
                   {isOwnProfile && isEditing ? (
-                    <div className="flex items-center gap-3 mb-2">
+                    <div className="flex items-center gap-2 lg:gap-3 mb-2">
                       <input
                         type="text"
                         value={editedUsername}
                         onChange={(e) => setEditedUsername(e.target.value)}
-                        className="text-3xl font-bold bg-white/90 text-gray-900 border-2 border-white/50 rounded-xl px-4 py-2 shadow-lg focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white"
+                        className="text-xl lg:text-3xl font-bold bg-white/90 text-gray-900 border-2 border-white/50 rounded-xl px-3 py-2 lg:px-4 shadow-lg focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white w-full max-w-[320px]"
                         placeholder="Enter username"
                       />
                       <button
@@ -548,21 +557,21 @@ export function Profile() {
                       </button>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-3 mb-2">
-                      <h1 className="text-4xl font-bold text-white drop-shadow-lg">
+                    <div className="flex items-center gap-2 lg:gap-3 mb-1 lg:mb-2 min-w-0">
+                      <h1 className="text-2xl lg:text-4xl font-bold text-white drop-shadow-lg truncate">
                         {(user?.first_name || user?.last_name)
                           ? `${user?.first_name ?? ''} ${user?.last_name ?? ''}`.trim()
                           : (user?.username || 'Not set')}
                       </h1>
                       {user?.role === 'patrol' && patrolGroup && (
-                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-emerald-400/20 text-emerald-100 border border-emerald-300/30">
+                        <span className="inline-flex items-center px-2 lg:px-3 py-0.5 lg:py-1 rounded-full text-[10px] lg:text-xs font-semibold bg-emerald-400/20 text-emerald-100 border border-emerald-300/30 whitespace-nowrap">
                           Group: {patrolGroup}
                         </span>
                       )}
                       {isOwnProfile && (
                         <button
                           onClick={() => setIsEditing(true)}
-                          className="p-2 rounded-xl bg-white/20 text-white hover:bg-white/30 transition-colors duration-200 shadow-lg"
+                          className="p-2 rounded-xl bg-white/20 text-white hover:bg-white/30 transition-colors duration-200 shadow-lg flex-shrink-0"
                           aria-label="Edit username"
                         >
                           <Edit2 className="w-5 h-5" />
@@ -571,15 +580,15 @@ export function Profile() {
                     </div>
                   )}
                   
-                  <div className="flex items-center gap-4 text-white/90">
-                    <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-3 lg:gap-4 text-white/90 mt-1 flex-wrap">
+                    <div className="flex items-center gap-1.5">
                       <Calendar className="w-4 h-4" />
-                      <span className="text-lg">Member since {formatDate(user?.created_at)}</span>
+                      <span className="text-sm lg:text-lg">Member since {formatDate(user?.created_at)}</span>
                     </div>
                     {user?.role === 'admin' && (
-                      <div className="flex items-center gap-2 bg-white/20 px-3 py-1 rounded-full">
+                      <div className="flex items-center gap-2 bg-white/20 px-2 lg:px-3 py-0.5 lg:py-1 rounded-full">
                         <Shield className="w-4 h-4" />
-                        <span className="font-semibold capitalize">{user.role}</span>
+                        <span className="text-xs lg:text-sm font-semibold capitalize">{user.role}</span>
                       </div>
                     )}
                   </div>
@@ -587,38 +596,38 @@ export function Profile() {
               </div>
               
               {/* Points and Stats */}
-              <div className="flex flex-col lg:items-end gap-4">
-                <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-6 text-center">
-                  <div className="text-3xl font-bold text-white mb-1">
+              <div className="flex flex-col lg:items-end gap-3 lg:gap-4 w-full lg:w-auto">
+                <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 lg:p-6 text-center w-full sm:w-auto">
+                  <div className="text-2xl lg:text-3xl font-bold text-white mb-0.5 lg:mb-1">
                     {user?.role === 'patrol' ? userStats.patrol_experience_points : (user?.points || 0)}
                   </div>
-                  <div className="text-white/90 font-medium">
+                  <div className="text-white/90 text-sm lg:text-base font-medium">
                     {user?.role === 'patrol' ? 'Experience Points' : 'Total Points'}
                   </div>
                 </div>
                 
                 {/* Quick Stats */}
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-2 lg:gap-3 w-full sm:w-auto">
                   {user?.role === 'patrol' ? (
                     <>
-                      <div className="bg-white/20 backdrop-blur-sm rounded-xl p-3 text-center">
-                        <div className="text-xl font-bold text-white">{userStats.patrol_reports_accepted}</div>
-                        <div className="text-xs text-white/80">Accepted</div>
+                      <div className="bg-white/20 backdrop-blur-sm rounded-xl p-2 lg:p-3 text-center">
+                        <div className="text-lg lg:text-xl font-bold text-white">{userStats.patrol_reports_accepted}</div>
+                        <div className="text-[11px] lg:text-xs text-white/80">Accepted</div>
                       </div>
-                      <div className="bg-white/20 backdrop-blur-sm rounded-xl p-3 text-center">
-                        <div className="text-xl font-bold text-white">{userStats.patrol_reports_completed}</div>
-                        <div className="text-xs text-white/80">Completed</div>
+                      <div className="bg-white/20 backdrop-blur-sm rounded-xl p-2 lg:p-3 text-center">
+                        <div className="text-lg lg:text-xl font-bold text-white">{userStats.patrol_reports_completed}</div>
+                        <div className="text-[11px] lg:text-xs text-white/80">Completed</div>
                       </div>
                     </>
                   ) : (
                     <>
-                      <div className="bg-white/20 backdrop-blur-sm rounded-xl p-3 text-center">
-                        <div className="text-xl font-bold text-white">{userStats.reports_submitted}</div>
-                        <div className="text-xs text-white/80">Reports</div>
+                      <div className="bg-white/20 backdrop-blur-sm rounded-xl p-2 lg:p-3 text-center">
+                        <div className="text-lg lg:text-xl font-bold text-white">{userStats.reports_submitted}</div>
+                        <div className="text-[11px] lg:text-xs text-white/80">Reports</div>
                       </div>
-                      <div className="bg-white/20 backdrop-blur-sm rounded-xl p-3 text-center">
-                        <div className="text-xl font-bold text-white">{userStats.reports_verified}</div>
-                        <div className="text-xs text-white/80">Verified</div>
+                      <div className="bg-white/20 backdrop-blur-sm rounded-xl p-2 lg:p-3 text-center">
+                        <div className="text-lg lg:text-xl font-bold text-white">{userStats.reports_verified}</div>
+                        <div className="text-[11px] lg:text-xs text-white/80">Verified</div>
                       </div>
                     </>
                   )}
@@ -755,6 +764,76 @@ export function Profile() {
           type="danger"
         />
       )}
+
+      {/* Mobile bottom sheet for profile editing */}
+      {isOwnProfile && isEditing && (
+        <div className="lg:hidden fixed inset-0 z-[9998]">
+          {/* Backdrop */}
+          <button
+            className="absolute inset-0 bg-black/50"
+            aria-label="Close editor"
+            onClick={() => setIsEditing(false)}
+          />
+          {/* Sheet */}
+          <div className="absolute left-0 right-0 bottom-0 bg-white rounded-t-2xl shadow-2xl border border-gray-200 p-4 pt-3 max-h-[80vh] overflow-y-auto">
+            <div className="mx-auto h-1 w-12 rounded-full bg-gray-300 mb-4" />
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-base font-semibold text-gray-900">Edit Profile</h3>
+              <button
+                onClick={() => setIsEditing(false)}
+                className="px-2 py-1 text-sm text-gray-600 hover:text-gray-900"
+              >
+                Cancel
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Avatar</label>
+                <div className="flex items-center gap-3">
+                  <img
+                    src={user?.avatar_url || '/images/default-avatar.png'}
+                    alt="Current avatar"
+                    className="h-14 w-14 rounded-full object-cover border border-gray-200"
+                  />
+                  <div className="flex-1">
+                    <AvatarSelector
+                      currentAvatar={user?.avatar_url || null}
+                      onAvatarChange={handleAvatarChange}
+                      userId={user?.id || ''}
+                      variant="compact"
+                    />
+                  </div>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                <input
+                  type="text"
+                  value={editedUsername}
+                  onChange={(e) => setEditedUsername(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                  placeholder="Enter username"
+                />
+              </div>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button
+                onClick={() => setIsEditing(false)}
+                className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+              >
+                Close
+              </button>
+              <button
+                onClick={handleSaveProfile}
+                disabled={isUpdating}
+                className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {deleteSuccess && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl max-w-sm w-full shadow-2xl p-8 text-center">
@@ -797,6 +876,15 @@ export function Profile() {
                 Close
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast / Snackbar */}
+      {toast.visible && (
+        <div className="fixed bottom-4 left-0 right-0 z-[9999] px-4 flex justify-center">
+          <div className={`px-4 py-2 rounded-xl shadow-lg text-sm font-medium ${toast.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}>
+            {toast.text}
           </div>
         </div>
       )}

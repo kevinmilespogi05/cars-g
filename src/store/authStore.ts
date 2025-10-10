@@ -597,7 +597,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   
   signUp: async (email: string, password: string, username: string, firstName?: string, lastName?: string) => {
     try {
-      // Use the new server-side registration endpoint with email verification
+      // Use the server-side registration endpoint (no email verification)
       const response = await fetch(getApiUrl('/api/auth/register'), {
         method: 'POST',
         headers: {
@@ -622,78 +622,15 @@ export const useAuthStore = create<AuthState>((set) => ({
         throw new Error(result.error || 'Registration failed');
       }
 
-      // Return the registration result with verification requirement
+      // Return simple success (no verification required)
       return {
         success: true,
         message: result.message,
         email: result.email,
-        requiresVerification: result.requiresVerification
+        requiresVerification: false
       };
     } catch (error) {
       console.error('Signup error:', error);
-      throw error;
-    }
-  },
-
-  // New method to verify registration email
-  verifyRegistration: async (email: string, otp: string) => {
-    try {
-      const response = await fetch(getApiUrl('/api/auth/verify-registration'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, otp }),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Verification failed');
-      }
-
-      if (!result.success) {
-        throw new Error(result.error || 'Verification failed');
-      }
-
-      return {
-        success: true,
-        message: result.message,
-        email: result.email
-      };
-    } catch (error) {
-      console.error('Verification error:', error);
-      throw error;
-    }
-  },
-
-  // New method to resend verification email
-  resendVerification: async (email: string) => {
-    try {
-      const response = await fetch(getApiUrl('/api/auth/resend-verification'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email }),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to resend verification');
-      }
-
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to resend verification');
-      }
-
-      return {
-        success: true,
-        message: result.message
-      };
-    } catch (error) {
-      console.error('Resend verification error:', error);
       throw error;
     }
   },

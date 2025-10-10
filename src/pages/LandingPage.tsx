@@ -36,7 +36,7 @@ export function LandingPage() {
     const handleScroll = () => {
       setScrolled(window.scrollY > 20);
     };
-    window.addEventListener('scroll', handleScroll);
+    window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
@@ -149,7 +149,7 @@ export function LandingPage() {
             <Link to="/" className="flex items-center space-x-3 group">
               <div className="relative">
                 <div className="h-10 w-10 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-105" style={{backgroundColor: '#800000'}}>
-                  <img src="/images/logo.jpg" alt="CARS-G Logo" className="h-6 w-6 rounded object-cover" />
+                  <img src="/images/logo.jpg" alt="CARS-G Logo" className="h-6 w-6 rounded object-cover" loading="lazy" />
                 </div>
                 <div className="absolute -top-1 -right-1 h-4 w-4 bg-green-500 rounded-full border-2 border-white animate-pulse"></div>
               </div>
@@ -739,7 +739,7 @@ export function LandingPage() {
             <div className="lg:col-span-1">
               <div className="flex items-center space-x-3 mb-6">
                 <div className="h-12 w-12 rounded-xl flex items-center justify-center" style={{backgroundColor: '#800000'}}>
-                  <img src="/images/logo.jpg" alt="CARS-G Logo" className="h-7 w-7 rounded object-cover" />
+                  <img src="/images/logo.jpg" alt="CARS-G Logo" className="h-7 w-7 rounded object-cover" loading="lazy" />
                 </div>
             <div>
                   <span className="text-2xl font-bold">CARS-G</span>

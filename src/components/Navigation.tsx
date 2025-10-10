@@ -19,7 +19,7 @@ export function Navigation() {
       setIsScrolled(window.scrollY > 10);
     };
 
-    window.addEventListener('scroll', handleScroll);
+    window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
@@ -88,6 +88,7 @@ export function Navigation() {
                 src="/images/logo.jpg" 
                 alt="CARS-G Logo" 
                 className="h-10 w-10 object-contain rounded-xl shadow-sm group-hover:shadow-md transition-shadow duration-200"
+                loading="lazy"
               />
               <div className="absolute -inset-1 rounded-xl opacity-0 group-hover:opacity-20 transition-opacity duration-200 -z-10" style={{ backgroundColor: 'rgba(255,255,255,0.15)' }}></div>
             </div>
@@ -139,6 +140,7 @@ export function Navigation() {
                       src={user.avatar_url || '/images/default-avatar.png'}
                       alt="Profile"
                       className="h-8 w-8 rounded-full object-cover ring-2 ring-white/30 hover:ring-white/40 transition-all duration-200"
+                      loading="lazy"
                     />
                     <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
                   </div>
@@ -154,6 +156,7 @@ export function Navigation() {
                           src={user.avatar_url || '/images/default-avatar.png'}
                           alt="Profile"
                           className="h-10 w-10 rounded-full object-cover"
+                          loading="lazy"
                         />
                         <div>
                           <div className="text-sm font-medium text-gray-900">{user.username}</div>

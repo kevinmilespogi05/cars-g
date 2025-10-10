@@ -67,6 +67,10 @@ export function ReportDetail() {
   const commentsSectionRef = useRef<HTMLDivElement | null>(null);
   const [myRating, setMyRating] = useState<number | null>(null);
   const [submittingRating, setSubmittingRating] = useState(false);
+  const [mobileImageIndex, setMobileImageIndex] = useState(0);
+  const mobileCarouselRef = useRef<HTMLDivElement | null>(null);
+  const touchStartXRef = useRef<number | null>(null);
+  const touchEndXRef = useRef<number | null>(null);
 
   // Create a fallback image data URL
   const fallbackImageUrl = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiB2aWV3Qm94PSIwIDAgMjAwIDIwMCI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiNmMGYwZjAiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE2IiBmaWxsPSIjODg4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5JbWFnZSBub3QgYXZhaWxhYmxlPC90ZXh0Pjwvc3ZnPg==";
@@ -106,6 +110,11 @@ export function ReportDetail() {
       fetchReportComments();
     }
   }, [id]);
+
+  // Reset mobile image index when report changes
+  useEffect(() => {
+    setMobileImageIndex(0);
+  }, [report?.id]);
 
   // Subscribe to live report updates (status, priority, priority_level, etc.)
   useEffect(() => {
@@ -716,7 +725,7 @@ export function ReportDetail() {
       {/* 3-column layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mt-0">
         {/* Left: Comments */}
-        <aside className="lg:col-span-3 order-1" ref={commentsSectionRef}>
+        <aside className="lg:col-span-3 order-3 lg:order-1" ref={commentsSectionRef}>
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -920,7 +929,50 @@ export function ReportDetail() {
             {report.images && report.images.length > 0 ? (
               <div className="mt-6">
                 <h2 className="text-lg font-semibold text-gray-900 mb-3">Images</h2>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                {/* Mobile swipe carousel */}
+                <div className="lg:hidden">
+                  <div className="relative">
+                    <div className="overflow-hidden rounded-lg">
+                      <img
+                        src={getImageUrl(report.images[mobileImageIndex])}
+                        alt={`Report image ${mobileImageIndex + 1}`}
+                        className="w-full h-56 object-cover"
+                        loading="lazy"
+                        onClick={() => setSelectedImage({ url: report.images[mobileImageIndex], index: mobileImageIndex })}
+                      />
+                    </div>
+                    {report.images.length > 1 && (
+                      <>
+                        <button
+                          className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-gray-700 rounded-full p-1 shadow"
+                          onClick={() => setMobileImageIndex((mobileImageIndex - 1 + report.images.length) % report.images.length)}
+                          aria-label="Previous image"
+                        >
+                          <ChevronLeft className="w-5 h-5" />
+                        </button>
+                        <button
+                          className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-gray-700 rounded-full p-1 shadow"
+                          onClick={() => setMobileImageIndex((mobileImageIndex + 1) % report.images.length)}
+                          aria-label="Next image"
+                        >
+                          <ChevronRight className="w-5 h-5" />
+                        </button>
+                        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+                          {report.images.map((_, idx) => (
+                            <button
+                              key={idx}
+                              onClick={() => setMobileImageIndex(idx)}
+                              className={`w-2 h-2 rounded-full ${idx === mobileImageIndex ? 'bg-blue-600' : 'bg-gray-300'}`}
+                              aria-label={`Go to image ${idx + 1}`}
+                            />
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+                {/* Desktop grid */}
+                <div className="hidden lg:grid grid-cols-2 sm:grid-cols-3 gap-4">
                   {report.images.map((image, index) => (
                     <motion.div
                       key={index}
@@ -928,7 +980,7 @@ export function ReportDetail() {
                       className="relative aspect-square cursor-pointer overflow-hidden bg-gray-100 rounded-lg"
                       onClick={() => setSelectedImage({ url: image, index })}
                     >
-                      <img src={getImageUrl(image)} alt={`Report image ${index + 1}`} className="absolute inset-0 h-full w-full object-cover rounded-lg border border-gray-200" loading="eager" decoding="sync" fetchpriority="high" referrerPolicy="no-referrer" crossOrigin="anonymous" onError={(e) => { console.error(`Failed to load image: ${image}`); const imgElement = e.target as HTMLImageElement; imgElement.src = fallbackImageUrl; }} style={{ backgroundColor: '#f0f0f0' }} />
+                      <img src={getImageUrl(image)} alt={`Report image ${index + 1}`} className="absolute inset-0 h-full w-full object-cover rounded-lg border border-gray-200" loading="lazy" referrerPolicy="no-referrer" crossOrigin="anonymous" onError={(e) => { const imgElement = e.target as HTMLImageElement; imgElement.src = fallbackImageUrl; }} />
                     </motion.div>
                   ))}
                 </div>

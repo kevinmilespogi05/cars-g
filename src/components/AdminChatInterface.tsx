@@ -383,7 +383,7 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
       setShowScrollButton(!isNearBottom);
     };
 
-    container.addEventListener('scroll', handleScroll);
+    container.addEventListener('scroll', handleScroll, { passive: true });
     return () => container.removeEventListener('scroll', handleScroll);
   }, [markVisibleMessagesAsSeen]);
 

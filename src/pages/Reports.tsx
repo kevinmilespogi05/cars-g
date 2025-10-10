@@ -64,6 +64,11 @@ export function Reports() {
   const [likeDetailsModal, setLikeDetailsModal] = useState<{ isOpen: boolean; reportId: string; reportTitle: string } | null>(null);
   const loadingRef = React.useRef(false);
   const needsRefetchRef = React.useRef(false);
+  const mobileListRef = React.useRef<HTMLDivElement>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const pullStartYRef = React.useRef<number | null>(null);
+  const pullDistanceRef = React.useRef(0);
+  const [toast, setToast] = useState<{ text: string; type: 'success' | 'error'; visible: boolean }>({ text: '', type: 'success', visible: false });
 
   // Micro-animations: container and card variants
   const gridVariants = {
@@ -241,7 +246,7 @@ export function Reports() {
   // Create a fallback image data URL
   const fallbackImageUrl = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiB2aWV3Qm94PSIwIDAgMjAwIDIwMCI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiNmMGYwZjAiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE2IiBmaWxsPSIjODg4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5JbWFnZSBub3QgYXZhaWxhYmxlPC90ZXh0Pjwvc3ZnPg==";
 
-  const fetchReports = async () => {
+  async function fetchReports() {
     try {
       if (loadingRef.current) {
         needsRefetchRef.current = true;
@@ -281,7 +286,50 @@ export function Reports() {
         fetchReports();
       }
     }
-  };
+  }
+
+  // Mobile pull-to-refresh for horizontal list
+  useEffect(() => {
+    const el = mobileListRef.current;
+    if (!el) return;
+    const onTouchStart = (e: TouchEvent) => {
+      if (el.scrollTop === 0) {
+        pullStartYRef.current = e.touches[0].clientY;
+        pullDistanceRef.current = 0;
+      } else {
+        pullStartYRef.current = null;
+      }
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      if (pullStartYRef.current !== null) {
+        pullDistanceRef.current = Math.max(0, e.touches[0].clientY - pullStartYRef.current);
+        const translate = Math.min(60, pullDistanceRef.current * 0.5);
+        (el as HTMLElement).style.transform = `translateY(${translate}px)`;
+      }
+    };
+    const onTouchEnd = async () => {
+      (el as HTMLElement).style.transform = '';
+      if (pullDistanceRef.current > 60) {
+        setIsRefreshing(true);
+        try {
+          await fetchReports();
+          setToast({ text: 'Refreshed', type: 'success', visible: true });
+        } catch {}
+        setIsRefreshing(false);
+        setTimeout(() => setToast(prev => ({ ...prev, visible: false })), 1500);
+      }
+      pullStartYRef.current = null;
+      pullDistanceRef.current = 0;
+    };
+    el.addEventListener('touchstart', onTouchStart, { passive: true });
+    el.addEventListener('touchmove', onTouchMove, { passive: true });
+    el.addEventListener('touchend', onTouchEnd, { passive: true });
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart as any);
+      el.removeEventListener('touchmove', onTouchMove as any);
+      el.removeEventListener('touchend', onTouchEnd as any);
+    };
+  }, []);
 
   const handleLike = async (reportId: string) => {
     console.log('handleLike called, user:', user?.id, 'reportId:', reportId);
@@ -297,6 +345,8 @@ export function Reports() {
       console.log('Calling reportsService.toggleLike for report:', reportId);
       const isLiked = await reportsService.toggleLike(reportId);
       console.log('Toggle like result:', isLiked);
+      setToast({ text: isLiked ? 'Added like' : 'Removed like', type: 'success', visible: true });
+      setTimeout(() => setToast(prev => ({ ...prev, visible: false })), 1200);
       
       // Update both is_liked status and like count immediately for better UX
       setReports(prev => {
@@ -319,6 +369,8 @@ export function Reports() {
     } catch (error) {
       console.error('Error toggling like:', error);
       alert('Failed to like/unlike report. Please try again.');
+      setToast({ text: 'Failed to update like', type: 'error', visible: true });
+      setTimeout(() => setToast(prev => ({ ...prev, visible: false })), 1800);
     } finally {
       setLikeLoading(prev => ({ ...prev, [reportId]: false }));
     }
@@ -579,6 +631,39 @@ export function Reports() {
           </div>
         </div>
 
+        {/* Mobile horizontal swipe list */}
+        <div className="md:hidden mb-4">
+          <div className="sticky top-[4.5rem] z-10 flex items-center justify-center py-1">
+            {isRefreshing && (
+              <div className="inline-flex items-center gap-2 px-3 py-1 text-xs font-medium text-blue-700 bg-blue-50 rounded-full">
+                <svg className="animate-spin h-4 w-4 text-blue-600" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path></svg>
+                Refreshing
+              </div>
+            )}
+          </div>
+          <div ref={mobileListRef} className="overflow-x-auto whitespace-nowrap px-2 pb-2 [-webkit-overflow-scrolling:touch] snap-x snap-mandatory">
+            <div className="inline-flex gap-3">
+              {filteredReports.map((report) => (
+                <div key={report.id} className="snap-start w-[85vw] max-w-[380px] bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden cursor-pointer" onClick={() => navigate(`/reports/${report.id}`)}>
+                  {report.images && report.images.length > 0 ? (
+                    <img src={report.images[0]} alt={report.title} className="w-full h-40 object-cover" loading="lazy" />
+                  ) : (
+                    <div className="w-full h-40 bg-gray-100 flex items-center justify-center"><MapPin className="h-6 w-6 text-gray-400" /></div>
+                  )}
+                  <div className="p-4">
+                    <h3 className="text-base font-semibold text-gray-900 line-clamp-2 mb-2">{report.title}</h3>
+                    <p className="text-sm text-gray-600 line-clamp-2 mb-3">{report.description}</p>
+                    <div className="flex items-center justify-between">
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-semibold ${getStatusColor(report.status)}`}>{report.status.replace('_',' ')}</span>
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-semibold ${getPriorityColor(report.priority)}`}>{report.priority}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
         {/* Reports Grid - restored to fuller layout */}
         {filteredReports.length === 0 ? (
           <div className="text-center py-14">
@@ -644,7 +729,7 @@ export function Reports() {
             variants={gridVariants}
             initial="hidden"
             animate="visible"
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6"
+            className="hidden md:grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6"
           >
             {filteredReports.map((report) => (
               <motion.div
@@ -844,6 +929,13 @@ export function Reports() {
           reportId={likeDetailsModal.reportId}
           reportTitle={likeDetailsModal.reportTitle}
         />
+      )}
+      {toast.visible && (
+        <div className="fixed bottom-4 left-0 right-0 z-[9999] px-4 flex justify-center">
+          <div className={`px-4 py-2 rounded-xl shadow-lg text-sm font-medium ${toast.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}>
+            {toast.text}
+          </div>
+        </div>
       )}
     </div>
     {/* Transition to Footer */}
