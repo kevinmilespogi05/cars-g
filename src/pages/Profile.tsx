@@ -473,18 +473,20 @@ export function Profile() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
-      <div className="w-full px-4 sm:px-6 lg:px-8 py-8 max-w-7xl mx-auto">
-        {/* Go Back Button */}
+    <div className="fixed inset-0 w-screen h-screen overflow-hidden bg-gradient-to-br from-gray-50 via-white to-gray-100">
+      <div className="h-full w-full overflow-y-auto overflow-x-hidden">
+        <div className="w-full px-4 sm:px-6 lg:px-8 py-6 max-w-7xl mx-auto">
+        {/* Go Back Button - Positioned at top */}
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.3 }}
-          className="mb-6"
+          className="mb-4"
         >
           <button
             onClick={() => navigate(-1)}
-            className="inline-flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors group bg-white/80 backdrop-blur-sm px-4 py-2 rounded-xl shadow-sm border border-gray-200/50 hover:shadow-md"
+            className="inline-flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors group bg-white/80 backdrop-blur-sm px-4 py-2.5 rounded-xl shadow-sm border border-gray-200/50 hover:shadow-md"
+            aria-label="Go back to previous page"
           >
             <ArrowLeft className="h-5 w-5 group-hover:-translate-x-1 transition-transform duration-200" />
             <span className="font-medium">Go Back</span>
@@ -495,17 +497,17 @@ export function Profile() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
-          className="space-y-8"
+          className="space-y-6"
         >
         {/* Modern Profile Header */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl border border-gray-200/50 overflow-hidden relative">
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/50 overflow-hidden relative">
           {/* Background Pattern */}
           <div className="absolute inset-0 bg-blue-600"></div>
           <div className="absolute inset-0 bg-black/5"></div>
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-32 translate-x-32"></div>
           <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-24 -translate-x-24"></div>
           
-          <div className="relative px-4 sm:px-8 py-8 lg:py-12">
+          <div className="relative px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
             <div className="flex flex-col lg:flex-row items-start lg:items-end justify-between gap-4 lg:gap-6">
               <div className="flex items-end gap-4 lg:gap-6 w-full">
                 <div className="relative group">
@@ -538,23 +540,27 @@ export function Profile() {
                         type="text"
                         value={editedUsername}
                         onChange={(e) => setEditedUsername(e.target.value)}
-                        className="text-xl lg:text-3xl font-bold bg-white/90 text-gray-900 border-2 border-white/50 rounded-xl px-3 py-2 lg:px-4 shadow-lg focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white w-full max-w-[320px]"
+                        className="text-xl lg:text-3xl font-bold bg-white/90 text-gray-900 border-2 border-white/50 rounded-xl px-3 py-2 lg:px-4 shadow-lg focus:outline-none focus:ring-4 focus:ring-white/50 focus:border-white w-full max-w-[320px] transition-all"
                         placeholder="Enter username"
+                        aria-label="Edit username"
+                        autoFocus
                       />
                       <button
                         onClick={handleSaveProfile}
                         disabled={isUpdating}
-                        className="p-3 rounded-xl bg-white/20 text-white hover:bg-white/30 transition-colors duration-200 shadow-lg disabled:opacity-60"
+                        className="flex items-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 text-white font-semibold hover:from-green-600 hover:to-emerald-600 hover:scale-105 active:scale-95 transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100"
                         aria-label="Save username"
                       >
                         <Save className="w-5 h-5" />
+                        <span className="hidden sm:inline">Save</span>
                       </button>
                       <button
                         onClick={() => setIsEditing(false)}
-                        className="p-3 rounded-xl bg-white/20 text-white hover:bg-white/30 transition-colors duration-200 shadow-lg"
+                        className="flex items-center gap-2 px-4 py-3 rounded-xl bg-white/20 text-white hover:bg-red-500 hover:scale-105 active:scale-95 transition-all duration-200 shadow-lg hover:shadow-xl"
                         aria-label="Cancel editing"
                       >
                         <X className="w-5 h-5" />
+                        <span className="hidden sm:inline">Cancel</span>
                       </button>
                     </div>
                   ) : (
@@ -572,10 +578,11 @@ export function Profile() {
                       {isOwnProfile && (
                         <button
                           onClick={() => setIsEditing(true)}
-                          className="p-2 rounded-xl bg-white/20 text-white hover:bg-white/30 transition-colors duration-200 shadow-lg flex-shrink-0"
+                          className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/20 text-white hover:bg-white/30 hover:scale-105 active:scale-95 transition-all duration-200 shadow-lg hover:shadow-xl flex-shrink-0 group"
                           aria-label="Edit username"
                         >
-                          <Edit2 className="w-5 h-5" />
+                          <Edit2 className="w-4 h-4 group-hover:rotate-12 transition-transform" />
+                          <span className="hidden sm:inline text-sm font-medium">Edit</span>
                         </button>
                       )}
                     </div>
@@ -771,12 +778,12 @@ export function Profile() {
         <div className="lg:hidden fixed inset-0 z-[9998]">
           {/* Backdrop */}
           <button
-            className="absolute inset-0 bg-black/50"
+            className="absolute inset-0 bg-black/60"
             aria-label="Close editor"
             onClick={() => setIsEditing(false)}
           />
           {/* Sheet */}
-          <div className="absolute left-0 right-0 bottom-0 bg-white rounded-t-2xl shadow-2xl border border-gray-200 p-4 pt-3 max-h-[80vh] overflow-y-auto">
+          <div className="absolute left-0 right-0 bottom-0 bg-white rounded-t-2xl shadow-2xl border border-gray-200 p-4 pt-3 max-h-[85vh] overflow-y-auto">
             <div className="mx-auto h-1 w-12 rounded-full bg-gray-300 mb-4" />
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-base font-semibold text-gray-900">Edit Profile</h3>
@@ -817,26 +824,38 @@ export function Profile() {
                 />
               </div>
             </div>
-            <div className="mt-4 grid grid-cols-2 gap-2">
+            <div className="mt-6 flex gap-3 sticky bottom-0 bg-white pt-4 -mx-4 px-4 -mb-4 pb-4 border-t border-gray-200">
               <button
                 onClick={() => setIsEditing(false)}
-                className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+                className="flex-1 px-4 py-3 rounded-xl border-2 border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 hover:border-gray-400 active:scale-95 transition-all"
+                aria-label="Cancel editing"
               >
-                Close
+                Cancel
               </button>
               <button
                 onClick={handleSaveProfile}
                 disabled={isUpdating}
-                className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                className="flex-1 px-4 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 text-white font-semibold hover:from-blue-700 hover:to-blue-600 hover:shadow-lg active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                aria-label="Save profile changes"
               >
-                Save
+                {isUpdating ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    <span>Save Changes</span>
+                  </>
+                )}
               </button>
             </div>
           </div>
         </div>
       )}
       {deleteSuccess && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl max-w-sm w-full shadow-2xl p-8 text-center">
             <div className="mx-auto mb-4 relative h-16 w-16">
               <span className="absolute inset-0 rounded-full bg-green-100 animate-ping"></span>
@@ -858,7 +877,7 @@ export function Profile() {
       )}
 
       {deleteError && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl max-w-sm w-full shadow-2xl p-8 text-center">
             <div className="mx-auto mb-4 relative h-16 w-16">
               <span className="absolute inset-0 rounded-full bg-red-100 animate-ping"></span>
@@ -881,14 +900,32 @@ export function Profile() {
         </div>
       )}
 
-      {/* Toast / Snackbar */}
+      {/* Enhanced Toast / Snackbar with Animation */}
       {toast.visible && (
-        <div className="fixed bottom-4 left-0 right-0 z-[9999] px-4 flex justify-center">
-          <div className={`px-4 py-2 rounded-xl shadow-lg text-sm font-medium ${toast.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}>
-            {toast.text}
+        <motion.div 
+          initial={{ opacity: 0, y: 50, scale: 0.9 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 50, scale: 0.9 }}
+          transition={{ duration: 0.3, ease: "easeOut" }}
+          className="fixed bottom-6 left-0 right-0 z-[9999] px-4 flex justify-center pointer-events-none"
+          role="alert"
+          aria-live="polite"
+        >
+          <div className={`px-6 py-3 rounded-xl shadow-2xl text-sm font-semibold flex items-center gap-3 pointer-events-auto ${
+            toast.type === 'success' 
+              ? 'bg-gradient-to-r from-green-600 to-green-500 text-white' 
+              : 'bg-gradient-to-r from-red-600 to-red-500 text-white'
+          }`}>
+            {toast.type === 'success' ? (
+              <CheckCircle className="h-5 w-5" />
+            ) : (
+              <AlertCircle className="h-5 w-5" />
+            )}
+            <span>{toast.text}</span>
           </div>
-        </div>
+        </motion.div>
       )}
+        </div>
       </div>
     </div>
   );

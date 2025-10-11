@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Upload } from 'lucide-react';
+import { User, Upload, Camera } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
 import { getAccessToken, authenticatedRequest } from '../lib/jwt';
@@ -428,24 +428,41 @@ export function AvatarSelector({ currentAvatar, onAvatarChange, userId, variant 
 
   if (variant === 'compact') {
     return (
-      <div className="relative inline-block">
+      <div className="relative inline-block group">
         {currentAvatar ? (
           <img
             src={currentAvatar}
-            alt="Profile"
-            className="h-24 w-24 rounded-full object-cover border-4 border-white shadow-lg"
+            alt="Profile picture"
+            className="h-24 w-24 lg:h-32 lg:w-32 rounded-full object-cover border-4 border-white shadow-lg group-hover:shadow-xl transition-shadow duration-200"
           />
         ) : (
-          <div className="h-24 w-24 rounded-full bg-gray-200 flex items-center justify-center border-4 border-white shadow-lg">
-            <User className="h-12 w-12 text-gray-400" />
+          <div className="h-24 w-24 lg:h-32 lg:w-32 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center border-4 border-white shadow-lg group-hover:shadow-xl transition-shadow duration-200">
+            <User className="h-12 w-12 lg:h-16 lg:w-16 text-gray-400" />
           </div>
         )}
+        {/* Overlay on hover */}
+        {!isUploading && (
+          <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
+            <div className="text-white text-center">
+              <Camera className="h-6 w-6 mx-auto mb-1" />
+              <span className="text-xs font-medium">Change</span>
+            </div>
+          </div>
+        )}
+        {/* Upload button */}
         <label
           htmlFor={inputId}
-          className="absolute bottom-1 right-1 bg-white rounded-full p-1.5 shadow-lg cursor-pointer hover:bg-gray-50"
+          className={`absolute bottom-1 right-1 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full p-2 shadow-lg cursor-pointer hover:from-blue-600 hover:to-blue-700 hover:scale-110 active:scale-95 transition-all duration-200 ${
+            isUploading ? 'opacity-50 cursor-not-allowed' : ''
+          }`}
           aria-label="Change profile picture"
+          title="Upload new profile picture"
         >
-          <Upload className="h-4 w-4 text-gray-600" />
+          {isUploading ? (
+            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+          ) : (
+            <Camera className="h-4 w-4 text-white" />
+          )}
           <input
             id={inputId}
             type="file"
@@ -453,32 +470,52 @@ export function AvatarSelector({ currentAvatar, onAvatarChange, userId, variant 
             className="hidden"
             onChange={handleFileUpload}
             disabled={isUploading}
+            aria-describedby={`${inputId}-description`}
           />
         </label>
+        <span id={`${inputId}-description`} className="sr-only">
+          Upload a profile picture. Supported formats: JPEG, PNG, GIF, WebP. Maximum size: 5MB.
+        </span>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center space-x-4">
-        <div className="relative">
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
+        <div className="relative group flex-shrink-0">
           {currentAvatar ? (
             <img
               src={currentAvatar}
-              alt="Profile"
-              className="h-24 w-24 rounded-full object-cover"
+              alt="Profile picture"
+              className="h-24 w-24 rounded-full object-cover border-4 border-gray-200 shadow-lg group-hover:shadow-xl transition-all duration-200"
             />
           ) : (
-            <div className="h-24 w-24 rounded-full bg-gray-200 flex items-center justify-center">
+            <div className="h-24 w-24 rounded-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center border-4 border-gray-200 shadow-lg group-hover:shadow-xl transition-all duration-200">
               <User className="h-12 w-12 text-gray-400" />
+            </div>
+          )}
+          {/* Overlay on hover */}
+          {!isUploading && (
+            <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
+              <div className="text-white text-center">
+                <Camera className="h-6 w-6 mx-auto mb-1" />
+                <span className="text-xs font-medium">Upload</span>
+              </div>
             </div>
           )}
           <label
             htmlFor={inputId}
-            className="absolute bottom-0 right-0 bg-white rounded-full p-1.5 shadow-lg cursor-pointer hover:bg-gray-50"
+            className={`absolute bottom-0 right-0 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full p-2 shadow-lg cursor-pointer hover:from-blue-600 hover:to-blue-700 hover:scale-110 active:scale-95 transition-all duration-200 ${
+              isUploading ? 'opacity-50 cursor-not-allowed' : ''
+            }`}
+            title="Upload new profile picture"
           >
-            <Upload className="h-4 w-4 text-gray-600" />
+            {isUploading ? (
+              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+            ) : (
+              <Camera className="h-5 w-5 text-white" />
+            )}
             <input
               id={inputId}
               type="file"
@@ -486,48 +523,71 @@ export function AvatarSelector({ currentAvatar, onAvatarChange, userId, variant 
               className="hidden"
               onChange={handleFileUpload}
               disabled={isUploading}
+              aria-describedby={`${inputId}-description`}
+              aria-label="Upload profile picture"
             />
           </label>
         </div>
-        <div>
-          <h3 className="text-lg font-medium">Profile Picture</h3>
-          <p className="text-sm text-gray-500">
+        <div className="flex-1 min-w-0">
+          <h3 className="text-lg font-semibold text-gray-900 mb-1">Profile Picture</h3>
+          <p className="text-sm text-gray-600 mb-2">
             Upload a custom picture or choose from our defaults
           </p>
-          <p className="text-xs text-gray-400 mt-1">
-            Supported formats: JPEG, PNG, GIF, WebP (max 5MB)
-          </p>
+          <div className="flex items-start gap-2 text-xs text-gray-500 mb-3">
+            <svg className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span id={`${inputId}-description`}>
+              Supported formats: JPEG, PNG, GIF, WebP (max 5MB)
+            </span>
+          </div>
           <button
             type="button"
             onClick={() => setShowDefaultAvatars(!showDefaultAvatars)}
-            className="mt-2 text-sm text-blue-600 hover:text-blue-800"
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors duration-200"
+            aria-expanded={showDefaultAvatars}
+            aria-controls="default-avatars-grid"
           >
+            <svg className={`w-4 h-4 transition-transform duration-200 ${showDefaultAvatars ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
             {showDefaultAvatars ? 'Hide default avatars' : 'Show default avatars'}
           </button>
         </div>
       </div>
 
       {showDefaultAvatars && (
-        <div className="grid grid-cols-5 gap-4 mt-4">
-          {DEFAULT_AVATARS.map((avatar, index) => (
-            <button
-              key={index}
-              onClick={() => handleDefaultAvatarSelect(avatar)}
-              className="h-16 w-16 rounded-full overflow-hidden border-2 border-gray-200 hover:border-blue-500 transition-colors"
-            >
-              <img
-                src={avatar}
-                alt={`Default avatar ${index + 1}`}
-                className="h-full w-full object-cover"
-              />
-            </button>
-          ))}
+        <div 
+          id="default-avatars-grid"
+          className="bg-gradient-to-br from-gray-50 to-blue-50 rounded-2xl p-6 border border-gray-200"
+        >
+          <h4 className="text-sm font-semibold text-gray-900 mb-4">Choose a Default Avatar</h4>
+          <div className="grid grid-cols-3 sm:grid-cols-5 gap-4">
+            {DEFAULT_AVATARS.map((avatar, index) => (
+              <button
+                key={index}
+                onClick={() => handleDefaultAvatarSelect(avatar)}
+                className="h-16 w-16 rounded-full overflow-hidden border-3 border-gray-200 hover:border-blue-500 hover:shadow-lg hover:scale-110 active:scale-95 transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-blue-500/50"
+                aria-label={`Select default avatar ${index + 1}`}
+              >
+                <img
+                  src={avatar}
+                  alt={`Default avatar option ${index + 1}`}
+                  className="h-full w-full object-cover"
+                />
+              </button>
+            ))}
+          </div>
         </div>
       )}
 
       {isUploading && (
-        <div className="text-sm text-gray-500">
-          Uploading avatar...
+        <div className="flex items-center gap-3 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+          <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+          <div>
+            <p className="text-sm font-semibold text-blue-900">Uploading avatar...</p>
+            <p className="text-xs text-blue-700">Please wait while we process your image</p>
+          </div>
         </div>
       )}
     </div>

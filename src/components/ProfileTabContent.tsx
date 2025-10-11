@@ -17,13 +17,17 @@ import {
   X,
   Search,
   Filter,
-  X as XIcon
+  X as XIcon,
+  Smartphone,
+  Info,
+  HelpCircle,
+  ExternalLink
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Report } from '../types';
 import { AchievementsPanel } from './AchievementsPanel';
 import { supabase } from '../lib/supabase';
-import { Smartphone } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface ProfileTabContentProps {
   activeTab: string;
@@ -67,6 +71,7 @@ export function ProfileTabContent({
   setDeleteTarget = () => {}
 }: ProfileTabContentProps) {
   const navigate = useNavigate();
+  const [showTooltip, setShowTooltip] = React.useState<string | null>(null);
 
   function PhoneEditor({ initialValue }: { initialValue: string }) {
     const [value, setValue] = React.useState<string>(initialValue ? `+63 ${initialValue.replace(/[\s-]/g, '').slice(3)}` : '+63 ');
@@ -164,7 +169,13 @@ export function ProfileTabContent({
         {!editing ? (
           <div className="flex items-center gap-3">
             <p className="text-green-900 font-medium">{/^\+63\s\d{10}$/.test(value) ? value : 'Not set'}</p>
-            <button onClick={() => setEditing(true)} className="px-3 py-1.5 rounded-lg bg-green-600 text-white text-sm font-semibold hover:bg-green-700">Edit</button>
+            <button 
+              onClick={() => setEditing(true)} 
+              className="px-4 py-2 rounded-lg bg-gradient-to-r from-green-600 to-emerald-600 text-white text-sm font-semibold hover:from-green-700 hover:to-emerald-700 hover:shadow-lg hover:scale-105 active:scale-95 transition-all duration-200"
+              aria-label="Edit phone number"
+            >
+              Edit
+            </button>
           </div>
         ) : (
           <div className="flex items-center gap-3">
@@ -179,13 +190,22 @@ export function ProfileTabContent({
             <button
               onClick={handleSave}
               disabled={!!error || saving}
-              className="px-4 py-2 rounded-xl bg-green-600 text-white font-semibold hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-green-600 to-emerald-600 text-white font-semibold hover:from-green-700 hover:to-emerald-700 hover:shadow-lg hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 transition-all duration-200"
+              aria-label={saving ? 'Saving phone number' : 'Save phone number'}
             >
-              {saving ? 'Saving...' : 'Save'}
+              {saving ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <span>Saving...</span>
+                </>
+              ) : (
+                'Save'
+              )}
             </button>
             <button
               onClick={() => { setEditing(false); setError(''); setSuccess(''); }}
-              className="px-3 py-2 rounded-xl bg-gray-200 text-gray-800 font-semibold hover:bg-gray-300"
+              className="px-4 py-2.5 rounded-xl bg-gray-200 text-gray-800 font-semibold hover:bg-gray-300 hover:scale-105 active:scale-95 transition-all duration-200"
+              aria-label="Cancel phone editing"
             >
               Cancel
             </button>
@@ -236,7 +256,13 @@ export function ProfileTabContent({
         {!editing ? (
           <div className="flex items-center gap-3">
             <p className="text-blue-900 font-medium">{value || 'Not set'}</p>
-            <button onClick={() => setEditing(true)} className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700">Edit</button>
+            <button 
+              onClick={() => setEditing(true)} 
+              className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-semibold hover:from-blue-700 hover:to-indigo-700 hover:shadow-lg hover:scale-105 active:scale-95 transition-all duration-200"
+              aria-label="Edit email address"
+            >
+              Edit
+            </button>
           </div>
         ) : (
           <div className="flex items-center gap-3">
@@ -250,13 +276,22 @@ export function ProfileTabContent({
             <button
               onClick={handleSave}
               disabled={saving}
-              className="px-4 py-2 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold hover:from-blue-700 hover:to-indigo-700 hover:shadow-lg hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 transition-all duration-200"
+              aria-label={saving ? 'Saving email' : 'Save email'}
             >
-              {saving ? 'Saving...' : 'Save'}
+              {saving ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <span>Saving...</span>
+                </>
+              ) : (
+                'Save'
+              )}
             </button>
             <button
               onClick={() => { setEditing(false); setError(''); setSuccess(''); setValue(initialValue || ''); }}
-              className="px-3 py-2 rounded-xl bg-gray-200 text-gray-800 font-semibold hover:bg-gray-300"
+              className="px-4 py-2.5 rounded-xl bg-gray-200 text-gray-800 font-semibold hover:bg-gray-300 hover:scale-105 active:scale-95 transition-all duration-200"
+              aria-label="Cancel email editing"
             >
               Cancel
             </button>
@@ -310,21 +345,24 @@ export function ProfileTabContent({
   };
 
   const renderOverview = () => (
-    <div className="p-8">
-      <div className="flex items-center gap-4 mb-8">
-        <div className="p-3 bg-blue-500 rounded-xl">
+    <div className="p-4 sm:p-8">
+      <div className="flex items-center gap-4 mb-6 sm:mb-8">
+        <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-xl shadow-lg">
           <User className="w-6 h-6 text-white" />
         </div>
-        <div>
-          <h3 className="text-2xl font-bold text-gray-900">Profile Overview</h3>
-          <p className="text-gray-600">Your account information and activity summary</p>
+        <div className="flex-1">
+          <h3 className="text-xl sm:text-2xl font-bold text-gray-900">Profile Overview</h3>
+          <p className="text-sm sm:text-base text-gray-600">Your account information and activity summary</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* Profile Information */}
+      {/* Visual Divider */}
+      <div className="h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent mb-6 sm:mb-8"></div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
+        {/* Profile Information Card */}
         <div className="space-y-6">
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6">
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 border border-blue-100 shadow-sm hover:shadow-md transition-shadow duration-200">
             <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
               <User className="w-5 h-5 text-blue-600" />
               Personal Information
@@ -357,13 +395,39 @@ export function ProfileTabContent({
           </div>
         </div>
 
-        {/* Quick Stats */}
+        {/* Quick Stats Card */}
         <div className="space-y-6">
-          <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-6">
-            <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <BarChart3 className="w-5 h-5 text-green-600" />
-              Quick Stats
-            </h4>
+          <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl p-6 border border-green-100 shadow-sm hover:shadow-md transition-shadow duration-200">
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <BarChart3 className="w-5 h-5 text-green-600" />
+                Quick Stats
+              </h4>
+              <div className="relative">
+                <button
+                  onClick={() => setShowTooltip(showTooltip === 'overview-stats' ? null : 'overview-stats')}
+                  className="p-1.5 rounded-lg hover:bg-green-100 transition-colors"
+                  aria-label="Statistics information"
+                >
+                  <HelpCircle className="w-4 h-4 text-green-600" />
+                </button>
+                <AnimatePresence>
+                  {showTooltip === 'overview-stats' && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.9, y: -10 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.9, y: -10 }}
+                      className="absolute right-0 top-full mt-2 w-64 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-xl z-10"
+                      role="tooltip"
+                    >
+                      <p className="font-semibold mb-1">About Your Stats</p>
+                      <p className="text-gray-300">Track your contributions and activity within the community platform.</p>
+                      <div className="absolute -top-1 right-4 w-2 h-2 bg-gray-900 transform rotate-45"></div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </div>
             {user?.role === 'patrol' ? (
               <div className="grid grid-cols-2 gap-4">
                 <div className="text-center">
@@ -444,7 +508,7 @@ export function ProfileTabContent({
     })() : filteredReports;
 
     return (
-      <div className="p-4 sm:p-8">
+      <div className="p-4 sm:p-6 lg:p-8 h-full overflow-y-auto">
         <div className="flex items-center gap-4 mb-8">
           <div className="p-3 bg-green-500 rounded-xl">
             <FileText className="w-6 h-6 text-white" />
@@ -675,68 +739,83 @@ export function ProfileTabContent({
   };
 
   const renderNotifications = () => (
-    <div className="p-8">
-      <div className="flex items-center gap-4 mb-8">
-        <div className="p-3 bg-purple-500 rounded-xl">
+    <div className="p-4 sm:p-8">
+      <div className="flex items-center gap-4 mb-6 sm:mb-8">
+        <div className="p-3 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl shadow-lg">
           <Bell className="w-6 h-6 text-white" />
         </div>
-        <div>
-          <h3 className="text-2xl font-bold text-gray-900">Notification Settings</h3>
-          <p className="text-gray-600">Control how you receive updates and notifications</p>
+        <div className="flex-1">
+          <h3 className="text-xl sm:text-2xl font-bold text-gray-900">Notification Settings</h3>
+          <p className="text-sm sm:text-base text-gray-600">Control how you receive updates and notifications</p>
         </div>
       </div>
 
+      {/* Visual Divider */}
+      <div className="h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent mb-6 sm:mb-8"></div>
+
       <div className="space-y-6">
-        <div className="bg-blue-50 rounded-2xl p-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center">
-                <Bell className="h-6 w-6 text-white" />
+        <div className="bg-blue-50 rounded-2xl p-6 border border-blue-100 shadow-sm hover:shadow-md transition-all duration-200">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-4 flex-1 min-w-0">
+              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0">
+                <Mail className="h-6 w-6 text-white" />
               </div>
-              <div>
-                <label className="block text-lg font-semibold text-blue-900">Email Notifications</label>
-                <p className="text-blue-700">Receive updates via email</p>
+              <div className="min-w-0">
+                <label className="block text-base sm:text-lg font-semibold text-blue-900">Email Notifications</label>
+                <p className="text-sm text-blue-700">Receive updates via email</p>
               </div>
             </div>
             <button
               onClick={() => onNotificationToggle('email')}
-              className={`relative inline-flex h-8 w-14 items-center rounded-full transition-all duration-200 shadow-lg hover:shadow-xl ${
-                notificationSettings.email ? 'bg-blue-500' : 'bg-gray-300'
+              className={`relative inline-flex h-8 w-14 items-center rounded-full transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 flex-shrink-0 ${
+                notificationSettings.email ? 'bg-gradient-to-r from-blue-500 to-blue-600' : 'bg-gray-300'
               }`}
               aria-label={`${notificationSettings.email ? 'Disable' : 'Enable'} email notifications`}
+              role="switch"
+              aria-checked={notificationSettings.email}
             >
               <span
-                className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform duration-200 shadow-md ${
+                className={`inline-block h-6 w-6 transform rounded-full bg-white transition-all duration-200 shadow-md ${
                   notificationSettings.email ? 'translate-x-7' : 'translate-x-1'
                 }`}
-              />
+              >
+                {notificationSettings.email && (
+                  <CheckCircle className="w-6 h-6 text-blue-600 p-0.5" />
+                )}
+              </span>
             </button>
           </div>
         </div>
         
-        <div className="bg-purple-50 rounded-2xl p-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-purple-500 rounded-xl flex items-center justify-center">
+        <div className="bg-purple-50 rounded-2xl p-6 border border-purple-100 shadow-sm hover:shadow-md transition-all duration-200">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-4 flex-1 min-w-0">
+              <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0">
                 <Bell className="h-6 w-6 text-white" />
               </div>
-              <div>
-                <label className="block text-lg font-semibold text-purple-900">Push Notifications</label>
-                <p className="text-purple-700">Receive push notifications</p>
+              <div className="min-w-0">
+                <label className="block text-base sm:text-lg font-semibold text-purple-900">Push Notifications</label>
+                <p className="text-sm text-purple-700">Receive instant push notifications</p>
               </div>
             </div>
             <button
               onClick={() => onNotificationToggle('push')}
-              className={`relative inline-flex h-8 w-14 items-center rounded-full transition-all duration-200 shadow-lg hover:shadow-xl ${
-                notificationSettings.push ? 'bg-purple-500' : 'bg-gray-300'
+              className={`relative inline-flex h-8 w-14 items-center rounded-full transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 flex-shrink-0 ${
+                notificationSettings.push ? 'bg-gradient-to-r from-purple-500 to-purple-600' : 'bg-gray-300'
               }`}
               aria-label={`${notificationSettings.push ? 'Disable' : 'Enable'} push notifications`}
+              role="switch"
+              aria-checked={notificationSettings.push}
             >
               <span
-                className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform duration-200 shadow-md ${
+                className={`inline-block h-6 w-6 transform rounded-full bg-white transition-all duration-200 shadow-md ${
                   notificationSettings.push ? 'translate-x-7' : 'translate-x-1'
                 }`}
-              />
+              >
+                {notificationSettings.push && (
+                  <CheckCircle className="w-6 h-6 text-purple-600 p-0.5" />
+                )}
+              </span>
             </button>
           </div>
         </div>
@@ -745,37 +824,50 @@ export function ProfileTabContent({
   );
 
   const renderAccount = () => (
-    <div className="p-8">
-      <div className="flex items-center gap-4 mb-8">
-        <div className="p-3 bg-gray-500 rounded-xl">
+    <div className="p-4 sm:p-8">
+      <div className="flex items-center gap-4 mb-6 sm:mb-8">
+        <div className="p-3 bg-gradient-to-br from-gray-600 to-gray-700 rounded-xl shadow-lg">
           <Lock className="w-6 h-6 text-white" />
         </div>
-        <div>
-          <h3 className="text-2xl font-bold text-gray-900">Account Settings</h3>
-          <p className="text-gray-600">Manage your account information and security</p>
+        <div className="flex-1">
+          <h3 className="text-xl sm:text-2xl font-bold text-gray-900">Account Settings</h3>
+          <p className="text-sm sm:text-base text-gray-600">Manage your account information and security</p>
         </div>
       </div>
 
+      {/* Visual Divider */}
+      <div className="h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent mb-6 sm:mb-8"></div>
+
       <div className="space-y-6">
-        <div className="bg-blue-50 rounded-2xl p-6">
-          <label className="block text-sm font-semibold text-blue-800 mb-2">Email Address</label>
+        <div className="bg-blue-50 rounded-2xl p-6 border border-blue-100 shadow-sm hover:shadow-md transition-shadow duration-200">
+          <label className="flex items-center gap-2 text-sm font-semibold text-blue-800 mb-3">
+            <Mail className="w-4 h-4" />
+            Email Address
+          </label>
           <EditableEmail initialValue={user?.email || ''} />
         </div>
-        <div className="bg-green-50 rounded-2xl p-6">
-          <label className="block text-sm font-semibold text-green-800 mb-2 flex items-center gap-2">
+        <div className="bg-green-50 rounded-2xl p-6 border border-green-100 shadow-sm hover:shadow-md transition-shadow duration-200">
+          <label className="flex items-center gap-2 text-sm font-semibold text-green-800 mb-3">
             <Smartphone className="h-4 w-4 text-green-600" />
             Phone Number
           </label>
           <PhoneEditor initialValue={user?.phone || ''} />
-          <p className="text-green-700 text-xs mt-2">Format: +63 9XXXXXXXXX</p>
+          <p className="flex items-center gap-1.5 text-green-700 text-xs mt-2">
+            <Info className="w-3 h-3" />
+            <span>Format: +63 9XXXXXXXXX (Philippine mobile numbers only)</span>
+          </p>
         </div>
         
         {user?.role === 'admin' && (
-          <div className="bg-purple-50 rounded-2xl p-6">
-            <label className="block text-sm font-semibold text-purple-800 mb-2">Account Type</label>
-            <div className="flex items-center gap-2">
+          <div className="bg-purple-50 rounded-2xl p-6 border border-purple-100 shadow-sm">
+            <label className="flex items-center gap-2 text-sm font-semibold text-purple-800 mb-3">
               <Shield className="h-4 w-4 text-purple-600" />
-              <p className="text-purple-900 font-medium capitalize">{user.role}</p>
+              Account Type
+            </label>
+            <div className="flex items-center gap-2">
+              <div className="px-3 py-1.5 bg-purple-200 rounded-lg">
+                <p className="text-purple-900 font-semibold capitalize">{user.role}</p>
+              </div>
             </div>
           </div>
         )}
@@ -784,7 +876,7 @@ export function ProfileTabContent({
   );
 
   const renderAchievements = () => (
-    <div className="p-8">
+    <div className="p-4 sm:p-6 lg:p-8 h-full overflow-y-auto">
       <div className="flex items-center gap-4 mb-8">
         <div className="p-3 bg-yellow-500 rounded-xl">
           <Award className="w-6 h-6 text-white" />
@@ -800,27 +892,61 @@ export function ProfileTabContent({
   );
 
   const renderStatistics = () => (
-    <div className="p-8">
-      <div className="flex items-center gap-4 mb-8">
-        <div className="p-3 bg-indigo-500 rounded-xl">
+    <div className="p-4 sm:p-8">
+      <div className="flex items-center gap-4 mb-6 sm:mb-8">
+        <div className="p-3 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-xl shadow-lg">
           <BarChart3 className="w-6 h-6 text-white" />
         </div>
-        <div>
-          <h3 className="text-2xl font-bold text-gray-900">
-            {user?.role === 'patrol' ? 'Patrol Statistics' : 'Activity Statistics'}
-          </h3>
-          <p className="text-gray-600">
+        <div className="flex-1">
+          <div className="flex items-center gap-3">
+            <h3 className="text-xl sm:text-2xl font-bold text-gray-900">
+              {user?.role === 'patrol' ? 'Patrol Statistics' : 'Activity Statistics'}
+            </h3>
+            <div className="relative">
+              <button
+                onClick={() => setShowTooltip(showTooltip === 'statistics-info' ? null : 'statistics-info')}
+                className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+                aria-label="Statistics information"
+              >
+                <HelpCircle className="w-5 h-5 text-indigo-600" />
+              </button>
+              <AnimatePresence>
+                {showTooltip === 'statistics-info' && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.9, y: -10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.9, y: -10 }}
+                    className="absolute left-0 top-full mt-2 w-72 p-4 bg-gray-900 text-white text-sm rounded-lg shadow-xl z-10"
+                    role="tooltip"
+                  >
+                    <p className="font-semibold mb-2">Understanding Your Statistics</p>
+                    <p className="text-gray-300 mb-2">
+                      {user?.role === 'patrol' 
+                        ? 'Track your patrol performance with detailed metrics including level, experience points, and completed reports.' 
+                        : 'Monitor your community contributions including reports submitted, verified, and resolved.'}
+                    </p>
+                    <p className="text-gray-400 text-xs">Click anywhere to close</p>
+                    <div className="absolute -top-1 left-4 w-2 h-2 bg-gray-900 transform rotate-45"></div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
+          <p className="text-sm sm:text-base text-gray-600 mt-1">
             {user?.role === 'patrol' ? 'Track your patrol performance' : 'Monitor your contribution to the community'}
           </p>
         </div>
       </div>
 
+      {/* Visual Divider */}
+      <div className="h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent mb-6 sm:mb-8"></div>
+
       <div className="grid grid-cols-2 gap-6">
         {user?.role === 'patrol' ? (
           // Patrol-specific stats
           <>
-            <div className="bg-blue-50 rounded-2xl p-6 text-center group hover:shadow-lg transition-all duration-200">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-500 rounded-2xl mb-4 group-hover:scale-105 transition-transform duration-200">
+            <div className="bg-blue-50 rounded-2xl p-6 text-center group hover:shadow-lg transition-all duration-200 border border-blue-100 relative">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl mb-4 group-hover:scale-110 transition-transform duration-200 shadow-lg">
                 <Shield className="h-8 w-8 text-white" />
               </div>
               <p className="text-4xl font-bold text-blue-900 mb-2">{userStats.patrol_level}</p>

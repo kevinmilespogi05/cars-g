@@ -152,10 +152,10 @@ export function ProfileSettingsTabs({
   });
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6">
-      {/* Mobile Top Tabs */}
+    <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 min-h-0">
+      {/* Mobile Top Tabs - Sticky Navigation */}
       <div className="lg:hidden">
-        <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-sm border border-gray-200/60 overflow-hidden sticky top-16 z-20">
+        <div className="bg-white/95 backdrop-blur-md rounded-xl shadow-lg border border-gray-200/60 overflow-hidden sticky top-0 z-30">
           <div className="px-4 py-3 border-b border-gray-200/60">
             <h2 className="text-base font-semibold text-gray-900">Settings</h2>
             <p className="text-xs text-gray-500">
@@ -214,9 +214,9 @@ export function ProfileSettingsTabs({
         </div>
       </div>
 
-      {/* Sidebar Navigation (desktop) */}
+      {/* Sidebar Navigation (desktop) - Sticky Navigation */}
       <div className="hidden lg:block lg:w-80 flex-shrink-0">
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 overflow-hidden sticky top-6">
+        <div className="bg-white/95 backdrop-blur-md rounded-xl shadow-xl border border-gray-200/50 overflow-hidden sticky top-0 max-h-[calc(100vh-2rem)] overflow-y-auto">
           <div className="px-6 py-6 border-b border-gray-200/50 bg-gradient-to-r from-blue-50 to-indigo-50">
             <h2 className="text-xl font-bold text-gray-900">Settings</h2>
             <p className="text-sm text-gray-600 mt-1">
@@ -280,8 +280,8 @@ export function ProfileSettingsTabs({
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 min-w-0">
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 overflow-hidden">
+      <div className="flex-1 min-w-0 min-h-0">
+        <div className="bg-white/80 backdrop-blur-sm rounded-xl shadow-xl border border-gray-200/50 overflow-hidden h-full">
           <AnimatePresence mode="wait">
             <motion.div
               key={activeTab}
@@ -289,7 +289,7 @@ export function ProfileSettingsTabs({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.2 }}
-              className="h-full"
+              className="h-full overflow-y-auto"
               role="tabpanel"
               id={`tab-panel-${activeTab}`}
               aria-labelledby={`tab-${activeTab}`}

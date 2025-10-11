@@ -40,6 +40,7 @@ export function CaseInfo({ report, onUpdate, onClose, isPatrolView = false }: Ca
   const [editCommentText, setEditCommentText] = useState('');
   const [expanded, setExpanded] = useState<{ [key: string]: boolean }>({});
   const [likeDetailsModal, setLikeDetailsModal] = useState<{ isOpen: boolean; commentId?: string } | null>(null);
+  const [activeTab, setActiveTab] = useState<'all' | 'comments' | 'logs'>('all');
 
   // Load comments when component mounts
   useEffect(() => {
@@ -319,241 +320,348 @@ export function CaseInfo({ report, onUpdate, onClose, isPatrolView = false }: Ca
             </div>
 
             {/* Comments Section - Fixed at bottom */}
-            <div className="border-t border-gray-200 bg-white px-4 sm:px-6 py-3 sm:py-4 flex-shrink-0">
-              <div className="flex items-center justify-between mb-3 sm:mb-4">
-                <h4 className="text-base sm:text-lg font-semibold text-gray-900 flex items-center">
-                  <MessageSquare className="h-4 w-4 sm:h-5 sm:w-5 mr-2 text-blue-600" />
-                  Comments & Logs
-                  <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded-full">
-                    {comments.length}
-                  </span>
-                </h4>
+            <div className="border-t border-gray-200 bg-white flex-shrink-0">
+              {/* Tab Navigation */}
+              <div className="border-b border-gray-200">
+                <div className="flex space-x-1 p-2">
+                  <button
+                    onClick={() => setActiveTab('all')}
+                    className={`flex-1 px-3 py-2 text-xs font-semibold rounded-lg transition-colors ${
+                      activeTab === 'all'
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : 'text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    All ({comments.length})
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('comments')}
+                    className={`flex-1 px-3 py-2 text-xs font-semibold rounded-lg transition-colors ${
+                      activeTab === 'comments'
+                        ? 'bg-gray-100 text-gray-800'
+                        : 'text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    Comments ({comments.filter(c => c.comment_type === 'comment').length})
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('logs')}
+                    className={`flex-1 px-3 py-2 text-xs font-semibold rounded-lg transition-colors ${
+                      activeTab === 'logs'
+                        ? 'bg-blue-100 text-blue-800'
+                        : 'text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    Logs ({comments.filter(c => c.comment_type !== 'comment').length})
+                  </button>
+                </div>
               </div>
 
-              {/* Comments List */}
-              <div className="space-y-2 mb-3 max-h-40 overflow-y-auto">
-                {loading && comments.length === 0 ? (
-                  <div className="text-center py-4">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-600 mx-auto"></div>
-                    <p className="mt-2 text-sm text-gray-500">Loading comments...</p>
-                  </div>
-                ) : comments.length === 0 ? (
-                  <div className="text-center py-4">
-                    <MessageSquare className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                    <p className="text-sm text-gray-500">No comments yet</p>
-                  </div>
-                ) : (
-                  comments.map((comment) => {
-                    const isPatrolComment = comment.comment_type !== 'comment';
-                    
-                    return (
-                      <div key={comment.id} className={`rounded-xl p-5 border-l-4 shadow-sm ${
-                        isPatrolComment 
-                          ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-500 shadow-md' 
-                          : 'bg-white border border-gray-200'
-                      }`}>
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center space-x-3 mb-3">
-                              {isPatrolComment ? (
-                                <div className="flex items-center space-x-2">
-                                  <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-sm">
-                                    <ShieldCheck className="h-4 w-4 text-white" />
-                                  </div>
-                                  <span className="text-xs font-bold text-blue-900 uppercase tracking-wide bg-blue-100 px-2 py-1 rounded-full">
-                                    OFFICIAL
-                                  </span>
-                                </div>
-                              ) : (
+              <div className="px-4 sm:px-6 py-3 sm:py-4">
+                {/* User Comments Section */}
+                {(activeTab === 'all' || activeTab === 'comments') && (
+                  <div className={`${activeTab === 'all' ? 'mb-3' : 'mb-4'}`}>
+                    <div className={`flex items-center justify-between mb-3 ${activeTab === 'all' ? 'pb-2 border-b-2 border-gray-200' : ''}`}>
+                      <h4 className="text-sm font-semibold text-gray-900 flex items-center">
+                        <MessageSquare className="h-4 w-4 mr-2 text-gray-600" />
+                        User Comments
+                        <span className="ml-2 px-2 py-0.5 bg-gray-100 text-gray-700 text-xs font-semibold rounded-full">
+                          {comments.filter(c => c.comment_type === 'comment').length}
+                        </span>
+                      </h4>
+                    </div>
+
+                    <div className="space-y-2 max-h-40 overflow-y-auto">
+                      {loading && comments.length === 0 ? (
+                        <div className="text-center py-4">
+                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-600 mx-auto"></div>
+                          <p className="mt-2 text-sm text-gray-500">Loading comments...</p>
+                        </div>
+                      ) : comments.filter(c => c.comment_type === 'comment').length === 0 ? (
+                        <div className="bg-gray-50 rounded-lg p-6 text-center border border-gray-200">
+                          <MessageSquare className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                          <p className="text-xs text-gray-500">No user comments yet</p>
+                        </div>
+                      ) : (
+                        comments
+                          .filter(c => c.comment_type === 'comment')
+                          .map((comment) => (
+                            <div key={comment.id} className="bg-gray-50 rounded-lg p-3 border border-gray-200 shadow-sm">
+                              <div className="flex items-start gap-2">
                                 <img
-                                  className="h-8 w-8 rounded-full object-cover border-2 border-gray-200 shadow-sm"
+                                  className="h-7 w-7 rounded-full object-cover border-2 border-gray-300 shadow-sm flex-shrink-0"
                                   src={comment.user_profile?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(comment.user_profile?.username || 'User')}`}
                                   alt={comment.user_profile?.username || 'User'}
                                 />
-                              )}
-                              <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wide ${
-                                comment.comment_type === 'status_update' ? 'bg-blue-100 text-blue-800 border border-blue-200' :
-                                comment.comment_type === 'assignment' ? 'bg-purple-100 text-purple-800 border border-purple-200' :
-                                comment.comment_type === 'resolution' ? 'bg-green-100 text-green-800 border border-green-200' :
-                                'bg-gray-100 text-gray-800 border border-gray-200'
-                              }`}>
-                                {getCommentTypeIcon(comment.comment_type)}
-                                <span className="ml-1.5">{comment.comment_type.replace('_', ' ')}</span>
-                              </span>
-                              <div className="flex flex-col">
-                                <span className={`text-sm font-semibold ${
-                                  isPatrolComment ? 'text-blue-700' : 'text-gray-700'
-                                }`}>
-                                  {comment.user_profile?.username || 'Unknown'}
-                                </span>
-                                <span className={`text-xs ${
-                                  isPatrolComment ? 'text-blue-500' : 'text-gray-500'
-                                }`}>
-                                  {new Date(comment.created_at).toLocaleString()}
-                                </span>
-                              </div>
-                            </div>
-                            {editingComment === comment.id ? (
-                              <div className="space-y-2">
-                                <textarea
-                                  value={editCommentText}
-                                  onChange={(e) => setEditCommentText(e.target.value)}
-                                  className="w-full p-2 border border-gray-300 rounded-md text-sm"
-                                  rows={2}
-                                />
-                                <div className="flex space-x-2">
-                                  <button
-                                    onClick={() => handleEditComment(comment.id)}
-                                    className="px-3 py-1 bg-emerald-600 text-white text-xs rounded-md hover:bg-emerald-700"
-                                  >
-                                    Save
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      setEditingComment(null);
-                                      setEditCommentText('');
-                                    }}
-                                    className="px-3 py-1 bg-gray-300 text-gray-700 text-xs rounded-md hover:bg-gray-400"
-                                  >
-                                    Cancel
-                                  </button>
-                                </div>
-                              </div>
-                            ) : (
-                              <div className={`rounded-lg p-4 ${
-                                isPatrolComment 
-                                  ? 'bg-white/80 border border-blue-200 shadow-sm' 
-                                  : 'bg-gray-50 border border-gray-200'
-                              }`}>
-                                <p className={`text-sm leading-relaxed ${
-                                  isPatrolComment ? 'text-blue-900 font-medium' : 'text-gray-800'
-                                }`}>
-                                  {comment.comment}
-                                </p>
-                                <div className="mt-3 flex items-center gap-6 text-xs">
-                                  <div className="flex items-center gap-1.5">
-                                    <Heart className={`h-4 w-4 ${comment.is_liked ? 'text-red-500 fill-current' : 'text-gray-400'}`} />
-                                    <button
-                                      onClick={() => {
-                                        if ((comment.likes_count || 0) > 0) {
-                                          setLikeDetailsModal({ isOpen: true, commentId: comment.id });
-                                        }
-                                      }}
-                                      className={`font-medium ${
-                                        (comment.likes_count || 0) > 0 
-                                          ? 'text-gray-700 hover:text-gray-900 underline' 
-                                          : 'text-gray-500'
-                                      }`}
-                                    >
-                                      {comment.likes_count || 0} like{(comment.likes_count || 0) !== 1 ? 's' : ''}
-                                    </button>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <span className="text-xs font-semibold text-gray-900">
+                                      {comment.user_profile?.username || 'Unknown'}
+                                    </span>
+                                    <span className="text-[10px] text-gray-500">
+                                      {new Date(comment.created_at).toLocaleString()}
+                                    </span>
                                   </div>
-                                  {Array.isArray(comment.replies) && comment.replies.length > 0 && (
-                                    <button
-                                      onClick={() => setExpanded(prev => ({ ...prev, [comment.id]: !prev[comment.id] }))}
-                                      className="text-blue-600 hover:text-blue-800 font-medium"
-                                    >
-                                      {expanded[comment.id] ? 'Hide replies' : `Show ${comment.replies.length} repl${comment.replies.length === 1 ? 'y' : 'ies'}`}
-                                    </button>
+                                  {editingComment === comment.id ? (
+                                    <div className="space-y-2">
+                                      <textarea
+                                        value={editCommentText}
+                                        onChange={(e) => setEditCommentText(e.target.value)}
+                                        className="w-full p-2 border border-gray-300 rounded-md text-xs"
+                                        rows={2}
+                                      />
+                                      <div className="flex space-x-2">
+                                        <button
+                                          onClick={() => handleEditComment(comment.id)}
+                                          className="px-3 py-1 bg-emerald-600 text-white text-xs rounded-md hover:bg-emerald-700"
+                                        >
+                                          Save
+                                        </button>
+                                        <button
+                                          onClick={() => {
+                                            setEditingComment(null);
+                                            setEditCommentText('');
+                                          }}
+                                          className="px-3 py-1 bg-gray-300 text-gray-700 text-xs rounded-md hover:bg-gray-400"
+                                        >
+                                          Cancel
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <>
+                                      <p className="text-xs text-gray-700 leading-relaxed mb-2">
+                                        {comment.comment}
+                                      </p>
+                                      <div className="flex items-center gap-4 text-[10px] text-gray-600">
+                                        <div className="flex items-center gap-1">
+                                          <Heart className={`h-3 w-3 ${comment.is_liked ? 'text-red-500 fill-current' : 'text-gray-500'}`} />
+                                          <button
+                                            onClick={() => {
+                                              if ((comment.likes_count || 0) > 0) {
+                                                setLikeDetailsModal({ isOpen: true, commentId: comment.id });
+                                              }
+                                            }}
+                                            className={`font-medium ${(comment.likes_count || 0) > 0 ? 'text-blue-600 hover:text-blue-800' : 'text-gray-500'}`}
+                                          >
+                                            {comment.likes_count || 0} like{(comment.likes_count || 0) !== 1 ? 's' : ''}
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </>
                                   )}
                                 </div>
+                                {isPatrolView && user?.id === comment.user_id && (
+                                  <div className="flex space-x-1 flex-shrink-0">
+                                    <button
+                                      onClick={() => {
+                                        setEditingComment(comment.id);
+                                        setEditCommentText(comment.comment);
+                                      }}
+                                      className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                      title="Edit comment"
+                                    >
+                                      <Edit3 className="h-3 w-3" />
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteComment(comment.id)}
+                                      className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                                      title="Delete comment"
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </button>
+                                  </div>
+                                )}
                               </div>
-                            )}
-                          </div>
-                          {isPatrolView && user?.id === comment.user_id && (
-                            <div className="flex space-x-1 ml-2">
-                              <button
-                                onClick={() => {
-                                  setEditingComment(comment.id);
-                                  setEditCommentText(comment.comment);
-                                }}
-                                className="p-1 text-gray-400 hover:text-blue-600"
-                              >
-                                <Edit3 className="h-3 w-3" />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteComment(comment.id)}
-                                className="p-1 text-gray-400 hover:text-red-600"
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </button>
                             </div>
-                          )}
-                        </div>
-                        {expanded[comment.id] && Array.isArray(comment.replies) && comment.replies.length > 0 && (
-                          <div className="mt-2 space-y-2">
-                            {comment.replies.map((reply) => (
-                              <div key={reply.id} className="ml-6 p-2 bg-gray-50 rounded border border-gray-200">
-                                <div className="flex items-center gap-2">
-                                  <img
-                                    className="h-5 w-5 rounded-full object-cover border border-gray-200"
-                                    src={reply.user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(reply.user.username)}`}
-                                    alt={reply.user.username}
-                                  />
-                                  <span className="text-xs font-medium text-gray-900">{reply.user.username}</span>
-                                  <span className="text-[10px] text-gray-500">{new Date(reply.created_at).toLocaleString()}</span>
-                                </div>
-                                <p className="mt-1 text-sm text-gray-700">{reply.content}</p>
-                                <div className="mt-1 flex items-center gap-2 text-[11px] text-gray-600">
-                                  <Heart className={`h-3 w-3 ${reply.is_liked ? 'text-red-500 fill-current' : 'text-gray-500'}`} />
-                                  <span>{reply.likes_count || 0}</span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-
-              {/* Add Comment Form */}
-              {isPatrolView && (
-                <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                  <div className="space-y-2">
-                    <div className="flex items-center space-x-2">
-                      <img
-                        className="h-6 w-6 rounded-full object-cover border-2 border-gray-200 shadow-sm flex-shrink-0"
-                        src={user?.user_metadata?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.user_metadata?.username || 'User')}`}
-                        alt={user?.user_metadata?.username || 'User'}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center space-x-2">
-                          <label className="text-xs font-semibold text-gray-700">Type</label>
-                          <select
-                            value={commentType}
-                            onChange={(e) => setCommentType(e.target.value as any)}
-                            className="px-2 py-1 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
-                          >
-                            <option value="comment">Comment</option>
-                            <option value="status_update">Status Update</option>
-                            <option value="assignment">Assignment</option>
-                            <option value="resolution">Resolution</option>
-                          </select>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex space-x-2">
-                      <textarea
-                        value={newComment}
-                        onChange={(e) => setNewComment(e.target.value)}
-                        placeholder="Add a comment or update..."
-                        className="flex-1 p-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 resize-none"
-                        rows={2}
-                      />
-                      <button
-                        onClick={handleAddComment}
-                        disabled={!newComment.trim() || loading}
-                        className="px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1 font-semibold shadow-sm"
-                      >
-                        <Send className="h-4 w-4" />
-                        <span className="hidden sm:inline">Send</span>
-                      </button>
+                          ))
+                      )}
                     </div>
                   </div>
-                </div>
-              )}
+                )}
+
+                {/* Officer Updates & Logs Section */}
+                {(activeTab === 'all' || activeTab === 'logs') && (
+                  <div className={`${activeTab === 'all' ? 'mt-4 pt-4 border-t-4 border-blue-200' : 'mb-4'}`}>
+                    <div className={`flex items-center justify-between mb-3 ${activeTab === 'all' ? 'pb-2 border-b-2 border-blue-100' : ''}`}>
+                      <h4 className="text-sm font-semibold text-gray-900 flex items-center">
+                        <ShieldCheck className="h-4 w-4 mr-2 text-blue-600" />
+                        Officer Updates & Logs
+                        <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full">
+                          {comments.filter(c => c.comment_type !== 'comment').length}
+                        </span>
+                      </h4>
+                    </div>
+
+                    <div className="space-y-2 max-h-40 overflow-y-auto">
+                      {loading && comments.length === 0 ? (
+                        <div className="text-center py-4">
+                          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-600 mx-auto"></div>
+                          <p className="mt-2 text-sm text-gray-500">Loading updates...</p>
+                        </div>
+                      ) : comments.filter(c => c.comment_type !== 'comment').length === 0 ? (
+                        <div className="bg-blue-50 rounded-lg p-6 text-center border border-blue-200">
+                          <ShieldCheck className="h-8 w-8 text-blue-400 mx-auto mb-2" />
+                          <p className="text-xs text-blue-600">No officer updates yet</p>
+                        </div>
+                      ) : (
+                        comments
+                          .filter(c => c.comment_type !== 'comment')
+                          .map((comment) => (
+                            <div key={comment.id} className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-3 border-l-4 border-blue-500 shadow-sm">
+                              <div className="flex items-start gap-2">
+                                <div className="h-7 w-7 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-shrink-0 shadow-sm">
+                                  <ShieldCheck className="h-4 w-4 text-white" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex flex-wrap items-center gap-2 mb-2">
+                                    <span className="text-[10px] font-bold text-blue-900 uppercase tracking-wide px-2 py-0.5 bg-blue-200 rounded">
+                                      OFFICIAL
+                                    </span>
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold ${
+                                      comment.comment_type === 'status_update' ? 'bg-blue-100 text-blue-800' :
+                                      comment.comment_type === 'assignment' ? 'bg-purple-100 text-purple-800' :
+                                      comment.comment_type === 'resolution' ? 'bg-green-100 text-green-800' :
+                                      'bg-gray-100 text-gray-800'
+                                    }`}>
+                                      {getCommentTypeIcon(comment.comment_type)}
+                                      <span className="ml-1">{comment.comment_type.replace('_', ' ')}</span>
+                                    </span>
+                                  </div>
+                                  <div className="flex flex-wrap items-center gap-2 mb-2 text-[10px] text-blue-700">
+                                    <span className="font-medium">
+                                      by {comment.user_profile?.username || 'Unknown'}
+                                    </span>
+                                    <span className="text-blue-500">
+                                      {new Date(comment.created_at).toLocaleString()}
+                                    </span>
+                                  </div>
+                                  {editingComment === comment.id ? (
+                                    <div className="space-y-2">
+                                      <textarea
+                                        value={editCommentText}
+                                        onChange={(e) => setEditCommentText(e.target.value)}
+                                        className="w-full p-2 border border-gray-300 rounded-md text-xs bg-white"
+                                        rows={2}
+                                      />
+                                      <div className="flex space-x-2">
+                                        <button
+                                          onClick={() => handleEditComment(comment.id)}
+                                          className="px-3 py-1 bg-emerald-600 text-white text-xs rounded-md hover:bg-emerald-700"
+                                        >
+                                          Save
+                                        </button>
+                                        <button
+                                          onClick={() => {
+                                            setEditingComment(null);
+                                            setEditCommentText('');
+                                          }}
+                                          className="px-3 py-1 bg-gray-300 text-gray-700 text-xs rounded-md hover:bg-gray-400"
+                                        >
+                                          Cancel
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <>
+                                      <div className="bg-white rounded-lg p-2 shadow-sm">
+                                        <p className="text-xs text-gray-700 leading-relaxed">
+                                          {comment.comment}
+                                        </p>
+                                      </div>
+                                      <div className="mt-2 flex items-center gap-4 text-[10px] text-blue-700">
+                                        <div className="flex items-center gap-1">
+                                          <Heart className={`h-3 w-3 ${comment.is_liked ? 'text-red-500 fill-current' : 'text-blue-500'}`} />
+                                          <button
+                                            onClick={() => {
+                                              if ((comment.likes_count || 0) > 0) {
+                                                setLikeDetailsModal({ isOpen: true, commentId: comment.id });
+                                              }
+                                            }}
+                                            className={`font-medium ${(comment.likes_count || 0) > 0 ? 'text-blue-600 hover:text-blue-800' : 'text-blue-500'}`}
+                                          >
+                                            {comment.likes_count || 0} like{(comment.likes_count || 0) !== 1 ? 's' : ''}
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
+                                {isPatrolView && user?.id === comment.user_id && (
+                                  <div className="flex space-x-1 flex-shrink-0">
+                                    <button
+                                      onClick={() => {
+                                        setEditingComment(comment.id);
+                                        setEditCommentText(comment.comment);
+                                      }}
+                                      className="p-1 text-blue-400 hover:text-blue-600 hover:bg-blue-100 rounded transition-colors"
+                                      title="Edit log"
+                                    >
+                                      <Edit3 className="h-3 w-3" />
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteComment(comment.id)}
+                                      className="p-1 text-blue-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                                      title="Delete log"
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))
+                      )}
+                    </div>
+                  </div>
+                )}
+                {/* Add Comment Form */}
+                {isPatrolView && (
+                  <div className="mt-4 bg-gray-50 rounded-lg p-3 border border-gray-200">
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <img
+                          className="h-6 w-6 rounded-full object-cover border-2 border-gray-200 shadow-sm flex-shrink-0"
+                          src={user?.user_metadata?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.user_metadata?.username || 'User')}`}
+                          alt={user?.user_metadata?.username || 'User'}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center space-x-2">
+                            <label className="text-xs font-semibold text-gray-700">Type</label>
+                            <select
+                              value={commentType}
+                              onChange={(e) => setCommentType(e.target.value as any)}
+                              className="px-2 py-1 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
+                            >
+                              <option value="comment">Comment</option>
+                              <option value="status_update">Status Update</option>
+                              <option value="assignment">Assignment</option>
+                              <option value="resolution">Resolution</option>
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex space-x-2">
+                        <textarea
+                          value={newComment}
+                          onChange={(e) => setNewComment(e.target.value)}
+                          placeholder="Add a comment or update..."
+                          className="flex-1 p-2 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 resize-none"
+                          rows={2}
+                        />
+                        <button
+                          onClick={handleAddComment}
+                          disabled={!newComment.trim() || loading}
+                          className="px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1 font-semibold shadow-sm"
+                        >
+                          <Send className="h-4 w-4" />
+                          <span className="hidden sm:inline">Send</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

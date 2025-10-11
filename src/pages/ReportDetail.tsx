@@ -71,6 +71,7 @@ export function ReportDetail() {
   const mobileCarouselRef = useRef<HTMLDivElement | null>(null);
   const touchStartXRef = useRef<number | null>(null);
   const touchEndXRef = useRef<number | null>(null);
+  const [activeTab, setActiveTab] = useState<'all' | 'comments' | 'logs'>('all');
 
   // Create a fallback image data URL
   const fallbackImageUrl = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiB2aWV3Qm94PSIwIDAgMjAwIDIwMCI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiNmMGYwZjAiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE2IiBmaWxsPSIjODg4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5JbWFnZSBub3QgYXZhaWxhYmxlPC90ZXh0Pjwvc3ZnPg==";
@@ -764,39 +765,93 @@ export function ReportDetail() {
             transition={{ duration: 0.25 }}
             className="bg-white rounded-xl shadow-sm border border-gray-100 lg:sticky lg:top-24 flex flex-col max-h-[600px] lg:max-h-[calc(100vh-8rem)]"
           >
-            {/* Header - Fixed */}
-            <div className="flex items-center justify-between p-3 sm:p-4 border-b border-gray-200 flex-shrink-0">
-              <h2 className="text-lg font-semibold text-gray-900 flex items-center">
-                <MessageCircle className="h-5 w-5 mr-2" />
-                Comments & Updates
-              </h2>
-              <button
-                onClick={() => setIsCommentsCollapsed(!isCommentsCollapsed)}
-                className="flex items-center space-x-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
-              >
-                <span>{isCommentsCollapsed ? 'Show' : 'Hide'}</span>
-                {isCommentsCollapsed ? (
-                  <ChevronDown className="h-4 w-4" />
-                ) : (
-                  <ChevronUp className="h-4 w-4" />
-                )}
-              </button>
+            {/* Tab Navigation */}
+            <div className="border-b border-gray-200 flex-shrink-0">
+              <div className="flex space-x-1 p-2">
+                <button
+                  onClick={() => {
+                    setActiveTab('all');
+                    setIsCommentsCollapsed(false);
+                  }}
+                  className={`flex-1 px-3 py-2 text-sm font-semibold rounded-lg transition-colors ${
+                    activeTab === 'all'
+                      ? 'bg-emerald-100 text-emerald-800'
+                      : 'text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  All ({reportComments.length})
+                </button>
+                <button
+                  onClick={() => {
+                    setActiveTab('comments');
+                    setIsCommentsCollapsed(false);
+                  }}
+                  className={`flex-1 px-3 py-2 text-sm font-semibold rounded-lg transition-colors ${
+                    activeTab === 'comments'
+                      ? 'bg-gray-100 text-gray-800'
+                      : 'text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  Comments ({reportComments.filter(c => c.comment_type === 'comment').length})
+                </button>
+                <button
+                  onClick={() => {
+                    setActiveTab('logs');
+                    setIsCommentsCollapsed(false);
+                  }}
+                  className={`flex-1 px-3 py-2 text-sm font-semibold rounded-lg transition-colors ${
+                    activeTab === 'logs'
+                      ? 'bg-blue-100 text-blue-800'
+                      : 'text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  Logs ({reportComments.filter(c => c.comment_type !== 'comment').length})
+                </button>
+              </div>
+              <div className="flex items-center justify-between px-3 pb-2">
+                <div className="flex-1"></div>
+                <button
+                  onClick={() => setIsCommentsCollapsed(!isCommentsCollapsed)}
+                  className="flex items-center space-x-2 text-xs text-gray-600 hover:text-gray-800 transition-colors"
+                >
+                  <span>{isCommentsCollapsed ? 'Show' : 'Hide'}</span>
+                  {isCommentsCollapsed ? (
+                    <ChevronDown className="h-3 w-3" />
+                  ) : (
+                    <ChevronUp className="h-3 w-3" />
+                  )}
+                </button>
+              </div>
             </div>
 
             {!isCommentsCollapsed && (
               <>
-                {/* Facebook-style comments list - Scrollable */}
-                <div className="overflow-y-auto flex-1 p-3 sm:p-4 space-y-0">
-                  {reportComments.length === 0 && (
-                    <div className="text-center py-8">
-                      <MessageCircle className="h-10 w-10 text-gray-300 mx-auto mb-2" />
-                      <p className="text-sm text-gray-500">No comments yet</p>
-                      <p className="text-xs text-gray-400 mt-1">Be the first to comment</p>
-                    </div>
-                  )}
-                  {reportComments.map((comment, index) => {
-                    const isPatrolComment = comment.comment_type !== 'comment';
-                    return (
+                {/* Scrollable container for "All" view */}
+                <div className={`${activeTab === 'all' ? 'overflow-y-auto flex-1' : ''}`}>
+                  {/* User Comments Section */}
+                  {(activeTab === 'all' || activeTab === 'comments') && (
+                    <div className={`${activeTab === 'comments' ? 'overflow-y-auto flex-1' : ''}`}>
+                      <div className="p-3 sm:p-4 space-y-0">
+                      {/* Always show header in "All" tab, only in "Comments" tab when filtered */}
+                      {(activeTab === 'all' || activeTab === 'comments') && (
+                        <div className="mb-3 pb-3 border-b border-gray-200">
+                          <h3 className="text-sm font-semibold text-gray-900 flex items-center">
+                            <MessageCircle className="h-4 w-4 mr-2 text-gray-600" />
+                            User Comments
+                            <span className="ml-2 px-2 py-0.5 bg-gray-100 text-gray-700 text-xs font-semibold rounded-full">
+                              {reportComments.filter(c => c.comment_type === 'comment').length}
+                            </span>
+                          </h3>
+                        </div>
+                      )}
+                      {reportComments.filter(c => c.comment_type === 'comment').length === 0 && (
+                        <div className="text-center py-6">
+                          <MessageCircle className="h-8 w-8 text-gray-300 mx-auto mb-2" />
+                          <p className="text-sm text-gray-500">No user comments yet</p>
+                          {activeTab === 'comments' && <p className="text-xs text-gray-400 mt-1">Be the first to comment</p>}
+                        </div>
+                      )}
+                      {reportComments.filter(c => c.comment_type === 'comment').map((comment, index) => (
                       <motion.div
                         key={comment.id}
                         initial={{ opacity: 0, y: 6 }}
@@ -807,31 +862,20 @@ export function ReportDetail() {
                         <div className="flex gap-2">
                           {/* Profile Picture */}
                           <div className="flex-shrink-0">
-                            {isPatrolComment ? (
-                              <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
-                                <ShieldCheck className="h-4 w-4 text-white" />
-                              </div>
-                            ) : (
-                              <img
-                                className="h-8 w-8 rounded-full object-cover"
-                                src={comment.user_profile?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(comment.user_profile?.username || 'Unknown')}`}
-                                alt={comment.user_profile?.username || 'Unknown'}
-                              />
-                            )}
+                            <img
+                              className="h-8 w-8 rounded-full object-cover"
+                              src={comment.user_profile?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(comment.user_profile?.username || 'Unknown')}`}
+                              alt={comment.user_profile?.username || 'Unknown'}
+                            />
                           </div>
                           
                           {/* Comment Content */}
                           <div className="flex-1 min-w-0">
-                            <div className={`inline-block ${isPatrolComment ? 'bg-blue-50 border border-blue-100' : 'bg-gray-100'} rounded-2xl px-3 py-2`}>
+                            <div className="inline-block bg-gray-100 rounded-2xl px-3 py-2">
                               <div className="flex items-center gap-2 mb-0.5">
-                                <span className={`text-[13px] font-semibold ${isPatrolComment ? 'text-blue-900' : 'text-gray-900'}`}>
+                                <span className="text-[13px] font-semibold text-gray-900">
                                   {comment.user_profile?.username || 'Unknown'}
                                 </span>
-                                {isPatrolComment && (
-                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-500 text-white">
-                                    Official
-                                  </span>
-                                )}
                               </div>
                               {editingCommentId === comment.id ? (
                                 <div className="mt-1">
@@ -847,7 +891,7 @@ export function ReportDetail() {
                                   </div>
                                 </div>
                               ) : (
-                                <p className={`text-[13px] leading-relaxed ${isPatrolComment ? 'text-blue-900' : 'text-gray-900'}`}>
+                                <p className="text-[13px] leading-relaxed text-gray-900">
                                   {comment.comment}
                                 </p>
                               )}
@@ -988,8 +1032,143 @@ export function ReportDetail() {
                           </div>
                         </div>
                       </motion.div>
-                    );
-                  })}
+                      ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Officer Updates & Logs Section */}
+                  {(activeTab === 'all' || activeTab === 'logs') && (
+                    <div className={`${activeTab === 'logs' ? 'overflow-y-auto flex-1' : ''}`}>
+                    <div className={`p-3 sm:p-4 space-y-0 ${activeTab === 'all' && reportComments.filter(c => c.comment_type === 'comment').length > 0 ? 'pt-0' : ''}`}>
+                      {/* Always show header in "All" tab and "Logs" tab */}
+                      {(activeTab === 'all' || activeTab === 'logs') && (
+                        <div className={`mb-3 pb-3 ${activeTab === 'all' ? 'pt-3 border-t-4 border-blue-200' : ''} border-b border-gray-200`}>
+                          <h3 className="text-sm font-semibold text-gray-900 flex items-center">
+                            <ShieldCheck className="h-4 w-4 mr-2 text-blue-600" />
+                            Officer Updates & Logs
+                            <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full">
+                              {reportComments.filter(c => c.comment_type !== 'comment').length}
+                            </span>
+                          </h3>
+                        </div>
+                      )}
+                      {reportComments.filter(c => c.comment_type !== 'comment').length === 0 && (
+                        <div className="text-center py-6">
+                          <ShieldCheck className="h-8 w-8 text-blue-300 mx-auto mb-2" />
+                          <p className="text-sm text-blue-600">No officer updates yet</p>
+                        </div>
+                      )}
+                      {reportComments.filter(c => c.comment_type !== 'comment').map((comment, index) => (
+                      <motion.div
+                        key={comment.id}
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className={`py-3 ${index !== 0 ? 'border-t border-blue-100' : ''}`}
+                      >
+                        <div className="flex gap-2">
+                          {/* Profile Picture */}
+                          <div className="flex-shrink-0">
+                            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-sm">
+                              <ShieldCheck className="h-4 w-4 text-white" />
+                            </div>
+                          </div>
+                          
+                          {/* Comment Content */}
+                          <div className="flex-1 min-w-0">
+                            <div className="inline-block bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl px-3 py-2">
+                              <div className="flex items-center gap-2 mb-0.5">
+                                <span className="text-[13px] font-semibold text-blue-900">
+                                  {comment.user_profile?.username || 'Unknown'}
+                                </span>
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-500 text-white">
+                                  Official
+                                </span>
+                                {comment.comment_type !== 'comment' && (
+                                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                                    comment.comment_type === 'status_update' ? 'bg-blue-100 text-blue-800' :
+                                    comment.comment_type === 'assignment' ? 'bg-purple-100 text-purple-800' :
+                                    comment.comment_type === 'resolution' ? 'bg-green-100 text-green-800' :
+                                    'bg-gray-100 text-gray-800'
+                                  }`}>
+                                    {comment.comment_type.replace('_', ' ')}
+                                  </span>
+                                )}
+                              </div>
+                              {editingCommentId === comment.id ? (
+                                <div className="mt-1">
+                                  <textarea
+                                    className="w-full px-2 py-1 border border-gray-300 rounded-lg text-sm bg-white"
+                                    rows={2}
+                                    value={editingText}
+                                    onChange={(e) => setEditingText(e.target.value)}
+                                  />
+                                  <div className="mt-2 flex items-center gap-2">
+                                    <button onClick={submitEdit} className="px-3 py-1 text-xs bg-blue-600 text-white rounded-md hover:bg-blue-700">Save</button>
+                                    <button onClick={cancelEdit} className="px-3 py-1 text-xs text-gray-600 hover:text-gray-800">Cancel</button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <p className="text-[13px] leading-relaxed text-blue-900 font-medium">
+                                  {comment.comment}
+                                </p>
+                              )}
+                            </div>
+                            
+                            {/* Action buttons - Facebook style */}
+                            <div className="flex items-center gap-3 mt-1 px-3">
+                              <span className="text-[11px] text-blue-600">
+                                {new Date(comment.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                              </span>
+                              <div className="flex items-center gap-1">
+                                <button 
+                                  onClick={() => handleCommentLike(comment.id)} 
+                                  disabled={likeLoading}
+                                  className={`text-[12px] font-semibold flex items-center gap-1 ${comment.is_liked ? 'text-red-600' : 'text-blue-700 hover:text-red-600'} transition-colors`}
+                                >
+                                  <Heart className={`h-3 w-3 ${comment.is_liked ? 'fill-current' : ''}`} />
+                                  <span>Like</span>
+                                </button>
+                                {comment.likes_count > 0 && (
+                                  <button
+                                    onClick={() => {
+                                      setLikeDetailsModal({ 
+                                        isOpen: true, 
+                                        commentId: comment.id,
+                                        reportTitle: `Comment by ${comment.user_profile?.username}`
+                                      });
+                                    }}
+                                    className="text-[12px] font-semibold text-red-600 hover:underline cursor-pointer"
+                                  >
+                                    {comment.likes_count}
+                                  </button>
+                                )}
+                              </div>
+                              {user?.id === comment.user_id && editingCommentId !== comment.id && (
+                                <>
+                                  <button 
+                                    onClick={() => startEdit(comment.id, comment.comment)}
+                                    className="text-[12px] font-semibold text-blue-700 hover:text-blue-800 transition-colors"
+                                  >
+                                    Edit
+                                  </button>
+                                  <button 
+                                    onClick={() => requestDelete(comment.id)}
+                                    className="text-[12px] font-semibold text-blue-700 hover:text-red-600 transition-colors"
+                                  >
+                                    Delete
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                      ))}
+                    </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Facebook-style comment input - Fixed at bottom */}
