@@ -73,15 +73,14 @@ export function Navigation() {
 
   return (
     <nav 
-      className={`fixed w-full z-[2000] transition-all duration-300 shadow-lg ${isScrolled ? 'py-3' : 'py-4'}`}
-      style={{ backgroundColor: '#800000' }}
+      className={`fixed w-full z-[2000] transition-all duration-300 shadow-lg backdrop-blur-sm bg-white/95 border-b border-gray-200 ${isScrolled ? 'py-2' : 'py-3'}`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center">
           {/* Logo */}
           <Link 
             to={user ? (user.role === 'admin' ? '/admin' : user.role === 'patrol' ? '/patrol' : '/reports') : '/login'}
-            className="flex items-center space-x-3 text-white hover:text-gray-100 transition-colors group"
+            className="flex items-center space-x-3 text-gray-900 hover:text-blue-600 transition-colors group"
           >
             <div className="relative">
               <img 
@@ -90,9 +89,9 @@ export function Navigation() {
                 className="h-10 w-10 object-contain rounded-xl shadow-sm group-hover:shadow-md transition-shadow duration-200"
                 loading="lazy"
               />
-              <div className="absolute -inset-1 rounded-xl opacity-0 group-hover:opacity-20 transition-opacity duration-200 -z-10" style={{ backgroundColor: 'rgba(255,255,255,0.15)' }}></div>
+              <div className="absolute -inset-1 rounded-xl opacity-0 group-hover:opacity-20 transition-opacity duration-200 -z-10 bg-blue-500"></div>
             </div>
-            <span className="text-2xl font-bold text-white">CARS-G</span>
+            <span className="text-2xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors">CARS-G</span>
           </Link>
 
           {/* Desktop Navigation */}
@@ -106,13 +105,13 @@ export function Navigation() {
                     inline-flex items-center px-4 py-2.5 rounded-xl text-sm font-medium 
                     transition-all duration-200 hover:scale-105 relative group
                     ${isActive(path)
-                      ? 'text-white bg-white/10 shadow-sm border border-white/20' 
-                      : 'text-white/90 hover:text-white hover:bg-white/10 hover:shadow-sm'
+                      ? 'text-white bg-blue-600 shadow-sm border border-blue-500' 
+                      : 'text-gray-700 hover:text-blue-600 hover:bg-blue-50 hover:shadow-sm'
                     }
                   `}
                 >
                   <Icon className={`h-4 w-4 mr-2 transition-colors duration-200 ${
-                    isActive(path) ? 'text-white' : 'text-white/80 group-hover:text-white'
+                    isActive(path) ? 'text-white' : 'text-gray-600 group-hover:text-blue-600'
                   }`} />
                   {label}
                   {isActive(path) && (
@@ -133,7 +132,7 @@ export function Navigation() {
               <div className="relative ml-3" ref={profileMenuRef}>
                 <button
                   onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-                  className="flex items-center space-x-2 px-3 py-2 rounded-xl text-white/90 hover:bg-white/10 hover:text-white transition-all duration-200 shadow-sm hover:shadow-md border border-transparent hover:border-white/20"
+                  className="flex items-center space-x-2 px-3 py-2 rounded-xl text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-all duration-200 shadow-sm hover:shadow-md border border-transparent hover:border-blue-200"
                 >
                   <div className="relative">
                     <img
@@ -196,8 +195,9 @@ export function Navigation() {
           {user && (
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="md:hidden p-2.5 rounded-xl text-white/90 hover:bg-white/10 hover:text-white transition-all duration-200 shadow-sm hover:shadow-md border border-white/20 hover:border-white/30"
+              className="md:hidden p-2.5 rounded-xl text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-all duration-200 shadow-sm hover:shadow-md border border-gray-200 hover:border-gray-300"
               aria-label="Toggle menu"
+              aria-expanded={isMobileMenuOpen}
             >
               {isMobileMenuOpen ? (
                 <X className="h-5 w-5" />
@@ -209,15 +209,12 @@ export function Navigation() {
 
           {!user && (
             <div className="flex items-center space-x-3">
-              <Link to="/login" className="text-white/90 hover:text-white transition-colors px-4 py-2.5 rounded-xl hover:bg-white/10 font-medium shadow-sm hover:shadow-md border border-white/20 hover:border-white/30">
+              <Link to="/login" className="text-gray-700 hover:text-blue-600 transition-colors px-4 py-2.5 rounded-xl hover:bg-blue-50 font-medium shadow-sm hover:shadow-md border border-gray-200 hover:border-blue-200">
                 Sign In
               </Link>
               <Link 
                 to="/register" 
-                className="text-white px-6 py-2.5 rounded-xl transition-all duration-200 font-semibold shadow-md hover:shadow-lg hover:scale-105"
-                style={{ backgroundColor: '#800000' }}
-                onMouseEnter={(e) => (e.currentTarget as HTMLAnchorElement).style.setProperty('background-color', '#660000', 'important')}
-                onMouseLeave={(e) => (e.currentTarget as HTMLAnchorElement).style.setProperty('background-color', '#800000', 'important')}
+                className="text-white px-6 py-2.5 rounded-xl transition-all duration-200 font-semibold shadow-md hover:shadow-lg hover:scale-105 bg-blue-600 hover:bg-blue-700"
               >
                 Get Started
               </Link>
@@ -227,20 +224,20 @@ export function Navigation() {
 
         {/* Mobile Menu */}
         {user && isMobileMenuOpen && (
-          <div className="md:hidden border-t border-white/20 mt-3 bg-white/5 backdrop-blur-sm">
-            <div className="px-4 py-4 border-b border-white/10">
+          <div className="md:hidden border-t border-gray-200 mt-3 bg-white/95 backdrop-blur-sm">
+            <div className="px-4 py-4 border-b border-gray-200">
               <Link 
                 to="/profile" 
                 className="flex items-center space-x-3 group" 
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 <div className="relative">
-                  <img src={user.avatar_url || '/images/default-avatar.png'} alt="Profile" className="h-12 w-12 rounded-full object-cover ring-2 ring-white/30 group-hover:ring-white/40 transition-all duration-200" />
+                  <img src={user.avatar_url || '/images/default-avatar.png'} alt="Profile" className="h-12 w-12 rounded-full object-cover ring-2 ring-blue-200 group-hover:ring-blue-300 transition-all duration-200" />
                   <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
                 </div>
                 <div>
-                  <div className="text-white font-medium">{user.username}</div>
-                  <div className="text-white/80 text-sm capitalize">{user.role} • View Profile</div>
+                  <div className="text-gray-900 font-medium">{user.username}</div>
+                  <div className="text-gray-600 text-sm capitalize">{user.role} • View Profile</div>
                 </div>
               </Link>
             </div>
@@ -252,13 +249,13 @@ export function Navigation() {
                   to={path}
                   className={`flex items-center px-4 py-3.5 rounded-xl text-base font-medium transition-all duration-200 ${
                     isActive(path) 
-                      ? 'text-white bg-white/10 border border-white/20 shadow-sm' 
-                      : 'text-white/90 hover:bg-white/10 hover:text-white hover:shadow-sm'
+                      ? 'text-white bg-blue-600 border border-blue-500 shadow-sm' 
+                      : 'text-gray-700 hover:bg-blue-50 hover:text-blue-600 hover:shadow-sm'
                   }`}
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   <Icon className={`h-5 w-5 mr-3 transition-colors duration-200 ${
-                    isActive(path) ? 'text-white' : 'text-white/80'
+                    isActive(path) ? 'text-white' : 'text-gray-600'
                   }`} />
                   {label}
                 </Link>
@@ -267,11 +264,11 @@ export function Navigation() {
 
               
 
-              <div className="border-t border-white/10 my-2"></div>
+              <div className="border-t border-gray-200 my-2"></div>
               
               <button 
                 onClick={() => { setIsMobileMenuOpen(false); handleLogout(); }} 
-                className="flex items-center w-full px-4 py-3.5 rounded-xl text-base font-medium text-red-50 hover:bg-red-600/10 hover:text-white transition-all duration-200 hover:shadow-sm"
+                className="flex items-center w-full px-4 py-3.5 rounded-xl text-base font-medium text-red-600 hover:bg-red-50 hover:text-red-700 transition-all duration-200 hover:shadow-sm"
               >
                 <LogOut className="h-5 w-5 mr-3" />
                 Sign Out

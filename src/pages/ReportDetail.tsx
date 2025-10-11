@@ -722,17 +722,50 @@ export function ReportDetail() {
         </div>
       </div>
 
-      {/* 3-column layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mt-0">
-        {/* Left: Comments */}
-        <aside className="lg:col-span-3 order-3 lg:order-1" ref={commentsSectionRef}>
+      {/* Responsive layout - Comments left, Main content right on desktop; Main content first, Comments below on mobile */}
+      <div className="flex flex-col lg:flex-row gap-6 mt-0">
+        {/* Comments & Updates - Left on desktop, Below on mobile */}
+        <aside className="lg:w-1/3 order-2 lg:order-1" ref={commentsSectionRef}>
+          {/* Case Information Section - Now at the top */}
+          {(report.case_number || report.assigned_group || report.assigned_patroller_name) && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.25 }}
+              className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 mb-4"
+            >
+              <h3 className="text-sm font-semibold text-gray-900 mb-3">Case Information</h3>
+              <div className="space-y-3">
+                {report.case_number && (
+                  <div>
+                    <p className="text-xs font-medium text-gray-500">Case Number</p>
+                    <p className="text-sm text-gray-900 flex items-center"><Hash className="h-4 w-4 mr-1" />{report.case_number}</p>
+                  </div>
+                )}
+                {report.assigned_group && (
+                  <div>
+                    <p className="text-xs font-medium text-gray-500">Assigned Group</p>
+                    <p className="text-sm text-gray-900 flex items-center"><Users className="h-4 w-4 mr-1" />{report.assigned_group}</p>
+                  </div>
+                )}
+                {report.assigned_patroller_name && (
+                  <div>
+                    <p className="text-xs font-medium text-gray-500">Assigned Patroller</p>
+                    <p className="text-sm text-gray-900 flex items-center"><ShieldCheck className="h-4 w-4 mr-1" />{report.assigned_patroller_name}</p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+          
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.25 }}
-            className="bg-white rounded-xl p-3 sm:p-4 shadow-sm border border-gray-100 lg:sticky lg:top-24 lg:max-h-[calc(100vh-8rem)] lg:overflow-y-auto"
+            className="bg-white rounded-xl shadow-sm border border-gray-100 lg:sticky lg:top-24 flex flex-col max-h-[600px] lg:max-h-[calc(100vh-8rem)]"
           >
-            <div className="flex items-center justify-between mb-4">
+            {/* Header - Fixed */}
+            <div className="flex items-center justify-between p-3 sm:p-4 border-b border-gray-200 flex-shrink-0">
               <h2 className="text-lg font-semibold text-gray-900 flex items-center">
                 <MessageCircle className="h-5 w-5 mr-2" />
                 Comments & Updates
@@ -752,36 +785,16 @@ export function ReportDetail() {
 
             {!isCommentsCollapsed && (
               <>
-                {user && (
-                  <form onSubmit={handleSubmitComment} className="mb-4">
-                    <textarea
-                      value={commentContent}
-                      onChange={(e) => setCommentContent(e.target.value)}
-                      placeholder="Write a comment..."
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-primary-color focus:border-primary-color text-sm bg-white text-gray-900 placeholder-gray-400 resize-none"
-                      ref={commentTextareaRef}
-                      rows={3}
-                    />
-                    <div className="mt-2 flex justify-end">
-                      <button
-                        type="submit"
-                        disabled={submittingComment || !commentContent.trim()}
-                        className="px-3 py-1.5 bg-primary-color text-white rounded-md hover:bg-primary-dark transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-                      >
-                        {submittingComment ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Post'}
-                      </button>
-                    </div>
-                  </form>
-                )}
-
-                <div className="space-y-3">
+                {/* Facebook-style comments list - Scrollable */}
+                <div className="overflow-y-auto flex-1 p-3 sm:p-4 space-y-0">
                   {reportComments.length === 0 && (
-                    <div className="text-center py-6">
-                      <MessageCircle className="h-8 w-8 text-gray-300 mx-auto mb-2" />
-                      <p className="text-sm text-gray-500">No comments yet. Start the conversation.</p>
+                    <div className="text-center py-8">
+                      <MessageCircle className="h-10 w-10 text-gray-300 mx-auto mb-2" />
+                      <p className="text-sm text-gray-500">No comments yet</p>
+                      <p className="text-xs text-gray-400 mt-1">Be the first to comment</p>
                     </div>
                   )}
-                  {reportComments.map((comment) => {
+                  {reportComments.map((comment, index) => {
                     const isPatrolComment = comment.comment_type !== 'comment';
                     return (
                       <motion.div
@@ -789,82 +802,168 @@ export function ReportDetail() {
                         initial={{ opacity: 0, y: 6 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.2 }}
-                        className={`rounded-lg p-3 border-l-4 ${
-                        isPatrolComment 
-                          ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-500 shadow' 
-                          : 'bg-white shadow-sm border-gray-100 border-l-gray-300'
-                      }`}
+                        className={`py-3 ${index !== 0 ? 'border-t border-gray-100' : ''}`}
                       >
-                        <div className="flex items-start space-x-3">
+                        <div className="flex gap-2">
+                          {/* Profile Picture */}
                           <div className="flex-shrink-0">
                             {isPatrolComment ? (
-                              <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow">
+                              <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
                                 <ShieldCheck className="h-4 w-4 text-white" />
                               </div>
                             ) : (
                               <img
-                                className="h-7 w-7 rounded-full object-cover border border-gray-200"
+                                className="h-8 w-8 rounded-full object-cover"
                                 src={comment.user_profile?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(comment.user_profile?.username || 'Unknown')}`}
                                 alt={comment.user_profile?.username || 'Unknown'}
                               />
                             )}
                           </div>
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1 flex-wrap">
-                              <span className={`text-sm font-medium ${isPatrolComment ? 'text-blue-900' : 'text-gray-900'}`}>{comment.user_profile?.username || 'Unknown'}</span>
-                              <span className="text-[11px] text-gray-500">{new Date(comment.created_at).toLocaleString()}</span>
-                            </div>
-                            {editingCommentId === comment.id ? (
-                              <div className="mt-1">
-                                <textarea
-                                  className="w-full px-2 py-1 border border-gray-200 rounded text-sm"
-                                  rows={3}
-                                  value={editingText}
-                                  onChange={(e) => setEditingText(e.target.value)}
-                                />
-                                <div className="mt-2 flex items-center gap-2">
-                                  <button onClick={submitEdit} className="px-2 py-1 text-xs bg-primary-color text-white rounded">Save</button>
-                                  <button onClick={cancelEdit} className="px-2 py-1 text-xs text-gray-600">Cancel</button>
-                                </div>
+                          
+                          {/* Comment Content */}
+                          <div className="flex-1 min-w-0">
+                            <div className={`inline-block ${isPatrolComment ? 'bg-blue-50 border border-blue-100' : 'bg-gray-100'} rounded-2xl px-3 py-2`}>
+                              <div className="flex items-center gap-2 mb-0.5">
+                                <span className={`text-[13px] font-semibold ${isPatrolComment ? 'text-blue-900' : 'text-gray-900'}`}>
+                                  {comment.user_profile?.username || 'Unknown'}
+                                </span>
+                                {isPatrolComment && (
+                                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-500 text-white">
+                                    Official
+                                  </span>
+                                )}
                               </div>
-                            ) : (
-                              <p className={`text-sm ${isPatrolComment ? 'text-blue-900' : 'text-gray-700'}`}>{comment.comment}</p>
-                            )}
-                            <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-gray-600">
-                              <button onClick={() => handleCommentLike(comment.id)} disabled={likeLoading} className={`flex items-center gap-1 ${comment.is_liked ? 'text-red-500' : 'hover:text-red-500'}`}>
-                                {likeLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Heart className={`h-3 w-3 ${comment.is_liked ? 'fill-current' : ''}`} />}
-                                <span>{comment.likes_count || 0}</span>
+                              {editingCommentId === comment.id ? (
+                                <div className="mt-1">
+                                  <textarea
+                                    className="w-full px-2 py-1 border border-gray-300 rounded-lg text-sm bg-white"
+                                    rows={2}
+                                    value={editingText}
+                                    onChange={(e) => setEditingText(e.target.value)}
+                                  />
+                                  <div className="mt-2 flex items-center gap-2">
+                                    <button onClick={submitEdit} className="px-3 py-1 text-xs bg-blue-600 text-white rounded-md hover:bg-blue-700">Save</button>
+                                    <button onClick={cancelEdit} className="px-3 py-1 text-xs text-gray-600 hover:text-gray-800">Cancel</button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <p className={`text-[13px] leading-relaxed ${isPatrolComment ? 'text-blue-900' : 'text-gray-900'}`}>
+                                  {comment.comment}
+                                </p>
+                              )}
+                            </div>
+                            
+                            {/* Action buttons - Facebook style */}
+                            <div className="flex items-center gap-3 mt-1 px-3">
+                              <span className="text-[11px] text-gray-500">
+                                {new Date(comment.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                              </span>
+                              <div className="flex items-center gap-1">
+                                <button 
+                                  onClick={() => handleCommentLike(comment.id)} 
+                                  disabled={likeLoading}
+                                  className={`text-[12px] font-semibold flex items-center gap-1 ${comment.is_liked ? 'text-red-600' : 'text-gray-600 hover:text-red-600'} transition-colors`}
+                                >
+                                  <Heart className={`h-3 w-3 ${comment.is_liked ? 'fill-current' : ''}`} />
+                                  <span>Like</span>
+                                </button>
+                                {comment.likes_count > 0 && (
+                                  <button
+                                    onClick={() => {
+                                      setLikeDetailsModal({ 
+                                        isOpen: true, 
+                                        commentId: comment.id,
+                                        reportTitle: `Comment by ${comment.user_profile?.username}`
+                                      });
+                                    }}
+                                    className="text-[12px] font-semibold text-red-600 hover:underline cursor-pointer"
+                                  >
+                                    {comment.likes_count}
+                                  </button>
+                                )}
+                              </div>
+                              <button 
+                                onClick={() => setReplyingTo(replyingTo === comment.id ? null : comment.id)}
+                                className="text-[12px] font-semibold text-gray-600 hover:text-gray-800 transition-colors"
+                              >
+                                Reply
                               </button>
-                              {/* Edit/Delete for owner or admin-like UI; basic check */}
                               {user?.id === comment.user_id && editingCommentId !== comment.id && (
                                 <>
-                                  <button onClick={() => startEdit(comment.id, comment.comment)} className="hover:text-gray-800">Edit</button>
-                                  <button onClick={() => requestDelete(comment.id)} className="hover:text-red-600">Delete</button>
+                                  <button 
+                                    onClick={() => startEdit(comment.id, comment.comment)}
+                                    className="text-[12px] font-semibold text-gray-600 hover:text-gray-800 transition-colors"
+                                  >
+                                    Edit
+                                  </button>
+                                  <button 
+                                    onClick={() => requestDelete(comment.id)}
+                                    className="text-[12px] font-semibold text-gray-600 hover:text-red-600 transition-colors"
+                                  >
+                                    Delete
+                                  </button>
                                 </>
                               )}
-                              <button onClick={() => openHistory(comment.id)} className="hover:text-gray-800">History</button>
-                              <button onClick={() => setReplyingTo(replyingTo === comment.id ? null : comment.id)} className="flex items-center gap-1 hover:text-gray-800">
-                                <Reply className="h-3 w-3" />
-                                Reply
-                                {comment.replies_count > 0 && <span>({comment.replies_count})</span>}
-                              </button>
                             </div>
-                            {replyingTo === comment.id && (
-                              <div className="mt-2 p-2 bg-gray-50 rounded">
-                                <textarea value={replyContent} onChange={(e) => setReplyContent(e.target.value)} rows={2} className="w-full px-2 py-1 border border-gray-200 rounded text-sm" placeholder="Write a reply..." />
-                                <div className="mt-2 flex justify-end gap-2">
-                                  <button onClick={() => { setReplyingTo(null); setReplyContent(''); }} className="px-2 py-1 text-xs text-gray-600">Cancel</button>
-                                  <button onClick={() => handleReply(comment.id)} disabled={submittingReply || !replyContent.trim()} className="px-2 py-1 text-xs bg-primary-color text-white rounded disabled:opacity-50">{submittingReply ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Reply'}</button>
+                            
+                            {/* Facebook-style reply input */}
+                            {replyingTo === comment.id && user && (
+                              <div className="mt-2 flex gap-2 ml-3">
+                                <img
+                                  className="h-6 w-6 rounded-full object-cover flex-shrink-0"
+                                  src={user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.username)}`}
+                                  alt={user.username}
+                                />
+                                <div className="flex-1">
+                                  <div className="relative">
+                                    <textarea 
+                                      value={replyContent} 
+                                      onChange={(e) => {
+                                        setReplyContent(e.target.value);
+                                        e.target.style.height = 'auto';
+                                        e.target.style.height = e.target.scrollHeight + 'px';
+                                      }} 
+                                      rows={1}
+                                      className="w-full px-3 py-1.5 bg-gray-100 border border-transparent rounded-full focus:bg-white focus:border-gray-300 focus:ring-1 focus:ring-blue-500 text-xs resize-none overflow-hidden transition-all" 
+                                      placeholder="Write a reply…"
+                                      style={{ minHeight: '28px', maxHeight: '80px' }}
+                                    />
+                                    {replyContent.trim() && (
+                                      <button 
+                                        onClick={() => handleReply(comment.id)} 
+                                        disabled={submittingReply}
+                                        className="absolute right-1.5 top-1/2 -translate-y-1/2 p-1 text-blue-600 hover:bg-blue-50 rounded-full transition-colors disabled:opacity-50"
+                                      >
+                                        {submittingReply ? (
+                                          <Loader2 className="h-3 w-3 animate-spin" />
+                                        ) : (
+                                          <Send className="h-3 w-3" />
+                                        )}
+                                      </button>
+                                    )}
+                                  </div>
+                                  <button 
+                                    onClick={() => { setReplyingTo(null); setReplyContent(''); }}
+                                    className="text-[10px] text-gray-500 hover:text-gray-700 mt-1 ml-2"
+                                  >
+                                    Cancel
+                                  </button>
                                 </div>
                               </div>
                             )}
+                            
+                            {/* Nested replies with Facebook-style indentation */}
                             {comment.replies && comment.replies.length > 0 && (
-                              <div className="mt-2">
-                                <button onClick={() => setExpandedCommentReplies(prev => ({ ...prev, [comment.id]: !prev[comment.id] }))} className="text-[11px] text-gray-600 hover:text-gray-800">
-                                  {expandedCommentReplies[comment.id] ? 'Hide replies' : `Show ${comment.replies.length} repl${comment.replies.length === 1 ? 'y' : 'ies'}`}
+                              <div className="mt-2 ml-3">
+                                <button 
+                                  onClick={() => setExpandedCommentReplies(prev => ({ ...prev, [comment.id]: !prev[comment.id] }))} 
+                                  className="text-[12px] font-semibold text-gray-600 hover:text-gray-800 flex items-center gap-1"
+                                >
+                                  <Reply className="h-3 w-3" />
+                                  {expandedCommentReplies[comment.id] ? 'Hide' : `View`} {comment.replies.length} {comment.replies.length === 1 ? 'reply' : 'replies'}
                                 </button>
                                 {expandedCommentReplies[comment.id] && (
-                                  <div className="mt-1">
+                                  <div className="mt-2 space-y-2">
                                     <ReplyThread
                                       replies={comment.replies}
                                       commentId={comment.id}
@@ -873,6 +972,13 @@ export function ReportDetail() {
                                       likeLoading={commentLikeLoading}
                                       nestedReplyForms={nestedReplyForms}
                                       setNestedReplyForms={setNestedReplyForms}
+                                      onShowLikeDetails={(replyId, username) => {
+                                        setLikeDetailsModal({
+                                          isOpen: true,
+                                          replyId: replyId,
+                                          reportTitle: `Reply by ${username}`
+                                        });
+                                      }}
                                       maxDepth={5}
                                     />
                                   </div>
@@ -885,6 +991,50 @@ export function ReportDetail() {
                     );
                   })}
                 </div>
+
+                {/* Facebook-style comment input - Fixed at bottom */}
+                {user && (
+                  <div className="p-3 sm:p-4 pt-3 border-t border-gray-200 flex-shrink-0 bg-white">
+                    <div className="flex gap-2">
+                      <img
+                        className="h-8 w-8 rounded-full object-cover flex-shrink-0"
+                        src={user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.username)}`}
+                        alt={user.username}
+                      />
+                      <form onSubmit={handleSubmitComment} className="flex-1">
+                        <div className="relative">
+                          <textarea
+                            value={commentContent}
+                            onChange={(e) => {
+                              setCommentContent(e.target.value);
+                              // Auto-resize
+                              e.target.style.height = 'auto';
+                              e.target.style.height = e.target.scrollHeight + 'px';
+                            }}
+                            placeholder="Write a comment…"
+                            className="w-full px-4 py-2 bg-gray-100 border border-transparent rounded-full focus:bg-white focus:border-gray-300 focus:ring-1 focus:ring-blue-500 text-sm resize-none overflow-hidden transition-all"
+                            ref={commentTextareaRef}
+                            rows={1}
+                            style={{ minHeight: '36px', maxHeight: '120px' }}
+                          />
+                          {commentContent.trim() && (
+                            <button
+                              type="submit"
+                              disabled={submittingComment}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-blue-600 hover:bg-blue-50 rounded-full transition-colors disabled:opacity-50"
+                            >
+                              {submittingComment ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Send className="h-4 w-4" />
+                              )}
+                            </button>
+                          )}
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+                )}
               </>
             )}
 
@@ -902,8 +1052,8 @@ export function ReportDetail() {
           </motion.div>
         </aside>
 
-        {/* Center: Main content */}
-        <main className="lg:col-span-7 order-2">
+        {/* Main Content - Right on desktop, First on mobile */}
+        <main className="lg:w-2/3 order-1 lg:order-2">
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
@@ -994,26 +1144,37 @@ export function ReportDetail() {
               </div>
             )}
 
-            <div className="flex items-center justify-between border-t border-gray-100 pt-4 mt-6">
-              <div className="flex items-center gap-3">
+            <div className="border-t border-gray-100 pt-4 mt-6">
+              {/* User Details Row */}
+              <div className="flex items-center gap-3 mb-3 sm:mb-0">
                 <img className="h-10 w-10 rounded-full object-cover border border-gray-200" src={report.user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(report.user.username)}`} alt={report.user.username} />
                 <div>
                   <div className="text-sm font-medium text-gray-900">{report.user.username}</div>
                   <p className="text-xs text-gray-700">{new Date(report.created_at).toLocaleString()}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-1.5">
-                  <button onClick={handleLike} disabled={likeLoading} className={`text-sm ${report.is_liked ? 'text-red-500' : 'text-gray-700 hover:text-red-500'} transition-colors`}>
-                    <Heart className={`h-5 w-5 ${report.is_liked ? 'fill-current' : ''}`} />
-                  </button>
-                  <button onClick={() => { if (report.likes_count > 0) { setLikeDetailsModal({ isOpen: true, reportId: report.id, reportTitle: report.title }); } }} className={`text-sm transition-colors ${report.likes_count > 0 ? 'text-gray-700 hover:text-gray-900 cursor-pointer' : 'text-gray-400 cursor-default'}`} disabled={report.likes_count === 0}>
-                    {report.likes_count}
-                  </button>
+              
+              {/* Action Icons Row - Responsive layout */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                {/* Like and Comment Actions */}
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-1.5">
+                    <button onClick={handleLike} disabled={likeLoading} className={`text-sm ${report.is_liked ? 'text-red-500' : 'text-gray-700 hover:text-red-500'} transition-colors`}>
+                      <Heart className={`h-5 w-5 ${report.is_liked ? 'fill-current' : ''}`} />
+                    </button>
+                    <button onClick={() => { if (report.likes_count > 0) { setLikeDetailsModal({ isOpen: true, reportId: report.id, reportTitle: report.title }); } }} className={`text-sm transition-colors ${report.likes_count > 0 ? 'text-gray-700 hover:text-gray-900 cursor-pointer' : 'text-gray-400 cursor-default'}`} disabled={report.likes_count === 0}>
+                      {report.likes_count}
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-sm text-gray-700">
+                    <MessageCircle className="h-5 w-5" />
+                    <span>{report.comments_count}</span>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5 text-sm text-gray-700"><MessageCircle className="h-5 w-5" /><span>{report.comments_count}</span></div>
+                
+                {/* Rating Stars - Only show if user can rate */}
                 {user?.id && report.status === 'resolved' && (
-                  <div className="ml-2 flex items-center gap-1">
+                  <div className="flex items-center gap-1">
                     {[1,2,3,4,5].map(n => (
                       <button
                         key={n}
@@ -1042,50 +1203,6 @@ export function ReportDetail() {
           </motion.div>
         </main>
 
-        {/* Right: Case Info */}
-        <aside className="lg:col-span-2 order-3">
-          {(report.case_number || report.priority || typeof report.priority_level === 'number' || report.assigned_group || report.assigned_patroller_name) && (
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.25 }}
-              className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 sticky top-24 max-h-[calc(100vh-8rem)] overflow-y-auto"
-            >
-              <h3 className="text-sm font-semibold text-gray-900 mb-3">Case Information</h3>
-              <div className="space-y-3">
-                {/* Status & Priority badges moved here */}
-                <div className="flex flex-wrap gap-2">
-                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(report.status)}`}>{report.status.replace('_', ' ')}</span>
-                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getPriorityColor(report.priority)}`}>{capitalize(report.priority)}</span>
-                  {(() => { const lvl = getEffectiveLevel(report); return typeof lvl === 'number' ? (
-                    <span title={getServiceLevelText(lvl)} className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${lvl >= 5 ? 'bg-red-100 text-red-800' : lvl >= 4 ? 'bg-orange-100 text-orange-800' : lvl >= 3 ? 'bg-yellow-100 text-yellow-800' : lvl >= 2 ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}`}>
-                      Level {lvl} · {getServiceLevelText(lvl)}
-                    </span>
-                  ) : null; })()}
-                </div>
-                {report.case_number && (
-                  <div>
-                    <p className="text-xs font-medium text-gray-500">Case Number</p>
-                    <p className="text-sm text-gray-900 flex items-center"><Hash className="h-4 w-4 mr-1" />{report.case_number}</p>
-                  </div>
-                )}
-                {/* Service level is already shown in badges above to avoid duplication */}
-                {report.assigned_group && (
-                  <div>
-                    <p className="text-xs font-medium text-gray-500">Assigned Group</p>
-                    <p className="text-sm text-gray-900 flex items-center"><Users className="h-4 w-4 mr-1" />{report.assigned_group}</p>
-                  </div>
-                )}
-                {report.assigned_patroller_name && (
-                  <div>
-                    <p className="text-xs font-medium text-gray-500">Assigned Patroller</p>
-                    <p className="text-sm text-gray-900 flex items-center"><ShieldCheck className="h-4 w-4 mr-1" />{report.assigned_patroller_name}</p>
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          )}
-        </aside>
       </div>
 
       {/* Floating action bar (mobile) */}

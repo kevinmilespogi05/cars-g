@@ -23,7 +23,7 @@ interface AuthState {
   signIn: (email: string, password: string) => Promise<void>;
   signInWithUsername: (username: string, password: string) => Promise<void>;
   signInWithEmailOrUsername: (emailOrUsername: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, username: string, firstName?: string, lastName?: string) => Promise<void>;
+  signUp: (email: string, password: string, username: string, firstName?: string, lastName?: string, phone?: string, confirmPassword?: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signInWithFacebook: () => Promise<void>;
   signOut: () => Promise<void>;

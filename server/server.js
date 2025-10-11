@@ -564,6 +564,27 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Test email configuration endpoint
+app.get('/api/test/email', async (req, res) => {
+  try {
+    const { testEmailConfiguration } = await import('./utils/nodemailerService.js');
+    const isValid = await testEmailConfiguration();
+    
+    res.json({
+      success: true,
+      emailConfigured: isValid,
+      message: isValid ? 'Email configuration is valid' : 'Email configuration has issues'
+    });
+  } catch (error) {
+    console.error('Email test error:', error);
+    res.status(500).json({
+      success: false,
+      emailConfigured: false,
+      error: 'Failed to test email configuration'
+    });
+  }
+});
+
 // Check admin online status
 app.get('/api/admin/status', (req, res) => {
   try {
@@ -841,6 +862,108 @@ app.get('/api/chat/messages/:userId', async (req, res) => {
 });
 
 // JWT Authentication Endpoints
+
+// OAuth callback endpoint - generate JWT tokens for OAuth users
+app.post('/api/auth/oauth-callback', async (req, res) => {
+  try {
+    const { userId, email, username, role = 'user' } = req.body;
+
+    if (!userId || !email) {
+      return res.status(400).json({
+        success: false,
+        error: 'User ID and email are required',
+        code: 'MISSING_CREDENTIALS'
+      });
+    }
+
+    // Get or create user profile from Supabase
+    let { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, email, username, first_name, last_name, role, points, avatar_url, phone')
+      .eq('id', userId)
+      .single();
+
+    // If profile doesn't exist, create it
+    if (profileError && profileError.code === 'PGRST116') {
+      console.log('Profile not found, creating new profile for OAuth user:', userId);
+      
+      if (!supabaseAdmin) {
+        return res.status(503).json({
+          success: false,
+          error: 'Admin privileges required to create profile',
+          code: 'SERVICE_UNAVAILABLE'
+        });
+      }
+
+      // Create profile for OAuth user
+      const { data: newProfile, error: createError } = await supabaseAdmin
+        .from('profiles')
+        .insert({
+          id: userId,
+          email: email,
+          username: username || email.split('@')[0],
+          first_name: '',
+          last_name: '',
+          role: role,
+          points: 0,
+          email_verified: true,
+          created_at: new Date().toISOString()
+        })
+        .select('id, email, username, first_name, last_name, role, points, avatar_url, phone')
+        .single();
+
+      if (createError) {
+        console.error('Error creating profile:', createError);
+        return res.status(500).json({
+          success: false,
+          error: 'Failed to create user profile',
+          code: 'PROFILE_CREATION_ERROR'
+        });
+      }
+
+      profile = newProfile;
+    } else if (profileError) {
+      console.error('Error fetching profile:', profileError);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to fetch user profile',
+        code: 'PROFILE_ERROR'
+      });
+    }
+
+    // Generate JWT tokens
+    const tokens = generateTokenPair({
+      id: profile.id,
+      email: profile.email,
+      username: profile.username,
+      role: profile.role || 'user'
+    });
+
+    res.json({
+      success: true,
+      user: {
+        id: profile.id,
+        email: profile.email,
+        username: profile.username,
+        first_name: profile.first_name,
+        last_name: profile.last_name,
+        role: profile.role || 'user',
+        points: profile.points || 0,
+        avatar_url: profile.avatar_url,
+        phone: profile.phone || null
+      },
+      tokens
+    });
+
+  } catch (error) {
+    console.error('OAuth callback error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      code: 'INTERNAL_ERROR'
+    });
+  }
+});
 
 // Login endpoint - authenticate user and generate JWT tokens
 app.post('/api/auth/login', async (req, res) => {
@@ -1367,7 +1490,7 @@ app.post('/api/auth/check-email', async (req, res) => {
   }
 });
 
-// Registration endpoint (no email/OTP verification)
+// Registration endpoint with OTP verification
 app.post('/api/auth/register', async (req, res) => {
   try {
     const { email, password, username, firstName, lastName, phone } = req.body || {};
@@ -1390,74 +1513,88 @@ app.post('/api/auth/register', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Invalid username', code: 'INVALID_USERNAME' });
     }
 
-    // Uniqueness checks
-    const [byUser, byEmail, authUsers] = await Promise.all([
-      (supabaseAdmin || supabase).from('profiles').select('id').eq('username', username).maybeSingle(),
-      (supabaseAdmin || supabase).from('profiles').select('id').eq('email', email).maybeSingle(),
-      supabaseAdmin ? supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 }) : Promise.resolve({ data: { users: [] }, error: null })
-    ]);
-    if (byUser.data) return res.status(400).json({ success: false, error: 'Username is already taken', code: 'USERNAME_TAKEN' });
-    if (byEmail.data || authUsers.data?.users?.some(u => u.email === email)) return res.status(400).json({ success: false, error: 'An account with this email already exists', code: 'EMAIL_EXISTS' });
-
     if (!supabaseAdmin) {
       return res.status(503).json({ success: false, error: 'Admin privileges required', code: 'SERVICE_UNAVAILABLE' });
     }
 
-    // Create user in Supabase Auth
-    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+    // Check if email or username already exists
+    const [byUser, byEmail, authUsers, existingPending] = await Promise.all([
+      supabaseAdmin.from('profiles').select('id').eq('username', username).maybeSingle(),
+      supabaseAdmin.from('profiles').select('id').eq('email', email).maybeSingle(),
+      supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 }),
+      supabaseAdmin.from('pending_registrations').select('id').eq('email', email).maybeSingle()
+    ]);
+
+    if (byUser.data) {
+      return res.status(400).json({ success: false, error: 'Username is already taken', code: 'USERNAME_TAKEN' });
+    }
+    if (byEmail.data || authUsers.data?.users?.some(u => u.email === email)) {
+      return res.status(400).json({ success: false, error: 'An account with this email already exists', code: 'EMAIL_EXISTS' });
+    }
+
+    // If there's an existing pending registration, delete it
+    if (existingPending.data) {
+      await supabaseAdmin
+        .from('pending_registrations')
+        .delete()
+        .eq('email', email);
+    }
+
+    // Generate OTP
+    const { generateOTP, sendVerificationEmail } = await import('./utils/nodemailerService.js');
+    const otp = generateOTP();
+    const otpExpiresAt = new Date(Date.now() + (10 * 60 * 1000)).toISOString(); // 10 minutes
+
+    // Store the original password (Supabase will hash it when creating the user)
+    const passwordHash = password;
+
+    // Store pending registration
+    const { error: pendingError } = await supabaseAdmin
+      .from('pending_registrations')
+      .insert({
+        email,
+        username,
+        password_hash: passwordHash,
+        phone: phone || null,
+        code: otp,
+        expires_at: otpExpiresAt
+      });
+
+    if (pendingError) {
+      console.error('Failed to store pending registration:', pendingError);
+      console.error('Pending registration data:', {
+        email,
+        username,
+        password_hash: passwordHash,
+        first_name: firstName || '',
+        last_name: lastName || '',
+        phone: phone || null,
+        code: otp,
+        expires_at: otpExpiresAt
+      });
+      return res.status(500).json({ success: false, error: 'Failed to process registration', code: 'PENDING_ERROR', details: pendingError.message });
+    }
+
+    // Send verification email
+    const emailSent = await sendVerificationEmail(email, otp, 'registration');
+    
+    if (!emailSent) {
+      // Clean up pending registration if email fails
+      await supabaseAdmin
+        .from('pending_registrations')
+        .delete()
+        .eq('email', email);
+      
+      return res.status(500).json({ success: false, error: 'Failed to send verification email', code: 'EMAIL_SEND_ERROR' });
+    }
+
+    return res.json({ 
+      success: true, 
+      message: 'Registration successful! Please check your email for the verification code.',
       email,
-      password,
-      email_confirm: true,
-      user_metadata: { username, first_name: firstName || '', last_name: lastName || '' }
+      requiresVerification: true
     });
-    if (authError || !authData?.user) {
-      return res.status(500).json({ success: false, error: authError?.message || 'Failed to create user', code: 'AUTH_ERROR' });
-    }
 
-    // Prepare profile payload; include phone if provided and valid
-    const profilePayload = {
-      id: authData.user.id,
-      email,
-      username,
-      first_name: firstName || '',
-      last_name: lastName || '',
-      role: 'user',
-      points: 0,
-      email_verified: true,
-      created_at: new Date().toISOString()
-    };
-
-    // Normalize PH number server-side; accept +63[ ]?########## and store as +63##########
-    if (typeof phone === 'string' && phone.trim()) {
-      const raw = String(phone).replace(/\s|-/g, '');
-      const normalized = raw.startsWith('+63') ? '+63' + raw.slice(3).replace(/\D/g, '').slice(0, 10)
-                        : raw.startsWith('63') ? '+63' + raw.slice(2).replace(/\D/g, '').slice(0, 10)
-                        : raw.startsWith('0') ? '+63' + raw.slice(1).replace(/\D/g, '').slice(0, 10)
-                        : '+63' + raw.replace(/\D/g, '').slice(0, 10);
-      if (/^\+63\d{10}$/.test(normalized)) {
-        // @ts-ignore - field may not exist; we retry without if column missing
-        profilePayload.phone = normalized;
-      }
-    }
-
-    // Try insert with potential phone; if column missing, retry without phone
-    let { error: profileError } = await supabaseAdmin
-      .from('profiles')
-      .insert(profilePayload);
-
-    if (profileError && String(profileError.message || '').includes("'phone'")) {
-      // Retry without phone field
-      const { phone: _omit, ...withoutPhone } = profilePayload;
-      const retry = await supabaseAdmin.from('profiles').insert(withoutPhone);
-      profileError = retry.error || null;
-    }
-
-    if (profileError) {
-      try { await supabaseAdmin.auth.admin.deleteUser(authData.user.id); } catch {}
-      return res.status(500).json({ success: false, error: profileError.message || 'Failed to create profile', code: 'PROFILE_ERROR' });
-    }
-
-    return res.json({ success: true, message: 'Registration successful. You can now sign in.', email, requiresVerification: false });
   } catch (error) {
     console.error('Registration error:', error);
     return res.status(500).json({ success: false, error: 'Internal server error', code: 'INTERNAL_ERROR' });
@@ -1475,6 +1612,10 @@ app.post('/api/auth/verify-registration', async (req, res) => {
         error: 'Email and OTP are required',
         code: 'MISSING_FIELDS'
       });
+    }
+
+    if (!supabaseAdmin) {
+      return res.status(503).json({ success: false, error: 'Admin privileges required', code: 'SERVICE_UNAVAILABLE' });
     }
 
     // Get pending registration from database
@@ -1516,7 +1657,7 @@ app.post('/api/auth/verify-registration', async (req, res) => {
       });
     }
 
-    // Create user in Supabase Auth
+    // Create user in Supabase Auth with the original password
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: pendingData.email,
       password: pendingData.password_hash, // This is the original password
@@ -1537,20 +1678,35 @@ app.post('/api/auth/verify-registration', async (req, res) => {
       });
     }
 
+    // Prepare profile payload
+    const profilePayload = {
+      id: authData.user.id,
+      email: pendingData.email,
+      username: pendingData.username,
+      first_name: '', // Default empty since not stored in pending table
+      last_name: '',  // Default empty since not stored in pending table
+      role: 'user',
+      points: 0,
+      email_verified: true, // Mark as verified
+      created_at: new Date().toISOString()
+    };
+
+    // Add phone if provided and valid
+    if (pendingData.phone) {
+      profilePayload.phone = pendingData.phone;
+    }
+
     // Create profile in profiles table
-    const { error: profileCreateError } = await supabaseAdmin
+    let { error: profileCreateError } = await supabaseAdmin
       .from('profiles')
-      .insert({
-        id: authData.user.id,
-        email: pendingData.email,
-        username: pendingData.username,
-        first_name: '', // Default empty since not stored in pending table
-        last_name: '',  // Default empty since not stored in pending table
-        role: 'user',
-        points: 0,
-        email_verified: true, // Mark as verified
-        created_at: new Date().toISOString()
-      });
+      .insert(profilePayload);
+
+    // If phone column doesn't exist, retry without phone
+    if (profileCreateError && String(profileCreateError.message || '').includes("'phone'")) {
+      const { phone: _omit, ...withoutPhone } = profilePayload;
+      const retry = await supabaseAdmin.from('profiles').insert(withoutPhone);
+      profileCreateError = retry.error || null;
+    }
 
     if (profileCreateError) {
       console.error('Profile creation error:', profileCreateError);
@@ -1599,6 +1755,10 @@ app.post('/api/auth/resend-verification', async (req, res) => {
       });
     }
 
+    if (!supabaseAdmin) {
+      return res.status(503).json({ success: false, error: 'Admin privileges required', code: 'SERVICE_UNAVAILABLE' });
+    }
+
     // Check if pending registration exists
     const { data: pendingData, error: pendingError } = await supabaseAdmin
       .from('pending_registrations')
@@ -1630,10 +1790,9 @@ app.post('/api/auth/resend-verification', async (req, res) => {
     }
 
     // Generate new OTP
-    const { default: otpGenerator } = await import('otp-generator');
-    const { sendVerificationEmail } = await import('./utils/nodemailerService.js');
+    const { generateOTP, sendVerificationEmail } = await import('./utils/nodemailerService.js');
     
-    const otp = otpGenerator.generate(6, { digits: true, upperCase: false, specialChars: false });
+    const otp = generateOTP();
     const otpExpiresAt = new Date(Date.now() + (10 * 60 * 1000)).toISOString(); // 10 minutes
     
     // Update pending registration with new OTP

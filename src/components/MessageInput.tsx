@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Paperclip, Smile } from 'lucide-react';
+import { Send, Paperclip, Smile, Loader2 } from 'lucide-react';
 
 interface MessageInputProps {
   onSendMessage: (message: string) => void;
@@ -14,10 +14,11 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   onTypingStart,
   onTypingStop,
   disabled = false,
-  placeholder = "Type your message..."
+  placeholder = "Type a message..."
 }) => {
   const [message, setMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [isSending, setIsSending] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -63,20 +64,32 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     }
   };
 
-  const handleSendMessage = () => {
-    if (message.trim() && !disabled) {
-      onSendMessage(message);
-      setMessage('');
-      
-      // Stop typing indicator
-      if (isTyping) {
-        setIsTyping(false);
-        onTypingStop();
-      }
-      
-      // Clear typing timeout
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
+  const handleSendMessage = async () => {
+    if (message.trim() && !disabled && !isSending) {
+      setIsSending(true);
+      try {
+        await onSendMessage(message);
+        setMessage('');
+        
+        // Reset textarea height
+        if (textareaRef.current) {
+          textareaRef.current.style.height = 'auto';
+        }
+      } catch (error) {
+        console.error('Error sending message:', error);
+      } finally {
+        setIsSending(false);
+        
+        // Stop typing indicator
+        if (isTyping) {
+          setIsTyping(false);
+          onTypingStop();
+        }
+        
+        // Clear typing timeout
+        if (typingTimeoutRef.current) {
+          clearTimeout(typingTimeoutRef.current);
+        }
       }
     }
   };
@@ -109,56 +122,87 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   }, []);
 
   return (
-    <div className="p-4 bg-gradient-to-r from-gray-50/80 to-white/80 border-t border-gray-200/60 backdrop-blur-sm">
-      <div className="flex items-center space-x-3">
+    <div className="p-4 bg-white border-t border-gray-200">
+      <div className="flex items-end gap-3">
+        {/* Input container */}
         <div className="flex-1 relative">
-          <textarea
-            ref={textareaRef}
-            value={message}
-            onChange={handleInputChange}
-            onKeyPress={handleKeyPress}
-            onFocus={handleFocus}
-            onBlur={handleBlur}
-            placeholder={placeholder}
-            disabled={disabled}
-            className={`w-full px-4 py-3 pr-12 border border-gray-300/60 rounded-2xl resize-none focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200 shadow-sm ${
-              disabled 
-                ? 'bg-gray-100 cursor-not-allowed text-gray-500' 
-                : 'bg-white hover:shadow-md'
-            }`}
-            rows={1}
-            style={{ minHeight: '44px', maxHeight: '120px' }}
-          />
-          
-          {/* Attachment and emoji buttons */}
-          <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center space-x-2">
-            <button
-              className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-full transition-all duration-200"
-              disabled={disabled}
-            >
-              <Paperclip className="w-4 h-4" />
-            </button>
-            <button
-              className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-full transition-all duration-200"
-              disabled={disabled}
-            >
-              <Smile className="w-4 h-4" />
-            </button>
+          <div className="relative bg-gray-50 rounded-3xl border border-gray-200 focus-within:border-blue-400 focus-within:bg-white transition-all duration-200 shadow-sm hover:shadow-md">
+            <textarea
+              ref={textareaRef}
+              value={message}
+              onChange={handleInputChange}
+              onKeyPress={handleKeyPress}
+              onFocus={handleFocus}
+              onBlur={handleBlur}
+              placeholder={placeholder}
+              disabled={disabled || isSending}
+              className={`w-full px-4 py-3 pr-20 bg-transparent rounded-3xl resize-none focus:outline-none transition-all duration-200 text-sm ${
+                disabled || isSending
+                  ? 'cursor-not-allowed text-gray-400' 
+                  : 'text-gray-900 placeholder-gray-400'
+              }`}
+              rows={1}
+              style={{ minHeight: '48px', maxHeight: '120px' }}
+            />
+            
+            {/* Attachment and emoji buttons */}
+            <div className="absolute right-2 bottom-2 flex items-center gap-1">
+              <button
+                type="button"
+                className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-full transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={disabled || isSending}
+                title="Attach file"
+              >
+                <Paperclip className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-full transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={disabled || isSending}
+                title="Add emoji"
+              >
+                <Smile className="w-4 h-4" />
+              </button>
+            </div>
           </div>
+          
+          {/* Character counter for long messages */}
+          {message.length > 200 && (
+            <div className="absolute -bottom-5 right-2 text-xs text-gray-400">
+              {message.length}/1000
+            </div>
+          )}
         </div>
         
+        {/* Send button */}
         <button
+          type="button"
           onClick={handleSendMessage}
-          disabled={!message.trim() || disabled}
-          className={`p-3 rounded-2xl transition-all duration-200 shadow-lg ${
-            !message.trim() || disabled
+          disabled={!message.trim() || disabled || isSending}
+          className={`
+            flex items-center justify-center flex-shrink-0
+            w-12 h-12 rounded-full transition-all duration-200
+            ${!message.trim() || disabled || isSending
               ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-              : 'bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 hover:scale-105'
-          }`}
+              : 'bg-blue-500 text-white hover:bg-blue-600 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl'
+            }
+          `}
+          title="Send message"
         >
-          <Send className="w-5 h-5" />
+          {isSending ? (
+            <Loader2 className="w-5 h-5 animate-spin" />
+          ) : (
+            <Send className="w-5 h-5" />
+          )}
         </button>
       </div>
+      
+      {/* Helper text */}
+      {!disabled && (
+        <div className="mt-2 text-xs text-gray-400 px-1">
+          Press Enter to send, Shift + Enter for new line
+        </div>
+      )}
     </div>
   );
 };

@@ -1,5 +1,5 @@
-import React from 'react';
-import { Calendar, User, Eye, Clock, AlertCircle, Info, AlertTriangle, Star } from 'lucide-react';
+import React, { useState } from 'react';
+import { Calendar, User, Eye, Clock, AlertCircle, Info, AlertTriangle, Star, ChevronLeft, ChevronRight, X } from 'lucide-react';
 
 export interface Announcement {
   id: string;
@@ -26,6 +26,34 @@ interface AnnouncementCardProps {
 }
 
 export function AnnouncementCard({ announcement, onView, showAuthor = true }: AnnouncementCardProps) {
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+
+  const imageUrls = (announcement.image_url || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  // Keyboard support for lightbox
+  React.useEffect(() => {
+    if (!isLightboxOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsLightboxOpen(false);
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        setCurrentImageIndex((prev) => (prev - 1 + imageUrls.length) % imageUrls.length);
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        setCurrentImageIndex((prev) => (prev + 1) % imageUrls.length);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isLightboxOpen, currentImageIndex, imageUrls.length]);
+
   const getPriorityIcon = (priority: string) => {
     switch (priority) {
       case 'urgent':
@@ -76,11 +104,6 @@ export function AnnouncementCard({ announcement, onView, showAuthor = true }: An
     new Date(announcement.expires_at) < new Date(Date.now() + 24 * 60 * 60 * 1000) && 
     new Date(announcement.expires_at) > new Date();
 
-  const imageUrls = (announcement.image_url || '')
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
-
   return (
     <div 
       className={`bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer group ${
@@ -90,17 +113,130 @@ export function AnnouncementCard({ announcement, onView, showAuthor = true }: An
     >
       {/* Image */}
       {imageUrls.length > 0 && (
-        <div className="relative h-48 overflow-hidden rounded-t-lg">
+        <div className="relative min-h-48 max-h-64 overflow-hidden rounded-t-lg bg-gray-50 flex items-center justify-center">
+          {/* Image Counter */}
+          {imageUrls.length > 1 && (
+            <div className="absolute top-2 right-2 z-10 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded-full">
+              {currentImageIndex + 1} / {imageUrls.length}
+            </div>
+          )}
+          
           <img
-            src={imageUrls[0]}
-            alt={announcement.title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+            src={imageUrls[currentImageIndex]}
+            alt={`${announcement.title} - Image ${currentImageIndex + 1}`}
+            className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-200 cursor-zoom-in"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsLightboxOpen(true);
+            }}
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              target.style.display = 'none';
+              const container = target.parentElement;
+              if (container) {
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'flex items-center justify-center h-48 text-gray-400';
+                errorDiv.innerHTML = '<div class="text-center"><svg class="w-12 h-12 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg><p class="text-sm">Image unavailable</p></div>';
+                container.appendChild(errorDiv);
+              }
+            }}
           />
+          
+          {/* Navigation Buttons */}
+          {imageUrls.length > 1 && (
+            <>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setCurrentImageIndex((prev) => (prev - 1 + imageUrls.length) % imageUrls.length);
+                }}
+                className="absolute left-2 top-1/2 -translate-y-1/2 z-10 bg-white bg-opacity-80 hover:bg-opacity-100 text-gray-800 rounded-full p-2 shadow-lg transition-all"
+                aria-label="Previous image"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setCurrentImageIndex((prev) => (prev + 1) % imageUrls.length);
+                }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 z-10 bg-white bg-opacity-80 hover:bg-opacity-100 text-gray-800 rounded-full p-2 shadow-lg transition-all"
+                aria-label="Next image"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </>
+          )}
+          
           {isExpired && (
             <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
               <span className="text-white font-semibold">Expired</span>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Lightbox */}
+      {isLightboxOpen && imageUrls.length > 0 && (
+        <div
+          className="fixed inset-0 z-[9999] bg-black bg-opacity-90 flex items-center justify-center p-4"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsLightboxOpen(false);
+          }}
+        >
+          <button
+            className="absolute top-4 right-4 text-white hover:text-gray-300 z-10"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsLightboxOpen(false);
+            }}
+            aria-label="Close lightbox"
+          >
+            <X className="w-8 h-8" />
+          </button>
+
+          {/* Image Counter */}
+          {imageUrls.length > 1 && (
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 bg-black bg-opacity-70 text-white text-sm px-4 py-2 rounded-full font-medium">
+              {currentImageIndex + 1} / {imageUrls.length}
+            </div>
+          )}
+
+          <div className="relative w-full h-full flex items-center justify-center">
+            <img
+              src={imageUrls[currentImageIndex]}
+              alt={`${announcement.title} - Image ${currentImageIndex + 1}`}
+              className="max-w-full max-h-full object-contain cursor-default"
+              onClick={(e) => e.stopPropagation()}
+            />
+
+            {/* Navigation Buttons */}
+            {imageUrls.length > 1 && (
+              <>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCurrentImageIndex((prev) => (prev - 1 + imageUrls.length) % imageUrls.length);
+                  }}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 bg-white bg-opacity-90 hover:bg-opacity-100 text-gray-800 rounded-full p-3 shadow-xl transition-all"
+                  aria-label="Previous image"
+                >
+                  <ChevronLeft className="w-6 h-6" />
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCurrentImageIndex((prev) => (prev + 1) % imageUrls.length);
+                  }}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 bg-white bg-opacity-90 hover:bg-opacity-100 text-gray-800 rounded-full p-3 shadow-xl transition-all"
+                  aria-label="Next image"
+                >
+                  <ChevronRight className="w-6 h-6" />
+                </button>
+              </>
+            )}
+          </div>
         </div>
       )}
 

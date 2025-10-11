@@ -29,8 +29,9 @@ import { useAuthStore } from '../store/authStore';
 import { supabase } from '../lib/supabase';
 import { QuickActions } from '../components/QuickActions';
 import { reportsService } from '../services/reportsService';
-import { AnnouncementCarousel } from '../components/AnnouncementCarousel';
+import { AnnouncementBanner } from '../components/AnnouncementBanner';
 import { LikeDetailsModal } from '../components/LikeDetailsModal';
+import { ReportsGridSkeleton } from '../components/SkeletonLoader';
 import { Report } from '../types';
 
 // LGU Footer details – update these to your LGU specifics
@@ -47,6 +48,27 @@ const PRIORITIES = ['All', 'Low', 'Medium', 'High'];
 
 export function Reports() {
   const navigate = useNavigate();
+  
+  // Handler for telephone links to prevent errors on desktop
+  const handlePhoneClick = (e: React.MouseEvent<HTMLAnchorElement>, phoneNumber: string) => {
+    // Check if device has phone calling capabilities
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    
+    if (!isMobile) {
+      // Prevent default tel: link behavior on desktop
+      e.preventDefault();
+      
+      // Copy to clipboard
+      navigator.clipboard.writeText(phoneNumber).then(() => {
+        // Show toast notification
+        alert(`Phone number ${phoneNumber} copied to clipboard!`);
+      }).catch(() => {
+        // Fallback if clipboard fails
+        alert(`Call: ${phoneNumber}`);
+      });
+    }
+    // On mobile, let the default tel: behavior work
+  };
   const { user } = useAuthStore();
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
@@ -415,10 +437,25 @@ export function Reports() {
 
   if (loading && reports.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="animate-spin h-12 w-12 text-primary-color mx-auto mb-4" />
-          <p className="text-gray-600">Loading reports...</p>
+      <div className="min-h-screen bg-gray-50">
+        <div className="w-full px-4 sm:px-6 lg:px-8 py-6 sm:py-8 max-w-screen-2xl mx-auto">
+          <div className="mb-6">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 animate-pulse">
+              <div className="h-4 bg-gray-200 rounded w-1/4 mb-4"></div>
+              <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+            <div className="h-4 bg-gray-200 rounded w-1/4 mb-4"></div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {Array.from({ length: 6 }).map((_, index) => (
+                <div key={index} className="bg-gray-200 rounded-lg h-20"></div>
+              ))}
+            </div>
+          </div>
+          
+          <ReportsGridSkeleton />
         </div>
       </div>
     );
@@ -426,123 +463,83 @@ export function Reports() {
 
   return (
     <>
-    <div className="min-h-[100dvh] bg-gradient-to-br from-gray-50 via-white to-gray-100 reports-page">
+    <div className="min-h-[100dvh] bg-gray-50 reports-page">
       <div className="w-full px-4 sm:px-6 lg:px-8 py-6 sm:py-8 max-w-screen-2xl mx-auto">
-        {/* Announcement/Emergency header section; expands contacts when there are no announcements */}
-        {hasAnnouncements ? (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6">
-            <div className="lg:col-span-9">
-              <AnnouncementCarousel />
+        {/* Announcement Banner */}
+        <div className="mb-6">
+          <AnnouncementBanner />
+        </div>
+
+        {/* Emergency Contacts Section */}
+        <div className="mb-6">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <Shield className="h-5 w-5 text-blue-600" />
+              Emergency Contacts
+            </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 hover:bg-red-100 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-semibold text-red-900">National Emergency</h4>
+                      <p className="text-red-700 text-sm">For immediate assistance</p>
+                    </div>
+                    <a href="tel:911" onClick={(e) => handlePhoneClick(e, '911')} className="text-red-600 hover:text-red-700 font-bold text-2xl">911</a>
+                  </div>
+                </div>
+                
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 hover:bg-orange-100 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-semibold text-orange-900">Red Cross</h4>
+                      <p className="text-orange-700 text-sm">Medical emergencies</p>
+                    </div>
+                    <a href="tel:143" onClick={(e) => handlePhoneClick(e, '143')} className="text-orange-600 hover:text-orange-700 font-bold text-2xl">143</a>
+                  </div>
+                </div>
+                
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 hover:bg-blue-100 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-semibold text-blue-900">Police</h4>
+                      <p className="text-blue-700 text-sm">Police assistance</p>
+                    </div>
+                    <a href="tel:9117" onClick={(e) => handlePhoneClick(e, '9117')} className="text-blue-600 hover:text-blue-700 font-bold text-2xl">9117</a>
+                  </div>
+                </div>
+                
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 hover:bg-yellow-100 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-semibold text-yellow-900">Fire Department</h4>
+                      <p className="text-yellow-700 text-sm">Fire emergencies</p>
+                    </div>
+                    <a href="tel:117" onClick={(e) => handlePhoneClick(e, '117')} className="text-yellow-600 hover:text-yellow-700 font-bold text-2xl">117</a>
+                  </div>
+                </div>
+                
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 hover:bg-green-100 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-semibold text-green-900">NDRRMC</h4>
+                      <p className="text-green-700 text-sm">Disaster response</p>
+                    </div>
+                    <a href="tel:0289115061" onClick={(e) => handlePhoneClick(e, '0289115061')} className="text-green-600 hover:text-green-700 font-bold text-lg">(02) 8911-5061</a>
+                  </div>
+                </div>
+                
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 hover:bg-purple-100 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-semibold text-purple-900">Health Department</h4>
+                      <p className="text-purple-700 text-sm">Health emergencies</p>
+                    </div>
+                    <a href="tel:0287111001" onClick={(e) => handlePhoneClick(e, '0287111001')} className="text-purple-600 hover:text-purple-700 font-bold text-lg">(02) 8711-1001</a>
+                  </div>
+                </div>
+              </div>
             </div>
-            <aside className="lg:col-span-3">
-              <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-6 hover:shadow-xl transition-all duration-300">
-                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                  <Shield className="h-5 w-5 text-blue-600" />
-                  Emergency Contacts
-                </h3>
-                <ul className="space-y-4 text-sm">
-                  <li className="flex items-start justify-between group">
-                    <div>
-                      <p className="font-semibold text-gray-900 group-hover:text-gray-700 transition-colors">National Emergency Hotline</p>
-                      <p className="text-gray-500 text-xs">For immediate assistance</p>
-                    </div>
-                    <a href="tel:911" className="text-red-600 hover:text-red-700 font-bold text-lg hover:scale-110 transition-all duration-200">911</a>
-                  </li>
-                  <li className="flex items-start justify-between group">
-                    <div>
-                      <p className="font-semibold text-gray-900 group-hover:text-gray-700 transition-colors">Philippine Red Cross</p>
-                      <p className="text-gray-500 text-xs">Medical emergencies</p>
-                    </div>
-                    <a href="tel:143" className="text-red-600 hover:text-red-700 font-bold text-lg hover:scale-110 transition-all duration-200">143</a>
-                  </li>
-                  <li className="flex items-start justify-between group">
-                    <div>
-                      <p className="font-semibold text-gray-900 group-hover:text-gray-700 transition-colors">NDRRMC</p>
-                      <p className="text-gray-500 text-xs">Disaster response</p>
-                    </div>
-                    <a href="tel:0289115061" className="text-red-600 hover:text-red-700 font-bold text-sm hover:scale-110 transition-all duration-200">(02) 8911-5061</a>
-                  </li>
-                  <li className="flex items-start justify-between group">
-                    <div>
-                      <p className="font-semibold text-gray-900 group-hover:text-gray-700 transition-colors">Philippine National Police</p>
-                      <p className="text-gray-500 text-xs">Police assistance</p>
-                    </div>
-                    <a href="tel:9117" className="text-red-600 hover:text-red-700 font-bold text-lg hover:scale-110 transition-all duration-200">9117</a>
-                  </li>
-                  <li className="flex items-start justify-between group">
-                    <div>
-                      <p className="font-semibold text-gray-900 group-hover:text-gray-700 transition-colors">Bureau of Fire Protection</p>
-                      <p className="text-gray-500 text-xs">Fire emergencies</p>
-                    </div>
-                    <a href="tel:117" className="text-red-600 hover:text-red-700 font-bold text-lg hover:scale-110 transition-all duration-200">117</a>
-                  </li>
-                  <li className="flex items-start justify-between group">
-                    <div>
-                      <p className="font-semibold text-gray-900 group-hover:text-gray-700 transition-colors">Department of Health</p>
-                      <p className="text-gray-500 text-xs">Health emergencies</p>
-                    </div>
-                    <a href="tel:0287111001" className="text-red-600 hover:text-red-700 font-bold text-sm hover:scale-110 transition-all duration-200">(02) 8711-1001</a>
-                  </li>
-                </ul>
-              </div>
-            </aside>
           </div>
-        ) : (
-          <div className="mb-6">
-            <aside>
-              <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-6 hover:shadow-xl transition-all duration-300 max-w-3xl mx-auto">
-                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                  <Shield className="h-5 w-5 text-blue-600" />
-                  Emergency Contacts
-                </h3>
-                <ul className="space-y-4 text-sm">
-                  <li className="flex items-start justify-between group">
-                    <div>
-                      <p className="font-semibold text-gray-900 group-hover:text-gray-700 transition-colors">National Emergency Hotline</p>
-                      <p className="text-gray-500 text-xs">For immediate assistance</p>
-                    </div>
-                    <a href="tel:911" className="text-red-600 hover:text-red-700 font-bold text-lg hover:scale-110 transition-all duration-200">911</a>
-                  </li>
-                  <li className="flex items-start justify-between group">
-                    <div>
-                      <p className="font-semibold text-gray-900 group-hover:text-gray-700 transition-colors">Philippine Red Cross</p>
-                      <p className="text-gray-500 text-xs">Medical emergencies</p>
-                    </div>
-                    <a href="tel:143" className="text-red-600 hover:text-red-700 font-bold text-lg hover:scale-110 transition-all duration-200">143</a>
-                  </li>
-                  <li className="flex items-start justify-between group">
-                    <div>
-                      <p className="font-semibold text-gray-900 group-hover:text-gray-700 transition-colors">NDRRMC</p>
-                      <p className="text-gray-500 text-xs">Disaster response</p>
-                    </div>
-                    <a href="tel:0289115061" className="text-red-600 hover:text-red-700 font-bold text-sm hover:scale-110 transition-all duration-200">(02) 8911-5061</a>
-                  </li>
-                  <li className="flex items-start justify-between group">
-                    <div>
-                      <p className="font-semibold text-gray-900 group-hover:text-gray-700 transition-colors">Philippine National Police</p>
-                      <p className="text-gray-500 text-xs">Police assistance</p>
-                    </div>
-                    <a href="tel:9117" className="text-red-600 hover:text-red-700 font-bold text-lg hover:scale-110 transition-all duration-200">9117</a>
-                  </li>
-                  <li className="flex items-start justify-between group">
-                    <div>
-                      <p className="font-semibold text-gray-900 group-hover:text-gray-700 transition-colors">Bureau of Fire Protection</p>
-                      <p className="text-gray-500 text-xs">Fire emergencies</p>
-                    </div>
-                    <a href="tel:117" className="text-red-600 hover:text-red-700 font-bold text-lg hover:scale-110 transition-all duration-200">117</a>
-                  </li>
-                  <li className="flex items-start justify-between group">
-                    <div>
-                      <p className="font-semibold text-gray-900 group-hover:text-gray-700 transition-colors">Department of Health</p>
-                      <p className="text-gray-500 text-xs">Health emergencies</p>
-                    </div>
-                    <a href="tel:0287111001" className="text-red-600 hover:text-red-700 font-bold text-sm hover:scale-110 transition-all duration-200">(02) 8711-1001</a>
-                  </li>
-                </ul>
-              </div>
-            </aside>
-          </div>
-        )}
 
         {/* Header Section */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
@@ -564,33 +561,44 @@ export function Reports() {
 
         {/* Quick Actions */}
         <div className="mb-8">
-          <QuickActions hideEmergencyActions />
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-gray-900">Quick Actions</h2>
+              <span className="text-sm text-gray-500">Access your most common tasks</span>
+            </div>
+            <QuickActions hideEmergencyActions />
+          </div>
         </div>
 
 
         {/* Search and Filters Section */}
-        <div className="bg-white/90 backdrop-blur sticky top-20 z-10 rounded-lg shadow-sm p-4 mb-4 border border-gray-100">
-          <div className="flex flex-col sm:flex-row gap-3">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-gray-900">Reports</h2>
+            <span className="text-sm text-gray-500">{filteredReports.length} report{filteredReports.length !== 1 ? 's' : ''} found</span>
+          </div>
+          
+          <div className="flex flex-col sm:flex-row gap-4">
             {/* Search */}
             <div className="flex-1">
               <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                 <input
                   type="text"
-                  placeholder="Search reports..."
+                  placeholder="Search reports by title or description..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-md focus:ring-2 focus:ring-primary-color focus:border-transparent bg-white"
+                  className="w-full pl-10 pr-4 py-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white transition-colors"
                 />
               </div>
             </div>
 
             {/* Filters */}
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-3">
               <select
                 value={filters.category}
                 onChange={(e) => setFilters(prev => ({ ...prev, category: e.target.value }))}
-                className="px-2.5 py-2 text-sm border border-gray-200 rounded-md focus:ring-2 focus:ring-primary-color focus:border-transparent bg-white"
+                className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white transition-colors"
               >
                 {CATEGORIES.map(category => (
                   <option key={category} value={category}>{category}</option>
@@ -600,7 +608,7 @@ export function Reports() {
               <select
                 value={filters.status}
                 onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
-                className="px-2.5 py-2 text-sm border border-gray-200 rounded-md focus:ring-2 focus:ring-primary-color focus:border-transparent bg-white"
+                className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white transition-colors"
               >
                 {STATUSES.map(status => (
                   <option key={status} value={status}>{status}</option>
@@ -610,7 +618,7 @@ export function Reports() {
               <select
                 value={filters.priority}
                 onChange={(e) => setFilters(prev => ({ ...prev, priority: e.target.value }))}
-                className="px-2.5 py-2 text-sm border border-gray-200 rounded-md focus:ring-2 focus:ring-primary-color focus:border-transparent bg-white"
+                className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white transition-colors"
               >
                 {PRIORITIES.map(priority => (
                   <option key={priority} value={priority}>{priority}</option>
@@ -621,10 +629,10 @@ export function Reports() {
               {(searchTerm || filters.category !== 'All' || filters.status !== 'All' || filters.priority !== 'All') && (
                 <button
                   onClick={clearFilters}
-                  className="flex items-center gap-1 px-3 py-2 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 border border-gray-200 rounded-md transition-colors"
+                  className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-lg transition-colors"
                 >
                   <X className="h-4 w-4" />
-                  Clear
+                  Clear Filters
                 </button>
               )}
             </div>
@@ -735,7 +743,7 @@ export function Reports() {
               <motion.div
                 variants={cardVariants}
                 key={report.id}
-                className="group bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer border border-gray-100 hover:border-gray-200 overflow-hidden hover:-translate-y-1"
+                className="group bg-white rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer border border-gray-200 hover:border-gray-300 overflow-hidden hover:-translate-y-1"
                 onClick={() => navigate(`/reports/${report.id}`)}
               >
                 {report.images && report.images.length > 0 && !imageErrors[report.id] ? (
@@ -794,7 +802,7 @@ export function Reports() {
                   </div>
                 )}
 
-                <div className="p-5">
+                <div className="p-6">
                   <div className="flex items-start justify-between mb-3">
                     <h3 className="font-semibold text-gray-900 text-lg leading-tight line-clamp-2 group-hover:text-gray-700 transition-colors duration-200">
                       {report.title}
@@ -811,12 +819,12 @@ export function Reports() {
                     {report.description}
                   </p>
 
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className={`inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-semibold shadow-sm ${getStatusColor(report.status)}`}>
+                  <div className="flex items-center gap-2 mb-4">
+                    <span className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold ${getStatusColor(report.status)}`}>
                       {getStatusIcon(report.status)}
                       <span className="ml-1.5">{report.status.replace('_', ' ')}</span>
                     </span>
-                    <span className={`inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-semibold shadow-sm ${getPriorityColor(report.priority)}`}>
+                    <span className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold ${getPriorityColor(report.priority)}`}>
                       {report.priority}
                     </span>
                   </div>
@@ -938,34 +946,6 @@ export function Reports() {
         </div>
       )}
     </div>
-    {/* Transition to Footer */}
-    <div className="h-6 bg-gradient-to-b from-transparent to-[#800000]" />
-    {/* LGU Footer */}
-    <footer className="bg-[#800000]">
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-10 text-base text-white leading-relaxed">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div>
-            <p className="text-lg md:text-xl font-semibold tracking-wide text-white">{LGU_NAME}</p>
-            <p className="text-gray-100 mt-2">{LGU_ADDRESS}</p>
-            <div className="flex items-center gap-5 mt-4">
-              <a href={LGU_FACEBOOK_URL} target="_blank" rel="noreferrer" className="underline underline-offset-4 font-medium text-white hover:text-gray-200">Facebook</a>
-              <a href={LGU_GOOGLE_MAPS_URL} target="_blank" rel="noreferrer" className="underline underline-offset-4 font-medium text-white hover:text-gray-200">Google Maps</a>
-            </div>
-          </div>
-          <div>
-            <p className="text-lg md:text-xl font-semibold tracking-wide text-white">Contact</p>
-            <ul className="mt-2 space-y-1.5 text-gray-100">
-              {LGU_EMAIL && <li>Email: <a href={`mailto:${LGU_EMAIL}`} className="underline underline-offset-4 hover:text-white font-medium">{LGU_EMAIL}</a></li>}
-            </ul>
-          </div>
-          <div>
-            <p className="text-lg md:text-xl font-semibold tracking-wide text-white">Office Hours</p>
-            <p className="mt-2 text-gray-100">{LGU_OFFICE_HOURS}</p>
-            <p className="mt-3 text-gray-200">For emergencies, dial 911 or contact your local responders.</p>
-          </div>
-        </div>
-      </div>
-    </footer>
     </>
   );
 }

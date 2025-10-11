@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
+import { getApiUrl } from '../lib/config';
+import { storeTokens, storeUser } from '../lib/jwt';
 
 export function AuthCallback() {
   const navigate = useNavigate();
@@ -48,20 +50,53 @@ export function AuthCallback() {
             return;
           }
           
-          if (profile) {
-            setUser({ ...profile, email: data.session.user.email });
-          } else {
-            // If no profile yet, set a minimal user object so routing works
-            setUser({ id: data.session.user.id, email: data.session.user.email } as any);
-          }
-          
-          // Redirect based on user role from database
-          if (profile?.role === 'admin') {
-            navigate('/admin', { replace: true });
-          } else if (profile?.role === 'patrol') {
-            navigate('/patrol', { replace: true });
-          } else {
-            navigate('/reports', { replace: true });
+          // Generate JWT tokens for OAuth user
+          try {
+            console.log('Generating JWT tokens for OAuth user...');
+            const response = await fetch(`${getApiUrl()}/api/auth/oauth-callback`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                userId: data.session.user.id,
+                email: data.session.user.email,
+                username: profile?.username || data.session.user.email?.split('@')[0],
+                role: profile?.role || 'user'
+              }),
+            });
+
+            const jwtData = await response.json();
+
+            if (response.ok && jwtData.success) {
+              console.log('JWT tokens generated successfully');
+              
+              // Store JWT tokens and user data
+              storeTokens(jwtData.tokens);
+              storeUser(jwtData.user);
+              
+              // Set user in auth store
+              setUser(jwtData.user);
+              
+              // Redirect based on user role from database
+              if (jwtData.user.role === 'admin') {
+                navigate('/admin', { replace: true });
+              } else if (jwtData.user.role === 'patrol') {
+                navigate('/patrol', { replace: true });
+              } else {
+                navigate('/reports', { replace: true });
+              }
+            } else {
+              console.error('Failed to generate JWT tokens:', jwtData.error);
+              setError('Failed to complete authentication. Please try again.');
+              setIsProcessing(false);
+              return;
+            }
+          } catch (jwtError) {
+            console.error('Error generating JWT tokens:', jwtError);
+            setError('Failed to complete authentication. Please try again.');
+            setIsProcessing(false);
+            return;
           }
         } else {
           // No session found, redirect to login

@@ -290,7 +290,21 @@ export function AnnouncementsDisplay() {
           </p>
         </div>
       ) : (
-        <AnnouncementCarousel className="mt-2" />
+        <>
+          {/* Featured Announcements Carousel */}
+          <AnnouncementCarousel className="mb-6" />
+
+          {/* All Announcements Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {announcements.map((announcement) => (
+              <AnnouncementCard
+                key={announcement.id}
+                announcement={announcement}
+                onView={handleViewAnnouncement}
+              />
+            ))}
+          </div>
+        </>
       )}
 
       {/* Full Display Modal */}

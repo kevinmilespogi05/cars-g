@@ -236,14 +236,44 @@ export function LeaderboardPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
+      {/* Hero Header Section */}
+      <header className="bg-white border-b border-gray-200 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex items-center gap-4 md:gap-6">
+              <div className="flex-shrink-0 bg-blue-50 rounded-2xl p-4 shadow-md border border-blue-100">
+                <Trophy className="h-12 w-12 md:h-16 md:w-16 text-blue-600" />
+              </div>
+              <div>
+                <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-2 tracking-tight text-gray-900">
+                  Community Leaderboard
+                </h1>
+                <p className="text-gray-600 text-base md:text-lg">
+                  Celebrating our top contributors and their achievements
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-col items-center md:items-end gap-2">
+              <div className="bg-blue-50 rounded-xl px-6 py-3 border border-blue-100">
+                <p className="text-sm text-gray-600 mb-1">Total Contributors</p>
+                <p className="text-3xl font-bold text-blue-600">{entries.length}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
       <div className="w-full px-4 sm:px-6 lg:px-8 py-8 max-w-7xl mx-auto">
         
-        {/* Modern Controls */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-6 mb-8">
+        {/* Sticky Modern Controls */}
+        <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-gray-200/50 p-6 mb-8 transition-all duration-300">
           <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
             {/* Mobile controls toggle */}
             <div className="w-full flex items-center justify-between lg:hidden">
-              <h3 className="text-base font-semibold text-gray-900">Leaderboard Filters</h3>
+              <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                <Filter className="h-5 w-5 text-blue-600" />
+                Filters & Search
+              </h3>
               <button
                 onClick={() => setShowMobileControls(!showMobileControls)}
                 className="px-3 py-2 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors"
@@ -262,7 +292,8 @@ export function LeaderboardPage() {
                   ref={searchInputRef}
                   type="text"
                   placeholder="Search contributors..."
-                  className="w-full pl-12 pr-4 py-3 bg-white/80 backdrop-blur-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 shadow-sm hover:shadow-md"
+                  aria-label="Search contributors by username"
+                  className="w-full pl-12 pr-4 py-3 bg-white border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 shadow-sm hover:shadow-md"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -270,12 +301,12 @@ export function LeaderboardPage() {
               
               {/* Time Filter */}
               <div className="relative">
-                <Filter className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                <Calendar className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
                 <label htmlFor="timeframe-select" className="sr-only">Filter by time frame</label>
                 <select
                   id="timeframe-select"
                   aria-label="Filter by time frame"
-                  className="pl-12 pr-8 py-3 bg-white/80 backdrop-blur-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 shadow-sm hover:shadow-md appearance-none min-w-[160px]"
+                  className="pl-12 pr-8 py-3 bg-white border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 shadow-sm hover:shadow-md appearance-none min-w-[160px] cursor-pointer"
                   value={timeFrame}
                   onChange={(e) => setTimeFrame(e.target.value as TimeFrame)}
                 >
@@ -288,9 +319,10 @@ export function LeaderboardPage() {
             </div>
             
             {/* View Mode Toggle */}
-            <div className="flex bg-gray-100 rounded-xl p-1">
+            <div className="flex bg-gray-100 rounded-xl p-1 shadow-inner">
               <button
                 onClick={() => setViewMode('table')}
+                aria-label="Switch to table view"
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                   viewMode === 'table' 
                     ? 'bg-white text-blue-600 shadow-sm' 
@@ -302,6 +334,7 @@ export function LeaderboardPage() {
               </button>
               <button
                 onClick={() => setViewMode('card')}
+                aria-label="Switch to card view"
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                   viewMode === 'card' 
                     ? 'bg-white text-blue-600 shadow-sm' 
@@ -316,58 +349,73 @@ export function LeaderboardPage() {
         </div>
       </div>
 
-      {loading ? (
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-8">
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl mb-4 animate-pulse">
-              <Trophy className="h-6 w-6 text-white" />
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Loading Leaderboard</h3>
-            <p className="text-gray-600">Fetching the latest rankings...</p>
-          </div>
-          <div className="space-y-4">
-            {[...Array(5)].map((_, i) => (
-              <div key={i} className="flex items-center space-x-4 p-4 bg-gray-50 rounded-xl">
-                <div className="h-12 w-12 bg-gray-200 rounded-full animate-pulse"></div>
-                <div className="flex-1 space-y-2">
-                  <div className="h-4 bg-gray-200 rounded w-1/4 animate-pulse"></div>
-                  <div className="h-3 bg-gray-200 rounded w-1/2 animate-pulse"></div>
-                </div>
-                <div className="h-8 w-20 bg-gray-200 rounded-lg animate-pulse"></div>
+      <div className="w-full px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
+        {loading ? (
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-8">
+            <div className="text-center mb-8">
+              <div className="inline-flex items-center justify-center w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl mb-4 animate-pulse">
+                <Trophy className="h-6 w-6 text-white" />
               </div>
-            ))}
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Loading Leaderboard</h3>
+              <p className="text-gray-600">Fetching the latest rankings...</p>
+            </div>
+            <div className="space-y-4">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="flex items-center space-x-4 p-4 bg-gray-50 rounded-xl">
+                  <div className="h-12 w-12 bg-gray-200 rounded-full animate-pulse"></div>
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 bg-gray-200 rounded w-1/4 animate-pulse"></div>
+                    <div className="h-3 bg-gray-200 rounded w-1/2 animate-pulse"></div>
+                  </div>
+                  <div className="h-8 w-20 bg-gray-200 rounded-lg animate-pulse"></div>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      ) : error ? (
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-8 text-center">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-red-100 rounded-2xl mb-6">
-            <svg className="h-8 w-8 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-            </svg>
+        ) : error ? (
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200/50 p-8 text-center">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-red-100 rounded-2xl mb-6">
+              <svg className="h-8 w-8 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+            </div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">Unable to Load Leaderboard</h3>
+            <p className="text-gray-600 mb-6">{error}</p>
+            <button
+              onClick={fetchLeaderboard}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:from-blue-600 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105"
+            >
+              <Zap className="h-5 w-5" />
+              Try Again
+            </button>
           </div>
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">Unable to Load Leaderboard</h3>
-          <p className="text-gray-600 mb-6">{error}</p>
-          <button
-            onClick={fetchLeaderboard}
-            className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl hover:from-blue-600 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105"
-          >
-            <Zap className="h-5 w-5" />
-            Try Again
-          </button>
-        </div>
-      ) : (
+        ) : (
         <>
           {showTopThree && topThreeEntries.length > 0 && (
             <div className="mb-12">
               <div className="text-center mb-8">
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">🏆 Top Contributors</h2>
-                <p className="text-gray-600">Our community's most active members</p>
+                <motion.div
+                  initial={{ opacity: 0, y: -20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5 }}
+                >
+                  <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3 flex items-center justify-center gap-3">
+                    <Trophy className="h-8 w-8 md:h-10 md:w-10 text-yellow-500" />
+                    Top Contributors
+                  </h2>
+                  <p className="text-gray-600 text-lg">Celebrating our community's most dedicated members</p>
+                </motion.div>
               </div>
-              <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl border border-gray-200/50 p-8 relative overflow-hidden">
-                {/* Background decoration */}
-                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-400"></div>
-                <div className="absolute -top-10 -right-10 w-40 h-40 bg-gradient-to-br from-yellow-100 to-transparent rounded-full opacity-20"></div>
-                <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-gradient-to-tr from-blue-100 to-transparent rounded-full opacity-20"></div>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.5, delay: 0.2 }}
+                className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl border border-gray-200/50 p-6 md:p-10 relative overflow-hidden"
+              >
+                {/* Enhanced Background decoration */}
+                <div className="absolute top-0 left-0 right-0 h-2 bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-400"></div>
+                <div className="absolute -top-20 -right-20 w-60 h-60 bg-gradient-to-br from-yellow-100 to-transparent rounded-full opacity-30 blur-2xl"></div>
+                <div className="absolute -bottom-20 -left-20 w-60 h-60 bg-gradient-to-tr from-blue-100 to-transparent rounded-full opacity-30 blur-2xl"></div>
                 
                 <div className="flex items-end justify-center gap-8 md:gap-16 relative z-10">
                   {/* 2nd place */}
@@ -458,7 +506,7 @@ export function LeaderboardPage() {
                     </div>
                   )}
                 </div>
-              </div>
+              </motion.div>
 
               {/* Mobile swipeable carousel for top contributors (top 10) */}
               {topTenEntries.length > 0 && (
@@ -514,29 +562,36 @@ export function LeaderboardPage() {
             </div>
           )}
 
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 overflow-hidden">
-            <div className="px-8 py-6 border-b border-gray-200/50 bg-gradient-to-r from-gray-50 to-white">
-              <div className="flex items-center justify-between">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.3 }}
+            className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 overflow-hidden"
+          >
+            <div className="px-6 md:px-8 py-6 border-b border-gray-200/50 bg-gradient-to-r from-blue-50/50 via-white to-purple-50/50">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
-                  <div className="inline-flex items-center justify-center w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl">
-                    <Calendar className="h-5 w-5 text-white" />
+                  <div className="inline-flex items-center justify-center w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl shadow-lg">
+                    <TrendingUp className="h-6 w-6 text-white" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-bold text-gray-900">
+                    <h3 className="text-xl md:text-2xl font-bold text-gray-900 flex items-center gap-2">
                       {timeFrame === 'all' ? 'All Time Rankings' :
                        timeFrame === 'month' ? 'This Month\'s Rankings' :
                        timeFrame === 'week' ? 'This Week\'s Rankings' :
                        'Today\'s Rankings'}
                     </h3>
-                    <p className="text-sm text-gray-600">
-                      {sortedAndFilteredEntries.length} contributors
+                    <p className="text-sm text-gray-600 mt-1">
+                      <span className="font-semibold text-gray-800">{sortedAndFilteredEntries.length}</span> active contributors
                     </p>
                   </div>
                 </div>
                 <button
                   onClick={() => setShowTopThree(!showTopThree)}
-                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-xl transition-all duration-200"
+                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md"
+                  aria-label={showTopThree ? 'Hide top 3 contributors' : 'Show top 3 contributors'}
                 >
+                  <Trophy className="h-4 w-4" />
                   {showTopThree ? 'Hide' : 'Show'} Top 3
                 </button>
               </div>
@@ -891,9 +946,10 @@ export function LeaderboardPage() {
                 </div>
               </div>
             </div>
-          </div>
+          </motion.div>
         </>
-      )}
+        )}
+      </div>
 
       {selectedUser && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
@@ -912,6 +968,7 @@ export function LeaderboardPage() {
                 <button
                   onClick={() => setSelectedUser(null)}
                   className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-all duration-200"
+                  aria-label="Close contributor details"
                 >
                   <span className="sr-only">Close</span>
                   <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">

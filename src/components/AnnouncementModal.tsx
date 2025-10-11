@@ -1,5 +1,5 @@
-import React from 'react';
-import { X, Calendar, User, Clock, AlertCircle, Info, AlertTriangle, Star, Shield, Users, MapPin } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, Calendar, User, Clock, AlertCircle, Info, AlertTriangle, Star, Shield, Users, MapPin, ChevronLeft, ChevronRight } from 'lucide-react';
 import { FocusTrap } from './FocusTrap';
 
 export interface Announcement {
@@ -26,6 +26,53 @@ interface AnnouncementModalProps {
 }
 
 export function AnnouncementModal({ announcement, onClose }: AnnouncementModalProps) {
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+
+  // Reset image index when announcement changes
+  React.useEffect(() => {
+    setCurrentImageIndex(0);
+  }, [announcement?.id]);
+
+  // Keyboard navigation for images in the modal
+  React.useEffect(() => {
+    if (!announcement?.image_url) return;
+    
+    const urls = (announcement.image_url || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    
+    if (urls.length <= 1) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        setCurrentImageIndex((prev) => (prev - 1 + urls.length) % urls.length);
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        setCurrentImageIndex((prev) => (prev + 1) % urls.length);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [announcement?.image_url, currentImageIndex]);
+
+  // Keyboard support for lightbox
+  React.useEffect(() => {
+    if (!isLightboxOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsLightboxOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isLightboxOpen]);
+
   if (!announcement) return null;
 
   const getPriorityIcon = (priority: string) => {
@@ -132,17 +179,52 @@ export function AnnouncementModal({ announcement, onClose }: AnnouncementModalPr
                         .split(',')
                         .map((s) => s.trim())
                         .filter(Boolean);
-                      return urls.length === 1 ? (
-                        <img
-                          src={urls[0]}
-                          alt={announcement.title}
-                          className="w-full h-64 sm:h-80 object-cover rounded-lg border border-gray-200"
-                        />
-                      ) : (
-                        <div className="grid grid-cols-2 gap-3">
-                          {urls.map((u, i) => (
-                            <img key={i} src={u} alt={`${announcement.title} ${i+1}`} className="w-full h-40 object-cover rounded-lg border border-gray-200" />
-                          ))}
+                      
+                      if (urls.length === 0) return null;
+                      
+                      return (
+                        <div className="relative bg-gray-50 rounded-lg border border-gray-200 flex items-center justify-center overflow-hidden">
+                          {/* Image Counter */}
+                          {urls.length > 1 && (
+                            <div className="absolute top-3 right-3 z-10 bg-black bg-opacity-70 text-white text-sm px-3 py-1.5 rounded-full font-medium">
+                              {currentImageIndex + 1} / {urls.length}
+                            </div>
+                          )}
+                          
+                          <img
+                            src={urls[currentImageIndex]}
+                            alt={`${announcement.title} - Image ${currentImageIndex + 1}`}
+                            className="w-full max-h-[500px] object-contain rounded-lg cursor-zoom-in"
+                            onClick={() => setIsLightboxOpen(true)}
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = 'none';
+                              const container = target.parentElement;
+                              if (container) {
+                                container.innerHTML = '<div class="flex items-center justify-center h-48 text-gray-400 w-full"><div class="text-center"><svg class="w-12 h-12 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg><p class="text-sm">Image unavailable</p></div></div>';
+                              }
+                            }}
+                          />
+                          
+                          {/* Navigation Buttons */}
+                          {urls.length > 1 && (
+                            <>
+                              <button
+                                onClick={() => setCurrentImageIndex((prev) => (prev - 1 + urls.length) % urls.length)}
+                                className="absolute left-3 top-1/2 -translate-y-1/2 z-10 bg-white bg-opacity-90 hover:bg-opacity-100 text-gray-800 rounded-full p-3 shadow-xl transition-all"
+                                aria-label="Previous image"
+                              >
+                                <ChevronLeft className="w-5 h-5" />
+                              </button>
+                              <button
+                                onClick={() => setCurrentImageIndex((prev) => (prev + 1) % urls.length)}
+                                className="absolute right-3 top-1/2 -translate-y-1/2 z-10 bg-white bg-opacity-90 hover:bg-opacity-100 text-gray-800 rounded-full p-3 shadow-xl transition-all"
+                                aria-label="Next image"
+                              >
+                                <ChevronRight className="w-5 h-5" />
+                              </button>
+                            </>
+                          )}
                         </div>
                       );
                     })()}
@@ -220,6 +302,78 @@ export function AnnouncementModal({ announcement, onClose }: AnnouncementModalPr
           </FocusTrap>
         </div>
       </div>
+
+      {/* Lightbox for fullscreen image view */}
+      {isLightboxOpen && announcement.image_url && (
+        <div
+          className="fixed inset-0 z-[9999] bg-black bg-opacity-95 flex items-center justify-center p-4"
+          onClick={() => setIsLightboxOpen(false)}
+        >
+          <button
+            className="absolute top-4 right-4 text-white hover:text-gray-300 z-10"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsLightboxOpen(false);
+            }}
+            aria-label="Close fullscreen"
+          >
+            <X className="w-10 h-10" />
+          </button>
+
+          {(() => {
+            const urls = (announcement.image_url || '')
+              .split(',')
+              .map((s) => s.trim())
+              .filter(Boolean);
+
+            return (
+              <>
+                {/* Image Counter */}
+                {urls.length > 1 && (
+                  <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 bg-black bg-opacity-70 text-white text-base px-4 py-2 rounded-full font-medium">
+                    {currentImageIndex + 1} / {urls.length}
+                  </div>
+                )}
+
+                <div className="relative w-full h-full flex items-center justify-center">
+                  <img
+                    src={urls[currentImageIndex]}
+                    alt={`${announcement.title} - Image ${currentImageIndex + 1}`}
+                    className="max-w-[95vw] max-h-[95vh] object-contain cursor-default"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+
+                  {/* Navigation Buttons */}
+                  {urls.length > 1 && (
+                    <>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setCurrentImageIndex((prev) => (prev - 1 + urls.length) % urls.length);
+                        }}
+                        className="absolute left-4 top-1/2 -translate-y-1/2 bg-white bg-opacity-90 hover:bg-opacity-100 text-gray-800 rounded-full p-4 shadow-xl transition-all"
+                        aria-label="Previous image"
+                      >
+                        <ChevronLeft className="w-8 h-8" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setCurrentImageIndex((prev) => (prev + 1) % urls.length);
+                        }}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 bg-white bg-opacity-90 hover:bg-opacity-100 text-gray-800 rounded-full p-4 shadow-xl transition-all"
+                        aria-label="Next image"
+                      >
+                        <ChevronRight className="w-8 h-8" />
+                      </button>
+                    </>
+                  )}
+                </div>
+              </>
+            );
+          })()}
+        </div>
+      )}
     </div>
   );
 }

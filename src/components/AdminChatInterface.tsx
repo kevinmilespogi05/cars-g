@@ -258,6 +258,7 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
     setIsLoading(true);
     try {
       console.log('Loading messages for user:', userId);
+      console.log('Current admin user:', user);
       
       // Use server API to get messages (bypasses RLS issues)
       const response = await fetch(getApiUrl(`/api/chat/messages/${userId}`));
@@ -273,6 +274,8 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
       }
 
       console.log('Loaded messages:', data.messages);
+      console.log('First message sender_id:', data.messages?.[0]?.sender_id, 'vs admin id:', user?.id);
+      
       // Force a state update with a new array reference
       const newMessages = [...(data.messages || [])];
       setMessages(newMessages);
@@ -603,7 +606,7 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
                {/* Messages */}
                <div 
                  ref={messagesContainerRef} 
-                 className="flex-1 overflow-y-auto p-8 space-y-6 relative"
+                 className="flex-1 overflow-y-auto p-6 space-y-4 relative"
                  onWheel={(e) => e.stopPropagation()}
                  onTouchMove={(e) => e.stopPropagation()}
                >
@@ -623,45 +626,125 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
                 ) : (
                   messages.map((message, index) => {
                     const isOwn = message.sender_id === user?.id;
+                    const showAvatar = index === 0 || messages[index - 1].sender_id !== message.sender_id;
+                    const showName = showAvatar;
+                    
+                    // Debug logging
+                    if (index === 0) {
+                      console.log('Message rendering debug:', {
+                        message_id: message.id,
+                        sender_id: message.sender_id,
+                        admin_id: user?.id,
+                        isOwn,
+                        sender_data: message.sender
+                      });
+                    }
+                    
+                    // Determine user info based on who actually sent the message
+                    // If sender data exists, use it; otherwise determine from sender_id
+                    let userName: string;
+                    let userAvatar: string;
+                    
+                    if (message.sender?.username) {
+                      // Use the sender data from the message
+                      userName = message.sender.username;
+                      userAvatar = message.sender.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}&background=random&size=128`;
+                    } else {
+                      // Fallback: determine from sender_id matching
+                      if (isOwn) {
+                        // Admin sent this message
+                        userName = user?.username || 'Admin';
+                        userAvatar = user?.avatar_url || `https://ui-avatars.com/api/?name=Admin&background=3b82f6&color=fff&size=128`;
+                      } else {
+                        // User sent this message
+                        userName = selectedChat?.user?.username || 'User';
+                        userAvatar = selectedChat?.user?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}&background=random&size=128`;
+                      }
+                    }
+                    
                     return (
                       <div
                         key={message.id}
                         data-message-id={message.id}
-                        className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}
+                        className={`flex ${isOwn ? 'justify-end' : 'justify-start'} group`}
                       >
-                        <div 
-                          className={`max-w-sm lg:max-w-lg px-6 py-4 rounded-2xl shadow-lg ${
-                            isOwn
-                              ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white'
-                              : 'bg-white text-gray-900 border-2 border-gray-200'
-                          }`}
-                        >
-                            <p className={`text-base leading-relaxed font-medium ${
-                              isOwn ? 'text-white' : 'text-gray-900'
-                            }`}>{message.message}</p>
-                            <div className={`flex items-center justify-between mt-3 ${
-                              isOwn ? 'text-blue-100' : 'text-gray-600'
-                            }`}>
-                              <p className="text-sm font-medium">
-                                {formatTime(message.created_at)}
+                        {/* Avatar for received messages (left side) */}
+                        {!isOwn && (
+                          <div className={`flex-shrink-0 mr-2.5 ${showAvatar ? '' : 'invisible'}`}>
+                            <img
+                              src={userAvatar}
+                              alt={userName}
+                              className="w-10 h-10 rounded-full object-cover ring-2 ring-white shadow-sm"
+                            />
+                          </div>
+                        )}
+
+                        {/* Message content */}
+                        <div className={`flex flex-col ${isOwn ? 'items-end' : 'items-start'} max-w-[70%]`}>
+                          {/* Username */}
+                          {showName && (
+                            <div className={`px-3 mb-1 ${isOwn ? 'text-right' : 'text-left'}`}>
+                              <span className="text-xs font-semibold text-gray-600">
+                                {userName}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Message bubble */}
+                          <div className="relative group/message">
+                            <div
+                              className={`
+                                px-4 py-3 rounded-2xl shadow-sm transition-all duration-200
+                                ${isOwn 
+                                  ? 'bg-blue-500 text-white rounded-br-md hover:shadow-md' 
+                                  : 'bg-white text-gray-900 border border-gray-200 rounded-bl-md hover:shadow-md'
+                                }
+                              `}
+                            >
+                              {/* Message text */}
+                              <p className={`text-sm break-words leading-relaxed whitespace-pre-wrap ${
+                                isOwn ? 'text-white' : 'text-gray-800'
+                              }`}>
+                                {message.message}
                               </p>
-                              {isOwn && (
-                                <div className="flex items-center">
-                                  {message.seen_at ? (
-                                    <CheckCheck className="w-4 h-4 text-blue-100" />
-                                  ) : message.is_read ? (
-                                    <Check className="w-4 h-4 text-blue-100" />
-                                  ) : (
-                                    <Check className="w-4 h-4 text-blue-100 opacity-50" />
-                                  )}
-                                </div>
-                              )}
+
+                              {/* Timestamp and status */}
+                              <div className={`flex items-center justify-end gap-1.5 mt-2 ${
+                                isOwn ? 'text-blue-100' : 'text-gray-400'
+                              }`}>
+                                <span className="text-[10px] font-medium leading-none">
+                                  {formatTime(message.created_at)}
+                                </span>
+                                {isOwn && (
+                                  <div className="flex items-center">
+                                    {message.seen_at ? (
+                                      <CheckCheck className="w-3.5 h-3.5 text-blue-200" />
+                                    ) : message.is_read ? (
+                                      <CheckCheck className="w-3.5 h-3.5 text-blue-300" />
+                                    ) : (
+                                      <Check className="w-3.5 h-3.5 text-blue-300 opacity-60" />
+                                    )}
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </div>
-                      );
-                    })
-                  )}
+
+                        {/* Avatar for sent messages (right side) */}
+                        {isOwn && (
+                          <div className={`flex-shrink-0 ml-2.5 ${showAvatar ? '' : 'invisible'}`}>
+                            <img
+                              src={userAvatar}
+                              alt={userName}
+                              className="w-10 h-10 rounded-full object-cover ring-2 ring-blue-100 shadow-sm"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
                 <div ref={messagesEndRef} />
                 
                 {/* Scroll to bottom button */}
@@ -678,14 +761,15 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
               </div>
 
               {/* Message Input */}
-              <div className="p-8 border-t-2 border-gray-300/60 bg-white/90 backdrop-blur-sm">
-                <div className="flex items-end space-x-3">
+              <div className="p-4 border-t border-gray-200 bg-white">
+                <div className="flex items-end gap-3">
+                  {/* Input container */}
                   <div className="flex-1 relative">
-                    <div className="relative">
+                    <div className="relative bg-gray-50 rounded-3xl border border-gray-200 focus-within:border-blue-400 focus-within:bg-white transition-all duration-200 shadow-sm hover:shadow-md">
                       <input
                         type="text"
-                        placeholder="Type your message here..."
-                        className="w-full px-6 py-4 pr-16 border-2 border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400 transition-all duration-200 bg-white shadow-md hover:shadow-lg text-base"
+                        placeholder="Type a message..."
+                        className="w-full px-4 py-3 pr-20 bg-transparent rounded-3xl focus:outline-none transition-all duration-200 text-sm text-gray-900 placeholder-gray-400"
                         onKeyPress={(e) => {
                           if (e.key === 'Enter') {
                             handleSendMessage(e.currentTarget.value);
@@ -695,22 +779,28 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
                       />
                       
                       {/* Attachment and emoji buttons */}
-                      <div className="absolute right-4 top-1/2 transform -translate-y-1/2 flex items-center space-x-2">
+                      <div className="absolute right-2 bottom-2 flex items-center gap-1">
                         <button
-                          className="p-2 text-gray-500 hover:text-gray-700 transition-colors"
+                          type="button"
+                          className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-full transition-all duration-200"
+                          title="Attach file"
                         >
-                          <Paperclip className="w-5 h-5" />
+                          <Paperclip className="w-4 h-4" />
                         </button>
                         <button
-                          className="p-2 text-gray-500 hover:text-gray-700 transition-colors"
+                          type="button"
+                          className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-full transition-all duration-200"
+                          title="Add emoji"
                         >
-                          <Smile className="w-5 h-5" />
+                          <Smile className="w-4 h-4" />
                         </button>
                       </div>
                     </div>
                   </div>
                   
+                  {/* Send button */}
                   <button
+                    type="button"
                     onClick={() => {
                       const input = document.querySelector('input[type="text"]') as HTMLInputElement;
                       if (input?.value) {
@@ -718,10 +808,16 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
                         input.value = '';
                       }
                     }}
-                    className="p-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-2xl shadow-lg hover:shadow-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200"
+                    className="flex items-center justify-center flex-shrink-0 w-12 h-12 rounded-full bg-blue-500 text-white hover:bg-blue-600 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl transition-all duration-200"
+                    title="Send message"
                   >
-                    <Send className="w-6 h-6" />
+                    <Send className="w-5 h-5" />
                   </button>
+                </div>
+                
+                {/* Helper text */}
+                <div className="mt-2 text-xs text-gray-400 px-1">
+                  Press Enter to send
                 </div>
               </div>
             </>

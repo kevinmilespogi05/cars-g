@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import { supabase } from '../lib/supabase';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { 
-  UserPlus, 
   Mail, 
   Lock, 
   User, 
@@ -12,17 +10,8 @@ import {
   Eye,
   EyeOff,
   ArrowLeft,
-  Zap,
-  CheckCircle,
-  Shield,
-  Star,
-  Globe,
-  Smartphone,
-  ChevronRight,
-  FileText,
-  X
+  CheckCircle
 } from 'lucide-react';
-import { getApiUrl } from '../lib/config';
 
 export function Register() {
   const navigate = useNavigate();
@@ -32,1037 +21,270 @@ export function Register() {
   const [username, setUsername] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [phone, setPhone] = useState('+63 ');
+  const [phone, setPhone] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [isSocialLoading, setIsSocialLoading] = useState<'google' | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-  const [isFocused, setIsFocused] = useState<string | null>(null);
-  const [privacyAccepted, setPrivacyAccepted] = useState(false);
-  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
-  
-  // Email verification removed
-  
-  // Validation states
-  const [usernameError, setUsernameError] = useState('');
-  const [emailError, setEmailError] = useState('');
-  const [isValidatingUsername, setIsValidatingUsername] = useState(false);
-  const [isValidatingEmail, setIsValidatingEmail] = useState(false);
-  const [usernameValid, setUsernameValid] = useState(false);
-  const [emailValid, setEmailValid] = useState(false);
-  const [passwordError, setPasswordError] = useState('');
-  const [confirmPasswordError, setConfirmPasswordError] = useState('');
-  const [phoneError, setPhoneError] = useState('');
-  
-
-  // Validation functions
-  const validateUsername = async (username: string) => {
-    if (!username || username.length < 3) {
-      setUsernameError('Username must be at least 3 characters long');
-      return false;
-    }
-
-    // Check for alphanumeric characters only
-    const alphanumericRegex = /^[a-zA-Z0-9]+$/;
-    if (!alphanumericRegex.test(username)) {
-      setUsernameError('Username can only contain letters and numbers (no special characters)');
-      return false;
-    }
-
-    setIsValidatingUsername(true);
-    setUsernameError('');
-
-    try {
-      // Use the server endpoint to check username availability
-      const response = await fetch(getApiUrl('/api/auth/check-username'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ username }),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        setUsernameError(result.error || 'Failed to validate username. Please try again.');
-        return false;
-      }
-
-      if (!result.success) {
-        setUsernameError(result.error || 'Failed to validate username. Please try again.');
-        return false;
-      }
-
-      if (!result.available) {
-        setUsernameError('This username is already taken. Please choose a different username.');
-        return false;
-      }
-
-      setUsernameError('');
-      setUsernameValid(true);
-      return true;
-    } catch (error) {
-      setUsernameError('Failed to validate username. Please try again.');
-      return false;
-    } finally {
-      setIsValidatingUsername(false);
-    }
-  };
-
-  const validateEmail = async (email: string) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!email || !emailRegex.test(email)) {
-      setEmailError('Please enter a valid email address');
-      return false;
-    }
-
-    setIsValidatingEmail(true);
-    setEmailError('');
-
-    try {
-      // Check both profiles table and auth.users table
-      const [profilesResult, authResult] = await Promise.all([
-        supabase
-          .from('profiles')
-          .select('id')
-          .eq('email', email)
-          .maybeSingle(),
-        // Use the admin client to check auth.users
-        fetch(getApiUrl('/api/auth/check-email'), {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ email }),
-        })
-      ]);
-
-      // Check profiles table
-      if (profilesResult.error) {
-        setEmailError('Failed to validate email. Please try again.');
-        return false;
-      }
-
-      if (profilesResult.data) {
-        setEmailError('An account with this email already exists. Please try signing in instead.');
-        return false;
-      }
-
-      // Check auth.users table via API
-      if (authResult.ok) {
-        const authData = await authResult.json();
-        if (!authData.success) {
-          setEmailError(authData.error || 'Failed to validate email. Please try again.');
-          return false;
-        }
-        if (!authData.available) {
-          setEmailError('An account with this email already exists. Please try signing in instead.');
-          return false;
-        }
-      }
-
-      setEmailError('');
-      setEmailValid(true);
-      return true;
-    } catch (error) {
-      setEmailError('Failed to validate email. Please try again.');
-      return false;
-    } finally {
-      setIsValidatingEmail(false);
-    }
-  };
-
-  // Debounced validation functions
-  const debouncedValidateUsername = React.useCallback(
-    debounce((username: string) => {
-      // Only proceed with server validation if format is valid
-      if (username.length >= 3) {
-        const alphanumericRegex = /^[a-zA-Z0-9]+$/;
-        if (alphanumericRegex.test(username)) {
-          validateUsername(username);
-        }
-      }
-    }, 500),
-    []
-  );
-
-  const debouncedValidateEmail = React.useCallback(
-    debounce((email: string) => {
-      // Only proceed with server validation if format is valid
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (email && emailRegex.test(email)) {
-        validateEmail(email);
-      }
-    }, 500),
-    []
-  );
-
-  // Debounce utility function
-  function debounce<T extends (...args: any[]) => any>(func: T, wait: number): T {
-    let timeout: NodeJS.Timeout;
-    return ((...args: any[]) => {
-      clearTimeout(timeout);
-      timeout = setTimeout(() => func(...args), wait);
-    }) as T;
-  }
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setPasswordError('');
-    setConfirmPasswordError('');
-    setPhoneError('');
-    
-    if (!privacyAccepted) {
-      setError('Please accept the Privacy Policy and Terms of Service to continue.');
+    setSuccess('');
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
       return;
     }
 
-    // Validate username and email before proceeding
-    const isUsernameValid = await validateUsername(username);
-    const isEmailValid = await validateEmail(email);
-
-    if (!isUsernameValid || !isEmailValid) {
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters long');
       return;
     }
 
-    // Client-side password strength validation
-    const lengthOK = password.length >= 8;
-    const hasLower = /[a-z]/.test(password);
-    const hasUpper = /[A-Z]/.test(password);
-    const hasDigit = /\d/.test(password);
-    const hasSpecial = /[^A-Za-z0-9]/.test(password);
-    const categories = [hasLower, hasUpper, hasDigit, hasSpecial].filter(Boolean).length;
-    const strongEnough = lengthOK && categories >= 3;
-    if (!strongEnough) {
-      setPasswordError('Use 8+ chars and at least 3 of: upper, lower, number, symbol.');
-      return;
-    }
-
-    if (confirmPassword !== password) {
-      setConfirmPasswordError('Passwords do not match');
-      return;
-    }
-
-    if (phone && phone !== '+63 ') {
-      const phRegex = /^\+63\s\d{10}$/;
-      if (!phRegex.test(phone)) {
-        setPhoneError('Enter a valid PH mobile: +63 followed by 10 digits');
-        return;
-      }
-    }
-    
     setIsLoading(true);
 
     try {
-      // Register user (no email verification)
-      const result = await signUp(email, password, username, firstName, lastName, phone, confirmPassword);
-      
-      // Navigate to login after successful registration
-      navigate('/login', { 
-        state: { 
-          message: 'Registration successful! You can now sign in with your credentials.' 
-        } 
-      });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to create account';
-      setError(message);
+      await signUp(email, password, username, firstName || '', lastName || '', phone || '', confirmPassword || '');
+      setSuccess('Registration successful! Please check your email for verification.');
+      setTimeout(() => {
+        navigate('/login');
+      }, 2000);
+    } catch (error: any) {
+      setError(error.message || 'Registration failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Verification flow removed
-
   const handleGoogleSignUp = async () => {
-    setError('');
-    setIsSocialLoading('google');
     try {
       await signInWithGoogle();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to sign up with Google');
-      setIsSocialLoading(null);
+    } catch (error: any) {
+      setError(error.message || 'Google sign-up failed. Please try again.');
     }
   };
 
-
-
-
   return (
-    <div className="min-h-screen bg-gray-50 relative overflow-hidden">
-      {/* Background Elements */}
-      <div className="absolute inset-0 -z-10">
-        <div className="absolute top-0 right-1/4 w-96 h-96 bg-gray-100/30 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-0 left-1/4 w-80 h-80 bg-blue-100/30 rounded-full blur-3xl"></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-gray-50/20 rounded-full blur-3xl"></div>
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center p-4">
+      <div className="max-w-md w-full">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <Link to="/" className="inline-flex items-center text-indigo-600 hover:text-indigo-700 mb-4">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Home
+          </Link>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Create Account</h1>
+          <p className="text-gray-600">Join our community and start making a difference</p>
+        </div>
 
-      {/* Back to Home Link */}
-      <div className="absolute top-6 left-6 z-10">
-        <Link
-          to="/"
-          className="inline-flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors group"
-        >
-          <ArrowLeft className="h-5 w-5 group-hover:-translate-x-1 transition-transform duration-200" />
-          <span className="font-medium">Back to Home</span>
-        </Link>
-      </div>
-
-      <div className="min-h-screen flex items-center justify-center py-6 px-4 sm:py-12 sm:px-6 lg:px-8">
-        <motion.div 
-          className="w-full max-w-md space-y-8 bg-white/80 backdrop-blur-sm p-8 sm:p-10 rounded-3xl shadow-2xl border border-white/20"
+        {/* Registration Form */}
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
+          transition={{ duration: 0.5 }}
+          className="bg-white rounded-2xl shadow-xl p-8"
         >
-          {/* Registration Form */}
-              {/* Header Section */}
-          <motion.div 
-            className="text-center space-y-6"
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.1 }}
-          >
-            <div className="flex justify-center">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Name Fields */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-2">
+                  First Name
+                </label>
+                <input
+                  type="text"
+                  id="firstName"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                  placeholder="John"
+                />
+              </div>
+              <div>
+                <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-2">
+                  Last Name
+                </label>
+                <input
+                  type="text"
+                  id="lastName"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                  placeholder="Doe"
+                />
+              </div>
+            </div>
+
+            {/* Email */}
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                Email Address
+              </label>
               <div className="relative">
-                <div className="h-20 w-20 rounded-2xl flex items-center justify-center shadow-xl" style={{backgroundColor: '#800000'}}>
-                  <img src="/images/logo.jpg" alt="CARS-G Logo" className="h-12 w-12 rounded-lg object-cover" />
-                </div>
-                <div className="absolute -top-1 -right-1 h-6 w-6 bg-green-500 rounded-full border-2 border-white animate-pulse"></div>
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <input
+                  type="email"
+                  id="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                  placeholder="john@example.com"
+                />
               </div>
             </div>
-            <div className="space-y-3">
-              <h1 className="text-3xl sm:text-4xl font-bold text-gray-900">
-                Join CARS-G
-              </h1>
-              <p className="text-gray-600 text-lg">
-                Create your account and start protecting your community
-              </p>
+
+            {/* Username */}
+            <div>
+              <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
+                Username
+              </label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <input
+                  type="text"
+                  id="username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  required
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                  placeholder="johndoe"
+                />
+              </div>
             </div>
-          </motion.div>
-        
-          {/* Form Section */}
-          {(
-            <motion.form 
-              className="space-y-6"
-              onSubmit={handleSubmit}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-            >
-            {/* Error Alert */}
-            <AnimatePresence>
-              {error && (
-                <motion.div 
-                  className="bg-red-50 border-2 border-red-200 text-red-700 px-4 py-4 rounded-2xl flex items-center text-sm"
-                  initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                  transition={{ duration: 0.3 }}
+
+            {/* Phone */}
+            <div>
+              <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
+                Phone Number (Optional)
+              </label>
+              <input
+                type="tel"
+                id="phone"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                placeholder="+1 (555) 123-4567"
+              />
+            </div>
+
+            {/* Password */}
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+                Password
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  id="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                  placeholder="••••••••"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
                 >
-                  <AlertCircle className="h-5 w-5 mr-3 flex-shrink-0" />
-                  <span className="font-medium">{error}</span>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          
-            {/* Input Fields */}
-            <div className="space-y-6">
-              {/* Name Fields */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label htmlFor="firstName" className="text-sm font-semibold text-gray-700 flex items-center space-x-2">
-                    <User className="h-4 w-4" />
-                    <span>First name</span>
-                  </label>
-                  <div className="relative group">
-                    <div className={`absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none transition-colors duration-200 ${
-                      isFocused === 'firstName' ? 'text-red-600' : 'text-gray-400'
-                    }`}>
-                      <User className="h-5 w-5" />
-                    </div>
-                    <input
-                      id="firstName"
-                      name="firstName"
-                      type="text"
-                      required
-                      value={firstName}
-                      onChange={(e) => setFirstName(e.target.value)}
-                      onFocus={() => setIsFocused('firstName')}
-                      onBlur={() => setIsFocused(null)}
-                      className="block w-full pl-12 pr-4 py-4 border-2 border-gray-200 rounded-2xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all duration-200 bg-gray-50/50 hover:bg-white group-hover:border-gray-300"
-                      placeholder="Your first name"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <label htmlFor="lastName" className="text-sm font-semibold text-gray-700 flex items-center space-x-2">
-                    <User className="h-4 w-4" />
-                    <span>Last name</span>
-                  </label>
-                  <div className="relative group">
-                    <div className={`absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none transition-colors duration-200 ${
-                      isFocused === 'lastName' ? 'text-red-600' : 'text-gray-400'
-                    }`}>
-                      <User className="h-5 w-5" />
-                    </div>
-                    <input
-                      id="lastName"
-                      name="lastName"
-                      type="text"
-                      required
-                      value={lastName}
-                      onChange={(e) => setLastName(e.target.value)}
-                      onFocus={() => setIsFocused('lastName')}
-                      onBlur={() => setIsFocused(null)}
-                      className="block w-full pl-12 pr-4 py-4 border-2 border-gray-200 rounded-2xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all duration-200 bg-gray-50/50 hover:bg-white group-hover:border-gray-300"
-                      placeholder="Your last name"
-                    />
-                  </div>
-                </div>
-              </div>
-              {/* Username Field */}
-              <div className="space-y-2">
-                <label htmlFor="username" className="text-sm font-semibold text-gray-700 flex items-center space-x-2">
-                  <User className="h-4 w-4" />
-                  <span>Username</span>
-                </label>
-                <div className="relative group">
-                  <div className={`absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none transition-colors duration-200 ${
-                    isFocused === 'username' ? 'text-red-600' : usernameValid ? 'text-green-600' : 'text-gray-400'
-           }`}>
-                    <User className="h-5 w-5" />
-                  </div>
-                  <input
-                    id="username"
-                    name="username"
-                    type="text"
-                    required
-                    value={username}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setUsername(value);
-                      setUsernameValid(false);
-                      
-                      // Immediate format validation
-                      if (value.length > 0 && value.length < 3) {
-                        setUsernameError('Username must be at least 3 characters long');
-                      } else if (value.length > 0) {
-                        const alphanumericRegex = /^[a-zA-Z0-9]+$/;
-                        if (!alphanumericRegex.test(value)) {
-                          setUsernameError('Username can only contain letters and numbers (no special characters)');
-                        } else {
-                          setUsernameError(''); // Clear format errors
-                          debouncedValidateUsername(value);
-                        }
-                      } else {
-                        setUsernameError('');
-                      }
-                    }}
-                    onFocus={() => setIsFocused('username')}
-                    onBlur={() => setIsFocused(null)}
-                    className={`block w-full pl-12 ${usernameValid && !usernameError ? 'pr-12' : 'pr-4'} py-4 border-2 rounded-2xl placeholder-gray-400 focus:outline-none focus:ring-2 transition-all duration-200 bg-gray-50/50 hover:bg-white group-hover:border-gray-300 ${
-                      usernameError 
-                        ? 'border-red-500 focus:ring-red-500/20 focus:border-red-500' 
-                        : usernameValid
-                        ? 'border-green-500 focus:ring-green-500/20 focus:border-green-500'
-                        : 'border-gray-200 focus:ring-red-500/20 focus:border-red-500'
-                    }`}
-                    placeholder="Choose a unique username"
-                  />
-                  {/* Success icon */}
-                  {usernameValid && !usernameError && (
-                    <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
-                      <CheckCircle className="h-5 w-5 text-green-600" />
-                    </div>
-                  )}
-                </div>
-                {/* Username validation error */}
-                {usernameError && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="flex items-center text-red-600 text-sm mt-1"
-                  >
-                    <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
-                    <span>{usernameError}</span>
-                    {isValidatingUsername && (
-                      <div className="ml-2 animate-spin h-4 w-4 border-2 border-red-600 border-t-transparent rounded-full"></div>
-                    )}
-                  </motion.div>
-                )}
-                {/* Username success indicator */}
-                {usernameValid && !usernameError && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="flex items-center text-green-600 text-sm mt-1"
-                  >
-                    <CheckCircle className="h-4 w-4 mr-2 flex-shrink-0" />
-                    <span>Username is available!</span>
-                  </motion.div>
-                )}
-              </div>
-
-              {/* Email Field */}
-              <div className="space-y-2">
-                <label htmlFor="email" className="text-sm font-semibold text-gray-700 flex items-center space-x-2">
-                  <Mail className="h-4 w-4" />
-                  <span>Email address</span>
-                </label>
-                <div className="relative group">
-                  <div className={`absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none transition-colors duration-200 ${
-                    isFocused === 'email' ? 'text-red-600' : emailValid ? 'text-green-600' : 'text-gray-400'
-                  }`}>
-                    <Mail className="h-5 w-5" />
-                  </div>
-                  <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setEmail(value);
-                      setEmailValid(false);
-                      
-                      // Immediate format validation
-                      if (value.length > 0) {
-                        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                        if (!emailRegex.test(value)) {
-                          setEmailError('Please enter a valid email address');
-                        } else {
-                          setEmailError(''); // Clear format errors
-                          debouncedValidateEmail(value);
-                        }
-                      } else {
-                        setEmailError('');
-                      }
-                    }}
-                    onFocus={() => setIsFocused('email')}
-                    onBlur={() => setIsFocused(null)}
-                    className={`block w-full pl-12 ${emailValid && !emailError ? 'pr-12' : 'pr-4'} py-4 border-2 rounded-2xl placeholder-gray-400 focus:outline-none focus:ring-2 transition-all duration-200 bg-gray-50/50 hover:bg-white group-hover:border-gray-300 ${
-                      emailError 
-                        ? 'border-red-500 focus:ring-red-500/20 focus:border-red-500' 
-                        : emailValid
-                        ? 'border-green-500 focus:ring-green-500/20 focus:border-green-500'
-                        : 'border-gray-200 focus:ring-red-500/20 focus:border-red-500'
-                    }`}
-                    placeholder="Enter your email address"
-                  />
-                  {/* Success icon */}
-                  {emailValid && !emailError && (
-                    <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
-                      <CheckCircle className="h-5 w-5 text-green-600" />
-                    </div>
-                  )}
-                </div>
-                {/* Email validation error */}
-                {emailError && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="flex items-center text-red-600 text-sm mt-1"
-                  >
-                    <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
-                    <span>{emailError}</span>
-                    {isValidatingEmail && (
-                      <div className="ml-2 animate-spin h-4 w-4 border-2 border-red-600 border-t-transparent rounded-full"></div>
-                    )}
-                  </motion.div>
-                )}
-                {/* Email success indicator */}
-                {emailValid && !emailError && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="flex items-center text-green-600 text-sm mt-1"
-                  >
-                    <CheckCircle className="h-4 w-4 mr-2 flex-shrink-0" />
-                    <span>Email is available!</span>
-                  </motion.div>
-                )}
-              </div>
-              
-              {/* Password Field */}
-              <div className="space-y-2">
-                <label htmlFor="password" className="text-sm font-semibold text-gray-700 flex items-center space-x-2">
-                  <Lock className="h-4 w-4" />
-                  <span>Password</span>
-                </label>
-                <div className="relative group">
-                  <div className={`absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none transition-colors duration-200 ${
-                    isFocused === 'password' ? 'text-red-600' : 'text-gray-400'
-                  }`}>
-                    <Lock className="h-5 w-5" />
-                  </div>
-                   <input
-                    id="password"
-                    name="password"
-                    type={showPassword ? 'text' : 'password'}
-                    required
-                     value={password}
-                     onChange={(e) => {
-                       const val = e.target.value;
-                       setPassword(val);
-                       // Live password feedback
-                       const lengthOK = val.length >= 8;
-                       const hasLower = /[a-z]/.test(val);
-                       const hasUpper = /[A-Z]/.test(val);
-                       const hasDigit = /\d/.test(val);
-                       const hasSpecial = /[^A-Za-z0-9]/.test(val);
-                       const categories = [hasLower, hasUpper, hasDigit, hasSpecial].filter(Boolean).length;
-                       if (!val) {
-                         setPasswordError('');
-                       } else if (!(lengthOK && categories >= 3)) {
-                         setPasswordError('Use 8+ chars and 3 of: upper, lower, number, symbol.');
-                       } else {
-                         setPasswordError('');
-                       }
-                     }}
-                    onFocus={() => setIsFocused('password')}
-                    onBlur={() => setIsFocused(null)}
-                    className="block w-full pl-12 pr-12 py-4 border-2 border-gray-200 rounded-2xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all duration-200 bg-gray-50/50 hover:bg-white group-hover:border-gray-300"
-                    placeholder="Create a strong password"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600 transition-colors duration-200"
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-5 w-5" />
-                    ) : (
-                      <Eye className="h-5 w-5" />
-                    )}
-                  </button>
-               </div>
-               {/* Password helper list */}
-               <div className="text-xs text-gray-600 space-y-1">
-                 <div className="flex items-center">
-                   <span className={`mr-2 ${password.length >= 8 ? 'text-green-600' : 'text-gray-400'}`}>●</span>
-                   At least 8 characters
-                 </div>
-                 <div className="flex items-center">
-                   <span className={`mr-2 ${/[A-Z]/.test(password) ? 'text-green-600' : 'text-gray-400'}`}>●</span>
-                   Uppercase letter
-                 </div>
-                 <div className="flex items-center">
-                   <span className={`mr-2 ${/[a-z]/.test(password) ? 'text-green-600' : 'text-gray-400'}`}>●</span>
-                   Lowercase letter
-                 </div>
-                 <div className="flex items-center">
-                   <span className={`mr-2 ${/\d/.test(password) ? 'text-green-600' : 'text-gray-400'}`}>●</span>
-                   Number
-                 </div>
-                 <div className="flex items-center">
-                   <span className={`mr-2 ${/[^A-Za-z0-9]/.test(password) ? 'text-green-600' : 'text-gray-400'}`}>●</span>
-                   Symbol
-                 </div>
-               </div>
-                {passwordError && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="flex items-center text-red-600 text-sm mt-1"
-                  >
-                    <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
-                    <span>{passwordError}</span>
-                  </motion.div>
-                )}
-              </div>
-
-              {/* Confirm Password Field */}
-              <div className="space-y-2">
-                <label htmlFor="confirmPassword" className="text-sm font-semibold text-gray-700 flex items-center space-x-2">
-                  <Lock className="h-4 w-4" />
-                  <span>Confirm password</span>
-                </label>
-                <div className="relative group">
-                  <div className={`absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none transition-colors duration-200 ${
-                    isFocused === 'confirmPassword' ? 'text-red-600' : 'text-gray-400'
-                  }`}>
-                    <Lock className="h-5 w-5" />
-                  </div>
-                   <input
-                    id="confirmPassword"
-                    name="confirmPassword"
-                    type={showPassword ? 'text' : 'password'}
-                    required
-                     value={confirmPassword}
-                     onChange={(e) => {
-                       const val = e.target.value;
-                       setConfirmPassword(val);
-                       setConfirmPasswordError(val && val !== password ? 'Passwords do not match' : '');
-                     }}
-                    onFocus={() => setIsFocused('confirmPassword')}
-                    onBlur={() => setIsFocused(null)}
-                    className="block w-full pl-12 pr-12 py-4 border-2 border-gray-200 rounded-2xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all duration-200 bg-gray-50/50 hover:bg-white group-hover:border-gray-300"
-                    placeholder="Re-enter your password"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600 transition-colors duration-200"
-                    aria-label={showPassword ? 'Hide passwords' : 'Show passwords'}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-5 w-5" />
-                    ) : (
-                      <Eye className="h-5 w-5" />
-                    )}
-                  </button>
-                </div>
-                {confirmPasswordError && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="flex items-center text-red-600 text-sm mt-1"
-                  >
-                    <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
-                    <span>{confirmPasswordError}</span>
-                  </motion.div>
-                )}
-              </div>
-
-              {/* Phone Field */}
-              <div className="space-y-2">
-                <label htmlFor="phone" className="text-sm font-semibold text-gray-700 flex items-center space-x-2">
-                  <Smartphone className="h-4 w-4" />
-                  <span>Phone (optional)</span>
-                </label>
-                <div className="relative group">
-                  <div className={`absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none transition-colors duration-200 ${
-                    isFocused === 'phone' ? 'text-red-600' : 'text-gray-400'
-                  }`}>
-                    <Smartphone className="h-5 w-5" />
-                  </div>
-                   <input
-                    id="phone"
-                    name="phone"
-                    type="tel"
-                     value={phone}
-                     onChange={(e) => {
-                       // Normalize to PH format: +63 <space> followed by 10 digits
-                       let raw = e.target.value;
-                       // Remove spaces and dashes
-                       raw = raw.replace(/[\s-]/g, '');
-                       // If starts with 0, convert 0XXXXXXXXXX to +63XXXXXXXXXX
-                       if (/^0\d{10}$/.test(raw)) {
-                         raw = '+63 ' + raw.slice(1);
-                       }
-                       // If starts with 63 and digits, add +
-                       if (/^63\d{10}$/.test(raw)) {
-                         raw = '+63 ' + raw.slice(2);
-                       }
-                       // Keep plus and digits only, cap to +63 + 10 digits
-                       raw = raw.replace(/[^+\d]/g, '');
-                       if (!raw.startsWith('+63')) {
-                         // enforce prefix as user types
-                         const digits = raw.replace(/\D/g, '');
-                         raw = '+63 ' + digits.slice(0, 10);
-                       } else {
-                         const tail = raw.slice(3).replace(/\D/g, '').slice(0, 10);
-                         raw = '+63 ' + tail;
-                       }
-                       setPhone(raw);
-                       const phOk = /^\+63\s\d{10}$/.test(raw);
-                       setPhoneError(phOk || !raw ? '' : 'Enter a valid PH mobile: +63 followed by 10 digits');
-                     }}
-                     maxLength={14}
-                    onFocus={() => setIsFocused('phone')}
-                    onBlur={() => setIsFocused(null)}
-                     className="block w-full pl-12 pr-4 py-4 border-2 border-gray-200 rounded-2xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all duration-200 bg-gray-50/50 hover:bg-white group-hover:border-gray-300"
-                     placeholder="e.g. +639171234567"
-                  />
-                </div>
-                {phoneError && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="flex items-center text-red-600 text-sm mt-1"
-                  >
-                    <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
-                    <span>{phoneError}</span>
-                  </motion.div>
-                )}
+                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                </button>
               </div>
             </div>
 
-            {/* Privacy Policy Checkbox */}
-            <div className="space-y-3">
-              <div className="flex items-start space-x-3">
-                <div className="flex items-center h-5">
-                  <input
-                    id="privacy-policy"
-                    name="privacy-policy"
-                    type="checkbox"
-                    checked={privacyAccepted}
-                    onChange={(e) => setPrivacyAccepted(e.target.checked)}
-                    className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded transition-colors duration-200"
-                  />
-                </div>
-                <div className="text-sm">
-                  <label htmlFor="privacy-policy" className="text-gray-700 cursor-pointer">
-                    I agree to the{' '}
-                    <button
-                      type="button"
-                      onClick={() => setShowPrivacyModal(true)}
-                      className="text-red-600 hover:text-red-700 underline font-medium transition-colors duration-200"
-                    >
-                      Privacy Policy
-                    </button>
-                    {' '}and{' '}
-                    <button
-                      type="button"
-                      onClick={() => setShowPrivacyModal(true)}
-                      className="text-red-600 hover:text-red-700 underline font-medium transition-colors duration-200"
-                    >
-                      Terms of Service
-                    </button>
-                  </label>
-                </div>
+            {/* Confirm Password */}
+            <div>
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
+                Confirm Password
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <input
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  id="confirmPassword"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-colors"
+                  placeholder="••••••••"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                </button>
               </div>
             </div>
 
-            {/* Create Account Button */}
-            <motion.button
-              type="submit"
-              disabled={isLoading || usernameError || emailError || !usernameValid || !emailValid || !username || !email}
-              className="group w-full flex justify-center items-center py-4 px-6 border border-transparent rounded-2xl text-lg font-semibold text-white focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 disabled:transform-none"
-              style={{backgroundColor: '#800000'}}
-              onMouseEnter={(e) => e.target.style.backgroundColor = '#660000'}
-              onMouseLeave={(e) => e.target.style.backgroundColor = '#800000'}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              {isLoading ? (
-                <div className="flex items-center space-x-3">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
-                  <span>Creating account...</span>
-                </div>
-              ) : (
-                <div className="flex items-center space-x-3">
-                  <Zap className="h-5 w-5 group-hover:rotate-12 transition-transform duration-300" />
-                  <span>Create Account</span>
-                  <ChevronRight className="h-5 w-5 group-hover:translate-x-1 transition-transform duration-300" />
-                </div>
-              )}
-            </motion.button>
-            
-            {/* Validation status message */}
-            {(usernameError || emailError || !usernameValid || !emailValid) && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="text-center text-sm text-gray-600 mt-2"
-              >
-                Please fix the validation errors above to continue
-              </motion.div>
+            {/* Error Message */}
+            {error && (
+              <div className="flex items-center space-x-2 text-red-600 bg-red-50 p-3 rounded-xl">
+                <AlertCircle className="h-5 w-5" />
+                <span className="text-sm">{error}</span>
+              </div>
             )}
-          </motion.form>
-          )}
 
-          {/* Verification UI removed */}
-        
-          {/* Social Login Section */}
-          {(
-            <motion.div 
-              className="space-y-6"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.4 }}
+            {/* Success Message */}
+            {success && (
+              <div className="flex items-center space-x-2 text-green-600 bg-green-50 p-3 rounded-xl">
+                <CheckCircle className="h-5 w-5" />
+                <span className="text-sm">{success}</span>
+              </div>
+            )}
+
+            {/* Submit Button */}
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full bg-indigo-600 text-white py-3 px-4 rounded-xl font-semibold hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
+              {isLoading ? 'Creating Account...' : 'Create Account'}
+            </button>
+
+            {/* Divider */}
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-200"></div>
+                <div className="w-full border-t border-gray-300" />
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-4 bg-white text-gray-500 font-medium">Or continue with</span>
+                <span className="px-2 bg-white text-gray-500">Or continue with</span>
               </div>
             </div>
 
-            <motion.button
+            {/* Google Sign Up */}
+            <button
+              type="button"
               onClick={handleGoogleSignUp}
-              disabled={isSocialLoading === 'google'}
-              className="group w-full flex justify-center items-center py-4 px-6 border-2 border-gray-200 rounded-2xl text-lg font-semibold text-gray-700 bg-white hover:bg-gray-50 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 shadow-md hover:shadow-lg"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+              className="w-full flex items-center justify-center space-x-3 bg-white border border-gray-300 text-gray-700 py-3 px-4 rounded-xl font-semibold hover:bg-gray-50 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-colors"
             >
-              {isSocialLoading === 'google' ? (
-                <div className="flex items-center space-x-3">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-700"></div>
-                  <span>Signing up...</span>
-                </div>
-              ) : (
-                <div className="flex items-center space-x-3">
-                  <svg className="h-6 w-6" viewBox="0 0 24 24">
-                    <path
-                      fill="#4285F4"
-                      d="M23.745 12.27c0-.79-.07-1.54-.19-2.27h-11.01v4.51h6.27c-.29 1.48-1.14 2.73-2.4 3.58v3h3.86c2.26-2.09 3.47-5.17 3.47-8.82z"
-                    />
-                    <path
-                      fill="#34A853"
-                      d="M12.545 24c3.24 0 5.95-1.08 7.93-2.91l-3.86-3c-1.08.72-2.45 1.16-4.07 1.16-3.13 0-5.78-2.11-6.73-4.96h-3.98v3.09C3.915 21.3 7.935 24 12.545 24z"
-                    />
-                    <path
-                      fill="#FBBC05"
-                      d="M5.815 14.29c-.25-.72-.38-1.49-.38-2.29s.14-1.57.38-2.29V6.62h-3.98a11.86 11.86 0 000 10.76l3.98-3.09z"
-                    />
-                    <path
-                      fill="#EA4335"
-                      d="M12.545 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C18.535 1.19 15.825 0 12.545 0c-4.61 0-8.63 2.7-10.63 6.62l3.98 3.09c.95-2.85 3.6-4.96 6.73-4.96z"
-                    />
-                  </svg>
-                  <span>Sign up with Google</span>
-                </div>
-              )}
-            </motion.button>
-          </motion.div>
-          )}
+              <svg className="h-5 w-5" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+              </svg>
+              <span>Continue with Google</span>
+            </button>
+          </form>
 
-          {/* Footer */}
-          <motion.div 
-            className="text-center"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.5 }}
-          >
+          {/* Login Link */}
+          <div className="mt-6 text-center">
             <p className="text-gray-600">
               Already have an account?{' '}
-              <Link 
-                to="/login" 
-                className="font-semibold text-purple-600 hover:text-purple-700 transition-colors underline decoration-2 underline-offset-2 hover:decoration-purple-700"
-              >
-                Sign in here
+              <Link to="/login" className="text-indigo-600 hover:text-indigo-700 font-semibold">
+                Sign in
               </Link>
             </p>
-          </motion.div>
-
+          </div>
         </motion.div>
       </div>
-
-      {/* Privacy Policy Modal */}
-      <AnimatePresence>
-        {showPrivacyModal && (
-          <motion.div
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setShowPrivacyModal(false)}
-          >
-            <motion.div
-              className="bg-white rounded-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden shadow-2xl"
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* Modal Header */}
-              <div className="flex items-center justify-between p-6 border-b border-gray-200">
-                <div className="flex items-center space-x-3">
-                  <div className="h-10 w-10 rounded-xl flex items-center justify-center" style={{backgroundColor: '#800000'}}>
-                    <Shield className="h-6 w-6 text-white" />
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-bold text-gray-900">Privacy Policy & Terms of Service</h2>
-                    <p className="text-sm text-gray-600">CARS-G Community Safety Platform</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setShowPrivacyModal(false)}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200"
-                >
-                  <X className="h-5 w-5 text-gray-500" />
-                </button>
-              </div>
-
-              {/* Modal Content */}
-              <div className="p-6 overflow-y-auto max-h-[60vh]">
-                <div className="space-y-6 text-sm text-gray-700">
-                  <section>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
-                      <FileText className="h-5 w-5 mr-2" />
-                      Privacy Policy
-                    </h3>
-                    <div className="space-y-3">
-                      <p>
-                        <strong>Information We Collect:</strong> We collect information you provide directly to us, such as when you create an account, submit reports, or contact us for support.
-                      </p>
-                      <p>
-                        <strong>How We Use Your Information:</strong> We use the information we collect to provide, maintain, and improve our services, process reports, and communicate with you about safety concerns in your community.
-                      </p>
-                      <p>
-                        <strong>Information Sharing:</strong> We do not sell, trade, or otherwise transfer your personal information to third parties without your consent, except as described in this policy.
-                      </p>
-                      <p>
-                        <strong>Data Security:</strong> We implement appropriate security measures to protect your personal information against unauthorized access, alteration, disclosure, or destruction.
-                      </p>
-                    </div>
-                  </section>
-
-                  <section>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
-                      <Shield className="h-5 w-5 mr-2" />
-                      Terms of Service
-                    </h3>
-                    <div className="space-y-3">
-                      <p>
-                        <strong>Acceptable Use:</strong> You agree to use CARS-G only for lawful purposes and in accordance with these terms. You may not use the service to submit false reports or engage in any harmful activities.
-                      </p>
-                      <p>
-                        <strong>Community Guidelines:</strong> All users must follow our community guidelines, which promote respectful communication and accurate reporting of safety concerns.
-                      </p>
-                      <p>
-                        <strong>Account Responsibility:</strong> You are responsible for maintaining the confidentiality of your account credentials and for all activities that occur under your account.
-                      </p>
-                      <p>
-                        <strong>Service Availability:</strong> We strive to maintain service availability but cannot guarantee uninterrupted access. We reserve the right to modify or discontinue the service at any time.
-                      </p>
-                    </div>
-                  </section>
-
-                  <section>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
-                      <Globe className="h-5 w-5 mr-2" />
-                      Contact Information
-                    </h3>
-                    <p>
-                      If you have any questions about this Privacy Policy or Terms of Service, please contact us through our support channels within the application.
-                    </p>
-                  </section>
-                </div>
-              </div>
-
-              {/* Modal Footer */}
-              <div className="flex items-center justify-between p-6 border-t border-gray-200 bg-gray-50">
-                <div className="flex items-center space-x-3">
-                  <input
-                    id="modal-privacy-policy"
-                    type="checkbox"
-                    checked={privacyAccepted}
-                    onChange={(e) => setPrivacyAccepted(e.target.checked)}
-                    className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded"
-                  />
-                  <label htmlFor="modal-privacy-policy" className="text-sm text-gray-700 cursor-pointer">
-                    I have read and agree to the Privacy Policy and Terms of Service
-                  </label>
-                </div>
-                <button
-                  onClick={() => setShowPrivacyModal(false)}
-                  className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors duration-200 font-medium"
-                >
-                  Close
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
-} 
+}

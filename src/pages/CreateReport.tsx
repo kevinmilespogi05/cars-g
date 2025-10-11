@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { track } from '@vercel/analytics';
 import { useNavigate } from 'react-router-dom';
-import { Camera, MapPin, Loader2, AlertCircle, X, CheckCircle, Upload, Bot, Sparkles } from 'lucide-react';
+import { Camera, MapPin, Loader2, AlertCircle, X, CheckCircle, Upload, Bot, Sparkles, Trophy, Construction, Shield, Leaf, Building2, HelpCircle, ChevronRight } from 'lucide-react';
 import { MapPicker } from '../components/MapPicker';
 import { useAuthStore } from '../store/authStore';
 import { uploadMultipleImages } from '../lib/cloudinaryStorage';
@@ -13,14 +13,51 @@ import { FocusTrap } from '../components/FocusTrap';
 import { PhotoCapture } from '../components/PhotoCapture';
 
 const CATEGORIES = [
-  'Infrastructure',
-  'Safety',
-  'Environmental',
-  'Public Services',
-  'Other'
+  { 
+    value: 'infrastructure', 
+    label: 'Infrastructure', 
+    icon: Construction,
+    description: 'Roads, sidewalks, bridges, and public structures',
+    color: 'text-orange-600'
+  },
+  { 
+    value: 'safety', 
+    label: 'Safety', 
+    icon: Shield,
+    description: 'Street lights, traffic signs, and public safety concerns',
+    color: 'text-red-600'
+  },
+  { 
+    value: 'environmental', 
+    label: 'Environmental', 
+    icon: Leaf,
+    description: 'Pollution, waste management, and green spaces',
+    color: 'text-green-600'
+  },
+  { 
+    value: 'public services', 
+    label: 'Public Services', 
+    icon: Building2,
+    description: 'Utilities, sanitation, and community services',
+    color: 'text-blue-600'
+  },
+  { 
+    value: 'other', 
+    label: 'Other', 
+    icon: HelpCircle,
+    description: 'Issues not covered by other categories',
+    color: 'text-gray-600'
+  }
+];
+
+const PRIORITY_OPTIONS = [
+  { value: 'low', label: 'Low', color: 'bg-green-100 text-green-800 border-green-300', description: 'Minor issue, no immediate danger' },
+  { value: 'medium', label: 'Medium', color: 'bg-yellow-100 text-yellow-800 border-yellow-300', description: 'Needs attention, moderate impact' },
+  { value: 'high', label: 'High', color: 'bg-red-100 text-red-800 border-red-300', description: 'Urgent, requires immediate action' }
 ];
 
 const MAX_IMAGES = 5;
+const POINTS_FOR_REPORT = 25;
 
 export function CreateReport() {
   const navigate = useNavigate();
@@ -48,7 +85,11 @@ export function CreateReport() {
   const [showPhotoCapture, setShowPhotoCapture] = useState(false);
   const [currentStep, setCurrentStep] = useState<string | null>(null);
   const [isDirty, setIsDirty] = useState(false);
+  const [activeFormStep, setActiveFormStep] = useState(1);
   const submitButtonRef = React.useRef<HTMLButtonElement | null>(null);
+  
+  // Calculate word count for description
+  const wordCount = formData.description.trim() ? formData.description.trim().split(/\s+/).length : 0;
   const safeTrack = (name: string, props?: Record<string, any>) => {
     try {
       // Sample high-volume step events at 30%
@@ -345,42 +386,40 @@ export function CreateReport() {
   const renderImageUploadSection = () => {
     const remainingSlots = MAX_IMAGES - uploadedImages.length;
     return (
-      <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between space-y-4 sm:space-y-0">
-          <div>
-            <h3 className="text-lg font-medium text-gray-900">Photos</h3>
-            <p className="text-sm text-gray-600 mt-1">Add up to 5 photos to help describe the issue</p>
-          </div>
-          <div className="flex space-x-3">
-            <button
-              type="button"
-              onClick={() => setShowPhotoCapture(true)}
+      <div className="space-y-3">
+        {/* Upload Buttons */}
+        <div className="flex flex-col sm:flex-row gap-2">
+          <button
+            type="button"
+            onClick={() => setShowPhotoCapture(true)}
+            disabled={remainingSlots <= 0}
+            className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-2.5 rounded-lg hover:from-blue-700 hover:to-blue-800 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center space-x-2 text-sm font-semibold shadow-sm"
+          >
+            <Camera className="h-4 w-4" />
+            <span>Capture</span>
+          </button>
+          <label className={`flex-1 ${remainingSlots <= 0 ? 'bg-gray-400 cursor-not-allowed' : 'bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 cursor-pointer'} text-white px-4 py-2.5 rounded-lg transition-all duration-200 flex items-center justify-center space-x-2 text-sm font-semibold shadow-sm`}>
+            <Upload className="h-4 w-4" />
+            <span>Upload</span>
+            <input
+              type="file"
+              multiple
+              accept="image/*"
+              onChange={handleImageUpload}
+              className="hidden"
               disabled={remainingSlots <= 0}
-              className="bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-200 flex items-center space-x-2 font-medium shadow-md hover:shadow-lg"
-            >
-              <Camera className="h-4 w-4" />
-              <span>Capture</span>
-            </button>
-            <label className="bg-gray-600 text-white px-4 py-2.5 rounded-lg hover:bg-gray-700 cursor-pointer transition-all duration-200 flex items-center space-x-2 font-medium shadow-md hover:shadow-lg">
-              <Upload className="h-4 w-4" />
-              <span>Upload</span>
-              <input
-                type="file"
-                multiple
-                accept="image/*"
-                onChange={handleImageUpload}
-                className="hidden"
-                disabled={remainingSlots <= 0}
-              />
-            </label>
-          </div>
+            />
+          </label>
         </div>
 
         {/* Photo count indicator */}
-        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
-          <span className="text-sm font-medium text-gray-700">
-            {uploadedImages.length}/5 photos selected
-          </span>
+        <div className="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg border border-gray-200">
+          <div className="flex items-center space-x-1.5">
+            <Camera className="h-4 w-4 text-gray-600" />
+            <span className="text-xs font-semibold text-gray-700">
+              {uploadedImages.length}/{MAX_IMAGES} photos
+            </span>
+          </div>
           {uploadedImages.length > 0 && (
             <button
               type="button"
@@ -389,41 +428,53 @@ export function CreateReport() {
                 setImagePreviewUrls([]);
                 setUploadError(null);
               }}
-              className="text-sm text-red-600 hover:text-red-700 font-medium"
+              className="text-xs text-red-600 hover:text-red-700 font-semibold"
             >
-              Clear All
+              Clear
             </button>
           )}
         </div>
 
         {/* Image previews */}
         {imagePreviewUrls.length > 0 && (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 gap-2">
             {imagePreviewUrls.map((url, index) => (
               <div key={index} className="relative group">
                 <img
                   src={url}
                   alt={`Preview ${index + 1}`}
-                  className="w-full h-32 object-cover rounded-lg shadow-md border border-gray-200"
+                  className="w-full h-20 object-cover rounded-lg shadow-sm border border-gray-200 group-hover:border-blue-400 transition-all duration-200"
                 />
                 <button
                   type="button"
                   onClick={() => removeImage(index)}
-                  className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-red-600 shadow-lg"
+                  className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-all duration-200 hover:bg-red-600 shadow-md"
                 >
-                  <X className="h-4 w-4" />
+                  <X className="h-3 w-3" />
                 </button>
+                <div className="absolute bottom-1 left-1 bg-black bg-opacity-60 text-white text-xs px-1.5 py-0.5 rounded">
+                  {index + 1}
+                </div>
               </div>
             ))}
           </div>
         )}
 
+        {/* Empty state */}
+        {imagePreviewUrls.length === 0 && (
+          <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center bg-gray-50">
+            <Camera className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+            <p className="text-sm text-gray-600 font-medium">No photos added</p>
+            <p className="text-xs text-gray-500 mt-1">Photos help address issues faster</p>
+          </div>
+        )}
+
         {/* Upload error */}
         {uploadError && (
-          <div className="text-red-600 text-sm bg-red-50 p-4 rounded-lg border border-red-200">
-            <div className="flex items-center space-x-2">
-              <AlertCircle className="h-5 w-5" />
-              <span>{uploadError}</span>
+          <div className="text-red-700 text-xs bg-red-50 p-3 rounded-lg border border-red-300">
+            <div className="flex items-center space-x-1.5">
+              <AlertCircle className="h-4 w-4 flex-shrink-0" />
+              <span className="font-medium">{uploadError}</span>
             </div>
           </div>
         )}
@@ -440,18 +491,57 @@ export function CreateReport() {
 
   // Success modal is rendered inline below when submitSuccess is true
 
+  // Step progress indicator
+  const steps = [
+    { number: 1, title: 'Details', completed: formData.title && formData.category && formData.description },
+    { number: 2, title: 'Location', completed: location !== null },
+    { number: 3, title: 'Photos', completed: imagePreviewUrls.length > 0 },
+    { number: 4, title: 'Review', completed: false }
+  ];
+
   return (
-    <div className="min-h-[100dvh] bg-gradient-to-br from-gray-50 to-gray-100 py-6 sm:py-8">
-      <div className="w-full max-w-4xl mx-auto px-3 sm:px-4 lg:px-6">
+    <div className="min-h-[100dvh] bg-gradient-to-br from-blue-50 via-gray-50 to-purple-50 py-4 sm:py-6">
+      <div className="w-full max-w-5xl mx-auto px-3 sm:px-4 lg:px-6">
         <div className="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden">
           {/* Header */}
-          <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-8 text-white">
-            <h1 className="text-3xl font-bold">Create New Report</h1>
-            <p className="text-blue-100 mt-2">Help improve your community by reporting issues</p>
+          <div className="bg-gradient-to-r from-blue-600 via-blue-700 to-purple-600 px-5 sm:px-6 lg:px-8 py-5 sm:py-6 lg:py-7 text-white">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-1.5">Create New Report</h1>
+            <p className="text-blue-100 text-sm sm:text-base">Help improve your community by reporting civic issues</p>
           </div>
 
-          {/* Form Content */}
-          <div className="p-6 sm:p-8">
+          {/* Step Progress Indicator */}
+          <div className="bg-gray-50 px-4 sm:px-6 py-4 border-b border-gray-200">
+            <div className="flex items-center justify-between max-w-3xl mx-auto">
+              {steps.map((step, index) => (
+                <React.Fragment key={step.number}>
+                  <div className="flex flex-col items-center flex-1">
+                    <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center font-semibold text-xs sm:text-sm transition-all duration-300 ${
+                      step.completed 
+                        ? 'bg-green-500 text-white shadow-md' 
+                        : activeFormStep >= step.number 
+                          ? 'bg-blue-600 text-white shadow-sm' 
+                          : 'bg-gray-200 text-gray-500'
+                    }`}>
+                      {step.completed ? <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5" /> : step.number}
+                    </div>
+                    <span className={`mt-1.5 text-xs font-medium hidden sm:block ${
+                      activeFormStep >= step.number ? 'text-gray-900' : 'text-gray-500'
+                    }`}>
+                      {step.title}
+                    </span>
+                  </div>
+                  {index < steps.length - 1 && (
+                    <div className={`flex-1 h-0.5 mx-1 sm:mx-2 rounded transition-all duration-300 ${
+                      step.completed ? 'bg-green-500' : 'bg-gray-200'
+                    }`} />
+                  )}
+                </React.Fragment>
+              ))}
+            </div>
+          </div>
+
+          {/* Form Content - Two Column Layout */}
+          <div className="p-4 sm:p-5 lg:p-6">
             {/* AI Generated Report Indicator */}
             {aiGeneratedData && (
               <div className="mb-6 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-xl p-4">
@@ -472,137 +562,250 @@ export function CreateReport() {
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-8">
-              {/* Basic Information Section */}
-              <div className="space-y-6">
-                <h2 className="text-xl font-semibold text-gray-900 border-b border-gray-200 pb-2">Basic Information</h2>
+            <form onSubmit={handleSubmit} className="space-y-4 lg:space-y-5">
+              {/* Two-Column Grid Layout */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5">
                 
-                <div>
-                  <label htmlFor="title-input" className="block text-sm font-medium text-gray-700 mb-2">
-                    Title <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    id="title-input"
-                    type="text"
-                    required
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white"
-                    value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    placeholder="Brief description of the issue"
-                  />
-                </div>
+                {/* LEFT COLUMN - Form Fields */}
+                <div className="space-y-4">
+                  
+                  {/* Report Details Header */}
+                  <div className="flex items-center space-x-2.5">
+                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold text-sm">1</div>
+                    <div>
+                      <h2 className="text-lg sm:text-xl font-bold text-gray-900">Report Details</h2>
+                      <p className="text-xs text-gray-600">Tell us about the issue</p>
+                    </div>
+                  </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-gradient-to-br from-gray-50 to-white rounded-xl p-4 sm:p-5 border border-gray-200 shadow-sm space-y-4">
                   <div>
-                    <label htmlFor="category-select" className="block text-sm font-medium text-gray-700 mb-2">
-                      Category <span className="text-red-500">*</span>
+                    <label htmlFor="title-input" className="block text-sm font-semibold text-gray-900 mb-2">
+                      Issue Title <span className="text-red-500">*</span>
                     </label>
-                    <select
-                      id="category-select"
-                      aria-label="Select report category"
+                    <input
+                      id="title-input"
+                      type="text"
                       required
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white"
-                      value={formData.category}
-                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    >
-                      <option value="">Select a category</option>
-                      {CATEGORIES.map((category) => (
-                        <option key={category} value={category.toLowerCase()}>
-                          {category}
-                        </option>
-                      ))}
-                    </select>
+                      className="w-full px-3.5 py-2.5 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white shadow-sm hover:border-gray-400"
+                      value={formData.title}
+                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                      placeholder="Brief description of the issue"
+                    />
                   </div>
                   
+                  {/* Enhanced Category Selection */}
                   <div>
-                    <label htmlFor="priority-select" className="block text-sm font-medium text-gray-700 mb-2">
-                      Priority <span className="text-red-500">*</span>
+                    <label className="block text-sm font-semibold text-gray-900 mb-2">
+                      Category <span className="text-red-500">*</span>
                     </label>
-                    <select
-                      id="priority-select"
-                      aria-label="Select report priority"
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {CATEGORIES.map((category) => {
+                        const Icon = category.icon;
+                        const isSelected = formData.category === category.value;
+                        return (
+                          <button
+                            key={category.value}
+                            type="button"
+                            onClick={() => setFormData({ ...formData, category: category.value })}
+                            className={`text-left p-3 rounded-lg border transition-all duration-200 ${
+                              isSelected
+                                ? 'border-blue-500 bg-blue-50 shadow-sm ring-1 ring-blue-200'
+                                : 'border-gray-200 bg-white hover:border-blue-300'
+                            }`}
+                          >
+                            <div className="flex items-start space-x-2">
+                              <Icon className={`w-5 h-5 mt-0.5 flex-shrink-0 ${isSelected ? 'text-blue-600' : category.color}`} />
+                              <div className="flex-1 min-w-0">
+                                <div className={`text-sm font-semibold ${isSelected ? 'text-blue-900' : 'text-gray-900'}`}>
+                                  {category.label}
+                                </div>
+                                <div className={`text-xs mt-0.5 ${isSelected ? 'text-blue-700' : 'text-gray-600'}`}>
+                                  {category.description}
+                                </div>
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  
+                  {/* Enhanced Priority Selection */}
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-900 mb-2">
+                      Priority Level <span className="text-red-500">*</span>
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {PRIORITY_OPTIONS.map((option) => {
+                        const isSelected = formData.priority === option.value;
+                        return (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => setFormData({ ...formData, priority: option.value as 'low' | 'medium' | 'high' })}
+                            className={`text-center p-2.5 rounded-lg border transition-all duration-200 ${
+                              isSelected
+                                ? `${option.color} border-current shadow-sm ring-1 ring-opacity-30`
+                                : 'border-gray-200 bg-white hover:border-gray-300'
+                            }`}
+                          >
+                            <div className={`font-bold text-sm ${isSelected ? '' : 'text-gray-700'}`}>
+                              {option.label}
+                            </div>
+                            <div className={`text-xs mt-0.5 leading-tight ${isSelected ? '' : 'text-gray-600'}`}>
+                              {option.description}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  
+                  {/* Description with Word Count */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-sm font-semibold text-gray-900">
+                        Description <span className="text-red-500">*</span>
+                      </label>
+                      <span className="text-xs text-gray-500 font-medium">
+                        {wordCount} {wordCount === 1 ? 'word' : 'words'}
+                      </span>
+                    </div>
+                    <textarea
                       required
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white"
-                      value={formData.priority}
-                      onChange={(e) => setFormData({ ...formData, priority: e.target.value as 'low' | 'medium' | 'high' })}
-                    >
-                      <option value="low">Low</option>
-                      <option value="medium">Medium</option>
-                      <option value="high">High</option>
-                    </select>
+                      rows={4}
+                      className="w-full px-3.5 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 resize-y shadow-sm hover:border-gray-400"
+                      value={formData.description}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      placeholder="Provide a detailed description of the issue you're reporting..."
+                      minLength={10}
+                    />
+                    <p className="mt-1.5 text-xs text-gray-500">Minimum 10 characters required</p>
                   </div>
                 </div>
                 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Description <span className="text-red-500">*</span>
-                  </label>
-                  <textarea
-                    required
-                    rows={4}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 resize-none"
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    placeholder="Provide a detailed description of the issue you're reporting..."
-                  />
-                </div>
-              </div>
-
-              {/* Location Section */}
-              <div className="space-y-6">
-                <h2 className="text-xl font-semibold text-gray-900 border-b border-gray-200 pb-2">Location</h2>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Select Location <span className="text-red-500">*</span>
-                  </label>
-                  <MapPicker 
-                    onLocationSelect={setLocation} 
-                    initialLocation={location || undefined}
-                  />
-                  {location && (
-                    <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
-                      <div className="text-sm text-green-800">
-                        <p>
-                          <span className="font-medium">Selected:</span> {location.address || `${location.lat}, ${location.lng}`}
-                        </p>
-                        <p className="mt-1 text-green-900">
-                          <span className="font-medium">Lat/Lng:</span> {Number.isFinite(location.lat) ? location.lat.toFixed(6) : location.lat}, {Number.isFinite(location.lng) ? location.lng.toFixed(6) : location.lng}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
               </div>
               
-              {/* Photos Section */}
-              <div className="space-y-6">
-                <h2 className="text-xl font-semibold text-gray-900 border-b border-gray-200 pb-2">Photos</h2>
-                {renderImageUploadSection()}
-              </div>
-
-              {/* Submit Section */}
-              <div className="pt-6 border-t border-gray-200">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
-                  <div className="text-sm text-gray-600">
-                    <span className="text-red-500">*</span> Required fields
+              {/* RIGHT COLUMN - Location & Photos */}
+              <div className="space-y-4 lg:sticky lg:top-4 lg:self-start">
+                
+                {/* Location Section */}
+                <div className="space-y-3">
+                  <div className="flex items-center space-x-2.5">
+                    <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center text-purple-600 font-bold text-sm">2</div>
+                    <div>
+                      <h2 className="text-lg sm:text-xl font-bold text-gray-900">Location</h2>
+                      <p className="text-xs text-gray-600">Pin the issue on map</p>
+                    </div>
                   </div>
+                  
+                  <div className="bg-gradient-to-br from-gray-50 to-white rounded-xl p-4 sm:p-5 border border-gray-200 shadow-sm space-y-3">
+                    <label className="block text-sm font-semibold text-gray-900">
+                      Select Location <span className="text-red-500">*</span>
+                    </label>
+                    <div className="rounded-lg overflow-hidden border border-gray-300 shadow-sm">
+                      <MapPicker 
+                        onLocationSelect={setLocation} 
+                        initialLocation={location || undefined}
+                      />
+                    </div>
+                    {location && (
+                      <div className="p-3 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-300 rounded-lg shadow-sm">
+                        <div className="flex items-start space-x-2">
+                          <MapPin className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                          <div className="text-xs text-green-900 flex-1 min-w-0">
+                            <p className="font-semibold break-words">
+                              {location.address || 'Custom Location'}
+                            </p>
+                            <p className="mt-0.5 text-green-700">
+                              {Number.isFinite(location.lat) ? location.lat.toFixed(6) : location.lat}, {Number.isFinite(location.lng) ? location.lng.toFixed(6) : location.lng}
+                            </p>
+                          </div>
+                          <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Photos Section */}
+                <div className="space-y-3">
+                  <div className="flex items-center space-x-2.5">
+                    <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center text-green-600 font-bold text-sm">3</div>
+                    <div>
+                      <h2 className="text-lg sm:text-xl font-bold text-gray-900">Photos</h2>
+                      <p className="text-xs text-gray-600">Add up to 5 images</p>
+                    </div>
+                  </div>
+                  
+                  <div className="bg-gradient-to-br from-gray-50 to-white rounded-xl p-4 sm:p-5 border border-gray-200 shadow-sm">
+                    {renderImageUploadSection()}
+                  </div>
+                </div>
+                
+              </div>
+              
+            </div>
+            
+            {/* HORIZONTAL SECTION - Points Box & Submit Button Side by Side */}
+            <div className="mt-6 sm:mt-8 mb-4">
+              {/* Decorative separator line */}
+              <div className="flex items-center justify-center mb-5 sm:mb-6">
+                <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent max-w-2xl"></div>
+              </div>
+              
+              {/* Horizontal Row - Points Box + Submit Button */}
+              <div className="max-w-4xl mx-auto">
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-5 mb-3">
+                  
+                  {/* Compact Points Reward Box */}
+                  <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-300 rounded-lg p-3.5 sm:p-4 shadow-sm flex items-center space-x-3 w-full sm:w-auto">
+                    {/* Small Trophy Icon */}
+                    <div className="bg-gradient-to-br from-amber-400 to-orange-500 p-2 rounded-lg shadow-sm flex-shrink-0">
+                      <Trophy className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                    </div>
+                    
+                    {/* Compact Message */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm sm:text-base font-bold text-gray-900">
+                        Earn <span className="text-amber-600">{POINTS_FOR_REPORT} points</span> for your report!
+                      </p>
+                      <p className="text-xs text-amber-800 mt-0.5">
+                        Help improve your community
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {/* Submit Button */}
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center font-medium shadow-lg hover:shadow-xl"
+                    className="w-full sm:w-auto px-8 py-3 text-base sm:text-lg bg-gradient-to-r from-blue-600 via-blue-700 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:via-blue-800 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center font-bold shadow-lg hover:shadow-xl whitespace-nowrap"
                     ref={submitButtonRef}
                   >
                     {isSubmitting ? (
                       <>
-                        <Loader2 className="animate-spin -ml-1 mr-2 h-5 w-5" />
-                        {currentStep || 'Submitting...'}
+                        <Loader2 className="animate-spin -ml-1 mr-2.5 h-5 w-5" />
+                        <span>{currentStep || 'Submitting...'}</span>
                       </>
                     ) : (
-                      'Submit Report'
+                      <>
+                        <span>Submit Report</span>
+                        <ChevronRight className="ml-2 h-5 w-5" />
+                      </>
                     )}
                   </button>
+                  
                 </div>
+                
+                {/* Required fields note */}
+                <p className="text-xs text-gray-600 text-center">
+                  <span className="text-red-500 font-bold">*</span> Required fields must be completed
+                </p>
               </div>
+            </div>
+            
             </form>
           </div>
         </div>
@@ -619,17 +822,29 @@ export function CreateReport() {
         )}
 
         {submitSuccess && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 animate-fade-in" role="dialog" aria-modal="true" aria-labelledby="report-success-title">
+          <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 animate-fade-in" role="dialog" aria-modal="true" aria-labelledby="report-success-title">
             <FocusTrap>
-            <div className="bg-white rounded-2xl max-w-sm w-full shadow-2xl p-8 text-center animate-slide-up" tabIndex={0}>
-              <div className="mx-auto mb-4 relative h-16 w-16">
+            <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl p-10 text-center animate-slide-up" tabIndex={0}>
+              <div className="mx-auto mb-6 relative h-20 w-20">
                 <span className="absolute inset-0 rounded-full bg-green-100 animate-ping"></span>
-                <div className="relative h-16 w-16 rounded-full bg-green-600 flex items-center justify-center">
-                  <CheckCircle className="h-10 w-10 text-white" />
+                <div className="relative h-20 w-20 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-xl">
+                  <CheckCircle className="h-12 w-12 text-white" />
                 </div>
               </div>
-              <h3 id="report-success-title" className="text-xl font-semibold text-gray-900 mb-1">Report submitted</h3>
-              <p className="text-gray-600 mb-6">Thank you for helping improve your community.</p>
+              
+              <h3 id="report-success-title" className="text-3xl font-bold text-gray-900 mb-2">Report Submitted!</h3>
+              <p className="text-gray-600 mb-6 text-lg">Thank you for helping improve your community.</p>
+              
+              {/* Points Award Display */}
+              <div className="bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-300 rounded-2xl p-6 mb-6">
+                <div className="flex items-center justify-center space-x-3 mb-2">
+                  <Trophy className="h-8 w-8 text-amber-600" />
+                  <span className="text-4xl font-bold text-amber-700">+{POINTS_FOR_REPORT}</span>
+                </div>
+                <p className="text-amber-800 font-semibold">Points Earned!</p>
+                <p className="text-xs text-amber-700 mt-1">Your contribution has been recorded</p>
+              </div>
+              
               <div className="flex items-center justify-center space-x-3">
                 <button
                   type="button"
@@ -637,7 +852,7 @@ export function CreateReport() {
                     setSubmitSuccess(false);
                     if (submitButtonRef.current) submitButtonRef.current.focus();
                   }}
-                  className="px-5 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition"
+                  className="px-6 py-3 rounded-xl border-2 border-gray-300 text-gray-700 hover:bg-gray-50 transition font-semibold"
                 >
                   Close
                 </button>

@@ -99,12 +99,7 @@ export function QuickActions({ hideEmergencyActions = false }: QuickActionsProps
   return (
     <>
       {/* Desktop/Tablet layout */}
-      <div className="hidden sm:block bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <div className="mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">Quick Actions</h2>
-          <p className="text-sm text-gray-600">Access your most common tasks</p>
-        </div>
-        
+      <div className="hidden sm:block">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {quickActions.map((action, index) => (
             <motion.div
@@ -115,16 +110,16 @@ export function QuickActions({ hideEmergencyActions = false }: QuickActionsProps
             >
               <Link
                 to={action.path}
-                className="block p-4 rounded-lg border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all duration-200 group"
+                className="block p-6 rounded-xl border border-gray-200 hover:border-gray-300 hover:shadow-lg transition-all duration-200 group bg-white hover:bg-gray-50"
               >
                 <div className="flex flex-col items-center text-center">
-                  <div className={`h-12 w-12 ${action.bgColor} rounded-lg flex items-center justify-center mb-3 group-hover:scale-110 transition-transform`}>
-                    <action.icon className={`h-6 w-6 ${action.color}`} />
+                  <div className={`h-14 w-14 ${action.bgColor} rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-sm`}>
+                    <action.icon className={`h-7 w-7 ${action.color}`} />
                   </div>
-                  <h3 className="font-medium text-gray-900 text-sm mb-1">
+                  <h3 className="font-semibold text-gray-900 text-base mb-2">
                     {action.title}
                   </h3>
-                  <p className="text-xs text-gray-500 leading-relaxed">
+                  <p className="text-sm text-gray-600 leading-relaxed">
                     {action.description}
                   </p>
                 </div>
