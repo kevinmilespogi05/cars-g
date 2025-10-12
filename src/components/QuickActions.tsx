@@ -27,9 +27,10 @@ interface QuickAction {
 
 interface QuickActionsProps {
   hideEmergencyActions?: boolean;
+  variant?: 'default' | 'sidebar'; // Add layout variant
 }
 
-export function QuickActions({ hideEmergencyActions = false }: QuickActionsProps) {
+export function QuickActions({ hideEmergencyActions = false, variant = 'default' }: QuickActionsProps) {
   const { user } = useAuthStore();
   const [isOpen, setIsOpen] = React.useState(false);
   const [isChatOpen, setIsChatOpen] = React.useState(false);
@@ -100,49 +101,81 @@ export function QuickActions({ hideEmergencyActions = false }: QuickActionsProps
     <>
       {/* Desktop/Tablet layout */}
       <div className="hidden sm:block">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {quickActions.map((action, index) => (
-            <motion.div
-              key={action.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: index * 0.1 }}
-            >
-              <Link
-                to={action.path}
-                className="block p-6 rounded-xl border border-gray-200 hover:border-gray-300 hover:shadow-lg transition-all duration-200 group bg-white hover:bg-gray-50"
+        {variant === 'sidebar' ? (
+          // Sidebar variant: Vertical list layout for narrow sidebars
+          <div className="space-y-2">
+            {quickActions.map((action, index) => (
+              <motion.div
+                key={action.id}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.2, delay: index * 0.05 }}
               >
-                <div className="flex flex-col items-center text-center">
-                  <div className={`h-14 w-14 ${action.bgColor} rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-sm`}>
-                    <action.icon className={`h-7 w-7 ${action.color}`} />
+                <Link
+                  to={action.path}
+                  className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 hover:border-gray-300 hover:shadow-md transition-all duration-200 group bg-white hover:bg-gray-50"
+                >
+                  <div className={`h-10 w-10 ${action.bgColor} rounded-lg flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform`}>
+                    <action.icon className={`h-5 w-5 ${action.color}`} />
                   </div>
-                  <h3 className="font-semibold text-gray-900 text-base mb-2">
-                    {action.title}
-                  </h3>
-                  <p className="text-sm text-gray-600 leading-relaxed">
-                    {action.description}
-                  </p>
-                </div>
-              </Link>
-            </motion.div>
-          ))}
-        </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-gray-900 text-sm mb-0.5 truncate">
+                      {action.title}
+                    </h3>
+                    <p className="text-xs text-gray-600 truncate">
+                      {action.description}
+                    </p>
+                  </div>
+                </Link>
+              </motion.div>
+            ))}
+          </div>
+        ) : (
+          // Default variant: Grid layout for wider spaces
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {quickActions.map((action, index) => (
+              <motion.div
+                key={action.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, delay: index * 0.1 }}
+              >
+                <Link
+                  to={action.path}
+                  className="block p-6 rounded-xl border border-gray-200 hover:border-gray-300 hover:shadow-lg transition-all duration-200 group bg-white hover:bg-gray-50"
+                >
+                  <div className="flex flex-col items-center text-center">
+                    <div className={`h-14 w-14 ${action.bgColor} rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-sm`}>
+                      <action.icon className={`h-7 w-7 ${action.color}`} />
+                    </div>
+                    <h3 className="font-semibold text-gray-900 text-base mb-2">
+                      {action.title}
+                    </h3>
+                    <p className="text-sm text-gray-600 leading-relaxed">
+                      {action.description}
+                    </p>
+                  </div>
+                </Link>
+              </motion.div>
+            ))}
+          </div>
+        )}
 
-        {/* Emergency Actions */}
-        {user?.role !== 'admin' && !hideEmergencyActions && (
+        {/* Emergency Actions - only show in default variant */}
+        {user?.role !== 'admin' && !hideEmergencyActions && variant === 'default' && (
           <div className="mt-6 pt-6 border-t border-gray-200">
             <h3 className="text-sm font-medium text-gray-900 mb-3">Emergency Actions</h3>
             <div className="flex flex-col sm:flex-row gap-3">
               <Link
                 to="/reports/create?priority=urgent"
-                className="flex items-center justify-center px-4 py-3 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-colors group"
+                className="flex items-center justify-center px-4 py-3 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition-all duration-200 group"
               >
                 <AlertTriangle className="h-5 w-5 text-red-600 mr-2" />
                 <span className="text-sm font-medium text-red-700">Report Emergency</span>
               </Link>
               <Link
                 to="/reports/create"
-                className="flex items-center justify-center px-4 py-3 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors group"
+                className="flex items-center justify-center px-4 py-3 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-all duration-200 group"
               >
                 <Camera className="h-5 w-5 text-blue-600 mr-2" />
                 <span className="text-sm font-medium text-blue-700">Report with Photo</span>

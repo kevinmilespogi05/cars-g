@@ -4,6 +4,7 @@ import { FileText, Award, User, LogOut, Shield, Menu, X, ChevronDown, MapPin, Me
 import { useAuthStore } from '../store/authStore';
 import { supabase } from '../lib/supabase';
 import { ChatButton } from './ChatButton';
+import { PhilippinesDateTime } from './PhilippinesDateTime';
 
 export function Navigation() {
   const location = useLocation();
@@ -73,26 +74,32 @@ export function Navigation() {
 
   return (
     <nav 
-      className={`fixed w-full z-[2000] transition-all duration-300 shadow-lg backdrop-blur-sm bg-white/95 border-b border-gray-200 ${isScrolled ? 'py-2' : 'py-3'}`}
+      className={`fixed w-full z-[2000] transition-all duration-300 shadow-lg ${isScrolled ? 'py-2' : 'py-3'}`}
+      style={{backgroundColor: '#800000'}}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center">
-          {/* Logo */}
-          <Link 
-            to={user ? (user.role === 'admin' ? '/admin' : user.role === 'patrol' ? '/patrol' : '/reports') : '/login'}
-            className="flex items-center space-x-3 text-gray-900 hover:text-blue-600 transition-colors group"
-          >
-            <div className="relative">
-              <img 
-                src="/images/logo.jpg" 
-                alt="CARS-G Logo" 
-                className="h-10 w-10 object-contain rounded-xl shadow-sm group-hover:shadow-md transition-shadow duration-200"
-                loading="lazy"
-              />
-              <div className="absolute -inset-1 rounded-xl opacity-0 group-hover:opacity-20 transition-opacity duration-200 -z-10 bg-blue-500"></div>
-            </div>
-            <span className="text-2xl font-bold text-gray-900 group-hover:text-blue-600 transition-colors">CARS-G</span>
-          </Link>
+          {/* Logo and DateTime */}
+          <div className="flex items-center space-x-4">
+            <Link 
+              to={user ? (user.role === 'admin' ? '/admin' : user.role === 'patrol' ? '/patrol' : '/reports') : '/login'}
+              className="flex items-center space-x-3 text-white hover:text-gray-200 transition-colors group"
+            >
+              <div className="relative">
+                <img 
+                  src="/images/logo.jpg" 
+                  alt="CARS-G Logo" 
+                  className="h-10 w-10 object-contain rounded-xl shadow-sm group-hover:shadow-md transition-shadow duration-200"
+                  loading="lazy"
+                />
+                <div className="absolute -inset-1 rounded-xl opacity-0 group-hover:opacity-10 transition-opacity duration-200 -z-10 bg-white"></div>
+              </div>
+              <span className="text-2xl font-bold text-white group-hover:text-gray-200 transition-colors">CARS-G</span>
+            </Link>
+            
+            {/* Philippines Date and Time */}
+            <PhilippinesDateTime />
+          </div>
 
           {/* Desktop Navigation */}
           {user && (
@@ -103,15 +110,16 @@ export function Navigation() {
                   to={path}
                   className={`
                     inline-flex items-center px-4 py-2.5 rounded-xl text-sm font-medium 
-                    transition-all duration-200 hover:scale-105 relative group
+                    transition-all duration-200 relative group
                     ${isActive(path)
-                      ? 'text-white bg-blue-600 shadow-sm border border-blue-500' 
-                      : 'text-gray-700 hover:text-blue-600 hover:bg-blue-50 hover:shadow-sm'
+                      ? 'text-white shadow-sm border border-white/30' 
+                      : 'text-white hover:text-white'
                     }
                   `}
+                  style={isActive(path) ? {backgroundColor: '#660000'} : undefined}
                 >
                   <Icon className={`h-4 w-4 mr-2 transition-colors duration-200 ${
-                    isActive(path) ? 'text-white' : 'text-gray-600 group-hover:text-blue-600'
+                    isActive(path) ? 'text-white' : 'text-white'
                   }`} />
                   {label}
                   {isActive(path) && (
@@ -132,7 +140,7 @@ export function Navigation() {
               <div className="relative ml-3" ref={profileMenuRef}>
                 <button
                   onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-                  className="flex items-center space-x-2 px-3 py-2 rounded-xl text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-all duration-200 shadow-sm hover:shadow-md border border-transparent hover:border-blue-200"
+                  className="flex items-center space-x-2 px-3 py-2 rounded-xl text-white transition-all duration-200 shadow-sm border border-transparent"
                 >
                   <div className="relative">
                     <img
@@ -195,7 +203,7 @@ export function Navigation() {
           {user && (
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="md:hidden p-2.5 rounded-xl text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-all duration-200 shadow-sm hover:shadow-md border border-gray-200 hover:border-gray-300"
+              className="md:hidden p-2.5 rounded-xl text-white transition-all duration-200 shadow-sm border border-transparent"
               aria-label="Toggle menu"
               aria-expanded={isMobileMenuOpen}
             >
@@ -209,12 +217,15 @@ export function Navigation() {
 
           {!user && (
             <div className="flex items-center space-x-3">
-              <Link to="/login" className="text-gray-700 hover:text-blue-600 transition-colors px-4 py-2.5 rounded-xl hover:bg-blue-50 font-medium shadow-sm hover:shadow-md border border-gray-200 hover:border-blue-200">
+              <Link to="/login" className="text-white hover:text-white transition-colors px-4 py-2.5 rounded-xl font-medium shadow-sm border border-transparent">
                 Sign In
               </Link>
               <Link 
                 to="/register" 
-                className="text-white px-6 py-2.5 rounded-xl transition-all duration-200 font-semibold shadow-md hover:shadow-lg hover:scale-105 bg-blue-600 hover:bg-blue-700"
+                className="text-white px-6 py-2.5 rounded-xl transition-all duration-200 font-semibold shadow-md hover:shadow-lg hover:scale-105 border border-white/30"
+                style={{backgroundColor: '#660000'}}
+                onMouseEnter={(e) => (e.currentTarget as HTMLElement).style.backgroundColor = '#550000'}
+                onMouseLeave={(e) => (e.currentTarget as HTMLElement).style.backgroundColor = '#660000'}
               >
                 Get Started
               </Link>
@@ -224,20 +235,20 @@ export function Navigation() {
 
         {/* Mobile Menu */}
         {user && isMobileMenuOpen && (
-          <div className="md:hidden border-t border-gray-200 mt-3 bg-white/95 backdrop-blur-sm">
-            <div className="px-4 py-4 border-b border-gray-200">
+          <div className="md:hidden border-t border-white/20 mt-3" style={{backgroundColor: '#660000'}}>
+            <div className="px-4 py-4 border-b border-white/20">
               <Link 
                 to="/profile" 
                 className="flex items-center space-x-3 group" 
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 <div className="relative">
-                  <img src={user.avatar_url || '/images/default-avatar.png'} alt="Profile" className="h-12 w-12 rounded-full object-cover ring-2 ring-blue-200 group-hover:ring-blue-300 transition-all duration-200" />
+                  <img src={user.avatar_url || '/images/default-avatar.png'} alt="Profile" className="h-12 w-12 rounded-full object-cover ring-2 ring-white/30 group-hover:ring-white/50 transition-all duration-200" />
                   <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
                 </div>
                 <div>
-                  <div className="text-gray-900 font-medium">{user.username}</div>
-                  <div className="text-gray-600 text-sm capitalize">{user.role} • View Profile</div>
+                  <div className="text-white font-medium">{user.username}</div>
+                  <div className="text-white/70 text-sm capitalize">{user.role} • View Profile</div>
                 </div>
               </Link>
             </div>
@@ -249,13 +260,14 @@ export function Navigation() {
                   to={path}
                   className={`flex items-center px-4 py-3.5 rounded-xl text-base font-medium transition-all duration-200 ${
                     isActive(path) 
-                      ? 'text-white bg-blue-600 border border-blue-500 shadow-sm' 
-                      : 'text-gray-700 hover:bg-blue-50 hover:text-blue-600 hover:shadow-sm'
+                      ? 'text-white border border-white/30 shadow-sm' 
+                      : 'text-white hover:text-white'
                   }`}
+                  style={isActive(path) ? {backgroundColor: '#550000'} : undefined}
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   <Icon className={`h-5 w-5 mr-3 transition-colors duration-200 ${
-                    isActive(path) ? 'text-white' : 'text-gray-600'
+                    isActive(path) ? 'text-white' : 'text-white'
                   }`} />
                   {label}
                 </Link>
@@ -264,11 +276,11 @@ export function Navigation() {
 
               
 
-              <div className="border-t border-gray-200 my-2"></div>
+              <div className="border-t border-white/20 my-2"></div>
               
               <button 
                 onClick={() => { setIsMobileMenuOpen(false); handleLogout(); }} 
-                className="flex items-center w-full px-4 py-3.5 rounded-xl text-base font-medium text-red-600 hover:bg-red-50 hover:text-red-700 transition-all duration-200 hover:shadow-sm"
+                className="flex items-center w-full px-4 py-3.5 rounded-xl text-base font-medium text-red-200 hover:bg-red-900/50 hover:text-white transition-all duration-200 hover:shadow-sm"
               >
                 <LogOut className="h-5 w-5 mr-3" />
                 Sign Out
