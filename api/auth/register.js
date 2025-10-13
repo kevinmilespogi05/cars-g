@@ -37,134 +37,8 @@ const transporter = nodemailer.createTransport({
   socketTimeout: 60000
 });
 
-// Generate OTP
-function generateOTP(length = 6) {
-  return Math.floor(100000 + Math.random() * 900000).toString();
-}
-
-// Send verification email
-async function sendVerificationEmail(email, otp) {
-  try {
-    const htmlContent = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Email Verification</title>
-        <style>
-          body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: #f4f4f4;
-          }
-          .container {
-            background-color: #ffffff;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 0 20px rgba(0,0,0,0.1);
-          }
-          .header {
-            text-align: center;
-            margin-bottom: 30px;
-          }
-          .logo {
-            font-size: 28px;
-            font-weight: bold;
-            color: #4361ee;
-            margin-bottom: 10px;
-          }
-          .otp-container {
-            background-color: #f8f9fa;
-            border: 2px dashed #4361ee;
-            border-radius: 8px;
-            padding: 20px;
-            text-align: center;
-            margin: 20px 0;
-          }
-          .otp-code {
-            font-size: 32px;
-            font-weight: bold;
-            color: #4361ee;
-            letter-spacing: 5px;
-            margin: 10px 0;
-          }
-          .footer {
-            margin-top: 30px;
-            padding-top: 20px;
-            border-top: 1px solid #eee;
-            font-size: 14px;
-            color: #666;
-            text-align: center;
-          }
-          .warning {
-            background-color: #fff3cd;
-            border: 1px solid #ffeaa7;
-            border-radius: 5px;
-            padding: 15px;
-            margin: 20px 0;
-            color: #856404;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <div class="logo">🚗 Cars-G</div>
-            <h2>Email Verification</h2>
-          </div>
-          
-          <p>Hello!</p>
-          
-          <p>Thank you for registering with Cars-G. To complete your registration, please use the verification code below:</p>
-          
-          <div class="otp-container">
-            <p><strong>Your verification code is:</strong></p>
-            <div class="otp-code">${otp}</div>
-            <p><small>This code will expire in 10 minutes</small></p>
-          </div>
-          
-          <div class="warning">
-            <strong>⚠️ Important:</strong> Never share this code with anyone. Cars-G will never ask for your verification code via phone, email, or any other method.
-          </div>
-          
-          <p>If you didn't request this verification code, please ignore this email.</p>
-          
-          <p>Best regards,<br>The Cars-G Team</p>
-          
-          <div class="footer">
-            <p>This is an automated message. Please do not reply to this email.</p>
-            <p>© 2024 Cars-G. All rights reserved.</p>
-          </div>
-        </div>
-      </body>
-      </html>
-    `;
-
-    const mailOptions = {
-      from: EMAIL_SENDER,
-      to: email,
-      subject: 'Verify Your Email - Cars-G Registration',
-      html: htmlContent
-    };
-
-    // CRITICAL: Must await email sending in serverless functions
-    const result = await transporter.sendMail(mailOptions);
-    console.log('✅ Verification email sent successfully:', {
-      to: email,
-      messageId: result.messageId
-    });
-    
-    return true;
-  } catch (error) {
-    console.error('❌ Failed to send verification email:', error);
-    return false;
-  }
-}
+// Note: OTP generation and verification email functions removed
+// as Gmail verification is no longer used for registration
 
 export default async function handler(req, res) {
   // Enable CORS
@@ -219,11 +93,10 @@ export default async function handler(req, res) {
     }
 
     // Check if email or username already exists
-    const [byUser, byEmail, authUsers, existingPending] = await Promise.all([
+    const [byUser, byEmail, authUsers] = await Promise.all([
       supabase.from('profiles').select('id').eq('username', username).maybeSingle(),
       supabase.from('profiles').select('id').eq('email', email).maybeSingle(),
-      supabase.auth.admin.listUsers({ page: 1, perPage: 1000 }),
-      supabase.from('pending_registrations').select('id').eq('email', email).maybeSingle()
+      supabase.auth.admin.listUsers({ page: 1, perPage: 1000 })
     ]);
 
     if (byUser.data) {
@@ -242,62 +115,73 @@ export default async function handler(req, res) {
       });
     }
 
-    // If there's an existing pending registration, delete it
-    if (existingPending.data) {
-      await supabase
-        .from('pending_registrations')
-        .delete()
-        .eq('email', email);
-    }
+    // Create user in Supabase Auth directly
+    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+      email: email,
+      password: password,
+      email_confirm: true, // Mark as confirmed since we're not using email verification
+      user_metadata: {
+        username: username,
+        first_name: firstName || '',
+        last_name: lastName || ''
+      }
+    });
 
-    // Generate OTP
-    const otp = generateOTP();
-    const otpExpiresAt = new Date(Date.now() + (10 * 60 * 1000)).toISOString(); // 10 minutes
-
-    // Store pending registration
-    const { error: pendingError } = await supabase
-      .from('pending_registrations')
-      .insert({
-        email,
-        username,
-        password_hash: password, // Supabase will hash this when creating the user
-        phone: phone || null,
-        code: otp,
-        expires_at: otpExpiresAt
-      });
-
-    if (pendingError) {
-      console.error('Failed to store pending registration:', pendingError);
-      return res.status(500).json({ 
-        success: false, 
-        error: 'Failed to process registration', 
-        code: 'PENDING_ERROR', 
-        details: pendingError.message 
+    if (authError || !authData.user) {
+      console.error('Auth user creation error:', authError);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to create user account',
+        code: 'AUTH_ERROR'
       });
     }
 
-    // CRITICAL: Must await email sending in serverless functions
-    const emailSent = await sendVerificationEmail(email, otp);
-    
-    if (!emailSent) {
-      // Clean up pending registration if email fails
-      await supabase
-        .from('pending_registrations')
-        .delete()
-        .eq('email', email);
-      
-      return res.status(500).json({ 
-        success: false, 
-        error: 'Failed to send verification email', 
-        code: 'EMAIL_SEND_ERROR' 
+    // Prepare profile payload
+    const profilePayload = {
+      id: authData.user.id,
+      email: email,
+      username: username,
+      first_name: firstName || '',
+      last_name: lastName || '',
+      role: 'user',
+      points: 0,
+      email_verified: true,
+      created_at: new Date().toISOString()
+    };
+
+    // Add phone if provided and valid
+    if (phone) {
+      profilePayload.phone = phone;
+    }
+
+    // Create profile in profiles table
+    let { error: profileCreateError } = await supabase
+      .from('profiles')
+      .insert(profilePayload);
+
+    // If phone column doesn't exist, retry without phone
+    if (profileCreateError && String(profileCreateError.message || '').includes("'phone'")) {
+      const { phone: _omit, ...withoutPhone } = profilePayload;
+      const retry = await supabase.from('profiles').insert(withoutPhone);
+      profileCreateError = retry.error || null;
+    }
+
+    if (profileCreateError) {
+      console.error('Profile creation error:', profileCreateError);
+      // Clean up auth user if profile creation fails
+      await supabase.auth.admin.deleteUser(authData.user.id);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to create user profile',
+        code: 'PROFILE_ERROR'
       });
     }
 
     return res.json({ 
       success: true, 
-      message: 'Registration successful! Please check your email for the verification code.',
+      message: 'Registration successful! You can now sign in.',
       email,
-      requiresVerification: true
+      requiresVerification: false
     });
 
   } catch (error) {

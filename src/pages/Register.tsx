@@ -57,7 +57,7 @@ export function Register() {
 
     try {
       await signUp(email, password, username, firstName || '', lastName || '', phone || '', confirmPassword || '');
-      setSuccess('Registration successful! Please check your email for verification.');
+      setSuccess('Registration successful! You can now sign in with your account.');
       setTimeout(() => {
         navigate('/login');
       }, 2000);

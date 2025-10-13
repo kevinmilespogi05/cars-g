@@ -605,7 +605,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     confirmPassword?: string
   ) => {
     try {
-      // Use the server-side registration endpoint (no email verification)
+      // Use the server-side registration endpoint (direct registration without verification)
       const response = await fetch(getApiUrl('/api/auth/register'), {
         method: 'POST',
         headers: {
@@ -622,7 +622,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         }),
       });
 
-    const result = await response.json();
+      const result = await response.json();
 
       if (!response.ok) {
         throw new Error(result.error || 'Registration failed');
@@ -632,10 +632,10 @@ export const useAuthStore = create<AuthState>((set) => ({
         throw new Error(result.error || 'Registration failed');
       }
 
-      // Return simple success (no verification required)
+      // Return success - account is ready to use immediately
       return {
         success: true,
-        message: result.message,
+        message: result.message || 'Registration successful! You can now sign in.',
         email: result.email,
         requiresVerification: false
       };
