@@ -306,8 +306,9 @@ export function AnnouncementModal({ announcement, onClose }: AnnouncementModalPr
       {/* Lightbox for fullscreen image view */}
       {isLightboxOpen && announcement.image_url && (
         <div
-          className="fixed inset-0 z-[9999] bg-black bg-opacity-95 flex items-center justify-center p-4"
+          className="fixed top-0 left-0 right-0 bottom-0 z-[99999] bg-black flex items-center justify-center p-4"
           onClick={() => setIsLightboxOpen(false)}
+          style={{ margin: 0, padding: '1rem' }}
         >
           <button
             className="absolute top-4 right-4 text-white hover:text-gray-300 z-10"

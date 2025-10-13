@@ -763,7 +763,7 @@ export function ReportDetail() {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.25 }}
-            className="bg-white rounded-xl shadow-sm border border-gray-100 lg:sticky lg:top-24 flex flex-col max-h-[600px] lg:max-h-[calc(100vh-8rem)]"
+            className="bg-white rounded-xl shadow-sm border border-gray-100 lg:sticky lg:top-24 flex flex-col h-[500px] lg:h-[calc(100vh-400px)] mb-32 overflow-hidden"
           >
             {/* Tab Navigation */}
             <div className="border-b border-gray-200 flex-shrink-0">
@@ -827,10 +827,10 @@ export function ReportDetail() {
             {!isCommentsCollapsed && (
               <>
                 {/* Scrollable container for "All" view */}
-                <div className={`${activeTab === 'all' ? 'overflow-y-auto flex-1' : ''}`}>
+                <div className={`${activeTab === 'all' ? 'overflow-y-scroll flex-1 min-h-0 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 hover:scrollbar-thumb-gray-400' : 'flex-1 min-h-0 flex flex-col'}`}>
                   {/* User Comments Section */}
                   {(activeTab === 'all' || activeTab === 'comments') && (
-                    <div className={`${activeTab === 'comments' ? 'overflow-y-auto flex-1' : ''}`}>
+                    <div className={`${activeTab === 'comments' ? 'overflow-y-scroll flex-1 min-h-0 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 hover:scrollbar-thumb-gray-400' : 'flex-1 min-h-0'}`}>
                       <div className="p-3 sm:p-4 space-y-0">
                       {/* Always show header in "All" tab, only in "Comments" tab when filtered */}
                       {(activeTab === 'all' || activeTab === 'comments') && (
@@ -1039,7 +1039,7 @@ export function ReportDetail() {
 
                   {/* Officer Updates & Logs Section */}
                   {(activeTab === 'all' || activeTab === 'logs') && (
-                    <div className={`${activeTab === 'logs' ? 'overflow-y-auto flex-1' : ''}`}>
+                    <div className={`${activeTab === 'logs' ? 'overflow-y-scroll flex-1 min-h-0 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 hover:scrollbar-thumb-gray-400' : ''}`}>
                     <div className={`p-3 sm:p-4 space-y-0 ${activeTab === 'all' && reportComments.filter(c => c.comment_type === 'comment').length > 0 ? 'pt-0' : ''}`}>
                       {/* Always show header in "All" tab and "Logs" tab */}
                       {(activeTab === 'all' || activeTab === 'logs') && (
@@ -1425,8 +1425,9 @@ export function ReportDetail() {
       {/* Image Modal */}
       {selectedImage && report.images && (
         <div
-          className="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center p-4"
+          className="fixed top-0 left-0 right-0 bottom-0 z-[99999] bg-black flex items-center justify-center p-4"
           onClick={() => setSelectedImage(null)}
+          style={{ margin: 0, padding: '1rem' }}
         >
           <div className="relative max-w-5xl w-full flex items-center justify-center mx-auto" onClick={(e) => e.stopPropagation()}>
             <button

@@ -2707,7 +2707,7 @@ export function AdminMapDashboard() {
 
       {/* Full-Screen Image Modal */}
       {showImageModal && selectedImage && (
-        <div className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-[10003] p-4">
+        <div className="fixed top-0 left-0 right-0 bottom-0 bg-black flex items-center justify-center z-[99999] p-4" style={{ margin: 0, padding: '1rem' }}>
           <div className="relative max-w-[95vw] max-h-[95vh]">
             {/* Close Button */}
             <button

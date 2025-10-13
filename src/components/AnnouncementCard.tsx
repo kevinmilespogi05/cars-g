@@ -179,11 +179,12 @@ export function AnnouncementCard({ announcement, onView, showAuthor = true }: An
       {/* Lightbox */}
       {isLightboxOpen && imageUrls.length > 0 && (
         <div
-          className="fixed inset-0 z-[9999] bg-black bg-opacity-90 flex items-center justify-center p-4"
+          className="fixed top-0 left-0 right-0 bottom-0 z-[99999] bg-black flex items-center justify-center p-4"
           onClick={(e) => {
             e.stopPropagation();
             setIsLightboxOpen(false);
           }}
+          style={{ margin: 0, padding: '1rem' }}
         >
           <button
             className="absolute top-4 right-4 text-white hover:text-gray-300 z-10"

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -15,7 +15,9 @@ import {
   X,
   Calendar,
   Hash,
-  Star
+  Star,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { Report } from '../types';
 
@@ -103,6 +105,44 @@ export function ReportsList({
   isRefreshing
 }: ReportsListProps) {
   const navigate = useNavigate();
+  
+  // Lightbox state
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [lightboxImages, setLightboxImages] = useState<string[]>([]);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [lightboxReportTitle, setLightboxReportTitle] = useState('');
+
+  // Keyboard support for lightbox
+  useEffect(() => {
+    if (!isLightboxOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsLightboxOpen(false);
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        setLightboxIndex((prev) => (prev - 1 + lightboxImages.length) % lightboxImages.length);
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        setLightboxIndex((prev) => (prev + 1) % lightboxImages.length);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isLightboxOpen, lightboxImages.length]);
+
+  // Function to open lightbox
+  const openLightbox = (images: string[], index: number, reportTitle: string) => {
+    setLightboxImages(images);
+    setLightboxIndex(index);
+    setLightboxReportTitle(reportTitle);
+    setIsLightboxOpen(true);
+  };
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const reportsPerPage = 6;
 
   // Filter reports based on search term and filters
   const filteredReports = reports.filter(report => {
@@ -139,6 +179,36 @@ export function ReportsList({
       status: 'All',
       priority: 'All',
     });
+    setCurrentPage(1);
+  };
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filters.category, filters.status, filters.priority]);
+
+  // Calculate pagination
+  const totalPages = Math.ceil(filteredReports.length / reportsPerPage);
+  const startIndex = (currentPage - 1) * reportsPerPage;
+  const endIndex = startIndex + reportsPerPage;
+  const paginatedReports = filteredReports.slice(startIndex, endIndex);
+
+  // Pagination handlers
+  const goToPage = (page: number) => {
+    setCurrentPage(page);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const nextPage = () => {
+    if (currentPage < totalPages) {
+      goToPage(currentPage + 1);
+    }
+  };
+
+  const prevPage = () => {
+    if (currentPage > 1) {
+      goToPage(currentPage - 1);
+    }
   };
 
   return (
@@ -150,6 +220,10 @@ export function ReportsList({
           <span className="text-xs text-gray-500 bg-gray-50 px-2.5 py-1 rounded-full">
             {filteredReports.length} report{filteredReports.length !== 1 ? 's' : ''}
           </span>
+        </div>
+        <div className="flex items-center gap-2 text-xs text-gray-600 mb-4">
+          <span>Showing {startIndex + 1}-{Math.min(endIndex, filteredReports.length)} of {filteredReports.length}</span>
+          {totalPages > 1 && <span>• Page {currentPage} of {totalPages}</span>}
         </div>
         
         <div className="flex flex-col sm:flex-row gap-4">
@@ -236,7 +310,7 @@ export function ReportsList({
           className="overflow-x-auto whitespace-nowrap pb-2 [-webkit-overflow-scrolling:touch] snap-x snap-mandatory"
         >
           <div className="inline-flex gap-3 px-4">
-            {filteredReports.map((report) => (
+            {paginatedReports.map((report) => (
               <div 
                 key={report.id} 
                 className="snap-start w-[85vw] max-w-[380px] bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden cursor-pointer" 
@@ -246,8 +320,12 @@ export function ReportsList({
                   <img 
                     src={report.images[0]} 
                     alt={report.title} 
-                    className="w-full h-40 object-cover" 
-                    loading="lazy" 
+                    className="w-full h-40 object-cover cursor-zoom-in" 
+                    loading="lazy"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openLightbox(report.images, 0, report.title);
+                    }}
                   />
                 ) : (
                   <div className="w-full h-40 bg-gray-100 flex items-center justify-center">
@@ -343,7 +421,7 @@ export function ReportsList({
           animate="visible"
           className="hidden md:grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-6"
         >
-          {filteredReports.map((report) => (
+          {paginatedReports.map((report) => (
             <motion.div
               variants={cardVariants}
               key={report.id}
@@ -361,8 +439,12 @@ export function ReportsList({
                         <img
                           src={report.images[currentIndex]}
                           alt={report.title}
-                          className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
+                          className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300 cursor-zoom-in"
                           onError={() => handleImageError(report.id)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openLightbox(report.images, currentIndex, report.title);
+                          }}
                         />
                         {total > 1 && (
                           <>
@@ -515,6 +597,137 @@ export function ReportsList({
             </motion.div>
           ))}
         </motion.div>
+      )}
+
+      {/* Pagination Controls */}
+      {filteredReports.length > 0 && totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 mt-8">
+          <button
+            onClick={prevPage}
+            disabled={currentPage === 1}
+            className={`px-4 py-2 rounded-lg font-medium transition-all ${
+              currentPage === 1
+                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300 hover:border-gray-400'
+            }`}
+            aria-label="Previous page"
+          >
+            ← Previous
+          </button>
+
+          <div className="flex items-center gap-1">
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+              // Show first page, last page, current page, and pages around current
+              const showPage =
+                page === 1 ||
+                page === totalPages ||
+                (page >= currentPage - 1 && page <= currentPage + 1);
+
+              if (!showPage) {
+                // Show ellipsis
+                if (page === currentPage - 2 || page === currentPage + 2) {
+                  return (
+                    <span key={page} className="px-2 text-gray-400">
+                      ...
+                    </span>
+                  );
+                }
+                return null;
+              }
+
+              return (
+                <button
+                  key={page}
+                  onClick={() => goToPage(page)}
+                  className={`w-10 h-10 rounded-lg font-medium transition-all ${
+                    currentPage === page
+                      ? 'bg-[#800000] text-white shadow-md'
+                      : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300 hover:border-gray-400'
+                  }`}
+                  aria-label={`Go to page ${page}`}
+                  aria-current={currentPage === page ? 'page' : undefined}
+                >
+                  {page}
+                </button>
+              );
+            })}
+          </div>
+
+          <button
+            onClick={nextPage}
+            disabled={currentPage === totalPages}
+            className={`px-4 py-2 rounded-lg font-medium transition-all ${
+              currentPage === totalPages
+                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300 hover:border-gray-400'
+            }`}
+            aria-label="Next page"
+          >
+            Next →
+          </button>
+        </div>
+      )}
+
+      {/* Lightbox for fullscreen image view */}
+      {isLightboxOpen && lightboxImages.length > 0 && (
+        <div
+          className="fixed top-0 left-0 right-0 bottom-0 z-[99999] bg-black flex items-center justify-center p-4"
+          onClick={() => setIsLightboxOpen(false)}
+          style={{ margin: 0, padding: '1rem' }}
+        >
+          <button
+            className="absolute top-4 right-4 text-white hover:text-gray-300 z-10"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsLightboxOpen(false);
+            }}
+            aria-label="Close fullscreen"
+          >
+            <X className="w-10 h-10" />
+          </button>
+
+          {/* Image Counter */}
+          {lightboxImages.length > 1 && (
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 bg-black bg-opacity-70 text-white text-sm px-4 py-2 rounded-full font-medium">
+              {lightboxIndex + 1} / {lightboxImages.length}
+            </div>
+          )}
+
+          <div className="relative w-full h-full flex items-center justify-center">
+            <img
+              src={lightboxImages[lightboxIndex]}
+              alt={`${lightboxReportTitle} - Image ${lightboxIndex + 1}`}
+              className="max-w-full max-h-full object-contain cursor-default"
+              onClick={(e) => e.stopPropagation()}
+            />
+
+            {/* Navigation Buttons */}
+            {lightboxImages.length > 1 && (
+              <>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setLightboxIndex((prev) => (prev - 1 + lightboxImages.length) % lightboxImages.length);
+                  }}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 bg-white bg-opacity-90 hover:bg-opacity-100 text-gray-800 rounded-full p-3 shadow-xl transition-all"
+                  aria-label="Previous image"
+                >
+                  <ChevronLeft className="w-6 h-6" />
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setLightboxIndex((prev) => (prev + 1) % lightboxImages.length);
+                  }}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 bg-white bg-opacity-90 hover:bg-opacity-100 text-gray-800 rounded-full p-3 shadow-xl transition-all"
+                  aria-label="Next image"
+                >
+                  <ChevronRight className="w-6 h-6" />
+                </button>
+              </>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

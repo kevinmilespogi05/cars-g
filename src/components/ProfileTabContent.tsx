@@ -21,7 +21,9 @@ import {
   Smartphone,
   Info,
   HelpCircle,
-  ExternalLink
+  ExternalLink,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Report } from '../types';
@@ -72,6 +74,40 @@ export function ProfileTabContent({
 }: ProfileTabContentProps) {
   const navigate = useNavigate();
   const [showTooltip, setShowTooltip] = React.useState<string | null>(null);
+  
+  // Lightbox state
+  const [isLightboxOpen, setIsLightboxOpen] = React.useState(false);
+  const [lightboxImages, setLightboxImages] = React.useState<string[]>([]);
+  const [lightboxIndex, setLightboxIndex] = React.useState(0);
+  const [lightboxReportTitle, setLightboxReportTitle] = React.useState('');
+
+  // Keyboard support for lightbox
+  React.useEffect(() => {
+    if (!isLightboxOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsLightboxOpen(false);
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        setLightboxIndex((prev) => (prev - 1 + lightboxImages.length) % lightboxImages.length);
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        setLightboxIndex((prev) => (prev + 1) % lightboxImages.length);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isLightboxOpen, lightboxImages.length]);
+
+  // Function to open lightbox
+  const openLightbox = (images: string[], index: number, reportTitle: string) => {
+    setLightboxImages(images);
+    setLightboxIndex(index);
+    setLightboxReportTitle(reportTitle);
+    setIsLightboxOpen(true);
+  };
 
   function PhoneEditor({ initialValue }: { initialValue: string }) {
     const [value, setValue] = React.useState<string>(initialValue ? `+63 ${initialValue.replace(/[\s-]/g, '').slice(3)}` : '+63 ');
@@ -639,12 +675,16 @@ export function ProfileTabContent({
               onClick={() => navigate(`/reports/${report.id}`)}
             >
               {report.images && report.images.length > 0 ? (
-                <div className="relative h-48 overflow-hidden">
+                <div className="relative h-48 overflow-hidden" onClick={(e) => e.stopPropagation()}>
                   <img 
                     src={report.images[0]} 
                     alt={report.title} 
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200 cursor-zoom-in"
                     loading="lazy"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openLightbox(report.images, 0, report.title);
+                    }}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                   {report.images.length > 1 && (
@@ -1011,20 +1051,96 @@ export function ProfileTabContent({
     </div>
   );
 
+  // Render content based on active tab
+  let content;
   switch (activeTab) {
     case 'overview':
-      return renderOverview();
+      content = renderOverview();
+      break;
     case 'reports':
-      return renderReports();
+      content = renderReports();
+      break;
     case 'notifications':
-      return renderNotifications();
+      content = renderNotifications();
+      break;
     case 'account':
-      return renderAccount();
+      content = renderAccount();
+      break;
     case 'achievements':
-      return renderAchievements();
+      content = renderAchievements();
+      break;
     case 'statistics':
-      return renderStatistics();
+      content = renderStatistics();
+      break;
     default:
-      return renderOverview();
+      content = renderOverview();
   }
+
+  return (
+    <>
+      {content}
+      
+      {/* Lightbox for fullscreen image view */}
+      {isLightboxOpen && lightboxImages.length > 0 && (
+        <div
+          className="fixed top-0 left-0 right-0 bottom-0 z-[99999] bg-black flex items-center justify-center p-4"
+          onClick={() => setIsLightboxOpen(false)}
+          style={{ margin: 0, padding: '1rem' }}
+        >
+          <button
+            className="absolute top-4 right-4 text-white hover:text-gray-300 z-10"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsLightboxOpen(false);
+            }}
+            aria-label="Close fullscreen"
+          >
+            <X className="w-10 h-10" />
+          </button>
+
+          {/* Image Counter */}
+          {lightboxImages.length > 1 && (
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 bg-black bg-opacity-70 text-white text-sm px-4 py-2 rounded-full font-medium">
+              {lightboxIndex + 1} / {lightboxImages.length}
+            </div>
+          )}
+
+          <div className="relative w-full h-full flex items-center justify-center">
+            <img
+              src={lightboxImages[lightboxIndex]}
+              alt={`${lightboxReportTitle} - Image ${lightboxIndex + 1}`}
+              className="max-w-full max-h-full object-contain cursor-default"
+              onClick={(e) => e.stopPropagation()}
+            />
+
+            {/* Navigation Buttons */}
+            {lightboxImages.length > 1 && (
+              <>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setLightboxIndex((prev) => (prev - 1 + lightboxImages.length) % lightboxImages.length);
+                  }}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 bg-white bg-opacity-90 hover:bg-opacity-100 text-gray-800 rounded-full p-3 shadow-xl transition-all"
+                  aria-label="Previous image"
+                >
+                  <ChevronLeft className="w-6 h-6" />
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setLightboxIndex((prev) => (prev + 1) % lightboxImages.length);
+                  }}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 bg-white bg-opacity-90 hover:bg-opacity-100 text-gray-800 rounded-full p-3 shadow-xl transition-all"
+                  aria-label="Next image"
+                >
+                  <ChevronRight className="w-6 h-6" />
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  );
 }

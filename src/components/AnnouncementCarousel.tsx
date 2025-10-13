@@ -368,8 +368,9 @@ export function AnnouncementCarousel({ className = '' }: AnnouncementCarouselPro
       {/* Lightbox for image */}
       {isImageOpen && imageUrls.length > 0 && (
         <div
-          className="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center p-4"
+          className="fixed top-0 left-0 right-0 bottom-0 z-[99999] bg-black flex items-center justify-center p-4"
           onClick={() => setIsImageOpen(false)}
+          style={{ margin: 0, padding: '1rem' }}
         >
           <button
             aria-label="Close full image"
