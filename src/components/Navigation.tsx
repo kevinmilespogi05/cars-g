@@ -77,7 +77,7 @@ export function Navigation() {
       className={`fixed w-full z-[2000] transition-all duration-300 shadow-lg ${isScrolled ? 'py-2' : 'py-3'}`}
       style={{backgroundColor: '#800000'}}
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="w-full px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center">
           {/* Logo and DateTime */}
           <div className="flex items-center space-x-4">

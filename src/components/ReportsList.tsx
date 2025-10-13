@@ -233,9 +233,9 @@ export function ReportsList({
         </div>
         <div 
           ref={mobileListRef} 
-          className="overflow-x-auto whitespace-nowrap px-2 pb-2 [-webkit-overflow-scrolling:touch] snap-x snap-mandatory"
+          className="overflow-x-auto whitespace-nowrap pb-2 [-webkit-overflow-scrolling:touch] snap-x snap-mandatory"
         >
-          <div className="inline-flex gap-3">
+          <div className="inline-flex gap-3 px-4">
             {filteredReports.map((report) => (
               <div 
                 key={report.id} 

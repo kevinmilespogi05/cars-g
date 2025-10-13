@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { FileText, Award, User, MapPin, MessageCircle, Shield, Home } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { QuickActions } from './QuickActions';
+import { MotivationalQuote } from './MotivationalQuote';
 
 /**
  * SideNav Component
@@ -12,6 +13,7 @@ import { QuickActions } from './QuickActions';
  * - Role-based navigation menu
  * - Verification Reports link (for eligible users)
  * - Quick Actions section
+ * - Motivational Quote section
  * 
  * Customization:
  * - Modify navigation items in getNavItems() function
@@ -127,6 +129,9 @@ export function SideNav() {
         {/* Integrate the existing QuickActions component with sidebar variant */}
         <QuickActions hideEmergencyActions variant="sidebar" />
       </div>
+
+      {/* Motivational Quote Section */}
+      <MotivationalQuote />
     </div>
   );
 }

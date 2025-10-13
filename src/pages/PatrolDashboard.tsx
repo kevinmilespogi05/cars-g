@@ -573,7 +573,7 @@ export function PatrolDashboard() {
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
       {/* Header */}
       <div className="bg-white/80 backdrop-blur border-b border-gray-200/70">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="w-full px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-3">
@@ -601,7 +601,7 @@ export function PatrolDashboard() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="w-full px-4 sm:px-6 lg:px-8 py-8">
         {/* Announcements Section */}
         <AnnouncementCarousel />
         {/* Stats Overview (clickable filters) */}
@@ -885,7 +885,7 @@ export function PatrolDashboard() {
 
       {/* Bottom Navigation (mobile) */}
       <div className="fixed inset-x-0 bottom-0 z-40 md:hidden">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 pb-safe">
+        <div className="w-full px-4 sm:px-6 lg:px-8 pb-safe">
           <div className="mb-4 rounded-2xl border border-gray-200 bg-white/95 backdrop-blur shadow-lg">
             <div className="grid grid-cols-4">
               <button

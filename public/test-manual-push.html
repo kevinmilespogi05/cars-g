@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Manual Push Notification Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #333;
+      border-bottom: 2px solid #4CAF50;
+      padding-bottom: 10px;
+    }
+    .section {
+      margin: 20px 0;
+      padding: 15px;
+      background: #f9f9f9;
+      border-left: 4px solid #4CAF50;
+    }
+    button {
+      background: #4CAF50;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      font-size: 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 5px;
+    }
+    button:hover {
+      background: #45a049;
+    }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    .info {
+      background: #e3f2fd;
+      border-left-color: #2196F3;
+      padding: 10px;
+      margin: 10px 0;
+      font-family: monospace;
+      font-size: 12px;
+      overflow-x: auto;
+    }
+    .error {
+      background: #ffebee;
+      border-left-color: #f44336;
+      color: #c62828;
+    }
+    .success {
+      background: #e8f5e9;
+      border-left-color: #4CAF50;
+      color: #2e7d32;
+    }
+    .warning {
+      background: #fff3e0;
+      border-left-color: #ff9800;
+      color: #e65100;
+    }
+    code {
+      background: #f5f5f5;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: 'Courier New', monospace;
+    }
+    .status-indicator {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      margin-right: 8px;
+    }
+    .status-granted { background: #4CAF50; }
+    .status-denied { background: #f44336; }
+    .status-default { background: #ff9800; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔔 Manual Push Notification Test</h1>
+    
+    <div class="section">
+      <h2>Current Status</h2>
+      <div id="status">
+        <p><strong>Notification Permission:</strong> <span id="permission-status">Checking...</span></p>
+        <p><strong>Service Worker:</strong> <span id="sw-status">Checking...</span></p>
+        <p><strong>FCM Token:</strong> <span id="token-status">Checking...</span></p>
+        <p><strong>Push Subscription:</strong> <span id="subscription-status">Checking...</span></p>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Actions</h2>
+      <button onclick="requestPermission()">1. Request Notification Permission</button>
+      <button onclick="registerServiceWorker()">2. Register Service Worker</button>
+      <button onclick="subscribeToPush()">3. Subscribe to Push</button>
+      <button onclick="getFCMToken()">4. Get FCM Token</button>
+      <button onclick="sendTestNotification()">5. Send Test Notification</button>
+      <button onclick="showLocalNotification()">6. Show Local Notification (Test)</button>
+    </div>
+
+    <div class="section">
+      <h2>Manual DevTools Push Test</h2>
+      <div class="info">
+        <strong>To test from DevTools Application tab:</strong>
+        <ol>
+          <li>Open DevTools (F12) → Application tab</li>
+          <li>Click "Service Workers" in the left sidebar</li>
+          <li>Find your service worker (should be from firebase-messaging-sw.js)</li>
+          <li>Under the service worker, find the "Push" text field</li>
+          <li>Copy this test payload and paste it:
+            <pre id="test-payload" style="background: white; padding: 10px; margin: 10px 0; border-radius: 4px; cursor: pointer;" onclick="copyPayload()">
+{
+  "notification": {
+    "title": "🔔 Manual Test",
+    "body": "This is a manual push test from DevTools!",
+    "icon": "/pwa-192x192.png"
+  },
+  "data": {
+    "link": "/",
+    "type": "test"
+  }
+}
+            </pre>
+          </li>
+          <li>Click the "Push" button in DevTools</li>
+          <li>You should see a notification appear!</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Troubleshooting</h2>
+      <div id="troubleshooting"></div>
+    </div>
+
+    <div class="section">
+      <h2>Console Log</h2>
+      <div id="console-log" class="info" style="max-height: 300px; overflow-y: auto;"></div>
+    </div>
+  </div>
+
+  <script type="module">
+    const FIREBASE_CONFIG = {
+      apiKey: 'AIzaSyBaDNk0l_Hveq0r4xp15-K_Zm2uFwhkIPs',
+      authDomain: 'carsg-d5bed.firebaseapp.com',
+      projectId: 'carsg-d5bed',
+      messagingSenderId: '672452977686',
+      appId: '1:672452977686:web:109661be796952ddbf8137'
+    };
+
+    const VAPID_KEY = 'BIwpimX2-4_1EwjnCHpGnNVRca-5dqETfdBOzl2ajY6lm5hqOk0pkj1RDI8QTpK20QOIxi16ietGrwsIxqe6lUo';
+
+    let swRegistration = null;
+    let fcmToken = null;
+
+    function log(message, type = 'info') {
+      const consoleLog = document.getElementById('console-log');
+      const timestamp = new Date().toLocaleTimeString();
+      const className = type === 'error' ? 'error' : type === 'success' ? 'success' : type === 'warning' ? 'warning' : 'info';
+      consoleLog.innerHTML += `<div class="${className}">[${timestamp}] ${message}</div>`;
+      consoleLog.scrollTop = consoleLog.scrollHeight;
+      console.log(message);
+    }
+
+    async function checkStatus() {
+      // Check notification permission
+      const permission = Notification.permission;
+      const permissionStatus = document.getElementById('permission-status');
+      const indicator = permission === 'granted' ? 'status-granted' : permission === 'denied' ? 'status-denied' : 'status-default';
+      permissionStatus.innerHTML = `<span class="status-indicator ${indicator}"></span>${permission}`;
+
+      // Check service worker
+      if ('serviceWorker' in navigator) {
+        const registration = await navigator.serviceWorker.getRegistration();
+        const swStatus = document.getElementById('sw-status');
+        if (registration) {
+          swStatus.innerHTML = '<span class="status-indicator status-granted"></span>Registered';
+          swRegistration = registration;
+          log('Service worker is registered', 'success');
+        } else {
+          swStatus.innerHTML = '<span class="status-indicator status-denied"></span>Not registered';
+          log('No service worker registered', 'warning');
+        }
+
+        // Check push subscription
+        if (registration) {
+          const subscription = await registration.pushManager.getSubscription();
+          const subStatus = document.getElementById('subscription-status');
+          if (subscription) {
+            subStatus.innerHTML = '<span class="status-indicator status-granted"></span>Active';
+            log('Push subscription is active', 'success');
+          } else {
+            subStatus.innerHTML = '<span class="status-indicator status-denied"></span>Not subscribed';
+            log('No push subscription found', 'warning');
+          }
+        }
+      } else {
+        document.getElementById('sw-status').innerHTML = '<span class="status-indicator status-denied"></span>Not supported';
+        log('Service workers not supported', 'error');
+      }
+
+      updateTroubleshooting();
+    }
+
+    function updateTroubleshooting() {
+      const troubleshooting = document.getElementById('troubleshooting');
+      const permission = Notification.permission;
+      let tips = [];
+
+      if (permission === 'denied') {
+        tips.push('<div class="error"><strong>❌ Notifications Blocked</strong><br>You need to allow notifications in your browser settings. Click the lock icon in the address bar → Site settings → Notifications → Allow</div>');
+      } else if (permission === 'default') {
+        tips.push('<div class="warning"><strong>⚠️ Permission Not Granted</strong><br>Click "1. Request Notification Permission" button above to enable notifications.</div>');
+      }
+
+      if (!swRegistration) {
+        tips.push('<div class="warning"><strong>⚠️ No Service Worker</strong><br>Click "2. Register Service Worker" to enable push notifications.</div>');
+      }
+
+      if (tips.length === 0) {
+        tips.push('<div class="success"><strong>✅ All Systems Ready!</strong><br>You can now test push notifications.</div>');
+      }
+
+      troubleshooting.innerHTML = tips.join('');
+    }
+
+    window.requestPermission = async function() {
+      try {
+        log('Requesting notification permission...');
+        const permission = await Notification.requestPermission();
+        log(`Permission result: ${permission}`, permission === 'granted' ? 'success' : 'warning');
+        checkStatus();
+      } catch (error) {
+        log(`Error requesting permission: ${error.message}`, 'error');
+      }
+    };
+
+    window.registerServiceWorker = async function() {
+      try {
+        log('Registering service worker...');
+        const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+        log('Service worker registered successfully!', 'success');
+        swRegistration = registration;
+        checkStatus();
+      } catch (error) {
+        log(`Error registering service worker: ${error.message}`, 'error');
+      }
+    };
+
+    window.subscribeToPush = async function() {
+      try {
+        if (!swRegistration) {
+          log('Please register service worker first', 'warning');
+          return;
+        }
+
+        log('Subscribing to push...');
+        
+        // Convert VAPID key to Uint8Array
+        const urlBase64ToUint8Array = (base64String) => {
+          const padding = '='.repeat((4 - base64String.length % 4) % 4);
+          const base64 = (base64String + padding)
+            .replace(/-/g, '+')
+            .replace(/_/g, '/');
+          const rawData = window.atob(base64);
+          const outputArray = new Uint8Array(rawData.length);
+          for (let i = 0; i < rawData.length; ++i) {
+            outputArray[i] = rawData.charCodeAt(i);
+          }
+          return outputArray;
+        };
+
+        const subscription = await swRegistration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_KEY)
+        });
+
+        log('Successfully subscribed to push!', 'success');
+        log(`Endpoint: ${subscription.endpoint.substring(0, 50)}...`);
+        checkStatus();
+      } catch (error) {
+        log(`Error subscribing to push: ${error.message}`, 'error');
+      }
+    };
+
+    window.getFCMToken = async function() {
+      try {
+        log('Getting FCM token...');
+        
+        // Import Firebase
+        const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js');
+        const { getMessaging, getToken } = await import('https://www.gstatic.com/firebasejs/10.13.0/firebase-messaging.js');
+
+        const app = initializeApp(FIREBASE_CONFIG);
+        const messaging = getMessaging(app);
+
+        if (!swRegistration) {
+          log('Please register service worker first', 'warning');
+          return;
+        }
+
+        const token = await getToken(messaging, {
+          vapidKey: VAPID_KEY,
+          serviceWorkerRegistration: swRegistration
+        });
+
+        fcmToken = token;
+        document.getElementById('token-status').innerHTML = `<span class="status-indicator status-granted"></span>${token.substring(0, 20)}...`;
+        log(`FCM Token: ${token}`, 'success');
+        log('Token copied to console for backend registration');
+        
+      } catch (error) {
+        log(`Error getting FCM token: ${error.message}`, 'error');
+        document.getElementById('token-status').innerHTML = `<span class="status-indicator status-denied"></span>Error`;
+      }
+    };
+
+    window.sendTestNotification = async function() {
+      if (!fcmToken) {
+        log('Please get FCM token first (button 4)', 'warning');
+        return;
+      }
+
+      try {
+        log('Sending test notification via server...');
+        
+        // You'll need to get a user ID - for testing, we'll show instructions
+        log('To send a real push notification:', 'info');
+        log('1. Copy your FCM token from above', 'info');
+        log('2. Run this in terminal: node test-push-simple.js', 'info');
+        log('Or use the DevTools method shown above', 'info');
+        
+      } catch (error) {
+        log(`Error: ${error.message}`, 'error');
+      }
+    };
+
+    window.showLocalNotification = function() {
+      if (Notification.permission !== 'granted') {
+        log('Please grant notification permission first', 'warning');
+        return;
+      }
+
+      try {
+        log('Showing local test notification...');
+        new Notification('🔔 Local Test Notification', {
+          body: 'This is a local notification test (not a push notification)',
+          icon: '/pwa-192x192.png',
+          tag: 'test',
+          requireInteraction: false
+        });
+        log('Local notification shown!', 'success');
+      } catch (error) {
+        log(`Error showing notification: ${error.message}`, 'error');
+      }
+    };
+
+    window.copyPayload = function() {
+      const payload = document.getElementById('test-payload').textContent.trim();
+      navigator.clipboard.writeText(payload);
+      log('Payload copied to clipboard!', 'success');
+    };
+
+    // Initialize
+    checkStatus();
+    log('Test page loaded. Follow the steps above to test push notifications.');
+  </script>
+</body>
+</html>
+
