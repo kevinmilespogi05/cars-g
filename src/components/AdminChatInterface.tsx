@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '../store/authStore';
 import { socketManager } from '../lib/socket';
 import { AdminChat, ChatMessage } from '../types';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, format } from 'date-fns';
 import { supabase } from '../lib/supabase';
 import { getApiUrl } from '../lib/config';
+import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react';
 import { 
   MessageCircle, 
   X, 
@@ -20,7 +21,14 @@ import {
   CheckCheck,
   Wifi,
   WifiOff,
-  Loader2
+  Loader2,
+  Phone,
+  Video,
+  Info,
+  ArrowLeft,
+  Image as ImageIcon,
+  ThumbsUp,
+  Menu
 } from 'lucide-react';
 
 interface AdminChatInterfaceProps {
@@ -44,6 +52,13 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [seenMessageIds, setSeenMessageIds] = useState<Set<string>>(new Set());
   const seenTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [messageInput, setMessageInput] = useState('');
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isTyping, setIsTyping] = useState(false);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -334,11 +349,80 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
     }, 300); // 300ms debounce
   }, [selectedChat, user, messages, markMessagesAsSeen, seenMessageIds]);
 
-  const handleSendMessage = (message: string) => {
+  const handleSendMessage = (message: string = messageInput) => {
     if (!message.trim() || !selectedChat || !socketManager.isConnected()) return;
 
     socketManager.sendMessage(message.trim(), selectedChat.user_id);
+    setMessageInput('');
+    setShowEmojiPicker(false);
+    inputRef.current?.focus();
   };
+
+  const handleEmojiClick = (emojiData: EmojiClickData) => {
+    setMessageInput(prev => prev + emojiData.emoji);
+    inputRef.current?.focus();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
+
+  // Auto-resize textarea
+  useEffect(() => {
+    const textarea = inputRef.current;
+    if (textarea) {
+      textarea.style.height = 'auto';
+      textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+    }
+  }, [messageInput]);
+
+  // Close emoji picker when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
+        setShowEmojiPicker(false);
+      }
+    };
+
+    if (showEmojiPicker) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showEmojiPicker]);
+
+  // Filter chats based on search query
+  const filteredChats = chats.filter(chat => 
+    chat.user?.username?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    chat.user?.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    chat.last_message?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  // Keyboard navigation for chats
+  useEffect(() => {
+    const handleKeyboardNavigation = (e: KeyboardEvent) => {
+      if (!selectedChat || filteredChats.length === 0) return;
+
+      const currentIndex = filteredChats.findIndex(chat => chat.id === selectedChat.id);
+
+      if (e.key === 'ArrowUp' && e.ctrlKey) {
+        e.preventDefault();
+        const prevIndex = currentIndex > 0 ? currentIndex - 1 : filteredChats.length - 1;
+        handleChatSelect(filteredChats[prevIndex]);
+      } else if (e.key === 'ArrowDown' && e.ctrlKey) {
+        e.preventDefault();
+        const nextIndex = currentIndex < filteredChats.length - 1 ? currentIndex + 1 : 0;
+        handleChatSelect(filteredChats[nextIndex]);
+      } else if (e.key === 'Escape' && showEmojiPicker) {
+        setShowEmojiPicker(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyboardNavigation);
+    return () => document.removeEventListener('keydown', handleKeyboardNavigation);
+  }, [selectedChat, filteredChats, showEmojiPicker]);
 
   // Auto-mark messages as seen when chat is selected
   useEffect(() => {
@@ -437,127 +521,134 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 w-full h-full flex overflow-hidden">
-        {/* Chat List Sidebar */}
-        <div className="w-80 border-r border-gray-200/50 flex flex-col bg-gradient-to-b from-gray-50/80 to-white/80">
-          <div className="p-8 border-b-2 border-gray-300/60 bg-gradient-to-r from-blue-50/90 to-indigo-50/90 backdrop-blur-sm">
-            <div className="flex items-center mb-6">
-              <div className="flex items-center space-x-3">
-                <div className="relative">
-                  <Users className="w-8 h-8 text-blue-700" />
-                  {isLoading && (
-                    <motion.div
-                      animate={{ rotate: 360 }}
-                      transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                      className="absolute -top-1 -right-1"
-                    >
-                      <Loader2 className="w-3 h-3 text-blue-500" />
-                    </motion.div>
-                  )}
-                </div>
-                <h2 className="text-2xl font-bold text-gray-900">Admin Chat</h2>
+    <div className="bg-white w-full h-full flex overflow-hidden max-h-full">
+        {/* Chat List Sidebar - Messenger Style */}
+        <div 
+          className={`${
+            isSidebarOpen ? 'w-full md:w-96' : 'w-0'
+          } ${selectedChat && !isSidebarOpen ? 'hidden md:block' : ''} flex-shrink-0 border-r border-gray-200 flex flex-col bg-white transition-all duration-300 h-full overflow-hidden`}
+        >
+          {/* Sidebar Header */}
+          <div className="p-4 border-b border-gray-200">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-2xl font-bold text-gray-900">Chats</h2>
+              <div className="flex items-center gap-2">
+                <button className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                  <MoreVertical className="w-6 h-6 text-gray-600" />
+                </button>
               </div>
             </div>
             
-            <div className="flex items-center space-x-3">
+            {/* Search Bar */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search conversations"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 bg-gray-100 rounded-full text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
+              />
+            </div>
+
+            {/* Connection Status */}
+            <div className="mt-3 flex items-center gap-2">
               <div
-                className={`w-3 h-3 rounded-full ${
+                className={`w-2.5 h-2.5 rounded-full ${
                   isLoading ? 'bg-yellow-400' : 
                   isConnected ? 'bg-green-400' : 'bg-red-400'
                 }`} 
               />
-              <div className="flex items-center space-x-2">
-                {isLoading ? (
-                  <span className="text-sm text-yellow-600 font-medium">Connecting...</span>
-                ) : isConnected ? (
-                  <>
-                    <Wifi className="w-4 h-4 text-green-500" />
-                    <span className="text-sm text-green-600 font-medium">Connected</span>
-                  </>
-                ) : (
-                  <>
-                    <WifiOff className="w-4 h-4 text-red-500" />
-                    <span className="text-sm text-red-600 font-medium">Disconnected</span>
-                  </>
-                )}
-              </div>
+              <span className="text-sm text-gray-600 font-medium">
+                {isLoading ? 'Connecting...' : isConnected ? 'Connected' : 'Disconnected'}
+              </span>
             </div>
             
             {error && (
-              <div className="mt-3 p-3 bg-red-50/80 border border-red-200/50 text-red-700 rounded-lg text-sm">
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                  <strong>Error:</strong> {error}
-                </div>
+              <div className="mt-2 p-2 bg-red-50 border border-red-200 text-red-700 rounded-lg text-xs">
+                {error}
               </div>
             )}
           </div>
 
-           <div 
-             className="flex-1 overflow-y-auto"
-             onWheel={(e) => e.stopPropagation()}
-             onTouchMove={(e) => e.stopPropagation()}
-           >
-             {chats.length === 0 ? (
+          {/* Conversations List */}
+          <div 
+            className="flex-1 overflow-y-auto"
+            onWheel={(e) => e.stopPropagation()}
+            onTouchMove={(e) => e.stopPropagation()}
+          >
+            {filteredChats.length === 0 ? (
               <div className="p-8 text-center text-gray-500">
-                <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center">
+                <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
                   <MessageCircle className="w-8 h-8 text-gray-400" />
                 </div>
-                <p className="text-base font-semibold text-gray-700">No active chats</p>
-                <p className="text-sm text-gray-500 mt-2">Users will appear here when they send messages</p>
+                <p className="text-base font-semibold text-gray-700">
+                  {searchQuery ? 'No results found' : 'No conversations yet'}
+                </p>
+                <p className="text-sm text-gray-500 mt-1">
+                  {searchQuery ? 'Try a different search' : 'New messages will appear here'}
+                </p>
               </div>
             ) : (
-              <div className="space-y-1 p-2">
-                {chats.map((chat, index) => (
-                  <button
+              <div>
+                {filteredChats.map((chat) => (
+                  <motion.button
                     key={chat.id}
-                    onClick={() => handleChatSelect(chat)}
-                    className={`w-full p-6 text-left rounded-xl transition-all duration-200 ${
+                    onClick={() => {
+                      handleChatSelect(chat);
+                      if (window.innerWidth < 768) {
+                        setIsSidebarOpen(false);
+                      }
+                    }}
+                    whileHover={{ backgroundColor: 'rgba(0, 0, 0, 0.02)' }}
+                    className={`w-full p-3 text-left transition-all duration-150 flex items-center gap-3 border-b border-gray-100 ${
                       selectedChat?.id === chat.id 
-                        ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-300 shadow-lg' 
-                        : 'hover:bg-gray-50/90 border border-transparent hover:border-gray-300'
+                        ? 'bg-blue-50' 
+                        : ''
                     }`}
                   >
-                      <div className="flex items-center space-x-3">
-                        <div className="flex-shrink-0 relative">
-                          {chat.user?.avatar_url ? (
-                            <img
-                              src={chat.user.avatar_url}
-                              alt={chat.user.username}
-                              className="w-12 h-12 rounded-full border-2 border-white shadow-sm"
-                            />
-                          ) : (
-                            <div className="w-16 h-16 bg-gradient-to-br from-gray-300 to-gray-400 rounded-full flex items-center justify-center border-2 border-white shadow-sm">
-                              <span className="text-lg font-bold text-white">
-                                {chat.user?.username?.charAt(0).toUpperCase() || 'U'}
-                              </span>
-                            </div>
-                          )}
-                          {chat.unread_count > 0 && (
-                            <div className="absolute -top-1 -right-1 bg-red-500 text-white text-sm rounded-full w-7 h-7 flex items-center justify-center font-bold shadow-lg">
-                              {chat.unread_count}
-                            </div>
-                          )}
+                    <div className="relative flex-shrink-0">
+                      {chat.user?.avatar_url ? (
+                        <img
+                          src={chat.user.avatar_url}
+                          alt={chat.user.username}
+                          className="w-14 h-14 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-14 h-14 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center">
+                          <span className="text-xl font-semibold text-white">
+                            {chat.user?.username?.charAt(0).toUpperCase() || 'U'}
+                          </span>
                         </div>
-                        
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between mb-1">
-                            <p className="text-base font-bold text-gray-900 truncate">
-                              {chat.user?.username || 'Unknown User'}
-                            </p>
-                            <div className="flex items-center space-x-2">
-                              <Clock className="w-4 h-4 text-gray-500" />
-                              <p className="text-sm font-medium text-gray-600">
-                                {formatTime(chat.last_message_at)}
-                              </p>
-                            </div>
-                          </div>
-                          <p className="text-sm text-gray-700 truncate leading-relaxed font-medium">
-                            {chat.last_message}
-                          </p>
-                        </div>
+                      )}
+                      <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
+                    </div>
+                    
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <p className={`text-base truncate ${
+                          chat.unread_count > 0 ? 'font-bold text-gray-900' : 'font-semibold text-gray-900'
+                        }`}>
+                          {chat.user?.username || 'Unknown User'}
+                        </p>
+                        <span className="text-sm text-gray-500 ml-2 flex-shrink-0 font-medium">
+                          {formatTime(chat.last_message_at)}
+                        </span>
                       </div>
-                  </button>
+                      <div className="flex items-center justify-between">
+                        <p className={`text-sm truncate ${
+                          chat.unread_count > 0 ? 'font-semibold text-gray-900' : 'text-gray-600'
+                        }`}>
+                          {chat.last_message}
+                        </p>
+                        {chat.unread_count > 0 && (
+                          <div className="ml-2 bg-blue-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-bold flex-shrink-0">
+                            {chat.unread_count}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </motion.button>
                 ))}
               </div>
             )}
@@ -565,48 +656,69 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
         </div>
 
         {/* Chat Messages Area */}
-        <div className="flex-1 flex flex-col bg-gradient-to-b from-gray-50/50 to-white">
+        <div className={`flex-1 flex flex-col bg-white ${selectedChat ? '' : 'hidden md:flex'} h-full overflow-hidden min-w-0`}>
           {selectedChat ? (
             <>
-              {/* Chat Header */}
-              <div className="p-8 border-b-2 border-gray-300/60 bg-gradient-to-r from-white/90 to-gray-50/90 backdrop-blur-sm">
-                <div className="flex items-center space-x-4">
-                  <div className="flex-shrink-0 relative">
-                    {selectedChat.user?.avatar_url ? (
-                      <img
-                        src={selectedChat.user.avatar_url}
-                        alt={selectedChat.user.username}
-                        className="w-16 h-16 rounded-full border-2 border-white shadow-lg"
-                      />
-                    ) : (
-                      <div className="w-16 h-16 bg-gradient-to-br from-gray-300 to-gray-400 rounded-full flex items-center justify-center border-2 border-white shadow-lg">
-                        <span className="text-lg font-bold text-white">
-                          {selectedChat.user?.username?.charAt(0).toUpperCase() || 'U'}
-                        </span>
+              {/* Chat Header - Messenger Style */}
+              <div className="px-4 py-3 border-b border-gray-200 bg-white shadow-sm flex-shrink-0">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    {/* Mobile back button */}
+                    <button 
+                      onClick={() => setIsSidebarOpen(true)}
+                      className="md:hidden p-2 hover:bg-gray-100 rounded-full transition-colors"
+                    >
+                      <ArrowLeft className="w-5 h-5 text-gray-600" />
+                    </button>
+
+                    {/* User Info */}
+                    <div className="relative flex-shrink-0">
+                      {selectedChat.user?.avatar_url ? (
+                        <img
+                          src={selectedChat.user.avatar_url}
+                          alt={selectedChat.user.username}
+                          className="w-10 h-10 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center">
+                          <span className="text-sm font-semibold text-white">
+                            {selectedChat.user?.username?.charAt(0).toUpperCase() || 'U'}
+                          </span>
+                        </div>
+                      )}
+                      <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
+                    </div>
+                    
+                    <div>
+                      <p className="text-base font-semibold text-gray-900">
+                        {selectedChat.user?.username || 'Unknown User'}
+                      </p>
+                      <div className="flex items-center gap-1">
+                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <p className="text-sm text-gray-500">Active now</p>
                       </div>
-                    )}
-                    <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-400 border-2 border-white rounded-full"></div>
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <p className="text-xl font-bold text-gray-900">
-                      {selectedChat.user?.username || 'Unknown User'}
-                    </p>
-                    <p className="text-base text-gray-600 font-medium">
-                      {selectedChat.user?.email || 'User'}
-                    </p>
+
+                  {/* Action Buttons */}
+                  <div className="flex items-center gap-1">
+                    <button className="p-2 hover:bg-gray-100 rounded-full transition-colors" title="Call">
+                      <Phone className="w-5 h-5 text-blue-500" />
+                    </button>
+                    <button className="p-2 hover:bg-gray-100 rounded-full transition-colors" title="Video call">
+                      <Video className="w-5 h-5 text-blue-500" />
+                    </button>
+                    <button className="p-2 hover:bg-gray-100 rounded-full transition-colors" title="Conversation info">
+                      <Info className="w-5 h-5 text-blue-500" />
+                    </button>
                   </div>
-                  <button
-                    className="p-3 hover:bg-gray-200/80 rounded-full transition-all duration-200"
-                  >
-                    <MoreVertical className="w-6 h-6 text-gray-600" />
-                  </button>
                 </div>
               </div>
 
-               {/* Messages */}
+               {/* Messages - Messenger Style */}
                <div 
                  ref={messagesContainerRef} 
-                 className="flex-1 overflow-y-auto p-6 space-y-4 relative"
+                 className="flex-1 overflow-y-auto p-4 bg-white min-h-0"
                  onWheel={(e) => e.stopPropagation()}
                  onTouchMove={(e) => e.stopPropagation()}
                >
@@ -617,221 +729,280 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
                   </div>
                 ) : messages.length === 0 ? (
                   <div className="text-center text-gray-500 py-12">
-                    <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-full flex items-center justify-center shadow-lg">
-                      <MessageCircle className="w-10 h-10 text-blue-400" />
+                    <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                      <MessageCircle className="w-8 h-8 text-gray-400" />
                     </div>
                     <p className="text-base font-semibold text-gray-700">No messages yet</p>
-                    <p className="text-sm text-gray-500 mt-2">Start the conversation with this user</p>
+                    <p className="text-sm text-gray-500 mt-1">Start the conversation</p>
                   </div>
                 ) : (
+                  <div className="space-y-2">{
                   messages.map((message, index) => {
                     const isOwn = message.sender_id === user?.id;
-                    const showAvatar = index === 0 || messages[index - 1].sender_id !== message.sender_id;
-                    const showName = showAvatar;
-                    
-                    // Debug logging
-                    if (index === 0) {
-                      console.log('Message rendering debug:', {
-                        message_id: message.id,
-                        sender_id: message.sender_id,
-                        admin_id: user?.id,
-                        isOwn,
-                        sender_data: message.sender
-                      });
-                    }
+                    const showAvatar = index === messages.length - 1 || messages[index + 1]?.sender_id !== message.sender_id;
+                    const isNextSameSender = index < messages.length - 1 && messages[index + 1]?.sender_id === message.sender_id;
                     
                     // Determine user info based on who actually sent the message
-                    // If sender data exists, use it; otherwise determine from sender_id
                     let userName: string;
                     let userAvatar: string;
                     
                     if (message.sender?.username) {
-                      // Use the sender data from the message
                       userName = message.sender.username;
                       userAvatar = message.sender.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}&background=random&size=128`;
                     } else {
-                      // Fallback: determine from sender_id matching
                       if (isOwn) {
-                        // Admin sent this message
                         userName = user?.username || 'Admin';
                         userAvatar = user?.avatar_url || `https://ui-avatars.com/api/?name=Admin&background=3b82f6&color=fff&size=128`;
                       } else {
-                        // User sent this message
                         userName = selectedChat?.user?.username || 'User';
                         userAvatar = selectedChat?.user?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}&background=random&size=128`;
                       }
                     }
                     
                     return (
-                      <div
+                      <motion.div
                         key={message.id}
                         data-message-id={message.id}
-                        className={`flex ${isOwn ? 'justify-end' : 'justify-start'} group`}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className={`flex items-end gap-2 ${isOwn ? 'justify-end' : 'justify-start'} ${isNextSameSender ? 'mb-1' : 'mb-3'}`}
                       >
                         {/* Avatar for received messages (left side) */}
                         {!isOwn && (
-                          <div className={`flex-shrink-0 mr-2.5 ${showAvatar ? '' : 'invisible'}`}>
-                            <img
-                              src={userAvatar}
-                              alt={userName}
-                              className="w-10 h-10 rounded-full object-cover ring-2 ring-white shadow-sm"
-                            />
+                          <div className="flex-shrink-0 w-7">
+                            {showAvatar ? (
+                              <img
+                                src={userAvatar}
+                                alt={userName}
+                                className="w-7 h-7 rounded-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-7"></div>
+                            )}
                           </div>
                         )}
 
-                        {/* Message content */}
-                        <div className={`flex flex-col ${isOwn ? 'items-end' : 'items-start'} max-w-[70%]`}>
-                          {/* Username */}
-                          {showName && (
-                            <div className={`px-3 mb-1 ${isOwn ? 'text-right' : 'text-left'}`}>
-                              <span className="text-xs font-semibold text-gray-600">
-                                {userName}
-                              </span>
-                            </div>
-                          )}
-
-                          {/* Message bubble */}
-                          <div className="relative group/message">
-                            <div
-                              className={`
-                                px-4 py-3 rounded-2xl shadow-sm transition-all duration-200
-                                ${isOwn 
-                                  ? 'bg-blue-500 text-white rounded-br-md hover:shadow-md' 
-                                  : 'bg-white text-gray-900 border border-gray-200 rounded-bl-md hover:shadow-md'
-                                }
-                              `}
-                            >
-                              {/* Message text */}
-                              <p className={`text-sm break-words leading-relaxed whitespace-pre-wrap ${
-                                isOwn ? 'text-white' : 'text-gray-800'
-                              }`}>
-                                {message.message}
-                              </p>
-
-                              {/* Timestamp and status */}
-                              <div className={`flex items-center justify-end gap-1.5 mt-2 ${
-                                isOwn ? 'text-blue-100' : 'text-gray-400'
-                              }`}>
-                                <span className="text-[10px] font-medium leading-none">
-                                  {formatTime(message.created_at)}
-                                </span>
-                                {isOwn && (
-                                  <div className="flex items-center">
-                                    {message.seen_at ? (
-                                      <CheckCheck className="w-3.5 h-3.5 text-blue-200" />
-                                    ) : message.is_read ? (
-                                      <CheckCheck className="w-3.5 h-3.5 text-blue-300" />
-                                    ) : (
-                                      <Check className="w-3.5 h-3.5 text-blue-300 opacity-60" />
-                                    )}
-                                  </div>
-                                )}
-                              </div>
+                        {/* Message bubble - Messenger style */}
+                        <div className={`flex flex-col ${isOwn ? 'items-end' : 'items-start'} max-w-[75%] md:max-w-[65%]`}>
+                          <div
+                            className={`
+                              px-4 py-3 rounded-2xl transition-all duration-150 group relative
+                              ${isOwn 
+                                ? 'bg-blue-500 text-white' 
+                                : 'bg-gray-100 text-gray-900'
+                              }
+                            `}
+                          >
+                            <p className="text-base break-words leading-relaxed whitespace-pre-wrap font-normal">
+                              {message.message}
+                            </p>
+                            
+                            {/* Hover: show timestamp */}
+                            <div className={`
+                              absolute -bottom-6 opacity-0 group-hover:opacity-100 transition-opacity text-sm text-gray-500 font-medium
+                              ${isOwn ? 'right-0' : 'left-0'}
+                            `}>
+                              {format(new Date(message.created_at), 'MMM d, h:mm a')}
+                              {isOwn && message.seen_at && ' • Seen'}
                             </div>
                           </div>
                         </div>
 
                         {/* Avatar for sent messages (right side) */}
                         {isOwn && (
-                          <div className={`flex-shrink-0 ml-2.5 ${showAvatar ? '' : 'invisible'}`}>
-                            <img
-                              src={userAvatar}
-                              alt={userName}
-                              className="w-10 h-10 rounded-full object-cover ring-2 ring-blue-100 shadow-sm"
-                            />
+                          <div className="flex-shrink-0 w-7">
+                            {showAvatar ? (
+                              <img
+                                src={userAvatar}
+                                alt={userName}
+                                className="w-7 h-7 rounded-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-7"></div>
+                            )}
                           </div>
                         )}
-                      </div>
+                      </motion.div>
                     );
-                  })
+                  })}
+                  </div>
                 )}
+                
+                {/* Typing Indicator */}
+                {isTyping && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 10 }}
+                    className="flex items-end gap-2 mb-3"
+                  >
+                    <div className="flex-shrink-0 w-7">
+                      {selectedChat?.user?.avatar_url ? (
+                        <img
+                          src={selectedChat.user.avatar_url}
+                          alt={selectedChat.user.username}
+                          className="w-7 h-7 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-7 h-7 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center">
+                          <span className="text-xs font-semibold text-white">
+                            {selectedChat?.user?.username?.charAt(0).toUpperCase() || 'U'}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="px-4 py-2 bg-gray-100 rounded-2xl">
+                      <div className="flex gap-1">
+                        <motion.div
+                          animate={{ scale: [1, 1.2, 1] }}
+                          transition={{ duration: 0.6, repeat: Infinity, delay: 0 }}
+                          className="w-2 h-2 bg-gray-400 rounded-full"
+                        />
+                        <motion.div
+                          animate={{ scale: [1, 1.2, 1] }}
+                          transition={{ duration: 0.6, repeat: Infinity, delay: 0.2 }}
+                          className="w-2 h-2 bg-gray-400 rounded-full"
+                        />
+                        <motion.div
+                          animate={{ scale: [1, 1.2, 1] }}
+                          transition={{ duration: 0.6, repeat: Infinity, delay: 0.4 }}
+                          className="w-2 h-2 bg-gray-400 rounded-full"
+                        />
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+                
                 <div ref={messagesEndRef} />
                 
                 {/* Scroll to bottom button */}
                 {showScrollButton && (
-                  <button
+                  <motion.button
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.8 }}
                     onClick={scrollToBottom}
-                    className="absolute bottom-6 right-6 p-4 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-colors duration-200 z-10"
+                    className="absolute bottom-4 right-4 p-2 bg-white border border-gray-300 text-gray-700 rounded-full shadow-lg hover:bg-gray-50 transition-colors duration-200 z-10"
                   >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
                     </svg>
-                  </button>
+                  </motion.button>
                 )}
               </div>
 
-              {/* Message Input */}
-              <div className="p-4 border-t border-gray-200 bg-white">
-                <div className="flex items-end gap-3">
+              {/* Message Input - Messenger Style */}
+              <div className="p-3 border-t border-gray-200 bg-white flex-shrink-0">
+                <div className="flex items-end gap-2">
+                  {/* Action buttons */}
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      className="p-2 text-blue-500 hover:bg-gray-100 rounded-full transition-colors"
+                      title="Add image"
+                    >
+                      <ImageIcon className="w-5 h-5" />
+                    </button>
+                    <button
+                      type="button"
+                      className="p-2 text-blue-500 hover:bg-gray-100 rounded-full transition-colors"
+                      title="Attach file"
+                    >
+                      <Paperclip className="w-5 h-5" />
+                    </button>
+                  </div>
+
                   {/* Input container */}
                   <div className="flex-1 relative">
-                    <div className="relative bg-gray-50 rounded-3xl border border-gray-200 focus-within:border-blue-400 focus-within:bg-white transition-all duration-200 shadow-sm hover:shadow-md">
-                      <input
-                        type="text"
+                    <div className="relative bg-gray-100 rounded-3xl focus-within:bg-gray-200 transition-all">
+                      <textarea
+                        ref={inputRef}
+                        value={messageInput}
+                        onChange={(e) => setMessageInput(e.target.value)}
+                        onKeyDown={handleKeyDown}
                         placeholder="Type a message..."
-                        className="w-full px-4 py-3 pr-20 bg-transparent rounded-3xl focus:outline-none transition-all duration-200 text-sm text-gray-900 placeholder-gray-400"
-                        onKeyPress={(e) => {
-                          if (e.key === 'Enter') {
-                            handleSendMessage(e.currentTarget.value);
-                            e.currentTarget.value = '';
-                          }
+                        rows={1}
+                        className="w-full px-4 py-3 pr-10 bg-transparent rounded-3xl focus:outline-none resize-none text-base text-gray-900 placeholder-gray-500 max-h-32"
+                        style={{
+                          minHeight: '44px',
+                          maxHeight: '120px'
                         }}
                       />
                       
-                      {/* Attachment and emoji buttons */}
-                      <div className="absolute right-2 bottom-2 flex items-center gap-1">
+                      {/* Emoji button */}
+                      <div className="absolute right-2 bottom-2">
                         <button
                           type="button"
-                          className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-full transition-all duration-200"
-                          title="Attach file"
-                        >
-                          <Paperclip className="w-4 h-4" />
-                        </button>
-                        <button
-                          type="button"
-                          className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-full transition-all duration-200"
+                          onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                          className={`p-1.5 rounded-full transition-colors ${
+                            showEmojiPicker 
+                              ? 'text-blue-500 bg-blue-50' 
+                              : 'text-gray-500 hover:bg-gray-200'
+                          }`}
                           title="Add emoji"
                         >
-                          <Smile className="w-4 h-4" />
+                          <Smile className="w-5 h-5" />
                         </button>
                       </div>
                     </div>
+
+                    {/* Emoji Picker */}
+                    <AnimatePresence>
+                      {showEmojiPicker && (
+                        <motion.div
+                          ref={emojiPickerRef}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: 10 }}
+                          className="absolute bottom-full right-0 mb-2 z-50 shadow-2xl rounded-lg overflow-hidden"
+                        >
+                          <EmojiPicker
+                            onEmojiClick={handleEmojiClick}
+                            theme={Theme.LIGHT}
+                            width={320}
+                            height={400}
+                            searchPlaceHolder="Search emoji"
+                            previewConfig={{ showPreview: false }}
+                          />
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
                   
-                  {/* Send button */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const input = document.querySelector('input[type="text"]') as HTMLInputElement;
-                      if (input?.value) {
-                        handleSendMessage(input.value);
-                        input.value = '';
-                      }
-                    }}
-                    className="flex items-center justify-center flex-shrink-0 w-12 h-12 rounded-full bg-blue-500 text-white hover:bg-blue-600 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl transition-all duration-200"
-                    title="Send message"
-                  >
-                    <Send className="w-5 h-5" />
-                  </button>
-                </div>
-                
-                {/* Helper text */}
-                <div className="mt-2 text-xs text-gray-400 px-1">
-                  Press Enter to send
+                  {/* Send button or Like button */}
+                  {messageInput.trim() ? (
+                    <button
+                      type="button"
+                      onClick={() => handleSendMessage()}
+                      className="p-2 text-blue-500 hover:bg-gray-100 rounded-full transition-colors flex-shrink-0"
+                      title="Send message"
+                    >
+                      <Send className="w-5 h-5" />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="p-2 text-blue-500 hover:bg-gray-100 rounded-full transition-colors flex-shrink-0"
+                      title="Send like"
+                    >
+                      <ThumbsUp className="w-5 h-5" />
+                    </button>
+                  )}
                 </div>
               </div>
             </>
           ) : (
-            <div className="flex-1 flex items-center justify-center text-gray-500">
-              <div className="text-center">
-                <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-full flex items-center justify-center shadow-lg">
-                  <MessageCircle className="w-12 h-12 text-blue-400" />
+            <div className="flex-1 flex items-center justify-center text-gray-500 bg-white">
+              <div className="text-center px-4">
+                <div className="w-20 h-20 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                  <MessageCircle className="w-10 h-10 text-gray-400" />
                 </div>
-                <p className="text-xl font-semibold text-gray-700 mb-2">
-                  Select a chat to start messaging
+                <p className="text-xl font-semibold text-gray-900 mb-2">
+                  No conversation selected
                 </p>
-                <p className="text-sm text-gray-500">
-                  Choose a conversation from the sidebar to begin
+                <p className="text-base text-gray-500">
+                  Choose a conversation to start chatting
                 </p>
               </div>
             </div>

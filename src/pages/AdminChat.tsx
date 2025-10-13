@@ -47,33 +47,36 @@ export const AdminChat: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-4">
+    <div className="fixed inset-0 bg-white flex flex-col" style={{ paddingTop: '80px' }}>
+      {/* Header - Messenger Style */}
+      <div className="bg-white border-b border-gray-200 flex-shrink-0 z-10">
+        <div className="px-4 py-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
               <Link
                 to="/admin"
-                className="flex items-center text-gray-600 hover:text-gray-900 transition-colors"
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                title="Back to Admin Dashboard"
               >
-                <ArrowLeft className="h-5 w-5 mr-2" />
-                Back to Admin Dashboard
+                <ArrowLeft className="h-5 w-5 text-gray-700" />
               </Link>
-            </div>
-            
-            <div className="flex items-center space-x-4">
-              <h1 className="text-xl font-semibold text-gray-900 flex items-center">
-                <MessageCircle className="h-6 w-6 mr-2 text-blue-600" />
+              <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <MessageCircle className="h-6 w-6 text-blue-500" />
                 Admin Chat
               </h1>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-600 hidden sm:inline">
+                Manage conversations
+              </span>
             </div>
           </div>
         </div>
       </div>
 
       {/* Embedded Chat Interface */}
-      <div className="h-[calc(100vh-4rem)]">
+      <div className="flex-1 overflow-hidden">
         <AdminChatInterface
           isOpen={true}
           onClose={() => {}} // No close functionality needed since it's embedded

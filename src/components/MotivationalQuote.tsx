@@ -266,3 +266,4 @@ export function MotivationalQuote({
 // Export quotes for testing or external use
 export { DEFAULT_QUOTES };
 
+
