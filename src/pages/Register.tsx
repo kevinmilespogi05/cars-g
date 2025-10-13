@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { motion } from 'framer-motion';
@@ -32,6 +32,11 @@ export function Register() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  // Smooth scroll to top on mount
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,7 +77,10 @@ export function Register() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
+    <div 
+      className="min-h-screen w-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-start justify-center px-500 py-500 sm:py-500 lg:py-500"
+      style={{ overflow: 'auto' }}
+    >
       {/* Back to Home Link - Mobile */}
       <div className="fixed top-4 left-4 z-50 lg:hidden">
         <Link 
@@ -84,14 +92,14 @@ export function Register() {
         </Link>
       </div>
 
-      <div className="w-full max-w-4xl">
+      <div className="w-full max-w-4xl my-8">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: "easeOut" }}
           className="bg-white rounded-2xl shadow-2xl overflow-hidden"
         >
-          <div className="grid lg:grid-cols-2">
+          <div className="grid lg:grid-cols-2 min-h-[600px]">
             {/* Left Column - Hero Image & Branding */}
             <div className="hidden lg:flex relative bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 overflow-hidden">
               {/* Background Pattern */}
@@ -189,7 +197,7 @@ export function Register() {
             </div>
 
             {/* Right Column - Registration Form */}
-            <div className="p-5 sm:p-6 lg:p-8 overflow-y-auto max-h-[95vh] lg:max-h-none">
+            <div className="p-5 sm:p-6 lg:p-8 overflow-auto flex flex-col justify-center">
               {/* Mobile Hero */}
               <div className="lg:hidden mb-6 text-center pt-6">
                 <div className="inline-flex items-center gap-2 mb-3">

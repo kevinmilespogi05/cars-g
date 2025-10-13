@@ -31,6 +31,8 @@ export function LandingPage() {
   const y = useTransform(scrollY, [0, 300], [0, -50]);
   const [installPrompt, setInstallPrompt] = useState<any>(null);
   const [isStandalone, setIsStandalone] = useState(false);
+  const [displayedText, setDisplayedText] = useState('');
+  const fullText = 'Make Your Community Safer';
 
   useEffect(() => {
     const handleScroll = () => {
@@ -38,6 +40,20 @@ export function LandingPage() {
     };
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Typing animation effect
+  useEffect(() => {
+    let currentIndex = 0;
+    const typingInterval = setInterval(() => {
+      if (currentIndex <= fullText.length) {
+        setDisplayedText(fullText.slice(0, currentIndex));
+        currentIndex++;
+      } else {
+        clearInterval(typingInterval);
+      }
+    }, 80);
+    return () => clearInterval(typingInterval);
   }, []);
 
   useEffect(() => {
@@ -242,216 +258,429 @@ export function LandingPage() {
         </motion.div>
       </motion.nav>
 
-      {/* Hero Section */}
-      <section className="relative pt-32 pb-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
-        {/* Background Elements */}
+      {/* Hero Section - Redesigned */}
+      <section className="relative pt-24 pb-32 px-4 sm:px-6 lg:px-8 overflow-hidden min-h-screen flex items-center">
+        {/* Animated Gradient Background */}
         <div className="absolute inset-0 -z-10">
-          <div className="absolute top-0 left-1/4 w-72 h-72 bg-blue-300/20 rounded-full blur-3xl"></div>
-          <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-purple-300/20 rounded-full blur-3xl"></div>
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-green-300/10 rounded-full blur-3xl"></div>
+          {/* Base gradient */}
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-50 via-blue-50 to-pink-50"></div>
+          
+          {/* Animated blob elements */}
+          <motion.div
+            animate={{
+              scale: [1, 1.2, 1],
+              rotate: [0, 90, 0],
+              x: [0, 50, 0],
+              y: [0, 30, 0],
+            }}
+            transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
+            className="absolute top-0 left-1/4 w-96 h-96 bg-gradient-to-br from-blue-400/30 to-purple-400/30 rounded-full blur-3xl"
+          ></motion.div>
+          
+          <motion.div
+            animate={{
+              scale: [1, 1.3, 1],
+              rotate: [0, -90, 0],
+              x: [0, -50, 0],
+              y: [0, -30, 0],
+            }}
+            transition={{ duration: 25, repeat: Infinity, ease: "easeInOut" }}
+            className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-gradient-to-br from-pink-400/30 to-red-400/30 rounded-full blur-3xl"
+          ></motion.div>
+          
+          <motion.div
+            animate={{
+              scale: [1, 1.1, 1],
+              x: [0, 30, 0],
+              y: [0, -40, 0],
+            }}
+            transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
+            className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-gradient-to-br from-green-400/20 to-blue-400/20 rounded-full blur-3xl"
+          ></motion.div>
+
+          {/* Floating particles */}
+          {[...Array(20)].map((_, i) => (
+            <motion.div
+              key={i}
+              className="absolute w-2 h-2 bg-white/40 rounded-full"
+              style={{
+                left: `${Math.random() * 100}%`,
+                top: `${Math.random() * 100}%`,
+              }}
+              animate={{
+                y: [0, -30, 0],
+                opacity: [0.2, 0.5, 0.2],
+              }}
+              transition={{
+                duration: 3 + Math.random() * 2,
+                repeat: Infinity,
+                delay: Math.random() * 2,
+              }}
+            />
+          ))}
         </div>
 
-        <div className="max-w-7xl mx-auto">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
+        <div className="max-w-7xl mx-auto w-full">
+          <div className="grid lg:grid-cols-2 gap-16 items-center">
             {/* Left Column - Content */}
-          <motion.div
+            <motion.div
               initial={{ opacity: 0, x: -50 }}
               animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.8 }}
-              className="text-center lg:text-left"
+              transition={{ duration: 0.8 }}
+              className="text-center lg:text-left z-10"
             >
+              {/* Animated Badge */}
               <motion.div
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
+                initial={{ opacity: 0, scale: 0.8, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.2 }}
-                className="inline-flex items-center px-4 py-2 bg-blue-50 text-blue-600 rounded-full text-sm font-medium mb-6"
+                className="inline-flex items-center px-5 py-2.5 mb-8 rounded-full text-sm font-semibold shadow-lg backdrop-blur-xl border border-white/20"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.7) 100%)',
+                }}
               >
-                <Star className="h-4 w-4 mr-2" />
-                Trusted by 2,500+ Community Members
+                <motion.div
+                  animate={{ rotate: [0, 360] }}
+                  transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                >
+                  <Star className="h-4 w-4 mr-2 text-yellow-500" fill="currentColor" />
+                </motion.div>
+                <span className="bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                  Trusted by 2,500+ Community Members
+                </span>
               </motion.div>
 
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-bold text-gray-900 mb-6 leading-tight">
-              Make Your Community
-                <span style={{color: '#800000'}}>
-                  {" "}Safer
-                </span>
-            </h1>
-
-              <p className="text-lg sm:text-xl text-gray-600 mb-8 max-w-2xl mx-auto lg:mx-0 leading-relaxed">
-              Report issues, coordinate with patrols, and build a safer neighborhood together. 
-                Simple, fast, and effective community safety at your fingertips.
-            </p>
-
-              <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-              <Link
-                to="/register"
-                  className="group text-white px-8 py-4 rounded-xl text-lg font-semibold transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105 flex items-center justify-center space-x-2"
-                  style={{backgroundColor: '#800000'}}
-                  onMouseEnter={(e) => (e.currentTarget as HTMLElement).style.backgroundColor = '#660000'}
-                  onMouseLeave={(e) => (e.currentTarget as HTMLElement).style.backgroundColor = '#800000'}
+              {/* Animated Headline with Typing Effect */}
+              <motion.h1 
+                className="text-5xl sm:text-6xl lg:text-7xl xl:text-8xl font-black mb-8 leading-tight"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.3 }}
               >
-                  <Zap className="h-5 w-5 group-hover:rotate-12 transition-transform duration-300" />
-                  <span>Start Protecting Your Community</span>
-              </Link>
-              <Link
-                to="/login"
-                  className="group border-2 border-gray-300 text-gray-700 px-8 py-4 rounded-xl text-lg font-semibold hover:border-blue-600 hover:text-blue-600 hover:bg-blue-50 transition-all duration-300 flex items-center justify-center space-x-2"
+                <motion.span 
+                  className="block bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent"
+                  animate={{ 
+                    backgroundPosition: ['0% center', '100% center', '0% center'],
+                  }}
+                  transition={{ duration: 5, repeat: Infinity }}
+                  style={{ backgroundSize: '200% auto' }}
                 >
-                  <Play className="h-5 w-5" />
-                  <span>Watch Demo</span>
-                </Link>
-              </div>
+                  {displayedText}
+                  <motion.span
+                    animate={{ opacity: [1, 0] }}
+                    transition={{ duration: 0.8, repeat: Infinity }}
+                    className="inline-block w-1 h-16 ml-2 bg-gradient-to-r from-red-600 to-red-800"
+                    style={{ verticalAlign: 'middle' }}
+                  />
+                </motion.span>
+              </motion.h1>
 
-              {/* Trust Indicators */}
+              {/* Description */}
+              <motion.p 
+                className="text-lg sm:text-xl lg:text-2xl text-gray-700 mb-10 max-w-2xl mx-auto lg:mx-0 leading-relaxed font-medium"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.5 }}
+              >
+                Report issues, coordinate with patrols, and build a safer neighborhood together. 
+                <span className="block mt-2 text-gray-600">Simple, fast, and effective community safety at your fingertips.</span>
+              </motion.p>
+
+              {/* CTA Buttons with Advanced Animations */}
+              <motion.div 
+                className="flex flex-col sm:flex-row gap-5 justify-center lg:justify-start mb-12"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.7 }}
+              >
+                {/* Primary CTA */}
+                <Link to="/register">
+                  <motion.button
+                    className="group relative px-8 py-5 rounded-2xl text-lg font-bold text-white overflow-hidden shadow-2xl"
+                    style={{
+                      background: 'linear-gradient(135deg, #800000 0%, #a00000 100%)',
+                    }}
+                    whileHover={{ scale: 1.05, y: -2 }}
+                    whileTap={{ scale: 0.98 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                  >
+                    {/* Animated gradient overlay */}
+                    <motion.div
+                      className="absolute inset-0 bg-gradient-to-r from-red-600 via-red-700 to-red-600"
+                      style={{ backgroundSize: '200% 100%' }}
+                      animate={{ backgroundPosition: ['0% center', '100% center', '0% center'] }}
+                      transition={{ duration: 3, repeat: Infinity }}
+                    />
+                    
+                    {/* Ripple effect on hover */}
+                    <motion.div
+                      className="absolute inset-0 bg-white"
+                      initial={{ scale: 0, opacity: 0.5 }}
+                      whileHover={{ scale: 2, opacity: 0 }}
+                      transition={{ duration: 0.6 }}
+                    />
+                    
+                    <span className="relative z-10 flex items-center justify-center space-x-2">
+                      <Zap className="h-5 w-5 group-hover:rotate-12 transition-transform duration-300" />
+                      <span>Start Protecting Your Community</span>
+                      <motion.span
+                        animate={{ x: [0, 4, 0] }}
+                        transition={{ duration: 1.5, repeat: Infinity }}
+                      >
+                        <ArrowRight className="h-5 w-5" />
+                      </motion.span>
+                    </span>
+                  </motion.button>
+                </Link>
+
+                {/* Secondary CTA with Glassmorphism */}
+                <Link to="/login">
+                  <motion.button
+                    className="group px-8 py-5 rounded-2xl text-lg font-bold backdrop-blur-xl border-2 shadow-xl"
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.7) 100%)',
+                      borderColor: 'rgba(128, 0, 0, 0.3)',
+                      color: '#800000',
+                    }}
+                    whileHover={{ 
+                      scale: 1.05, 
+                      y: -2,
+                      borderColor: 'rgba(128, 0, 0, 0.6)',
+                    }}
+                    whileTap={{ scale: 0.98 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                  >
+                    <span className="flex items-center justify-center space-x-2">
+                      <Play className="h-5 w-5 group-hover:scale-110 transition-transform" />
+                      <span>Watch Demo</span>
+                    </span>
+                  </motion.button>
+                </Link>
+              </motion.div>
+
+              {/* Trust Indicators with Glassmorphism */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.4 }}
-                className="mt-12 flex flex-wrap items-center justify-center lg:justify-start gap-6 text-sm text-gray-500"
+                transition={{ duration: 0.6, delay: 0.9 }}
+                className="flex flex-wrap items-center justify-center lg:justify-start gap-6"
               >
-                <div className="flex items-center space-x-2">
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                  <span>Free to use</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                  <span>No setup required</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                  <span>24/7 support</span>
-                </div>
+                {[
+                  { icon: CheckCircle, text: 'Free to use', color: 'from-green-500 to-emerald-600' },
+                  { icon: CheckCircle, text: 'No setup required', color: 'from-blue-500 to-cyan-600' },
+                  { icon: CheckCircle, text: '24/7 support', color: 'from-purple-500 to-pink-600' },
+                ].map((item, index) => (
+                  <motion.div
+                    key={index}
+                    className="flex items-center space-x-2 px-4 py-2 rounded-full backdrop-blur-xl border border-white/20 shadow-lg"
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.7) 100%)',
+                    }}
+                    whileHover={{ scale: 1.05, y: -2 }}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 1 + index * 0.1 }}
+                  >
+                    <div className={`bg-gradient-to-r ${item.color} p-1 rounded-full`}>
+                      <item.icon className="h-3 w-3 text-white" />
+                    </div>
+                    <span className="text-sm font-semibold text-gray-700">{item.text}</span>
+                  </motion.div>
+                ))}
               </motion.div>
             </motion.div>
 
-            {/* Right Column - Visual */}
+            {/* Right Column - 3D Phone Mockup with Floating Cards */}
             <motion.div
               initial={{ opacity: 0, x: 50 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.8, delay: 0.2 }}
-              className="relative"
+              className="relative hidden lg:block"
             >
-              <div className="relative">
-                {/* Main Phone Mockup */}
-                <div className="relative mx-auto w-80 h-[600px] bg-gray-900 rounded-[3rem] p-2 shadow-2xl">
-                  <div className="w-full h-full bg-white rounded-[2.5rem] overflow-hidden relative">
+              <motion.div 
+                className="relative"
+                animate={{ y: [0, -15, 0] }}
+                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+              >
+                {/* Glassmorphic Phone Mockup */}
+                <div className="relative mx-auto w-80 h-[600px] rounded-[3rem] p-3 shadow-2xl backdrop-blur-xl border border-white/20"
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.1) 100%)',
+                  }}
+                >
+                  <div className="w-full h-full bg-white/90 backdrop-blur-xl rounded-[2.5rem] overflow-hidden relative shadow-inner">
                     {/* Status Bar */}
-                    <div className="flex justify-between items-center px-6 py-3 bg-gray-50">
-                      <span className="text-sm font-semibold text-gray-900">9:41</span>
+                    <div className="flex justify-between items-center px-6 py-3 bg-gradient-to-r from-gray-50 to-gray-100">
+                      <span className="text-sm font-bold text-gray-900">9:41</span>
                       <div className="flex space-x-1">
-                        <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
-                        <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
-                        <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
+                        <motion.div 
+                          className="w-1 h-1 bg-gray-400 rounded-full"
+                          animate={{ scale: [1, 1.2, 1] }}
+                          transition={{ duration: 2, repeat: Infinity, delay: 0 }}
+                        />
+                        <motion.div 
+                          className="w-1 h-1 bg-gray-400 rounded-full"
+                          animate={{ scale: [1, 1.2, 1] }}
+                          transition={{ duration: 2, repeat: Infinity, delay: 0.2 }}
+                        />
+                        <motion.div 
+                          className="w-1 h-1 bg-gray-400 rounded-full"
+                          animate={{ scale: [1, 1.2, 1] }}
+                          transition={{ duration: 2, repeat: Infinity, delay: 0.4 }}
+                        />
                       </div>
                     </div>
                     
                     {/* App Content */}
                     <div className="p-6 space-y-4">
-                      <div className="flex items-center space-x-3">
-                        <div className="h-10 w-10 bg-blue-600 rounded-xl flex items-center justify-center">
-                          <Shield className="h-6 w-6 text-white" />
+                      <motion.div 
+                        className="flex items-center space-x-3"
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 1 }}
+                      >
+                        <div className="h-12 w-12 rounded-xl flex items-center justify-center shadow-lg"
+                          style={{
+                            background: 'linear-gradient(135deg, #800000 0%, #a00000 100%)',
+                          }}
+                        >
+                          <Shield className="h-7 w-7 text-white" />
                         </div>
                         <div>
-                          <h3 className="font-bold text-gray-900">CARS-G</h3>
-                          <p className="text-xs text-gray-500">Community Safety</p>
+                          <h3 className="font-black text-gray-900 text-lg">CARS-G</h3>
+                          <p className="text-xs text-gray-600 font-medium">Community Safety</p>
                         </div>
-                      </div>
+                      </motion.div>
                       
                       <div className="space-y-3">
-                        <div className="bg-blue-50 p-4 rounded-xl">
-                          <div className="flex items-center space-x-3">
-                            <div className="h-8 w-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                              <FileText className="h-4 w-4 text-white" />
+                        {[
+                          { icon: FileText, title: 'New Report', desc: 'Street light out on Main St', bg: 'from-blue-500 to-blue-600', delay: 1.2 },
+                          { icon: MapPin, title: 'Patrol Assigned', desc: 'Officer Johnson en route', bg: 'from-green-500 to-green-600', delay: 1.4 },
+                          { icon: Award, title: 'Reward Earned', desc: '+50 points for reporting', bg: 'from-purple-500 to-purple-600', delay: 1.6 },
+                        ].map((item, idx) => (
+                          <motion.div
+                            key={idx}
+                            className="backdrop-blur-xl p-4 rounded-2xl border border-white/20 shadow-lg"
+                            style={{
+                              background: 'linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.6) 100%)',
+                            }}
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: item.delay }}
+                            whileHover={{ scale: 1.02, y: -2 }}
+                          >
+                            <div className="flex items-center space-x-3">
+                              <div className={`h-10 w-10 bg-gradient-to-br ${item.bg} rounded-xl flex items-center justify-center shadow-lg`}>
+                                <item.icon className="h-5 w-5 text-white" />
+                              </div>
+                              <div className="flex-1">
+                                <p className="text-sm font-bold text-gray-900">{item.title}</p>
+                                <p className="text-xs text-gray-600 font-medium">{item.desc}</p>
+                              </div>
+                              <motion.div 
+                                className={`h-2.5 w-2.5 rounded-full shadow-lg`}
+                                style={{
+                                  background: idx === 0 ? '#10b981' : idx === 1 ? '#3b82f6' : '#eab308',
+                                }}
+                                animate={{ scale: [1, 1.3, 1] }}
+                                transition={{ duration: 2, repeat: Infinity }}
+                              />
                             </div>
-                            <div className="flex-1">
-                              <p className="text-sm font-medium text-gray-900">New Report</p>
-                              <p className="text-xs text-gray-500">Street light out on Main St</p>
-                            </div>
-                            <div className="h-2 w-2 bg-green-500 rounded-full"></div>
-                          </div>
-                        </div>
-                        
-                        <div className="bg-green-50 p-4 rounded-xl">
-                          <div className="flex items-center space-x-3">
-                            <div className="h-8 w-8 bg-green-600 rounded-lg flex items-center justify-center">
-                              <MapPin className="h-4 w-4 text-white" />
-                            </div>
-                            <div className="flex-1">
-                              <p className="text-sm font-medium text-gray-900">Patrol Assigned</p>
-                              <p className="text-xs text-gray-500">Officer Johnson en route</p>
-                            </div>
-                            <div className="h-2 w-2 bg-blue-500 rounded-full"></div>
-                          </div>
-                        </div>
-                        
-                        <div className="bg-purple-50 p-4 rounded-xl">
-                          <div className="flex items-center space-x-3">
-                            <div className="h-8 w-8 bg-purple-600 rounded-lg flex items-center justify-center">
-                              <Award className="h-4 w-4 text-white" />
-                            </div>
-                            <div className="flex-1">
-                              <p className="text-sm font-medium text-gray-900">Reward Earned</p>
-                              <p className="text-xs text-gray-500">+50 points for reporting</p>
-                            </div>
-                            <div className="h-2 w-2 bg-yellow-500 rounded-full"></div>
-                          </div>
-                        </div>
+                          </motion.div>
+                        ))}
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Floating Elements */}
+                {/* Floating Glassmorphic Cards */}
                 <motion.div
-                  animate={{ y: [0, -10, 0] }}
-                  transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-                  className="absolute -top-4 -right-4 bg-white rounded-2xl p-4 shadow-lg border border-gray-200"
+                  animate={{ 
+                    y: [0, -15, 0],
+                    rotate: [0, 3, 0],
+                  }}
+                  transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+                  className="absolute -top-8 -right-8 backdrop-blur-xl rounded-2xl p-4 shadow-2xl border border-white/20"
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.7) 100%)',
+                  }}
                 >
-                  <div className="flex items-center space-x-2">
-                    <div className="h-8 w-8 bg-green-100 rounded-lg flex items-center justify-center">
-                      <CheckCircle className="h-4 w-4 text-green-600" />
+                  <div className="flex items-center space-x-3">
+                    <div className="h-10 w-10 bg-gradient-to-br from-green-400 to-emerald-500 rounded-xl flex items-center justify-center shadow-lg">
+                      <CheckCircle className="h-5 w-5 text-white" />
                     </div>
                     <div>
-                      <p className="text-xs font-medium text-gray-900">Issue Resolved</p>
-                      <p className="text-xs text-gray-500">2 min ago</p>
+                      <p className="text-sm font-bold text-gray-900">Issue Resolved</p>
+                      <p className="text-xs text-gray-600 font-medium">2 min ago</p>
                     </div>
                   </div>
                 </motion.div>
 
                 <motion.div
-                  animate={{ y: [0, 10, 0] }}
-                  transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-                  className="absolute -bottom-4 -left-4 bg-white rounded-2xl p-4 shadow-lg border border-gray-200"
+                  animate={{ 
+                    y: [0, 15, 0],
+                    rotate: [0, -3, 0],
+                  }}
+                  transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+                  className="absolute -bottom-8 -left-8 backdrop-blur-xl rounded-2xl p-4 shadow-2xl border border-white/20"
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.7) 100%)',
+                  }}
                 >
-                  <div className="flex items-center space-x-2">
-                    <div className="h-8 w-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                      <Users className="h-4 w-4 text-blue-600" />
+                  <div className="flex items-center space-x-3">
+                    <div className="h-10 w-10 bg-gradient-to-br from-blue-400 to-cyan-500 rounded-xl flex items-center justify-center shadow-lg">
+                      <Users className="h-5 w-5 text-white" />
                     </div>
                     <div>
-                      <p className="text-xs font-medium text-gray-900">Active Users</p>
-                      <p className="text-xs text-gray-500">2,500+ online</p>
+                      <p className="text-sm font-bold text-gray-900">Active Users</p>
+                      <p className="text-xs text-gray-600 font-medium">2,500+ online</p>
                     </div>
                   </div>
                 </motion.div>
-            </div>
-          </motion.div>
+
+                {/* Additional floating badge */}
+                <motion.div
+                  animate={{ 
+                    rotate: [0, 360],
+                    scale: [1, 1.1, 1],
+                  }}
+                  transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+                  className="absolute top-1/2 -left-12 backdrop-blur-xl rounded-full p-3 shadow-2xl border border-white/20"
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.7) 100%)',
+                  }}
+                >
+                  <div className="h-12 w-12 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center shadow-lg">
+                    <Star className="h-6 w-6 text-white" fill="currentColor" />
+                  </div>
+                </motion.div>
+              </motion.div>
+            </motion.div>
           </div>
         </div>
 
-        {/* Scroll Indicator */}
+        {/* Animated Scroll Indicator */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ duration: 1, delay: 1 }}
-          className="absolute bottom-8 left-1/2 transform -translate-x-1/2"
+          transition={{ duration: 1, delay: 2 }}
+          className="absolute bottom-12 left-1/2 transform -translate-x-1/2 z-20"
         >
           <motion.div
-            animate={{ y: [0, 8, 0] }}
+            animate={{ y: [0, 12, 0] }}
             transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-            className="flex flex-col items-center text-gray-400"
+            className="flex flex-col items-center"
           >
-            <span className="text-sm mb-2">Scroll to explore</span>
-            <ChevronDown className="h-5 w-5" />
+            <span className="text-sm font-semibold text-gray-600 mb-2">Scroll to explore</span>
+            <motion.div
+              className="p-2 rounded-full backdrop-blur-xl border border-white/20 shadow-lg"
+              style={{
+                background: 'linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.7) 100%)',
+              }}
+              whileHover={{ scale: 1.1 }}
+            >
+              <ChevronDown className="h-6 w-6 text-gray-700" />
+            </motion.div>
           </motion.div>
         </motion.div>
       </section>
