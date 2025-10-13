@@ -10,9 +10,9 @@ import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
 import fetch from 'node-fetch';
 import { GoogleAuth } from 'google-auth-library';
-import multer from 'multer';
 import { generateTokenPair, verifyToken, extractTokenFromHeader } from './lib/jwt.js';
 import { authenticateToken, requireRole } from './middleware/auth.js';
+import WarmupService from './warmup.js';
 
 // Load environment variables
 dotenv.config();
@@ -2927,6 +2927,23 @@ const startServer = async () => {
     process.exit(1);
   }
 };
+
+// Initialize warmup service for production to prevent cold starts
+let warmupService = null;
+if (process.env.NODE_ENV === 'production') {
+  try {
+    warmupService = new WarmupService();
+    warmupService.setupGracefulShutdown();
+    // Start warmup service after server is ready
+    setTimeout(() => {
+      if (warmupService) {
+        warmupService.start();
+      }
+    }, 5000); // Wait 5 seconds for server to be ready
+  } catch (warmupError) {
+    console.warn('⚠️  Failed to initialize warmup service:', warmupError.message);
+  }
+}
 
 startServer();
 

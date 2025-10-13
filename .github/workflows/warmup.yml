@@ -1,0 +1,157 @@
+name: 🔥 CARS-G Warmup Service
+
+on:
+  schedule:
+    # Run every 4 minutes during active hours (9 AM - 11 PM UTC)
+    # This keeps the server warm during peak usage times
+    - cron: '*/4 9-23 * * *'
+    # Run every 10 minutes during off-peak hours (12 AM - 8 AM UTC) 
+    - cron: '*/10 0-8 * * *'
+  
+  # Allow manual triggering
+  workflow_dispatch:
+    inputs:
+      verbose:
+        description: 'Enable verbose output'
+        required: false
+        default: 'false'
+        type: boolean
+
+jobs:
+  warmup:
+    name: 🌡️ Keep Services Warm
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            warmup-standalone.js
+            package.json
+          sparse-checkout-cone-mode: false
+
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: 📦 Install dependencies
+        run: |
+          # Only install minimal dependencies needed for warmup
+          npm install node-fetch
+
+      - name: 🔥 Run warmup service
+        run: |
+          if [ "${{ github.event.inputs.verbose }}" == "true" ]; then
+            node warmup-standalone.js --verbose
+          else
+            node warmup-standalone.js
+          fi
+        env:
+          # Override URLs if needed (use secrets for production)
+          CARS_G_BACKEND_URL: ${{ secrets.BACKEND_URL || 'https://cars-g-api.onrender.com' }}
+          CARS_G_FRONTEND_URL: ${{ secrets.FRONTEND_URL || 'https://cars-g.vercel.app' }}
+
+      - name: 📊 Report Status
+        if: always()
+        run: |
+          if [ $? -eq 0 ]; then
+            echo "✅ All services are warm and responsive!"
+            echo "warmup_status=success" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Some services failed to warm up"
+            echo "warmup_status=failure" >> $GITHUB_OUTPUT
+          fi
+        id: status
+
+      # Optional: Send notifications on failure (uncomment if needed)
+      # - name: 🚨 Notify on Failure
+      #   if: failure()
+      #   uses: actions/github-script@v7
+      #   with:
+      #     script: |
+      #       const message = `🚨 CARS-G Warmup Failed
+      #       
+      #       The automated warmup service failed to keep all services warm.
+      #       This may indicate that one or more services are experiencing issues.
+      #       
+      #       **Time**: ${new Date().toISOString()}
+      #       **Workflow**: ${context.workflow}
+      #       **Run**: ${context.runNumber}
+      #       
+      #       Please check the service status and logs.`;
+      #       
+      #       // Create an issue or send notification
+      #       github.rest.issues.create({
+      #         owner: context.repo.owner,
+      #         repo: context.repo.repo,
+      #         title: 'CARS-G Warmup Service Failed',
+      #         body: message,
+      #         labels: ['bug', 'warmup', 'infrastructure']
+      #       });
+
+  # Monitor warmup effectiveness
+  monitor:
+    name: 📈 Monitor Warmup Effectiveness
+    runs-on: ubuntu-latest
+    needs: warmup
+    if: always()
+    
+    steps:
+      - name: 📊 Collect Metrics
+        run: |
+          echo "🔍 Checking service response times..."
+          
+          # Test backend response time
+          backend_start=$(date +%s%3N)
+          if curl -s --max-time 30 "https://cars-g-api.onrender.com/health" > /dev/null; then
+            backend_end=$(date +%s%3N)
+            backend_time=$((backend_end - backend_start))
+            echo "✅ Backend responded in ${backend_time}ms"
+          else
+            echo "❌ Backend did not respond"
+            backend_time=0
+          fi
+          
+          # Test frontend response time  
+          frontend_start=$(date +%s%3N)
+          if curl -s --max-time 30 "https://cars-g.vercel.app" > /dev/null; then
+            frontend_end=$(date +%s%3N)
+            frontend_time=$((frontend_end - frontend_start))
+            echo "✅ Frontend responded in ${frontend_time}ms"
+          else
+            echo "❌ Frontend did not respond"
+            frontend_time=0
+          fi
+          
+          # Determine if cold start was prevented
+          if [ $backend_time -lt 5000 ] && [ $frontend_time -lt 3000 ]; then
+            echo "🎉 Cold start prevention successful!"
+            echo "   Backend: ${backend_time}ms (< 5s target)"
+            echo "   Frontend: ${frontend_time}ms (< 3s target)"
+          else
+            echo "⚠️ Services may have experienced cold starts"
+            echo "   Backend: ${backend_time}ms"
+            echo "   Frontend: ${frontend_time}ms"
+          fi
+
+# Workflow summary and documentation
+# This workflow helps prevent cold starts by:
+# 1. Making regular requests to critical endpoints
+# 2. Keeping serverless functions warm and ready
+# 3. Ensuring fast response times for users
+# 4. Monitoring effectiveness and alerting on issues
+#
+# Schedule explanation:
+# - Every 4 minutes during peak hours (9 AM - 11 PM UTC)
+# - Every 10 minutes during off-peak hours (12 AM - 8 AM UTC)
+# - Can be triggered manually for testing
+#
+# Benefits:
+# - Dramatically reduces cold start delays
+# - Improves user experience
+# - Maintains service availability
+# - Provides monitoring and alerting
