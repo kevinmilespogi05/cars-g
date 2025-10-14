@@ -26,9 +26,9 @@ const LGU_OFFICE_HOURS = 'Monday–Friday, 8:00 AM – 5:00 PM';
 
 export function LGUInfo() {
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
       {/* Header */}
-      <div className="flex items-center gap-2 mb-3">
+      <div className="flex items-center gap-2 mb-2.5">
         <Building2 className="h-5 w-5 text-blue-600" />
         <h3 className="text-base font-semibold text-gray-900">
           Local Government Unit
@@ -36,8 +36,8 @@ export function LGUInfo() {
       </div>
 
       {/* LGU Name */}
-      <div className="mb-4">
-        <h4 className="text-sm font-bold text-gray-900 mb-2">
+      <div className="mb-3">
+        <h4 className="text-sm font-bold text-gray-900 mb-1.5">
           {LGU_NAME}
         </h4>
         <div className="flex items-start gap-2 text-xs text-gray-600">
@@ -50,7 +50,7 @@ export function LGUInfo() {
       <div className="border-t border-gray-200 my-3"></div>
 
       {/* Contact Information */}
-      <div className="space-y-2.5">
+      <div className="space-y-2">
         {/* Email */}
         <div className="flex items-start gap-2">
           <Mail className="h-3.5 w-3.5 mt-0.5 flex-shrink-0 text-gray-400" />

@@ -132,18 +132,18 @@ export function EmergencyContacts() {
   ];
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-      <h3 className="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+      <h3 className="text-base font-semibold text-gray-900 mb-3 flex items-center gap-2">
         <Shield className="h-5 w-5 text-blue-600" />
         Emergency Contacts
       </h3>
       
       {/* Responsive grid: 1 col on mobile, 2 cols on larger screens */}
-      <div className="grid grid-cols-1 gap-3">
+      <div className="grid grid-cols-1 gap-2.5">
         {contacts.map((contact) => (
           <div
             key={contact.id}
-            className={`${contact.colorScheme.bg} border ${contact.colorScheme.border} rounded-lg p-3 ${contact.colorScheme.hover} transition-all duration-200`}
+            className={`${contact.colorScheme.bg} border ${contact.colorScheme.border} rounded-lg p-2.5 ${contact.colorScheme.hover} transition-all duration-200`}
           >
             <div className="flex items-center justify-between gap-2">
               <div className="flex-1 min-w-0">

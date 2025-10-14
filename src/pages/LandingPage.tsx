@@ -23,6 +23,8 @@ import {
   Play,
   Download
 } from 'lucide-react';
+import { useActiveUsers } from '../hooks/useActiveUsers';
+import { useResolvedReports } from '../hooks/useResolvedReports';
 
 export function LandingPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -32,7 +34,13 @@ export function LandingPage() {
   const [installPrompt, setInstallPrompt] = useState<any>(null);
   const [isStandalone, setIsStandalone] = useState(false);
   const [displayedText, setDisplayedText] = useState('');
-  const fullText = 'Make Your Community Safer';
+  const [currentWordIndex, setCurrentWordIndex] = useState(0);
+  const rotatingWords = ['Safer', 'Healthier', 'Better', 'Stronger', 'Cleaner'];
+  const staticText = 'Make Your Community ';
+  
+  // Fetch real-time data
+  const { count: activeUsersCount, loading: loadingUsers } = useActiveUsers();
+  const { count: resolvedReportsCount, loading: loadingReports } = useResolvedReports();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -42,19 +50,40 @@ export function LandingPage() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Typing animation effect
+  // Rotating text animation effect
   useEffect(() => {
     let currentIndex = 0;
-    const typingInterval = setInterval(() => {
-      if (currentIndex <= fullText.length) {
-        setDisplayedText(fullText.slice(0, currentIndex));
-        currentIndex++;
+    let isDeleting = false;
+    let currentWord = rotatingWords[currentWordIndex];
+    
+    const typeInterval = setInterval(() => {
+      if (!isDeleting) {
+        // Typing forward
+        if (currentIndex <= currentWord.length) {
+          setDisplayedText(staticText + currentWord.slice(0, currentIndex));
+          currentIndex++;
+        } else {
+          // Pause at the end before deleting
+          setTimeout(() => {
+            isDeleting = true;
+          }, 2000);
+        }
       } else {
-        clearInterval(typingInterval);
+        // Deleting backward
+        if (currentIndex > 0) {
+          currentIndex--;
+          setDisplayedText(staticText + currentWord.slice(0, currentIndex));
+        } else {
+          // Move to next word
+          isDeleting = false;
+          setCurrentWordIndex((prev) => (prev + 1) % rotatingWords.length);
+          clearInterval(typeInterval);
+        }
       }
-    }, 80);
-    return () => clearInterval(typingInterval);
-  }, []);
+    }, isDeleting ? 50 : 100);
+    
+    return () => clearInterval(typeInterval);
+  }, [currentWordIndex]);
 
   useEffect(() => {
     const onBeforeInstall = (e: any) => {
@@ -122,9 +151,24 @@ export function LandingPage() {
     }
   ];
 
+  // Format number with commas
+  const formatNumber = (num: number): string => {
+    return num.toLocaleString('en-US');
+  };
+
   const stats = [
-    { number: "2,500+", label: "Active Users", icon: Users },
-    { number: "1,200+", label: "Issues Resolved", icon: CheckCircle },
+    { 
+      number: loadingUsers ? "Loading..." : formatNumber(activeUsersCount), 
+      label: "Active Users", 
+      icon: Users,
+      isLive: true 
+    },
+    { 
+      number: loadingReports ? "Loading..." : formatNumber(resolvedReportsCount), 
+      label: "Issues Resolved", 
+      icon: CheckCircle,
+      isLive: true 
+    },
     { number: "24/7", label: "Support Available", icon: Clock },
     { number: "98%", label: "User Satisfaction", icon: Heart }
   ];
@@ -162,18 +206,16 @@ export function LandingPage() {
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16 lg:h-20">
-            <Link to="/" className="flex items-center space-x-3 group">
+            <Link to="/" className="flex items-center space-x-4 group">
               <div className="relative">
-                <div className="h-10 w-10 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-105" style={{backgroundColor: '#800000'}}>
-                  <img src="/images/logo.jpg" alt="CARS-G Logo" className="h-6 w-6 rounded object-cover" loading="lazy" />
-                </div>
-                <div className="absolute -top-1 -right-1 h-4 w-4 bg-green-500 rounded-full border-2 border-white animate-pulse"></div>
+                <img src="/images/logo.jpg" alt="CARS-G Logo" className="h-14 w-14 lg:h-16 lg:w-16 rounded-full object-cover shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-105 ring-2 ring-white/30 group-hover:ring-white/50" loading="lazy" />
+                <div className="absolute -top-1 -right-1 h-3.5 w-3.5 bg-green-500 rounded-full border-2 border-white animate-pulse"></div>
               </div>
-              <div>
-                <span className="text-xl lg:text-2xl font-bold text-white">
+              <div className="flex flex-col justify-center">
+                <span className="text-xl lg:text-2xl font-bold text-white leading-tight">
                   CARS-G
                 </span>
-                <p className="text-xs text-gray-200 -mt-1">Community Safety</p>
+                <p className="text-[10px] lg:text-xs text-gray-200 leading-tight">Community Safety</p>
               </div>
             </Link>
             
@@ -329,50 +371,27 @@ export function LandingPage() {
               transition={{ duration: 0.8 }}
               className="text-center lg:text-left z-10"
             >
-              {/* Animated Badge */}
-              <motion.div
-                initial={{ opacity: 0, scale: 0.8, y: 20 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.2 }}
-                className="inline-flex items-center px-5 py-2.5 mb-8 rounded-full text-sm font-semibold shadow-lg backdrop-blur-xl border border-white/20"
-                style={{
-                  background: 'linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.7) 100%)',
-                }}
-              >
-                <motion.div
-                  animate={{ rotate: [0, 360] }}
-                  transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-                >
-                  <Star className="h-4 w-4 mr-2 text-yellow-500" fill="currentColor" />
-                </motion.div>
-                <span className="bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                  Trusted by 2,500+ Community Members
-                </span>
-              </motion.div>
+              
 
-              {/* Animated Headline with Typing Effect */}
+              {/* Animated Headline with Rotating Text Effect */}
               <motion.h1 
                 className="text-5xl sm:text-6xl lg:text-7xl xl:text-8xl font-black mb-8 leading-tight"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.8, delay: 0.3 }}
               >
-                <motion.span 
-                  className="block bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent"
-                  animate={{ 
-                    backgroundPosition: ['0% center', '100% center', '0% center'],
-                  }}
-                  transition={{ duration: 5, repeat: Infinity }}
-                  style={{ backgroundSize: '200% auto' }}
-                >
-                  {displayedText}
+                <span className="block text-gray-900">
+                  {staticText}
+                  <span className="bg-gradient-to-r from-red-900 via-red-700 to-red-800 bg-clip-text text-transparent">
+                    {rotatingWords[currentWordIndex].slice(0, Math.max(0, displayedText.length - staticText.length))}
+                  </span>
                   <motion.span
                     animate={{ opacity: [1, 0] }}
                     transition={{ duration: 0.8, repeat: Infinity }}
-                    className="inline-block w-1 h-16 ml-2 bg-gradient-to-r from-red-600 to-red-800"
+                    className="inline-block w-1 h-16 ml-2 bg-gradient-to-r from-red-900 to-red-700"
                     style={{ verticalAlign: 'middle' }}
                   />
-                </motion.span>
+                </span>
               </motion.h1>
 
               {/* Description */}
@@ -539,13 +558,11 @@ export function LandingPage() {
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: 1 }}
                       >
-                        <div className="h-12 w-12 rounded-xl flex items-center justify-center shadow-lg"
-                          style={{
-                            background: 'linear-gradient(135deg, #800000 0%, #a00000 100%)',
-                          }}
-                        >
-                          <Shield className="h-7 w-7 text-white" />
-                        </div>
+                        <img 
+                          src="/images/logo.jpg" 
+                          alt="CARS-G Logo" 
+                          className="h-12 w-12 rounded-full object-cover shadow-lg ring-2 ring-gray-200"
+                        />
                         <div>
                           <h3 className="font-black text-gray-900 text-lg">CARS-G</h3>
                           <p className="text-xs text-gray-600 font-medium">Community Safety</p>
@@ -628,12 +645,27 @@ export function LandingPage() {
                   }}
                 >
                   <div className="flex items-center space-x-3">
-                    <div className="h-10 w-10 bg-gradient-to-br from-blue-400 to-cyan-500 rounded-xl flex items-center justify-center shadow-lg">
+                    <div className="h-10 w-10 bg-gradient-to-br from-blue-400 to-cyan-500 rounded-xl flex items-center justify-center shadow-lg relative">
                       <Users className="h-5 w-5 text-white" />
+                      {!loadingUsers && (
+                        <div className="absolute -top-1 -right-1">
+                          <span className="relative flex h-3 w-3">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500 ring-2 ring-white"></span>
+                          </span>
+                        </div>
+                      )}
                     </div>
                     <div>
-                      <p className="text-sm font-bold text-gray-900">Active Users</p>
-                      <p className="text-xs text-gray-600 font-medium">2,500+ online</p>
+                      <p className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                        Active Users
+                        {!loadingUsers && (
+                          <span className="text-[10px] font-normal text-green-600 bg-green-50 px-1.5 py-0.5 rounded-full">LIVE</span>
+                        )}
+                      </p>
+                      <p className="text-xs text-gray-600 font-medium">
+                        {loadingUsers ? 'Loading...' : `${formatNumber(activeUsersCount)} online`}
+                      </p>
                     </div>
                   </div>
                 </motion.div>
@@ -712,11 +744,22 @@ export function LandingPage() {
                 className="text-center group"
               >
                 <div className="bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 group-hover:-translate-y-2 border border-gray-100">
-                  <div className="h-16 w-16 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300" style={{backgroundColor: '#800000'}}>
+                  <div className="h-16 w-16 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300 relative" style={{backgroundColor: '#800000'}}>
                     <stat.icon className="h-8 w-8 text-white" />
+                    {stat.isLive && !loadingUsers && !loadingReports && (
+                      <div className="absolute -top-1 -right-1 flex items-center">
+                        <span className="relative flex h-3 w-3">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                        </span>
+                      </div>
+                    )}
                   </div>
-                  <div className="text-3xl sm:text-4xl font-bold mb-2" style={{color: '#800000'}}>
+                  <div className="text-3xl sm:text-4xl font-bold mb-2 flex items-center justify-center gap-2" style={{color: '#800000'}}>
                     {stat.number}
+                    {stat.isLive && !loadingUsers && !loadingReports && (
+                      <span className="text-xs font-normal text-green-600 bg-green-50 px-2 py-1 rounded-full">LIVE</span>
+                    )}
                   </div>
                   <div className="text-gray-600 font-medium">{stat.label}</div>
                 </div>
@@ -961,12 +1004,12 @@ export function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-white py-16">
+      <footer className="bg-gray-900 text-white py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-12">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
             {/* Brand Section */}
             <div className="lg:col-span-1">
-              <div className="flex items-center space-x-3 mb-6">
+              <div className="flex items-center space-x-3 mb-4">
                 <div className="h-12 w-12 rounded-xl flex items-center justify-center" style={{backgroundColor: '#800000'}}>
                   <img src="/images/logo.jpg" alt="CARS-G Logo" className="h-7 w-7 rounded object-cover" loading="lazy" />
                 </div>
@@ -975,9 +1018,8 @@ export function LandingPage() {
                   <p className="text-sm text-gray-400">Community Safety</p>
                 </div>
               </div>
-              <p className="text-gray-400 mb-6 leading-relaxed">
-                Making communities safer, more connected, and better places to live. 
-                Join thousands of members who trust CARS-G for their safety needs.
+              <p className="text-gray-400 mb-4 leading-relaxed text-sm">
+                Making communities safer, more connected, and better places to live.
               </p>
               <div className="flex space-x-4">
                 <div className="h-10 w-10 bg-gray-800 rounded-lg flex items-center justify-center hover:bg-gray-700 transition-colors cursor-pointer">
@@ -991,8 +1033,8 @@ export function LandingPage() {
 
             {/* Quick Links */}
             <div>
-              <h3 className="text-lg font-bold mb-6">Quick Links</h3>
-              <ul className="space-y-4">
+              <h3 className="text-base font-bold mb-4">Quick Links</h3>
+              <ul className="space-y-2">
                 <li>
                   <Link to="/login" className="text-gray-400 hover:text-white transition-colors flex items-center space-x-2">
                     <ArrowRight className="h-4 w-4" />
@@ -1022,8 +1064,8 @@ export function LandingPage() {
 
             {/* Features */}
             <div>
-              <h3 className="text-lg font-bold mb-6">Features</h3>
-              <ul className="space-y-4">
+              <h3 className="text-base font-bold mb-4">Features</h3>
+              <ul className="space-y-2">
                 <li className="text-gray-400 flex items-center space-x-2">
                   <CheckCircle className="h-4 w-4 text-green-400" />
                   <span>Issue Reporting</span>
@@ -1045,8 +1087,8 @@ export function LandingPage() {
 
             {/* Support */}
             <div>
-              <h3 className="text-lg font-bold mb-6">Support</h3>
-              <ul className="space-y-4">
+              <h3 className="text-base font-bold mb-4">Support</h3>
+              <ul className="space-y-2">
                 <li>
                   <a href="#" className="text-gray-400 hover:text-white transition-colors flex items-center space-x-2">
                     <ArrowRight className="h-4 w-4" />
@@ -1076,13 +1118,13 @@ export function LandingPage() {
           </div>
 
           {/* Bottom Section */}
-          <div className="border-t border-gray-800 mt-12 pt-8">
-            <div className="flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
+          <div className="border-t border-gray-800 mt-8 pt-6">
+            <div className="flex flex-col md:flex-row justify-between items-center space-y-3 md:space-y-0">
               <div className="text-gray-400 text-center md:text-left">
-            <p>&copy; 2024 CARS-G. All rights reserved.</p>
-                <p className="text-sm mt-1">Making communities safer, one report at a time.</p>
+            <p className="text-sm">&copy; 2024 CARS-G. All rights reserved.</p>
+                <p className="text-xs mt-1">Making communities safer, one report at a time.</p>
               </div>
-              <div className="flex items-center space-x-6 text-sm text-gray-400">
+              <div className="flex items-center space-x-4 text-xs text-gray-400">
                 <a href="#" className="hover:text-white transition-colors">Terms of Service</a>
                 <a href="#" className="hover:text-white transition-colors">Privacy Policy</a>
                 <a href="#" className="hover:text-white transition-colors">Cookie Policy</a>

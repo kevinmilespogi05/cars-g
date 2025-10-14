@@ -703,6 +703,14 @@ export function CaseDetailsPage() {
                       <textarea
                         value={newComment}
                         onChange={(e) => setNewComment(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            if (newComment.trim() && !loading) {
+                              handleAddComment();
+                            }
+                          }
+                        }}
                         placeholder="Add a comment or update..."
                         className="flex-1 p-2 sm:p-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 resize-none"
                         rows={2}

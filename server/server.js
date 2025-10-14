@@ -1491,6 +1491,73 @@ app.post('/api/auth/check-email', async (req, res) => {
   }
 });
 
+// Check username/email availability endpoint
+app.post('/api/auth/check-availability', async (req, res) => {
+  try {
+    const { type, value } = req.body || {};
+
+    if (!type || !value) {
+      return res.status(400).json({ 
+        success: false, 
+        available: false,
+        message: 'Missing type or value' 
+      });
+    }
+
+    if (!['username', 'email'].includes(type)) {
+      return res.status(400).json({ 
+        success: false, 
+        available: false,
+        message: 'Invalid type. Must be username or email' 
+      });
+    }
+
+    if (!supabaseAdmin) {
+      return res.status(503).json({ 
+        success: false, 
+        available: false,
+        message: 'Service unavailable' 
+      });
+    }
+
+    if (type === 'username') {
+      // Check username availability
+      const { data } = await supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .eq('username', value)
+        .maybeSingle();
+
+      return res.status(200).json({
+        success: true,
+        available: !data,
+        message: data ? 'Username is already taken' : 'Username is available'
+      });
+    } else if (type === 'email') {
+      // Check email in both profiles and auth users
+      const [profileCheck, authUsers] = await Promise.all([
+        supabaseAdmin.from('profiles').select('id').eq('email', value).maybeSingle(),
+        supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 })
+      ]);
+
+      const emailExists = profileCheck.data || authUsers.data?.users?.some(u => u.email === value);
+
+      return res.status(200).json({
+        success: true,
+        available: !emailExists,
+        message: emailExists ? 'Email is already taken' : 'Email is available'
+      });
+    }
+  } catch (error) {
+    console.error('Error checking availability:', error);
+    return res.status(500).json({
+      success: false,
+      available: false,
+      message: 'Error checking availability'
+    });
+  }
+});
+
 // Registration endpoint - Direct registration without OTP verification
 app.post('/api/auth/register', async (req, res) => {
   try {

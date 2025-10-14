@@ -361,7 +361,7 @@ export function Reports() {
         <div className="grid grid-cols-1 md:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)] lg:grid-cols-[minmax(280px,1fr)_minmax(0,2.5fr)_minmax(280px,1fr)]">
           
           {/* LEFT COLUMN: Sidebar Navigation - Hidden on mobile/tablet, visible on desktop */}
-          <aside className="hidden lg:block lg:sticky lg:top-[88px] lg:self-start lg:order-1 border-r border-gray-200 bg-white pt-6 px-4 pb-48 overflow-y-scroll max-h-[calc(100vh-280px)] scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 hover:scrollbar-thumb-gray-400">
+          <aside className="hidden lg:block lg:order-1 border-r border-gray-200 bg-white pt-6 px-4 pb-6">
             <SideNav />
           </aside>
 
@@ -395,8 +395,8 @@ export function Reports() {
           </main>
 
           {/* RIGHT COLUMN: Emergency Contacts & LGU Info - Shows on tablet/desktop only */}
-          <aside className="hidden md:block md:sticky md:top-[88px] md:self-start md:order-2 lg:order-3 border-l border-gray-200 bg-white pt-6 px-4 pb-48 overflow-y-scroll max-h-[calc(100vh-280px)] scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 hover:scrollbar-thumb-gray-400">
-            <div className="space-y-5">
+          <aside className="hidden md:block md:order-2 lg:order-3 border-l border-gray-200 bg-white pt-6 px-4 pb-6">
+            <div className="space-y-4">
               {/* Emergency Contacts */}
               <EmergencyContacts />
 

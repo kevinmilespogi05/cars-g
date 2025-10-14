@@ -59,9 +59,9 @@ export function SideNav() {
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       {/* Breadcrumb Navigation */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3.5">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3">
         <div className="flex items-center gap-2 text-xs text-gray-500">
           <Link to="/" className="hover:text-gray-700 transition-colors">
             Home
@@ -72,7 +72,7 @@ export function SideNav() {
       </div>
 
       {/* Navigation Menu */}
-      <nav className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+      <nav className="bg-white rounded-xl shadow-sm border border-gray-200 p-3.5">
         <h3 className="text-xs font-semibold text-gray-900 uppercase tracking-wide mb-3 px-2">
           Navigation
         </h3>
@@ -116,8 +116,8 @@ export function SideNav() {
       </nav>
 
       {/* Quick Actions Section */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-        <div className="mb-3">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+        <div className="mb-2.5">
           <h2 className="text-base font-semibold text-gray-900 mb-1">
             Quick Actions
           </h2>

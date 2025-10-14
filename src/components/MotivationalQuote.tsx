@@ -190,7 +190,7 @@ export function MotivationalQuote({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: 0.2 }}
-      className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-xl shadow-sm border border-blue-100 p-5 relative overflow-hidden"
+      className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-xl shadow-sm border border-blue-100 p-4 relative overflow-hidden"
       role="region"
       aria-label="Motivational Quote"
     >
@@ -200,7 +200,7 @@ export function MotivationalQuote({
       </div>
 
       {/* Header with icon and refresh button */}
-      <div className="flex items-center justify-between mb-3 relative z-10">
+      <div className="flex items-center justify-between mb-2.5 relative z-10">
         <div className="flex items-center gap-2">
           <div className="p-1.5 bg-blue-100 rounded-lg">
             <Sparkles className="h-4 w-4 text-blue-600" />
@@ -236,7 +236,7 @@ export function MotivationalQuote({
           className="relative z-10"
         >
           {/* Quote text */}
-          <blockquote className="mb-3">
+          <blockquote className="mb-2.5">
             <p className="text-sm leading-relaxed text-gray-700 font-medium italic relative">
               <span className="text-blue-600 text-2xl leading-none absolute -left-2 -top-1">"</span>
               <span className="pl-4">{currentQuote.text}</span>

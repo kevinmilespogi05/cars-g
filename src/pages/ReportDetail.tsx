@@ -1190,6 +1190,14 @@ export function ReportDetail() {
                               e.target.style.height = 'auto';
                               e.target.style.height = e.target.scrollHeight + 'px';
                             }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                if (commentContent.trim() && !submittingComment) {
+                                  handleSubmitComment(e as any);
+                                }
+                              }
+                            }}
                             placeholder="Write a comment…"
                             className="w-full px-4 py-2 bg-gray-100 border border-transparent rounded-full focus:bg-white focus:border-gray-300 focus:ring-1 focus:ring-blue-500 text-sm resize-none overflow-hidden transition-all"
                             ref={commentTextareaRef}

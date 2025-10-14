@@ -83,18 +83,17 @@ export function Navigation() {
           <div className="flex items-center space-x-4">
             <Link 
               to={user ? (user.role === 'admin' ? '/admin' : user.role === 'patrol' ? '/patrol' : '/reports') : '/login'}
-              className="flex items-center space-x-3 text-white hover:text-gray-200 transition-colors group"
+              className="flex items-center space-x-4 text-white hover:text-gray-200 transition-colors group"
             >
-              <div className="relative">
+              <div className="relative flex items-center">
                 <img 
                   src="/images/logo.jpg" 
                   alt="CARS-G Logo" 
-                  className="h-10 w-10 object-contain rounded-xl shadow-sm group-hover:shadow-md transition-shadow duration-200"
+                  className="h-14 w-14 object-cover rounded-full shadow-md group-hover:shadow-lg transition-all duration-200 ring-2 ring-white/30 group-hover:ring-white/50"
                   loading="lazy"
                 />
-                <div className="absolute -inset-1 rounded-xl opacity-0 group-hover:opacity-10 transition-opacity duration-200 -z-10 bg-white"></div>
               </div>
-              <span className="text-2xl font-bold text-white group-hover:text-gray-200 transition-colors">CARS-G</span>
+              <span className="text-2xl font-bold text-white group-hover:text-gray-200 transition-colors leading-tight">CARS-G</span>
             </Link>
             
             {/* Philippines Date and Time */}

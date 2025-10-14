@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
+import { useAvailabilityCheck } from '../hooks/useAvailabilityCheck';
 import { motion } from 'framer-motion';
 import { 
   Mail, 
@@ -14,7 +15,9 @@ import {
   Shield,
   UserPlus,
   MapPin,
-  Phone
+  Phone,
+  Loader2,
+  XCircle
 } from 'lucide-react';
 
 export function Register() {
@@ -33,6 +36,10 @@ export function Register() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  // Real-time availability checks
+  const usernameCheck = useAvailabilityCheck(username, 'username');
+  const emailCheck = useAvailabilityCheck(email, 'email');
+
   // Smooth scroll to top on mount
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -42,6 +49,17 @@ export function Register() {
     e.preventDefault();
     setError('');
     setSuccess('');
+
+    // Check availability before submitting
+    if (usernameCheck.isAvailable === false) {
+      setError('Username is already taken. Please choose another one.');
+      return;
+    }
+
+    if (emailCheck.isAvailable === false) {
+      setError('Email is already registered. Please use a different email or sign in.');
+      return;
+    }
 
     if (password !== confirmPassword) {
       setError('Passwords do not match');
@@ -261,10 +279,42 @@ export function Register() {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
-                      className="w-full pl-9 pr-3 py-2 bg-gray-50 border-2 border-gray-200 rounded-lg text-gray-900 text-sm placeholder-gray-400 focus:bg-white focus:border-red-800 focus:ring-4 focus:ring-red-800/10 transition-all duration-300 outline-none font-medium"
+                      className={`w-full pl-9 pr-10 py-2 bg-gray-50 border-2 rounded-lg text-gray-900 text-sm placeholder-gray-400 focus:bg-white focus:ring-4 transition-all duration-300 outline-none font-medium ${
+                        emailCheck.isChecking
+                          ? 'border-gray-200 focus:border-gray-300 focus:ring-gray-200/10'
+                          : emailCheck.isAvailable === true
+                          ? 'border-green-300 focus:border-green-500 focus:ring-green-500/10'
+                          : emailCheck.isAvailable === false
+                          ? 'border-red-300 focus:border-red-500 focus:ring-red-500/10'
+                          : 'border-gray-200 focus:border-red-800 focus:ring-red-800/10'
+                      }`}
                       placeholder="john@example.com"
                     />
+                    {/* Status Icon */}
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                      {emailCheck.isChecking && (
+                        <Loader2 className="h-4 w-4 text-gray-400 animate-spin" />
+                      )}
+                      {!emailCheck.isChecking && emailCheck.isAvailable === true && (
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                      )}
+                      {!emailCheck.isChecking && emailCheck.isAvailable === false && (
+                        <XCircle className="h-4 w-4 text-red-500" />
+                      )}
+                    </div>
                   </div>
+                  {/* Validation Message */}
+                  {!emailCheck.isChecking && emailCheck.message && email.length >= 3 && (
+                    <motion.p
+                      initial={{ opacity: 0, y: -5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className={`mt-1 text-xs font-medium ${
+                        emailCheck.isAvailable ? 'text-green-600' : 'text-red-600'
+                      }`}
+                    >
+                      {emailCheck.message}
+                    </motion.p>
+                  )}
                 </div>
 
                 {/* Username */}
@@ -280,10 +330,42 @@ export function Register() {
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
                       required
-                      className="w-full pl-9 pr-3 py-2 bg-gray-50 border-2 border-gray-200 rounded-lg text-gray-900 text-sm placeholder-gray-400 focus:bg-white focus:border-red-800 focus:ring-4 focus:ring-red-800/10 transition-all duration-300 outline-none font-medium"
+                      className={`w-full pl-9 pr-10 py-2 bg-gray-50 border-2 rounded-lg text-gray-900 text-sm placeholder-gray-400 focus:bg-white focus:ring-4 transition-all duration-300 outline-none font-medium ${
+                        usernameCheck.isChecking
+                          ? 'border-gray-200 focus:border-gray-300 focus:ring-gray-200/10'
+                          : usernameCheck.isAvailable === true
+                          ? 'border-green-300 focus:border-green-500 focus:ring-green-500/10'
+                          : usernameCheck.isAvailable === false
+                          ? 'border-red-300 focus:border-red-500 focus:ring-red-500/10'
+                          : 'border-gray-200 focus:border-red-800 focus:ring-red-800/10'
+                      }`}
                       placeholder="johndoe"
                     />
+                    {/* Status Icon */}
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                      {usernameCheck.isChecking && (
+                        <Loader2 className="h-4 w-4 text-gray-400 animate-spin" />
+                      )}
+                      {!usernameCheck.isChecking && usernameCheck.isAvailable === true && (
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                      )}
+                      {!usernameCheck.isChecking && usernameCheck.isAvailable === false && (
+                        <XCircle className="h-4 w-4 text-red-500" />
+                      )}
+                    </div>
                   </div>
+                  {/* Validation Message */}
+                  {!usernameCheck.isChecking && usernameCheck.message && username.length >= 3 && (
+                    <motion.p
+                      initial={{ opacity: 0, y: -5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className={`mt-1 text-xs font-medium ${
+                        usernameCheck.isAvailable ? 'text-green-600' : 'text-red-600'
+                      }`}
+                    >
+                      {usernameCheck.message}
+                    </motion.p>
+                  )}
                 </div>
 
                 {/* Phone */}
