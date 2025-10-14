@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { useAvailabilityCheck } from '../hooks/useAvailabilityCheck';
@@ -17,8 +17,11 @@ import {
   MapPin,
   Phone,
   Loader2,
-  XCircle
-} from 'lucide-react';
+  XCircle,
+  X,
+  ChevronRight,
+  ChevronLeft
+ } from 'lucide-react';
 
 export function Register() {
   const navigate = useNavigate();
@@ -28,13 +31,26 @@ export function Register() {
   const [username, setUsername] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [phone, setPhone] = useState('');
+  const [phone, setPhone] = useState('+63');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [isGmailValid, setIsGmailValid] = useState(true);
+  const [gmailError, setGmailError] = useState('');
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  
+  // Scroll tracking states
+  const [privacyScrollProgress, setPrivacyScrollProgress] = useState(0);
+  const [termsScrollProgress, setTermsScrollProgress] = useState(0);
+  const [privacyCompleted, setPrivacyCompleted] = useState(false);
+  const [termsCompleted, setTermsCompleted] = useState(false);
+  const privacyScrollRef = useRef<HTMLDivElement>(null);
+  const termsScrollRef = useRef<HTMLDivElement>(null);
 
   // Real-time availability checks
   const usernameCheck = useAvailabilityCheck(username, 'username');
@@ -45,10 +61,85 @@ export function Register() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
+  // Auto-check checkbox when both documents are completed
+  useEffect(() => {
+    if (privacyCompleted && termsCompleted && !agreedToTerms) {
+      setAgreedToTerms(true);
+    }
+  }, [privacyCompleted, termsCompleted, agreedToTerms]);
+
+  // Handle scroll tracking for Privacy Policy
+  const handlePrivacyScroll = () => {
+    if (!privacyScrollRef.current) return;
+    
+    const element = privacyScrollRef.current;
+    const scrollTop = element.scrollTop;
+    const scrollHeight = element.scrollHeight;
+    const clientHeight = element.clientHeight;
+    
+    const scrolled = (scrollTop / (scrollHeight - clientHeight)) * 100;
+    setPrivacyScrollProgress(Math.min(scrolled, 100));
+    
+    // Mark as completed when scrolled to bottom (with 5px threshold)
+    if (scrollHeight - scrollTop - clientHeight < 5) {
+      setPrivacyCompleted(true);
+    }
+  };
+
+  // Handle scroll tracking for Terms of Service
+  const handleTermsScroll = () => {
+    if (!termsScrollRef.current) return;
+    
+    const element = termsScrollRef.current;
+    const scrollTop = element.scrollTop;
+    const scrollHeight = element.scrollHeight;
+    const clientHeight = element.clientHeight;
+    
+    const scrolled = (scrollTop / (scrollHeight - clientHeight)) * 100;
+    setTermsScrollProgress(Math.min(scrolled, 100));
+    
+    // Mark as completed when scrolled to bottom (with 5px threshold)
+    if (scrollHeight - scrollTop - clientHeight < 5) {
+      setTermsCompleted(true);
+    }
+  };
+
+  // Navigate from Privacy to Terms
+  const goToTerms = () => {
+    setShowPrivacyModal(false);
+    setShowTermsModal(true);
+  };
+
+  // Navigate from Terms to Privacy
+  const goToPrivacy = () => {
+    setShowTermsModal(false);
+    setShowPrivacyModal(true);
+  };
+
+  // Handle checkbox click - open Privacy Policy if not completed
+  const handleCheckboxClick = (e: React.MouseEvent<HTMLInputElement>) => {
+    if (!privacyCompleted || !termsCompleted) {
+      e.preventDefault();
+      if (!privacyCompleted) {
+        setShowPrivacyModal(true);
+      } else if (!termsCompleted) {
+        setShowTermsModal(true);
+      }
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccess('');
+
+    // Check if email is Gmail
+    if (!email.toLowerCase().endsWith('@gmail.com')) {
+      setError('Only Gmail addresses (@gmail.com) are accepted for registration.');
+      setIsGmailValid(false);
+      setGmailError('Only Gmail addresses (@gmail.com) are accepted');
+      return;
+    }
 
     // Check availability before submitting
     if (usernameCheck.isAvailable === false) {
@@ -68,6 +159,11 @@ export function Register() {
 
     if (password.length < 6) {
       setError('Password must be at least 6 characters long');
+      return;
+    }
+
+    if (!agreedToTerms) {
+      setError('You must agree to the Privacy Policy and Terms of Service to register.');
       return;
     }
 
@@ -269,7 +365,7 @@ export function Register() {
                 {/* Email */}
                 <div className="group">
                   <label htmlFor="email" className="block text-xs font-semibold text-gray-700 mb-1">
-                    Email Address
+                    Email Address <span className="text-xs text-gray-500">(Gmail only)</span>
                   </label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 group-focus-within:text-red-800 transition-colors duration-300" />
@@ -277,10 +373,29 @@ export function Register() {
                       type="email"
                       id="email"
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setEmail(value);
+                        
+                        // Check if email ends with @gmail.com
+                        if (value.length > 0) {
+                          const isValid = value.toLowerCase().endsWith('@gmail.com');
+                          setIsGmailValid(isValid);
+                          if (!isValid && value.includes('@')) {
+                            setGmailError('Only Gmail addresses (@gmail.com) are accepted');
+                          } else {
+                            setGmailError('');
+                          }
+                        } else {
+                          setIsGmailValid(true);
+                          setGmailError('');
+                        }
+                      }}
                       required
                       className={`w-full pl-9 pr-10 py-2 bg-gray-50 border-2 rounded-lg text-gray-900 text-sm placeholder-gray-400 focus:bg-white focus:ring-4 transition-all duration-300 outline-none font-medium ${
-                        emailCheck.isChecking
+                        !isGmailValid
+                          ? 'border-red-300 focus:border-red-500 focus:ring-red-500/10'
+                          : emailCheck.isChecking
                           ? 'border-gray-200 focus:border-gray-300 focus:ring-gray-200/10'
                           : emailCheck.isAvailable === true
                           ? 'border-green-300 focus:border-green-500 focus:ring-green-500/10'
@@ -288,23 +403,34 @@ export function Register() {
                           ? 'border-red-300 focus:border-red-500 focus:ring-red-500/10'
                           : 'border-gray-200 focus:border-red-800 focus:ring-red-800/10'
                       }`}
-                      placeholder="john@example.com"
+                      placeholder="your.name@gmail.com"
                     />
                     {/* Status Icon */}
                     <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
                       {emailCheck.isChecking && (
                         <Loader2 className="h-4 w-4 text-gray-400 animate-spin" />
                       )}
-                      {!emailCheck.isChecking && emailCheck.isAvailable === true && (
+                      {!emailCheck.isChecking && isGmailValid && emailCheck.isAvailable === true && (
                         <CheckCircle className="h-4 w-4 text-green-500" />
                       )}
-                      {!emailCheck.isChecking && emailCheck.isAvailable === false && (
+                      {(!isGmailValid || (!emailCheck.isChecking && emailCheck.isAvailable === false)) && (
                         <XCircle className="h-4 w-4 text-red-500" />
                       )}
                     </div>
                   </div>
-                  {/* Validation Message */}
-                  {!emailCheck.isChecking && emailCheck.message && email.length >= 3 && (
+                  {/* Gmail Validation Message */}
+                  {gmailError && (
+                    <motion.p
+                      initial={{ opacity: 0, y: -5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="mt-1 text-xs font-medium text-red-600 flex items-center gap-1"
+                    >
+                      <AlertCircle className="h-3 w-3" />
+                      {gmailError}
+                    </motion.p>
+                  )}
+                  {/* Availability Message */}
+                  {!emailCheck.isChecking && emailCheck.message && email.length >= 3 && isGmailValid && (
                     <motion.p
                       initial={{ opacity: 0, y: -5 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -379,11 +505,52 @@ export function Register() {
                       type="tel"
                       id="phone"
                       value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        
+                        // Always keep +63 prefix
+                        if (!value.startsWith('+63')) {
+                          setPhone('+63');
+                          return;
+                        }
+                        
+                        // Extract only the digits after +63
+                        const digits = value.slice(3).replace(/\D/g, '');
+                        
+                        // Limit to 10 digits (Philippine mobile numbers are 10 digits after +63)
+                        if (digits.length <= 10) {
+                          setPhone('+63' + digits);
+                        }
+                      }}
+                      onFocus={() => {
+                        // Ensure +63 is there when focused
+                        if (phone === '' || phone === '+') {
+                          setPhone('+63');
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        // Prevent deleting the +63 prefix
+                        const cursorPosition = e.currentTarget.selectionStart || 0;
+                        if ((e.key === 'Backspace' || e.key === 'Delete') && cursorPosition <= 3) {
+                          e.preventDefault();
+                        }
+                      }}
                       className="w-full pl-9 pr-3 py-2 bg-gray-50 border-2 border-gray-200 rounded-lg text-gray-900 text-sm placeholder-gray-400 focus:bg-white focus:border-red-800 focus:ring-4 focus:ring-red-800/10 transition-all duration-300 outline-none font-medium"
-                      placeholder="+1 (555) 123-4567"
+                      placeholder="+63 9XX XXX XXXX"
+                      maxLength={13}
                     />
+                    {phone.length > 3 && phone.length === 13 && (
+                      <CheckCircle className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-green-500" />
+                    )}
+                    {phone.length > 3 && phone.length < 13 && (
+                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                        <span className="text-xs text-gray-500">{13 - phone.length} more</span>
+                      </div>
+                    )}
                   </div>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Philippine mobile format: +63 followed by 10 digits
+                  </p>
                 </div>
 
                 {/* Password */}
@@ -436,6 +603,80 @@ export function Register() {
                       {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
+                </div>
+
+                {/* Terms and Privacy Agreement */}
+                <div className="group">
+                  <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg border-2 border-gray-200 hover:border-red-200 transition-colors duration-300">
+                    <input
+                      type="checkbox"
+                      id="agreedToTerms"
+                      checked={agreedToTerms}
+                      onChange={(e) => setAgreedToTerms(e.target.checked)}
+                      onClick={handleCheckboxClick}
+                      className="mt-0.5 w-4 h-4 text-red-800 bg-white border-gray-300 rounded focus:ring-red-800 focus:ring-2 cursor-pointer"
+                      required
+                    />
+                    <label htmlFor="agreedToTerms" className="text-xs text-gray-700 leading-relaxed cursor-pointer">
+                      I agree to the{' '}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setShowPrivacyModal(true);
+                        }}
+                        className="text-red-800 font-semibold hover:text-red-900 hover:underline transition-colors"
+                      >
+                        Privacy Policy
+                      </button>
+                      {' '}and{' '}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setShowTermsModal(true);
+                        }}
+                        className="text-red-800 font-semibold hover:text-red-900 hover:underline transition-colors"
+                      >
+                        Terms of Service
+                      </button>
+                    </label>
+                  </div>
+                  {!agreedToTerms && error.includes('agree') && (
+                    <motion.p
+                      initial={{ opacity: 0, y: -5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="mt-2 text-xs font-medium text-red-600 flex items-center gap-1"
+                    >
+                      <AlertCircle className="h-3 w-3" />
+                      You must agree to continue
+                    </motion.p>
+                  )}
+                  {/* Progress indicators */}
+                  {(privacyCompleted || termsCompleted) && (
+                    <div className="mt-3 space-y-2">
+                      <div className="flex items-center gap-2 text-xs">
+                        {privacyCompleted ? (
+                          <CheckCircle className="h-4 w-4 text-green-500" />
+                        ) : (
+                          <div className="h-4 w-4 rounded-full border-2 border-gray-300" />
+                        )}
+                        <span className={privacyCompleted ? 'text-green-600 font-medium' : 'text-gray-500'}>
+                          Privacy Policy read
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs">
+                        {termsCompleted ? (
+                          <CheckCircle className="h-4 w-4 text-green-500" />
+                        ) : (
+                          <div className="h-4 w-4 rounded-full border-2 border-gray-300" />
+                        )}
+                        <span className={termsCompleted ? 'text-green-600 font-medium' : 'text-gray-500'}>
+                          Terms of Service read
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Error Message */}
@@ -529,6 +770,368 @@ export function Register() {
           </div>
         </motion.div>
       </div>
+
+      {/* Privacy Policy Modal */}
+      {showPrivacyModal && (
+        <div className="fixed inset-0 bg-gray-900 bg-opacity-50 backdrop-blur-sm flex items-center justify-center p-4 z-[9999]" onClick={() => setShowPrivacyModal(false)}>
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-xl shadow-2xl w-full max-w-4xl my-8 flex flex-col max-h-[85vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header with Progress Bar */}
+            <div className="flex-shrink-0 bg-white border-b border-gray-200 rounded-t-xl">
+              <div className="px-6 py-4 flex items-center justify-between">
+                <div className="flex-1">
+                  <h2 className="text-2xl font-bold text-gray-900">Privacy Policy</h2>
+                  <div className="flex items-center gap-2 mt-2">
+                    <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <motion.div 
+                        className="h-full bg-red-800"
+                        initial={{ width: 0 }}
+                        animate={{ width: `${privacyScrollProgress}%` }}
+                        transition={{ duration: 0.1 }}
+                      />
+                    </div>
+                    <span className="text-xs font-semibold text-gray-600 min-w-[45px]">
+                      {Math.round(privacyScrollProgress)}%
+                    </span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowPrivacyModal(false)}
+                  className="ml-4 text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-lg hover:bg-gray-100"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+              {!privacyCompleted && (
+                <div className="px-6 pb-3">
+                  <p className="text-xs text-amber-600 font-medium flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4" />
+                    Please scroll to the bottom to read the entire Privacy Policy
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Scrollable Content */}
+            <div 
+              ref={privacyScrollRef}
+              onScroll={handlePrivacyScroll}
+              className="flex-1 p-6 overflow-y-auto"
+            >
+              <div className="space-y-6 text-gray-600">
+                <section>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-4">1. Introduction</h3>
+                  <p>
+                    Welcome to CARS-G. We respect your privacy and are committed to protecting your personal data. 
+                    This privacy policy will inform you about how we look after your personal data when you visit our website 
+                    and tell you about your privacy rights and how the law protects you.
+                  </p>
+                </section>
+
+                <section>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-4">2. Data We Collect</h3>
+                  <p>We collect and process the following data:</p>
+                  <ul className="list-disc pl-6 mt-2 space-y-2">
+                    <li>Account information (email, username, profile picture)</li>
+                    <li>Location data when submitting reports</li>
+                    <li>Report content and images</li>
+                    <li>Usage data and analytics</li>
+                    <li>Device information and IP address</li>
+                  </ul>
+                </section>
+
+                <section>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-4">3. How We Use Your Data</h3>
+                  <p>We use your data for:</p>
+                  <ul className="list-disc pl-6 mt-2 space-y-2">
+                    <li>Providing and maintaining our service</li>
+                    <li>Processing and managing reports</li>
+                    <li>Improving our services</li>
+                    <li>Communicating with you about your account</li>
+                    <li>Ensuring platform security</li>
+                  </ul>
+                </section>
+
+                <section>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-4">4. Data Storage and Security</h3>
+                  <p>
+                    We implement appropriate security measures to protect your personal information. Your data is stored securely 
+                    using industry-standard encryption and security protocols.
+                  </p>
+                </section>
+
+                <section>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-4">5. Your Rights</h3>
+                  <p>You have the right to:</p>
+                  <ul className="list-disc pl-6 mt-2 space-y-2">
+                    <li>Access your personal data</li>
+                    <li>Correct inaccurate data</li>
+                    <li>Request deletion of your data</li>
+                    <li>Object to processing of your data</li>
+                    <li>Data portability</li>
+                  </ul>
+                </section>
+
+                <section>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-4">6. Contact Us</h3>
+                  <p>
+                    If you have any questions about this Privacy Policy, please contact us at support@cars-g.com
+                  </p>
+                </section>
+
+                <section className="pt-4 border-t border-gray-200">
+                  <p className="text-sm text-gray-500">
+                    <strong>Last Updated:</strong> October 14, 2025
+                  </p>
+                </section>
+              </div>
+            </div>
+
+            {/* Footer with Action Buttons */}
+            <div className="flex-shrink-0 bg-gray-50 border-t border-gray-200 px-6 py-4 rounded-b-xl">
+              <div className="flex gap-3">
+                {privacyCompleted ? (
+                  <>
+                    {!termsCompleted ? (
+                      <button
+                        onClick={goToTerms}
+                        className="flex-1 bg-red-800 hover:bg-red-900 text-white py-2.5 px-4 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2"
+                      >
+                        <span>Next: Terms of Service</span>
+                        <ChevronRight className="h-5 w-5" />
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          onClick={goToTerms}
+                          className="flex-1 bg-white hover:bg-gray-100 text-gray-700 border-2 border-gray-300 py-2.5 px-4 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2"
+                        >
+                          <span>View Terms of Service</span>
+                          <ChevronRight className="h-5 w-5" />
+                        </button>
+                        <button
+                          onClick={() => setShowPrivacyModal(false)}
+                          className="flex-1 bg-red-800 hover:bg-red-900 text-white py-2.5 px-4 rounded-lg font-semibold transition-colors"
+                        >
+                          Close
+                        </button>
+                      </>
+                    )}
+                  </>
+                ) : (
+                  <div className="flex-1 bg-gray-300 text-gray-500 py-2.5 px-4 rounded-lg font-semibold flex items-center justify-center gap-2 cursor-not-allowed">
+                    <span>Scroll to continue</span>
+                    <ChevronRight className="h-5 w-5" />
+                  </div>
+                )}
+              </div>
+              {privacyCompleted && (
+                <div className="mt-3 flex items-center justify-center gap-2 text-green-600">
+                  <CheckCircle className="h-4 w-4" />
+                  <span className="text-xs font-medium">Privacy Policy completed</span>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Terms of Service Modal */}
+      {showTermsModal && (
+        <div className="fixed inset-0 bg-gray-900 bg-opacity-50 backdrop-blur-sm flex items-center justify-center p-4 z-[9999]" onClick={() => setShowTermsModal(false)}>
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-xl shadow-2xl w-full max-w-4xl my-8 flex flex-col max-h-[85vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header with Progress Bar */}
+            <div className="flex-shrink-0 bg-white border-b border-gray-200 rounded-t-xl">
+              <div className="px-6 py-4 flex items-center justify-between">
+                <div className="flex-1">
+                  <h2 className="text-2xl font-bold text-gray-900">Terms of Service</h2>
+                  <div className="flex items-center gap-2 mt-2">
+                    <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                      <motion.div 
+                        className="h-full bg-red-800"
+                        initial={{ width: 0 }}
+                        animate={{ width: `${termsScrollProgress}%` }}
+                        transition={{ duration: 0.1 }}
+                      />
+                    </div>
+                    <span className="text-xs font-semibold text-gray-600 min-w-[45px]">
+                      {Math.round(termsScrollProgress)}%
+                    </span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowTermsModal(false)}
+                  className="ml-4 text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-lg hover:bg-gray-100"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+              {!termsCompleted && (
+                <div className="px-6 pb-3">
+                  <p className="text-xs text-amber-600 font-medium flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4" />
+                    Please scroll to the bottom to read the entire Terms of Service
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Scrollable Content */}
+            <div 
+              ref={termsScrollRef}
+              onScroll={handleTermsScroll}
+              className="flex-1 p-6 overflow-y-auto"
+            >
+              <div className="space-y-6 text-gray-600">
+                <section>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-4">1. Acceptance of Terms</h3>
+                  <p>
+                    By accessing and using CARS-G (Community Action and Response System), you accept and agree to be bound by the terms 
+                    and provision of this agreement.
+                  </p>
+                </section>
+
+                <section>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-4">2. User Accounts</h3>
+                  <p>To use certain features of our platform, you must register for an account. You agree to:</p>
+                  <ul className="list-disc pl-6 mt-2 space-y-2">
+                    <li>Provide accurate, current, and complete information</li>
+                    <li>Maintain and update your account information</li>
+                    <li>Maintain the security of your password</li>
+                    <li>Notify us of any unauthorized use</li>
+                    <li>Accept responsibility for all activities under your account</li>
+                  </ul>
+                </section>
+
+                <section>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-4">3. User Conduct</h3>
+                  <p>You agree not to:</p>
+                  <ul className="list-disc pl-6 mt-2 space-y-2">
+                    <li>Submit false or misleading reports</li>
+                    <li>Use the platform for illegal purposes</li>
+                    <li>Harass or harm other users</li>
+                    <li>Upload malicious code or viruses</li>
+                    <li>Attempt unauthorized access to systems</li>
+                    <li>Interfere with or disrupt the service</li>
+                  </ul>
+                </section>
+
+                <section>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-4">4. Report Submission</h3>
+                  <p>When submitting reports:</p>
+                  <ul className="list-disc pl-6 mt-2 space-y-2">
+                    <li>You grant us a license to use and display your content</li>
+                    <li>You confirm you have the right to submit the content</li>
+                    <li>Reports may be shared with local authorities</li>
+                    <li>Reports should be factual and accurate</li>
+                    <li>Anonymous reporting is available but may be restricted if abused</li>
+                  </ul>
+                </section>
+
+                <section>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-4">5. Points and Rewards</h3>
+                  <ul className="list-disc pl-6 mt-2 space-y-2">
+                    <li>Points have no monetary value</li>
+                    <li>Used for gamification purposes only</li>
+                    <li>We may modify the points system anytime</li>
+                    <li>Points may be revoked for violations</li>
+                    <li>Anonymous reports do not earn points</li>
+                  </ul>
+                </section>
+
+                <section>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-4">6. Privacy</h3>
+                  <p>
+                    Please review our Privacy Policy to understand how we collect and protect your information.
+                  </p>
+                </section>
+
+                <section>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-4">7. Termination</h3>
+                  <p>
+                    We reserve the right to suspend or terminate your account at any time for violation of these terms.
+                  </p>
+                </section>
+
+                <section>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-4">8. Limitation of Liability</h3>
+                  <p>
+                    CARS-G is provided "as is" without warranties. We are not liable for indirect, incidental, or consequential damages.
+                  </p>
+                </section>
+
+                <section>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-4">9. Governing Law</h3>
+                  <p>
+                    These Terms shall be governed by the laws of the Philippines.
+                  </p>
+                </section>
+
+                <section className="pt-4 border-t border-gray-200">
+                  <p className="text-sm text-gray-500">
+                    <strong>Last Updated:</strong> October 14, 2025
+                  </p>
+                </section>
+              </div>
+            </div>
+
+            {/* Footer with Action Buttons */}
+            <div className="flex-shrink-0 bg-gray-50 border-t border-gray-200 px-6 py-4 rounded-b-xl">
+              <div className="flex gap-3">
+                {termsCompleted ? (
+                  <>
+                    {!privacyCompleted ? (
+                      <button
+                        onClick={goToPrivacy}
+                        className="flex-1 bg-red-800 hover:bg-red-900 text-white py-2.5 px-4 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2"
+                      >
+                        <ChevronLeft className="h-5 w-5" />
+                        <span>Back: Privacy Policy</span>
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          onClick={goToPrivacy}
+                          className="flex-1 bg-white hover:bg-gray-100 text-gray-700 border-2 border-gray-300 py-2.5 px-4 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2"
+                        >
+                          <ChevronLeft className="h-5 w-5" />
+                          <span>View Privacy Policy</span>
+                        </button>
+                        <button
+                          onClick={() => setShowTermsModal(false)}
+                          className="flex-1 bg-red-800 hover:bg-red-900 text-white py-2.5 px-4 rounded-lg font-semibold transition-colors"
+                        >
+                          Close
+                        </button>
+                      </>
+                    )}
+                  </>
+                ) : (
+                  <div className="flex-1 bg-gray-300 text-gray-500 py-2.5 px-4 rounded-lg font-semibold flex items-center justify-center gap-2 cursor-not-allowed">
+                    <span>Scroll to continue</span>
+                    <ChevronRight className="h-5 w-5" />
+                  </div>
+                )}
+              </div>
+              {termsCompleted && (
+                <div className="mt-3 flex items-center justify-center gap-2 text-green-600">
+                  <CheckCircle className="h-4 w-4" />
+                  <span className="text-xs font-medium">Terms of Service completed</span>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }

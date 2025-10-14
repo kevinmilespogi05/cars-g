@@ -51,9 +51,9 @@ const CATEGORIES = [
 ];
 
 const PRIORITY_OPTIONS = [
-  { value: 'low', label: 'Low', color: 'bg-info-50 text-info-700 border-info-200', description: 'Minor issue, no immediate danger' },
-  { value: 'medium', label: 'Medium', color: 'bg-warning-50 text-warning-800 border-warning-200', description: 'Needs attention, moderate impact' },
-  { value: 'high', label: 'High', color: 'bg-red-50 text-red-700 border-red-200', description: 'Urgent, requires immediate action' }
+  { value: 'low', label: 'Low', color: 'bg-green-100 text-green-800 border-green-400', description: 'Minor issue, no immediate danger' },
+  { value: 'medium', label: 'Medium', color: 'bg-yellow-100 text-yellow-800 border-yellow-400', description: 'Needs attention, moderate impact' },
+  { value: 'high', label: 'High', color: 'bg-red-100 text-red-800 border-red-400', description: 'Urgent, requires immediate action' }
 ];
 
 const MAX_IMAGES = 5;
@@ -682,19 +682,20 @@ export function CreateReport() {
                               key={category.value}
                               type="button"
                               onClick={() => setFormData({ ...formData, category: category.value })}
-                              className={`text-left p-3 rounded-lg border transition-all duration-200 ${
+                              className={`text-left p-3 rounded-lg border-2 transition-all duration-200 ${
                                 isSelected
-                                  ? 'border-primary-500 bg-primary-50 shadow-sm ring-1 ring-primary-200'
-                                  : 'border-gray-200 bg-white hover:border-primary-300'
+                                  ? 'border-primary-600 bg-primary-100 shadow-md ring-2 ring-primary-300 scale-[1.02]'
+                                  : 'border-gray-200 bg-white hover:border-primary-300 hover:shadow-sm'
                               }`}
                             >
                               <div className="flex items-start space-x-2">
-                                <Icon className={`w-5 h-5 mt-0.5 flex-shrink-0 ${isSelected ? 'text-primary-600' : category.color}`} />
+                                <Icon className={`w-5 h-5 mt-0.5 flex-shrink-0 ${isSelected ? 'text-primary-700' : category.color}`} />
                                 <div className="flex-1 min-w-0">
                                   <div className={`text-sm font-semibold ${isSelected ? 'text-primary-900' : 'text-gray-900'}`}>
                                     {category.label}
+                                    {isSelected && <span className="ml-2 text-primary-600">✓</span>}
                                   </div>
-                                  <div className={`text-xs mt-0.5 ${isSelected ? 'text-primary-700' : 'text-gray-600'}`}>
+                                  <div className={`text-xs mt-0.5 ${isSelected ? 'text-primary-800' : 'text-gray-600'}`}>
                                     {category.description}
                                   </div>
                                 </div>
@@ -719,14 +720,15 @@ export function CreateReport() {
                             key={option.value}
                             type="button"
                             onClick={() => setFormData({ ...formData, priority: option.value as 'low' | 'medium' | 'high' })}
-                            className={`text-center p-2.5 rounded-lg border transition-all duration-200 ${
+                            className={`text-center p-2.5 rounded-lg border-2 transition-all duration-200 ${
                               isSelected
-                                ? `${option.color} border-current shadow-sm ring-1 ring-opacity-30`
-                                : 'border-gray-200 bg-white hover:border-gray-300'
+                                ? `${option.color} border-current shadow-lg ring-2 ring-opacity-50 scale-105`
+                                : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
                             }`}
                           >
                             <div className={`font-bold text-sm ${isSelected ? '' : 'text-gray-700'}`}>
                               {option.label}
+                              {isSelected && <span className="ml-1">✓</span>}
                             </div>
                             <div className={`text-xs mt-0.5 leading-tight ${isSelected ? '' : 'text-gray-600'}`}>
                               {option.description}

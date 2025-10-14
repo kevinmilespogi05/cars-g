@@ -16,6 +16,7 @@ const LeaderboardPage = lazy(() => import('../pages/LeaderboardPage').then(modul
 const Profile = lazy(() => import('../pages/Profile').then(module => ({ default: module.Profile })));
 const AdminDashboard = lazy(() => import('../pages/AdminDashboard').then(module => ({ default: module.AdminDashboard })));
 const PrivacyPolicy = lazy(() => import('../pages/PrivacyPolicy').then(module => ({ default: module.PrivacyPolicy })));
+const TermsOfService = lazy(() => import('../pages/TermsOfService').then(module => ({ default: module.TermsOfService })));
 const AdminMapDashboard = lazy(() => import('../components/AdminMapDashboard').then(module => ({ default: module.AdminMapDashboard })));
 const AdminHistory = lazy(() => import('../pages/AdminHistory').then(module => ({ default: module.AdminHistory })));
 const AdminChat = lazy(() => import('../pages/AdminChat').then(module => ({ default: module.AdminChat })));
@@ -47,6 +48,10 @@ export const publicRoutes: RouteObject[] = [
   {
     path: '/privacy-policy',
     element: <PrivacyPolicy />
+  },
+  {
+    path: '/terms-of-service',
+    element: <TermsOfService />
   }
 ];
 
