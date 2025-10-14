@@ -42,76 +42,85 @@ export function Footer() {
   };
 
   return (
-    <footer className="bg-gray-900 text-white">
-      <div className="w-full px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {/* LGU Info */}
-          <div className="lg:col-span-2">
-            <div className="flex items-center mb-3">
-              <Building2 className="h-6 w-6 text-blue-400 mr-2" />
-              <h3 className="text-lg font-bold text-white">{LGU_NAME}</h3>
-            </div>
-            <p className="text-gray-300 text-sm mb-3 leading-relaxed">
-              Committed to serving our community with transparency, efficiency, and dedication. 
-              Your voice matters, and we're here to listen and act.
-            </p>
-            <div className="flex items-center gap-4">
+    <footer className="bg-gray-900 text-white relative z-10">
+      <div className="w-full px-2 sm:px-6 lg:px-8 py-1">
+        <div className="max-w-7xl mx-auto pt-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
+            {/* LGU Info */}
+            <div className="lg:col-span-2">
+              <div className="flex items-center mb-3">
+                <div className="h-8 w-8 bg-blue-500/10 rounded-lg flex items-center justify-center mr-3">
+                  <Building2 className="h-5 w-5 text-blue-400" />
+                </div>
+                <h3 className="text-base font-bold text-white">{LGU_NAME}</h3>
+              </div>
+              <p className="text-gray-400 text-sm mb-4 leading-relaxed max-w-md">
+                Committed to serving our community with transparency, efficiency, and dedication. 
+                Your voice matters, and we're here to listen and act.
+              </p>
               <a
                 href={LGU_FACEBOOK_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-2 text-gray-300 hover:text-blue-400 transition-colors text-sm"
+                className="inline-flex items-center gap-2 text-gray-400 hover:text-blue-400 transition-colors text-sm group"
               >
-                <Facebook className="h-4 w-4" />
-                <span>Follow us on Facebook</span>
+                <div className="h-8 w-8 bg-blue-500/10 rounded-lg flex items-center justify-center group-hover:bg-blue-500/20 transition-colors">
+                  <Facebook className="h-4 w-4" />
+                </div>
+                <span className="font-medium">Follow us on Facebook</span>
                 <ExternalLink className="h-3 w-3" />
               </a>
             </div>
-          </div>
 
           {/* Contact Information */}
           <div>
-            <h4 className="text-base font-semibold text-white mb-3">Contact Us</h4>
-            <div className="space-y-2">
-              <div className="flex items-start gap-2">
-                <Mail className="h-4 w-4 text-blue-400 mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="text-gray-400 text-xs">Email</p>
+            <h4 className="text-sm font-bold text-white mb-4">Contact Us</h4>
+            <div className="space-y-3">
+              <div className="flex items-start gap-3">
+                <div className="h-8 w-8 bg-blue-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Mail className="h-4 w-4 text-blue-400" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-gray-500 text-xs font-medium mb-0.5">Email</p>
                   <a 
                     href={`mailto:${LGU_EMAIL}`}
-                    className="text-blue-400 hover:text-blue-300 transition-colors text-xs"
+                    className="text-gray-300 hover:text-blue-400 transition-colors text-xs break-all"
                   >
                     {LGU_EMAIL}
                   </a>
                 </div>
               </div>
               
-              <div className="flex items-start gap-2">
-                <Phone className="h-4 w-4 text-blue-400 mt-0.5 flex-shrink-0" />
+              <div className="flex items-start gap-3">
+                <div className="h-8 w-8 bg-blue-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Phone className="h-4 w-4 text-blue-400" />
+                </div>
                 <div>
-                  <p className="text-gray-400 text-xs">Phone</p>
+                  <p className="text-gray-500 text-xs font-medium mb-0.5">Phone</p>
                   <a 
                     href={`tel:${LGU_PHONE}`}
                     onClick={(e) => handlePhoneClick(e, LGU_PHONE)}
-                    className="text-blue-400 hover:text-blue-300 transition-colors text-xs"
+                    className="text-gray-300 hover:text-blue-400 transition-colors text-xs"
                   >
                     {LGU_PHONE}
                   </a>
                 </div>
               </div>
               
-              <div className="flex items-start gap-2">
-                <MapPin className="h-4 w-4 text-blue-400 mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="text-gray-400 text-xs">Address</p>
+              <div className="flex items-start gap-3">
+                <div className="h-8 w-8 bg-blue-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <MapPin className="h-4 w-4 text-blue-400" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-gray-500 text-xs font-medium mb-0.5">Address</p>
                   <a 
                     href={LGU_GOOGLE_MAPS_URL}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-blue-400 hover:text-blue-300 transition-colors text-xs flex items-center gap-1"
+                    className="text-gray-300 hover:text-blue-400 transition-colors text-xs inline-flex items-center gap-1"
                   >
-                    {LGU_ADDRESS}
-                    <ExternalLink className="h-3 w-3" />
+                    <span className="line-clamp-2">{LGU_ADDRESS}</span>
+                    <ExternalLink className="h-3 w-3 flex-shrink-0" />
                   </a>
                 </div>
               </div>
@@ -120,45 +129,56 @@ export function Footer() {
 
           {/* Office Hours */}
           <div>
-            <h4 className="text-base font-semibold text-white mb-3">Office Hours</h4>
-            <div className="space-y-2">
-              <div className="flex items-start gap-2">
-                <Clock className="h-4 w-4 text-blue-400 mt-0.5 flex-shrink-0" />
+            <h4 className="text-sm font-bold text-white mb-4">Office Hours</h4>
+            <div className="space-y-3">
+              <div className="flex items-start gap-3">
+                <div className="h-8 w-8 bg-blue-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Clock className="h-4 w-4 text-blue-400" />
+                </div>
                 <div>
-                  <p className="text-gray-400 text-xs">Regular Hours</p>
-                  <p className="text-white text-xs font-medium">{LGU_OFFICE_HOURS}</p>
+                  <p className="text-gray-500 text-xs font-medium mb-0.5">Regular Hours</p>
+                  <p className="text-gray-300 text-xs font-medium">{LGU_OFFICE_HOURS}</p>
                 </div>
               </div>
               
-              <div className="mt-2">
-                <p className="text-gray-400 text-xs mb-1">Emergency Services</p>
-                <div className="space-y-0.5">
-                  <p className="text-red-400 text-xs font-medium">24/7 Available</p>
-                  <p className="text-gray-500 text-xs">For urgent matters and emergencies</p>
+              <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3">
+                <div className="flex items-start gap-2">
+                  <div className="h-5 w-5 bg-red-500/20 rounded flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <div className="h-2 w-2 bg-red-500 rounded-full animate-pulse"></div>
+                  </div>
+                  <div>
+                    <p className="text-red-400 text-xs font-bold mb-0.5">Emergency Services</p>
+                    <p className="text-red-300/80 text-xs">24/7 Available</p>
+                    <p className="text-gray-400 text-xs mt-1">For urgent matters</p>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
-
-        {/* Bottom Section */}
-        <div className="border-t border-gray-800 mt-6 pt-4">
+        
+          {/* Bottom Section */}
+          <div className="border-t border-gray-800 mt-6 pt-3">
           <div className="flex flex-col md:flex-row justify-between items-center gap-3">
-            <div className="text-gray-400 text-xs">
-              © {new Date().getFullYear()} {LGU_NAME}. All rights reserved.
+            <div className="text-gray-500 text-xs text-center md:text-left">
+              <span className="font-medium">© {new Date().getFullYear()} {LGU_NAME}.</span>
+              <span className="ml-1">All rights reserved.</span>
             </div>
-            <div className="flex items-center gap-4 text-xs">
-              <Link to="/privacy" className="text-gray-400 hover:text-white transition-colors">
+            <div className="flex items-center gap-5 text-xs">
+              <Link to="/privacy" className="text-gray-400 hover:text-white transition-colors font-medium">
                 Privacy Policy
               </Link>
-              <Link to="/terms" className="text-gray-400 hover:text-white transition-colors">
+              <span className="text-gray-700">•</span>
+              <Link to="/terms" className="text-gray-400 hover:text-white transition-colors font-medium">
                 Terms of Service
               </Link>
-              <Link to="/accessibility" className="text-gray-400 hover:text-white transition-colors">
+              <span className="text-gray-700">•</span>
+              <Link to="/accessibility" className="text-gray-400 hover:text-white transition-colors font-medium">
                 Accessibility
               </Link>
             </div>
           </div>
+        </div>
         </div>
       </div>
     </footer>

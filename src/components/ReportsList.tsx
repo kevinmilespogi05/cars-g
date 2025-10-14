@@ -69,6 +69,7 @@ interface ReportsListProps {
   getPriorityColor: (priority: string) => string;
   mobileListRef: React.RefObject<HTMLDivElement>;
   isRefreshing: boolean;
+  afterSearchContent?: React.ReactNode;
 }
 
 // Micro-animations: container and card variants
@@ -102,7 +103,8 @@ export function ReportsList({
   getStatusIcon,
   getPriorityColor,
   mobileListRef,
-  isRefreshing
+  isRefreshing,
+  afterSearchContent
 }: ReportsListProps) {
   const navigate = useNavigate();
   
@@ -216,12 +218,12 @@ export function ReportsList({
       {/* Search and Filters Section */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-semibold text-gray-900">Reports</h2>
+          <h2 className="text-base font-semibold text-text-primary">Reports</h2>
           <span className="text-xs text-gray-500 bg-gray-50 px-2.5 py-1 rounded-full">
             {filteredReports.length} report{filteredReports.length !== 1 ? 's' : ''}
           </span>
         </div>
-        <div className="flex items-center gap-2 text-xs text-gray-600 mb-4">
+        <div className="flex items-center gap-2 text-xs text-text-secondary mb-4">
           <span>Showing {startIndex + 1}-{Math.min(endIndex, filteredReports.length)} of {filteredReports.length}</span>
           {totalPages > 1 && <span>• Page {currentPage} of {totalPages}</span>}
         </div>
@@ -236,7 +238,7 @@ export function ReportsList({
                 placeholder="Search reports by title or description..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white transition-colors"
+                className="w-full pl-10 pr-4 py-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white transition-colors"
                 aria-label="Search reports"
               />
             </div>
@@ -247,7 +249,7 @@ export function ReportsList({
             <select
               value={filters.category}
               onChange={(e) => setFilters(prev => ({ ...prev, category: e.target.value }))}
-              className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white transition-colors"
+              className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white transition-colors"
               aria-label="Filter by category"
             >
               {CATEGORIES.map(category => (
@@ -258,7 +260,7 @@ export function ReportsList({
             <select
               value={filters.status}
               onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
-              className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white transition-colors"
+              className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white transition-colors"
               aria-label="Filter by status"
             >
               {STATUSES.map(status => (
@@ -269,7 +271,7 @@ export function ReportsList({
             <select
               value={filters.priority}
               onChange={(e) => setFilters(prev => ({ ...prev, priority: e.target.value }))}
-              className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white transition-colors"
+              className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white transition-colors"
               aria-label="Filter by priority"
             >
               {PRIORITIES.map(priority => (
@@ -291,6 +293,9 @@ export function ReportsList({
           </div>
         </div>
       </div>
+
+      {/* Additional content after search bar */}
+      {afterSearchContent}
 
       {/* Mobile horizontal swipe list */}
       <div className="md:hidden">
@@ -397,17 +402,17 @@ export function ReportsList({
               : 'Be the first to submit a report!'}
           </p>
           <div className="flex items-center justify-center gap-2">
-            <button
-              onClick={() => navigate('/reports/create')}
-              className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-[#800000] text-white hover:bg-[#6e0000] text-sm font-semibold shadow-sm"
-            >
+              <button
+                onClick={() => navigate('/reports/create')}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-accent-500 text-white hover:bg-accent-600 text-sm font-semibold shadow-sm"
+              >
               <Plus className="h-4 w-4" />
               Create report
             </button>
             {(searchTerm || filters.category !== 'All' || filters.status !== 'All' || filters.priority !== 'All') && (
               <button
                 onClick={clearFilters}
-                className="text-sm text-gray-600 hover:text-gray-800 underline"
+                className="text-sm text-text-secondary hover:text-text-primary underline"
               >
                 Reset filters
               </button>
@@ -490,7 +495,7 @@ export function ReportsList({
 
               <div className="p-6">
                 <div className="flex items-start justify-between mb-3">
-                  <h3 className="font-semibold text-gray-900 text-lg leading-tight line-clamp-2 group-hover:text-gray-700 transition-colors duration-200">
+                  <h3 className="font-semibold text-text-primary text-lg leading-tight line-clamp-2 group-hover:text-text-secondary transition-colors duration-200">
                     {report.title}
                   </h3>
                   {report.case_number && (
@@ -501,7 +506,7 @@ export function ReportsList({
                   )}
                 </div>
 
-                <p className="text-gray-600 text-sm leading-relaxed line-clamp-2 mb-4">
+                <p className="text-text-secondary text-sm leading-relaxed line-clamp-2 mb-4">
                   {report.description}
                 </p>
 
@@ -528,11 +533,11 @@ export function ReportsList({
                         {(((report.user_profile as any).first_name || report.user_profile?.username || 'A') as string).slice(0,1).toUpperCase()}
                       </div>
                     )}
-                    <span className="text-gray-700 font-medium truncate max-w-[120px]">
+                    <span className="text-text-primary font-medium truncate max-w-[120px]">
                       {(report.user_profile as any)?.first_name || report.user_profile?.username || 'Anonymous'}
                     </span>
                   </div>
-                  <div className="flex items-center gap-1.5 text-gray-500">
+                  <div className="flex items-center gap-1.5 text-text-secondary">
                     <Calendar className="h-4 w-4" />
                     <span className="text-xs">{new Date(report.created_at).toLocaleDateString()}</span>
                   </div>
@@ -641,8 +646,8 @@ export function ReportsList({
                   onClick={() => goToPage(page)}
                   className={`w-10 h-10 rounded-lg font-medium transition-all ${
                     currentPage === page
-                      ? 'bg-[#800000] text-white shadow-md'
-                      : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300 hover:border-gray-400'
+                      ? 'bg-accent-500 text-white shadow-md'
+                      : 'bg-white text-text-primary hover:bg-gray-50 border border-gray-300 hover:border-gray-400'
                   }`}
                   aria-label={`Go to page ${page}`}
                   aria-current={currentPage === page ? 'page' : undefined}

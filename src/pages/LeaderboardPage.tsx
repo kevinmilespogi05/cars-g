@@ -166,9 +166,9 @@ export function LeaderboardPage() {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen">
       {/* Clean Header - Full Width Edge-to-Edge */}
-      <div className="bg-white border-b border-gray-200">
+      <div className="bg-white border-b border-gray-200 relative z-10">
         <div className="w-full px-4 sm:px-6 lg:px-8 py-12">
           <div className="flex items-center justify-between">
             <div>
@@ -194,7 +194,7 @@ export function LeaderboardPage() {
         </div>
       </div>
 
-      <div className="w-full px-4 sm:px-6 lg:px-8 py-8">
+      <div className="w-full px-4 sm:px-6 lg:px-8 py-8 relative z-10">
         
         {/* Clean Filters */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">

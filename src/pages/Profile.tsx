@@ -473,8 +473,8 @@ export function Profile() {
   };
 
   return (
-    <div className="fixed inset-0 w-screen h-screen overflow-hidden bg-gradient-to-br from-gray-50 via-white to-gray-100">
-      <div className="h-full w-full overflow-y-auto overflow-x-hidden">
+    <div className="min-h-screen w-full relative z-10">
+      <div className="w-full">
         <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
         {/* Go Back Button - Positioned at top */}
         <motion.div

@@ -96,7 +96,7 @@ export function Register() {
 
   return (
     <div 
-      className="min-h-screen w-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-start justify-center px-500 py-500 sm:py-500 lg:py-500"
+      className="min-h-screen w-screen flex items-start justify-center px-500 py-500 sm:py-500 lg:py-500"
       style={{ overflow: 'auto' }}
     >
       {/* Back to Home Link - Mobile */}

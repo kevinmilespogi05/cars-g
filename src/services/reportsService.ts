@@ -443,6 +443,85 @@ export const reportsService = {
       const user = getCurrentUser();
       if (!user) throw new ReportsServiceError('User not authenticated');
 
+      // Check if this is a mock ID (report comment simulation)
+      const isMockId = parentId.startsWith('mock-');
+      
+      // If it's a mock ID, skip database check and use localStorage
+      if (isMockId) {
+        const profile = _getCachedProfile(user.id) || (() => ({ username: user.email?.split('@')[0] || 'User', avatar_url: null }))();
+
+        const newReply: CommentReply = {
+          id: `mock-${Date.now()}`,
+          parent_comment_id: isNested ? undefined : parentId,
+          parent_reply_id: isNested ? parentId : undefined,
+          user_id: user.id,
+          content: content,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          user: { username: profile.username, avatar_url: profile.avatar_url },
+          replies: [],
+          reply_depth: isNested ? 1 : 0,
+          likes_count: 0,
+          is_liked: false,
+        } as CommentReply;
+
+        const repliesKey = 'report_comment_replies';
+        const stored = JSON.parse(localStorage.getItem(repliesKey) || '{}');
+        
+        if (!isNested) {
+          // Top-level reply - store directly under the comment ID
+          if (!Array.isArray(stored[parentId])) {
+            stored[parentId] = [];
+          }
+          stored[parentId].push(newReply);
+        } else {
+          // Nested reply - find the comment and add to the appropriate reply's replies array
+          let foundInComment = false;
+          
+          // Helper function to add nested reply recursively
+          const addNestedReplyToTree = (replies: any[]): boolean => {
+            for (let i = 0; i < replies.length; i++) {
+              if (replies[i].id === parentId) {
+                if (!Array.isArray(replies[i].replies)) {
+                  replies[i].replies = [];
+                }
+                replies[i].replies.push(newReply);
+                return true;
+              }
+              if (replies[i].replies && Array.isArray(replies[i].replies)) {
+                if (addNestedReplyToTree(replies[i].replies)) {
+                  return true;
+                }
+              }
+            }
+            return false;
+          };
+          
+          // Search through all comments to find where this reply belongs
+          for (const replies of Object.values(stored)) {
+            if (Array.isArray(replies)) {
+              if (addNestedReplyToTree(replies)) {
+                foundInComment = true;
+                break;
+              }
+            }
+          }
+          
+          // If we couldn't find the parent reply, create a new entry
+          if (!foundInComment) {
+            console.warn('Could not find parent reply in storage, creating new entry');
+            if (!Array.isArray(stored[parentId])) {
+              stored[parentId] = [];
+            }
+            stored[parentId].push(newReply);
+          }
+        }
+        
+        localStorage.setItem(repliesKey, JSON.stringify(stored));
+        
+        return newReply;
+      }
+
       // Check if this is a report comment
       const { data: reportComment, error: reportCommentError } = await supabase
         .from('report_comments')
@@ -455,12 +534,9 @@ export const reportsService = {
         const payload: any = {
           user_id: user.id,
           content,
+          parent_comment_id: isNested ? null : parentId,
+          parent_reply_id: isNested ? parentId : null,
         };
-        if (isNested) {
-          payload.parent_reply_id = parentId;
-        } else {
-          payload.parent_comment_id = parentId;
-        }
 
         const { data, error } = await supabase
           .from('comment_replies')
@@ -493,24 +569,75 @@ export const reportsService = {
 
       const newReply: CommentReply = {
         id: `mock-${Date.now()}`,
-        parent_comment_id: parentId,
+        parent_comment_id: isNested ? undefined : parentId,
+        parent_reply_id: isNested ? parentId : undefined,
         user_id: user.id,
         content: content,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         user: { username: profile.username, avatar_url: profile.avatar_url },
         replies: [],
-        reply_depth: 0,
+        reply_depth: isNested ? 1 : 0,
         likes_count: 0,
         is_liked: false,
       } as CommentReply;
 
       const repliesKey = 'report_comment_replies';
       const stored = JSON.parse(localStorage.getItem(repliesKey) || '{}');
-      if (!Array.isArray(stored[parentId])) {
-        stored[parentId] = [];
+      
+      if (!isNested) {
+        // Top-level reply - store directly under the comment ID
+        if (!Array.isArray(stored[parentId])) {
+          stored[parentId] = [];
+        }
+        stored[parentId].push(newReply);
+      } else {
+        // Nested reply - find the comment and add to the appropriate reply's replies array
+        // We need to find which comment this reply belongs to
+        let commentId: string | null = null;
+        let foundInComment = false;
+        
+        // Helper function to add nested reply recursively
+        const addNestedReplyToTree = (replies: any[]): boolean => {
+          for (let i = 0; i < replies.length; i++) {
+            if (replies[i].id === parentId) {
+              if (!Array.isArray(replies[i].replies)) {
+                replies[i].replies = [];
+              }
+              replies[i].replies.push(newReply);
+              return true;
+            }
+            if (replies[i].replies && Array.isArray(replies[i].replies)) {
+              if (addNestedReplyToTree(replies[i].replies)) {
+                return true;
+              }
+            }
+          }
+          return false;
+        };
+        
+        // Search through all comments to find where this reply belongs
+        for (const [cId, replies] of Object.entries(stored)) {
+          if (Array.isArray(replies)) {
+            if (addNestedReplyToTree(replies)) {
+              commentId = cId;
+              foundInComment = true;
+              break;
+            }
+          }
+        }
+        
+        // If we couldn't find the parent reply, it might be a new structure
+        // In this case, create a new entry
+        if (!foundInComment) {
+          console.warn('Could not find parent reply in storage, creating new entry');
+          if (!Array.isArray(stored[parentId])) {
+            stored[parentId] = [];
+          }
+          stored[parentId].push(newReply);
+        }
       }
-      stored[parentId].push(newReply);
+      
       localStorage.setItem(repliesKey, JSON.stringify(stored));
       
       return newReply;

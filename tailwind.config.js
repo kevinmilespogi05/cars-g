@@ -7,47 +7,75 @@ export default {
         'sans': ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'Noto Sans', 'sans-serif'],
       },
       colors: {
+        // Professional Cars-G Color Palette
         primary: {
-          color: '#4361ee',
-          light: '#4895ef',
-          dark: '#3f37c9',
+          50: '#f7f9fb',   // Soft Off-White background
+          100: '#e8f2ff',  // Light blue tint
+          500: '#1a73e8',  // Google Blue (Primary Accent)
+          600: '#1557b0',  // Darker blue for hover states
+          700: '#0f4c8c',  // Even darker for active states
         },
         secondary: {
-          color: '#4cc9f0',
-          light: '#56cfe1',
-          dark: '#3a0ca3',
+          100: '#e3f2fd',  // Light sky blue background
+          500: '#69a1f4',  // Sky Blue (Secondary Accent)
+          600: '#4285f4',  // Medium blue
         },
+        accent: {
+          500: '#1e8e3e',  // Trustworthy Green for buttons/highlights
+          600: '#1b7c37',  // Darker green for hover
+        },
+        text: {
+          primary: '#232937',   // Almost Black for main text
+          secondary: '#607080', // Muted Gray-Blue for secondary text
+        },
+        // Status colors for reports
+        status: {
+          resolved: '#00897b',    // Teal
+          'in-progress': '#fbc02d', // Golden Yellow
+          pending: '#636e72',     // Muted Charcoal
+          high: '#d32f2f',        // Vivid Red for high priority
+          medium: '#fbc02d',      // Golden Yellow for medium
+          low: '#0984e3',         // Soft Blue for low
+        },
+        // Emergency colors
+        emergency: {
+          bg: '#fff3e0',      // Light Orange background
+          accent: '#f4511e',   // Deep Orange for icons/accents
+          text: '#c62828',     // Strong Red for emergency numbers
+          hover: '#e57373',    // Soft Red for hover states
+        },
+        // Keep existing colors for compatibility
         success: {
-          DEFAULT: '#4caf50',
-          light: '#81c784',
-          dark: '#388e3c',
+          DEFAULT: '#00897b',  // Updated to teal
+          light: '#4db6ac',
+          dark: '#00695c',
         },
         danger: {
-          DEFAULT: '#f72585',
-          light: '#f95d9e',
-          dark: '#d10c6c',
+          DEFAULT: '#d32f2f',  // Updated to vivid red
+          light: '#ef5350',
+          dark: '#c62828',
         },
         warning: {
-          DEFAULT: '#f9c74f',
-          light: '#fad776',
-          dark: '#f7b728',
+          DEFAULT: '#fbc02d',  // Updated to golden yellow
+          light: '#ffeb3b',
+          dark: '#f57f17',
         },
         info: {
-          DEFAULT: '#4cc9f0',
-          light: '#7ad7f3',
-          dark: '#1fbbed',
+          DEFAULT: '#0984e3',  // Updated to soft blue
+          light: '#29b6f6',
+          dark: '#0277bd',
         },
         gray: {
-          50: '#f8f9fa',
-          100: '#f1f3f5',
-          200: '#e9ecef',
-          300: '#dee2e6',
-          400: '#ced4da',
-          500: '#adb5bd',
-          600: '#6c757d',
-          700: '#495057',
-          800: '#343a40',
-          900: '#212529',
+          50: '#f7f9fb',   // Updated to match primary-50
+          100: '#f1f5f9',
+          200: '#e2e8f0',
+          300: '#cbd5e1',
+          400: '#94a3b8',
+          500: '#64748b',
+          600: '#475569',
+          700: '#334155',
+          800: '#1e293b',
+          900: '#0f172a',
         },
       },
       boxShadow: {

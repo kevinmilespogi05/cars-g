@@ -515,28 +515,41 @@ export function ReportDetail() {
     try {
       const nestedReply = await reportsService.addCommentReply(replyId, formData.content.trim(), true);
       
-      // Add the nested reply to the appropriate reply
+      // Helper function to add nested reply recursively
+      const addNestedReply = (replies: CommentReply[]): CommentReply[] => {
+        return replies.map(reply => {
+          if (reply.id === replyId) {
+            return {
+              ...reply,
+              replies: [...(reply.replies || []), nestedReply]
+            };
+          }
+          if (reply.replies) {
+            return {
+              ...reply,
+              replies: addNestedReply(reply.replies)
+            };
+          }
+          return reply;
+        });
+      };
+
+      // Add the nested reply to both regular comments and report comments
       setComments(prev => 
         prev.map(comment => {
           if (comment.id === commentId) {
-            const addNestedReply = (replies: CommentReply[]): CommentReply[] => {
-              return replies.map(reply => {
-                if (reply.id === replyId) {
-                  return {
-                    ...reply,
-                    replies: [...(reply.replies || []), nestedReply]
-                  };
-                }
-                if (reply.replies) {
-                  return {
-                    ...reply,
-                    replies: addNestedReply(reply.replies)
-                  };
-                }
-                return reply;
-              });
+            return {
+              ...comment,
+              replies: addNestedReply(comment.replies || [])
             };
+          }
+          return comment;
+        })
+      );
 
+      setReportComments(prev => 
+        prev.map(comment => {
+          if (comment.id === commentId) {
             return {
               ...comment,
               replies: addNestedReply(comment.replies || [])

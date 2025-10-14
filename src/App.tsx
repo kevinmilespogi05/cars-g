@@ -159,10 +159,33 @@ function AppContent() {
   return (
     <ErrorBoundary>
       <Providers>
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen bg-gray-50 relative">
+          {/* Blurred Background Wallpaper - Show on all pages except landing */}
+          {!isLandingPage && (
+            <>
+              <div 
+                className="fixed inset-0 z-0"
+                style={{
+                  backgroundImage: 'url(/images/Castillejos,Zambalesjf7377_05.JPG)',
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  backgroundRepeat: 'no-repeat',
+                  filter: 'blur(4px) brightness(1.1)',
+                  transform: 'scale(1.05)'
+                }}
+                aria-hidden="true"
+              />
+              {/* Overlay for better content readability */}
+              <div 
+                className="fixed inset-0 z-0 bg-white/75"
+                aria-hidden="true"
+              />
+            </>
+          )}
+          
           {/* Only show Navigation on non-landing pages */}
           {!isLandingPage && <Navigation />}
-          <main className={isLandingPage ? 'pt-0' : 'pt-20 sm:pt-24'}>
+          <main className={isLandingPage ? 'pt-0' : 'pt-20 sm:pt-24 relative z-10'}>
             <Suspense fallback={<LoadingSpinner />}>
               <Routes>
                 {publicRoutes.map((route) => (

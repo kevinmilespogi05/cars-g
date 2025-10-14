@@ -7,38 +7,38 @@ export type ReportPriority = 'high' | 'medium' | 'low' | string;
 export const getStatusColor = (status: ReportStatus): string => {
   switch (status) {
     case 'verifying':
-      return 'bg-purple-100 text-purple-800';
+      return 'bg-secondary-100 text-primary-700 border border-secondary-200';
     case 'awaiting_verification':
-      return 'bg-orange-100 text-orange-800';
+      return 'bg-warning-50 text-warning-800 border border-warning-200';
     case 'pending':
-      return 'bg-yellow-100 text-yellow-800';
+      return 'bg-gray-100 text-gray-700 border border-gray-200';
     case 'in_progress':
-      return 'bg-blue-100 text-blue-800';
+      return 'bg-warning-50 text-warning-800 border border-warning-200';
     case 'resolved':
-      return 'bg-green-100 text-green-800';
+      return 'bg-teal-50 text-teal-700 border border-teal-200';
     case 'rejected':
-      return 'bg-red-100 text-red-800';
+      return 'bg-red-50 text-red-700 border border-red-200';
     case 'cancelled':
-      return 'bg-gray-100 text-gray-800';
+      return 'bg-gray-100 text-gray-600 border border-gray-200';
     default:
-      return 'bg-gray-100 text-gray-800';
+      return 'bg-gray-100 text-gray-600 border border-gray-200';
   }
 };
 
 export const getStatusIcon = (status: ReportStatus): React.ReactNode => {
   switch (status) {
     case 'verifying':
-      return <Shield className="w-4 h-4 text-purple-500" />;
+      return <Shield className="w-4 h-4 text-primary-600" />;
     case 'awaiting_verification':
-      return <ClipboardList className="w-4 h-4 text-orange-500" />;
+      return <ClipboardList className="w-4 h-4 text-warning-700" />;
     case 'pending':
-      return <Clock className="w-4 h-4 text-yellow-500" />;
+      return <Clock className="w-4 h-4 text-gray-600" />;
     case 'in_progress':
-      return <AlertCircle className="w-4 h-4 text-blue-500" />;
+      return <AlertCircle className="w-4 h-4 text-warning-700" />;
     case 'resolved':
-      return <CheckCircle className="w-4 h-4 text-green-500" />;
+      return <CheckCircle className="w-4 h-4 text-teal-600" />;
     case 'rejected':
-      return <XCircle className="w-4 h-4 text-red-500" />;
+      return <XCircle className="w-4 h-4 text-red-600" />;
     case 'cancelled':
       return <XCircle className="w-4 h-4 text-gray-500" />;
     default:
@@ -49,13 +49,13 @@ export const getStatusIcon = (status: ReportStatus): React.ReactNode => {
 export const getPriorityColor = (priority: ReportPriority): string => {
   switch (priority) {
     case 'high':
-      return 'bg-red-100 text-red-800';
+      return 'bg-red-50 text-red-700 border border-red-200';
     case 'medium':
-      return 'bg-yellow-100 text-yellow-800';
+      return 'bg-warning-50 text-warning-800 border border-warning-200';
     case 'low':
-      return 'bg-green-100 text-green-800';
+      return 'bg-info-50 text-info-700 border border-info-200';
     default:
-      return 'bg-gray-100 text-gray-800';
+      return 'bg-gray-100 text-gray-600 border border-gray-200';
   }
 };
 

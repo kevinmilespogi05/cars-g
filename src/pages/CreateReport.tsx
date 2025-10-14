@@ -51,9 +51,9 @@ const CATEGORIES = [
 ];
 
 const PRIORITY_OPTIONS = [
-  { value: 'low', label: 'Low', color: 'bg-green-100 text-green-800 border-green-300', description: 'Minor issue, no immediate danger' },
-  { value: 'medium', label: 'Medium', color: 'bg-yellow-100 text-yellow-800 border-yellow-300', description: 'Needs attention, moderate impact' },
-  { value: 'high', label: 'High', color: 'bg-red-100 text-red-800 border-red-300', description: 'Urgent, requires immediate action' }
+  { value: 'low', label: 'Low', color: 'bg-info-50 text-info-700 border-info-200', description: 'Minor issue, no immediate danger' },
+  { value: 'medium', label: 'Medium', color: 'bg-warning-50 text-warning-800 border-warning-200', description: 'Needs attention, moderate impact' },
+  { value: 'high', label: 'High', color: 'bg-red-50 text-red-700 border-red-200', description: 'Urgent, requires immediate action' }
 ];
 
 const MAX_IMAGES = 5;
@@ -63,6 +63,24 @@ export function CreateReport() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Detect mobile/PWA environment
+  const [isMobileOrPWA, setIsMobileOrPWA] = useState(false);
+  
+  useEffect(() => {
+    const checkMobileOrPWA = () => {
+      const isMobile = window.innerWidth <= 768 || /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      const isPWA = window.matchMedia('(display-mode: standalone)').matches || 
+                   (window.navigator as any).standalone === true ||
+                   document.referrer.includes('android-app://');
+      setIsMobileOrPWA(isMobile || isPWA);
+    };
+    
+    checkMobileOrPWA();
+    window.addEventListener('resize', checkMobileOrPWA);
+    
+    return () => window.removeEventListener('resize', checkMobileOrPWA);
+  }, []);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -578,62 +596,112 @@ export function CreateReport() {
                     </div>
                   </div>
                 
-                <div className="bg-gradient-to-br from-gray-50 to-white rounded-xl p-4 sm:p-5 border border-gray-200 shadow-sm space-y-4">
+                <div className="bg-gradient-to-br from-primary-50/30 to-white rounded-2xl p-5 sm:p-6 border-2 border-gray-100 shadow-lg hover:shadow-xl transition-all duration-300 space-y-5">
                   <div>
-                    <label htmlFor="title-input" className="block text-sm font-semibold text-gray-900 mb-2">
+                    <label htmlFor="title-input" className="block text-sm font-semibold text-text-primary mb-3">
                       Issue Title <span className="text-red-500">*</span>
                     </label>
-                    <input
-                      id="title-input"
-                      type="text"
-                      required
-                      className="w-full px-3.5 py-2.5 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white shadow-sm hover:border-gray-400"
-                      value={formData.title}
-                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                      placeholder="Brief description of the issue"
-                    />
+                    <div className="relative">
+                      <input
+                        id="title-input"
+                        type="text"
+                        required
+                        className="w-full px-4 py-4 text-base border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all duration-200 bg-white shadow-sm hover:shadow-md placeholder-gray-400"
+                        value={formData.title}
+                        onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                        placeholder="Brief description of the issue..."
+                      />
+                      {formData.title && (
+                        <div className="absolute inset-y-0 right-0 flex items-center pr-4">
+                          <CheckCircle className="h-5 w-5 text-green-500" />
+                        </div>
+                      )}
+                    </div>
                   </div>
                   
                   {/* Enhanced Category Selection */}
                   <div>
-                    <label className="block text-sm font-semibold text-gray-900 mb-2">
+                    <label className="block text-sm font-semibold text-text-primary mb-3">
                       Category <span className="text-red-500">*</span>
                     </label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {CATEGORIES.map((category) => {
-                        const Icon = category.icon;
-                        const isSelected = formData.category === category.value;
-                        return (
-                          <button
-                            key={category.value}
-                            type="button"
-                            onClick={() => setFormData({ ...formData, category: category.value })}
-                            className={`text-left p-3 rounded-lg border transition-all duration-200 ${
-                              isSelected
-                                ? 'border-blue-500 bg-blue-50 shadow-sm ring-1 ring-blue-200'
-                                : 'border-gray-200 bg-white hover:border-blue-300'
-                            }`}
-                          >
-                            <div className="flex items-start space-x-2">
-                              <Icon className={`w-5 h-5 mt-0.5 flex-shrink-0 ${isSelected ? 'text-blue-600' : category.color}`} />
-                              <div className="flex-1 min-w-0">
-                                <div className={`text-sm font-semibold ${isSelected ? 'text-blue-900' : 'text-gray-900'}`}>
-                                  {category.label}
-                                </div>
-                                <div className={`text-xs mt-0.5 ${isSelected ? 'text-blue-700' : 'text-gray-600'}`}>
-                                  {category.description}
+                    
+                    {isMobileOrPWA ? (
+                      // Mobile/PWA: Enhanced dropdown selection
+                      <div className="relative">
+                        <select
+                          value={formData.category}
+                          onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                          className="w-full px-4 py-4 text-sm border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white transition-all duration-200 shadow-sm hover:shadow-md appearance-none cursor-pointer"
+                          required
+                        >
+                          <option value="" disabled className="text-gray-500">
+                            🏛️ Select a category...
+                          </option>
+                          <option value="infrastructure" className="py-2">
+                            🏗️ Infrastructure - Roads, sidewalks, bridges, and public structures
+                          </option>
+                          <option value="safety" className="py-2">
+                            🛡️ Safety - Street lights, traffic signs, and public safety concerns
+                          </option>
+                          <option value="environmental" className="py-2">
+                            🌱 Environmental - Pollution, waste management, and green spaces
+                          </option>
+                          <option value="public services" className="py-2">
+                            🏢 Public Services - Utilities, sanitation, and community services
+                          </option>
+                          <option value="other" className="py-2">
+                            ❓ Other - Issues not covered by other categories
+                          </option>
+                        </select>
+                        {/* Custom dropdown arrow */}
+                        <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
+                          <ChevronRight className="h-5 w-5 text-gray-400 transform rotate-90" />
+                        </div>
+                        {/* Selected category indicator */}
+                        {formData.category && (
+                          <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
+                            <div className="w-2 h-2 bg-primary-500 rounded-full"></div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      // Desktop: Button grid selection
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {CATEGORIES.map((category) => {
+                          const Icon = category.icon;
+                          const isSelected = formData.category === category.value;
+                          return (
+                            <button
+                              key={category.value}
+                              type="button"
+                              onClick={() => setFormData({ ...formData, category: category.value })}
+                              className={`text-left p-3 rounded-lg border transition-all duration-200 ${
+                                isSelected
+                                  ? 'border-primary-500 bg-primary-50 shadow-sm ring-1 ring-primary-200'
+                                  : 'border-gray-200 bg-white hover:border-primary-300'
+                              }`}
+                            >
+                              <div className="flex items-start space-x-2">
+                                <Icon className={`w-5 h-5 mt-0.5 flex-shrink-0 ${isSelected ? 'text-primary-600' : category.color}`} />
+                                <div className="flex-1 min-w-0">
+                                  <div className={`text-sm font-semibold ${isSelected ? 'text-primary-900' : 'text-gray-900'}`}>
+                                    {category.label}
+                                  </div>
+                                  <div className={`text-xs mt-0.5 ${isSelected ? 'text-primary-700' : 'text-gray-600'}`}>
+                                    {category.description}
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                   
                   {/* Enhanced Priority Selection */}
                   <div>
-                    <label className="block text-sm font-semibold text-gray-900 mb-2">
+                    <label className="block text-sm font-semibold text-text-primary mb-3">
                       Priority Level <span className="text-red-500">*</span>
                     </label>
                     <div className="grid grid-cols-3 gap-2">
@@ -662,26 +730,36 @@ export function CreateReport() {
                     </div>
                   </div>
                   
-                  {/* Description with Word Count */}
+                  {/* Enhanced Description with Word Count */}
                   <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="block text-sm font-semibold text-gray-900">
+                    <div className="flex items-center justify-between mb-3">
+                      <label className="block text-sm font-semibold text-text-primary">
                         Description <span className="text-red-500">*</span>
                       </label>
-                      <span className="text-xs text-gray-500 font-medium">
+                      <span className="text-xs text-text-secondary font-medium bg-gray-100 px-2 py-1 rounded-full">
                         {wordCount} {wordCount === 1 ? 'word' : 'words'}
                       </span>
                     </div>
-                    <textarea
-                      required
-                      rows={4}
-                      className="w-full px-3.5 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 resize-y shadow-sm hover:border-gray-400"
-                      value={formData.description}
-                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                      placeholder="Provide a detailed description of the issue you're reporting..."
-                      minLength={10}
-                    />
-                    <p className="mt-1.5 text-xs text-gray-500">Minimum 10 characters required</p>
+                    <div className="relative">
+                      <textarea
+                        required
+                        rows={4}
+                        className="w-full px-4 py-4 text-sm border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all duration-200 resize-y shadow-sm hover:shadow-md placeholder-gray-400"
+                        value={formData.description}
+                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                        placeholder="Provide a detailed description of the issue, including location details, time of occurrence, and any other relevant information..."
+                        minLength={10}
+                      />
+                      {formData.description.length >= 10 && (
+                        <div className="absolute top-4 right-4">
+                          <CheckCircle className="h-5 w-5 text-green-500" />
+                        </div>
+                      )}
+                    </div>
+                    <p className="mt-2 text-xs text-text-secondary flex items-center gap-1">
+                      <AlertCircle className="h-3 w-3" />
+                      Minimum 10 characters required
+                    </p>
                   </div>
                 </div>
                 
@@ -700,8 +778,8 @@ export function CreateReport() {
                     </div>
                   </div>
                   
-                  <div className="bg-gradient-to-br from-gray-50 to-white rounded-xl p-4 sm:p-5 border border-gray-200 shadow-sm space-y-3">
-                    <label className="block text-sm font-semibold text-gray-900">
+                  <div className="bg-gradient-to-br from-primary-50/30 to-white rounded-2xl p-5 sm:p-6 border-2 border-gray-100 shadow-lg hover:shadow-xl transition-all duration-300 space-y-4">
+                    <label className="block text-sm font-semibold text-text-primary">
                       Select Location <span className="text-red-500">*</span>
                     </label>
                     <div className="rounded-lg overflow-hidden border border-gray-300 shadow-sm">
@@ -739,7 +817,7 @@ export function CreateReport() {
                     </div>
                   </div>
                   
-                  <div className="bg-gradient-to-br from-gray-50 to-white rounded-xl p-4 sm:p-5 border border-gray-200 shadow-sm">
+                  <div className="bg-gradient-to-br from-primary-50/30 to-white rounded-2xl p-5 sm:p-6 border-2 border-gray-100 shadow-lg hover:shadow-xl transition-all duration-300">
                     {renderImageUploadSection()}
                   </div>
                 </div>

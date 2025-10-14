@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { motion, useScroll, useTransform } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { 
   Shield, 
   MapPin, 
@@ -10,7 +10,6 @@ import {
   CheckCircle, 
   ArrowRight,
   FileText,
-  Eye,
   Star,
   Zap,
   Menu,
@@ -20,7 +19,6 @@ import {
   Heart,
   Globe,
   ChevronDown,
-  Play,
   Download
 } from 'lucide-react';
 import { useActiveUsers } from '../hooks/useActiveUsers';
@@ -28,9 +26,6 @@ import { useResolvedReports } from '../hooks/useResolvedReports';
 
 export function LandingPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
-  const { scrollY } = useScroll();
-  const y = useTransform(scrollY, [0, 300], [0, -50]);
   const [installPrompt, setInstallPrompt] = useState<any>(null);
   const [isStandalone, setIsStandalone] = useState(false);
   const [displayedText, setDisplayedText] = useState('');
@@ -41,14 +36,6 @@ export function LandingPage() {
   // Fetch real-time data
   const { count: activeUsersCount, loading: loadingUsers } = useActiveUsers();
   const { count: resolvedReportsCount, loading: loadingReports } = useResolvedReports();
-
-  useEffect(() => {
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 20);
-    };
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
 
   // Rotating text animation effect
   useEffect(() => {
@@ -407,7 +394,7 @@ export function LandingPage() {
 
               {/* CTA Buttons with Advanced Animations */}
               <motion.div 
-                className="flex flex-col sm:flex-row gap-5 justify-center lg:justify-start mb-12"
+                className="flex flex-col sm:flex-row gap-5 justify-center mb-12"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.8, delay: 0.7 }}
@@ -448,30 +435,6 @@ export function LandingPage() {
                       >
                         <ArrowRight className="h-5 w-5" />
                       </motion.span>
-                    </span>
-                  </motion.button>
-                </Link>
-
-                {/* Secondary CTA with Glassmorphism */}
-                <Link to="/login">
-                  <motion.button
-                    className="group px-8 py-5 rounded-2xl text-lg font-bold backdrop-blur-xl border-2 shadow-xl"
-                    style={{
-                      background: 'linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.7) 100%)',
-                      borderColor: 'rgba(128, 0, 0, 0.3)',
-                      color: '#800000',
-                    }}
-                    whileHover={{ 
-                      scale: 1.05, 
-                      y: -2,
-                      borderColor: 'rgba(128, 0, 0, 0.6)',
-                    }}
-                    whileTap={{ scale: 0.98 }}
-                    transition={{ type: "spring", stiffness: 400, damping: 17 }}
-                  >
-                    <span className="flex items-center justify-center space-x-2">
-                      <Play className="h-5 w-5 group-hover:scale-110 transition-transform" />
-                      <span>Watch Demo</span>
                     </span>
                   </motion.button>
                 </Link>
@@ -960,22 +923,12 @@ export function LandingPage() {
             <div className="flex flex-col sm:flex-row gap-6 justify-center items-center">
             <Link
               to="/register"
-                className="group text-white px-10 py-5 rounded-2xl text-lg font-bold transition-all duration-300 shadow-2xl hover:shadow-3xl transform hover:scale-105 inline-flex items-center space-x-3"
-                style={{backgroundColor: '#800000'}}
-                onMouseEnter={(e) => (e.target as HTMLElement).style.backgroundColor = '#660000'}
-                onMouseLeave={(e) => (e.target as HTMLElement).style.backgroundColor = '#800000'}
+                className="group px-10 py-5 rounded-2xl text-lg font-bold transition-all duration-300 shadow-2xl hover:shadow-3xl transform hover:scale-105 inline-flex items-center space-x-3 bg-white hover:bg-gray-50"
+                style={{color: '#800000'}}
               >
                 <Zap className="h-6 w-6 group-hover:rotate-12 transition-transform duration-300" />
                 <span>Get Started Free</span>
                 <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform duration-300" />
-              </Link>
-              
-              <Link
-                to="/login"
-                className="group border-2 border-white/30 text-white px-10 py-5 rounded-2xl text-lg font-semibold hover:bg-white/10 hover:border-white/50 transition-all duration-300 inline-flex items-center space-x-3"
-              >
-                <Play className="h-5 w-5" />
-                <span>Watch Demo</span>
               </Link>
             </div>
 
@@ -1004,9 +957,9 @@ export function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-white py-8">
+      <footer className="bg-gray-900 text-white py-6">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             {/* Brand Section */}
             <div className="lg:col-span-1">
               <div className="flex items-center space-x-3 mb-4">
@@ -1118,7 +1071,7 @@ export function LandingPage() {
           </div>
 
           {/* Bottom Section */}
-          <div className="border-t border-gray-800 mt-8 pt-6">
+          <div className="border-t border-gray-800 mt-6 pt-4">
             <div className="flex flex-col md:flex-row justify-between items-center space-y-3 md:space-y-0">
               <div className="text-gray-400 text-center md:text-left">
             <p className="text-sm">&copy; 2024 CARS-G. All rights reserved.</p>

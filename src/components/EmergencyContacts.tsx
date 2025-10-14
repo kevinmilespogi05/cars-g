@@ -59,9 +59,9 @@ export function EmergencyContacts() {
       displayNumber: '911',
       colorScheme: {
         bg: 'bg-red-50',
-        border: 'border-red-200',
-        text: 'text-red-900',
-        hover: 'hover:bg-red-100'
+        border: 'border-red-300',
+        text: 'text-emergency-text',
+        hover: 'hover:bg-emergency-hover/20'
       }
     },
     {
@@ -72,9 +72,9 @@ export function EmergencyContacts() {
       displayNumber: '143',
       colorScheme: {
         bg: 'bg-orange-50',
-        border: 'border-orange-200',
-        text: 'text-orange-900',
-        hover: 'hover:bg-orange-100'
+        border: 'border-emergency-accent/30',
+        text: 'text-emergency-accent',
+        hover: 'hover:bg-emergency-hover/20'
       }
     },
     {
@@ -85,9 +85,9 @@ export function EmergencyContacts() {
       displayNumber: '9117',
       colorScheme: {
         bg: 'bg-blue-50',
-        border: 'border-blue-200',
-        text: 'text-blue-900',
-        hover: 'hover:bg-blue-100'
+        border: 'border-primary-300',
+        text: 'text-primary-700',
+        hover: 'hover:bg-primary-100'
       }
     },
     {
@@ -98,9 +98,9 @@ export function EmergencyContacts() {
       displayNumber: '117',
       colorScheme: {
         bg: 'bg-yellow-50',
-        border: 'border-yellow-200',
-        text: 'text-yellow-900',
-        hover: 'hover:bg-yellow-100'
+        border: 'border-emergency-accent/30',
+        text: 'text-emergency-accent',
+        hover: 'hover:bg-emergency-hover/20'
       }
     },
     {
@@ -111,9 +111,9 @@ export function EmergencyContacts() {
       displayNumber: '(02) 8911-5061',
       colorScheme: {
         bg: 'bg-green-50',
-        border: 'border-green-200',
-        text: 'text-green-900',
-        hover: 'hover:bg-green-100'
+        border: 'border-accent-500/30',
+        text: 'text-accent-500',
+        hover: 'hover:bg-accent-500/10'
       }
     },
     {
@@ -124,17 +124,17 @@ export function EmergencyContacts() {
       displayNumber: '(02) 8711-1001',
       colorScheme: {
         bg: 'bg-purple-50',
-        border: 'border-purple-200',
-        text: 'text-purple-900',
-        hover: 'hover:bg-purple-100'
+        border: 'border-secondary-500/30',
+        text: 'text-secondary-500',
+        hover: 'hover:bg-secondary-100'
       }
     }
   ];
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-      <h3 className="text-base font-semibold text-gray-900 mb-3 flex items-center gap-2">
-        <Shield className="h-5 w-5 text-blue-600" />
+    <div className="bg-emergency-bg rounded-xl shadow-sm border border-emergency-accent/20 p-4">
+      <h3 className="text-base font-semibold text-emergency-text mb-3 flex items-center gap-2">
+        <Shield className="h-5 w-5 text-emergency-accent" />
         Emergency Contacts
       </h3>
       
@@ -150,14 +150,14 @@ export function EmergencyContacts() {
                 <h4 className={`font-semibold text-sm ${contact.colorScheme.text}`}>
                   {contact.title}
                 </h4>
-                <p className={`${contact.colorScheme.text.replace('900', '700')} text-xs mt-0.5`}>
+                <p className="text-text-secondary text-xs mt-0.5">
                   {contact.description}
                 </p>
               </div>
               <a
                 href={`tel:${contact.number}`}
                 onClick={(e) => handlePhoneClick(e, contact.number)}
-                className={`${contact.colorScheme.text.replace('900', '600')} hover:${contact.colorScheme.text.replace('900', '700')} font-bold text-base whitespace-nowrap flex-shrink-0 transition-colors`}
+                className={`${contact.colorScheme.text} hover:text-emergency-text font-bold text-base whitespace-nowrap flex-shrink-0 transition-colors`}
                 aria-label={`Call ${contact.title} at ${contact.displayNumber}`}
               >
                 {contact.displayNumber}

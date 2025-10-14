@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { X, Shield } from 'lucide-react';
 import { getStatusColor as badgeStatusColor, getStatusIcon as badgeStatusIcon, getPriorityColor as badgePriorityColor } from '../lib/badges';
 import { useAuthStore } from '../store/authStore';
 import { reportsService } from '../services/reportsService';
@@ -8,12 +9,10 @@ import { LikeDetailsModal } from '../components/LikeDetailsModal';
 import { ReportsGridSkeleton } from '../components/SkeletonLoader';
 import { SideNav } from '../components/SideNav';
 import { EmergencyContacts } from '../components/EmergencyContacts';
-import { LGUInfo } from '../components/LGUInfo';
 import { ReportsList } from '../components/ReportsList';
 import { QuickActions } from '../components/QuickActions';
 import { Report } from '../types';
 
-// Note: LGU constants have been moved to LGUInfo component
 // Note: Filter constants (CATEGORIES, STATUSES, PRIORITIES) have been moved to ReportsList component
 
 export function Reports() {
@@ -299,7 +298,7 @@ export function Reports() {
   // Loading state
   if (loading && reports.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-primary-50">
         <div className="w-full">
           <div className="grid grid-cols-1 md:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)] lg:grid-cols-[minmax(280px,1fr)_minmax(0,2.5fr)_minmax(280px,1fr)]">
             {/* Left sidebar skeleton */}
@@ -347,26 +346,25 @@ export function Reports() {
 
   return (
     <>
-    <div className="min-h-[100dvh] bg-gray-50 reports-page">
+    <div className="min-h-[100dvh] reports-page bg-primary-50">
       {/* 
         Multi-Column Responsive Layout - Full Width Edge-to-Edge
-        - Desktop (lg+): 3 columns [sidebar | main content | info panel]
-        - Tablet (md): 2 columns [sidebar | main content with info below]
-        - Mobile (<md): Single column with optimized order
+        - Desktop (lg+): 2 columns [sidebar | main content]
+        - Tablet/Mobile (<lg): Single column with emergency contacts at bottom
         - All content stretches to viewport edges
       */}
       <div className="w-full">
         
-        {/* 3-Column Grid Layout - No gaps for edge-to-edge design */}
-        <div className="grid grid-cols-1 md:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)] lg:grid-cols-[minmax(280px,1fr)_minmax(0,2.5fr)_minmax(280px,1fr)]">
+        {/* 2-Column Grid Layout - No gaps for edge-to-edge design */}
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(280px,1fr)_minmax(0,2.5fr)] items-start">
           
           {/* LEFT COLUMN: Sidebar Navigation - Hidden on mobile/tablet, visible on desktop */}
-          <aside className="hidden lg:block lg:order-1 border-r border-gray-200 bg-white pt-6 px-4 pb-6">
+          <aside className="hidden lg:block lg:order-1 border-r border-gray-200 bg-white pt-6 px-4 pb-6 h-auto">
             <SideNav />
           </aside>
 
-          {/* CENTER COLUMN: Main Content (Announcements + Reports List) */}
-          <main className="order-1 md:order-1 lg:order-2 py-6 px-4 sm:px-6">
+          {/* MAIN COLUMN: Content (Announcements + Reports List) */}
+          <main className="order-1 lg:order-2 py-6 px-4 sm:px-6">
             {/* Announcement Banner */}
             <div className="mb-5">
               <AnnouncementBanner />
@@ -374,6 +372,19 @@ export function Reports() {
 
             {/* Reports List with Search & Filters */}
             <ReportsList
+              afterSearchContent={
+                user && (
+                  <div className="mb-5">
+                    <Link
+                      to="/verification-reports"
+                      className="flex items-center gap-3 px-4 py-3 rounded-xl text-primary-700 bg-primary-100 hover:bg-secondary-100 border border-primary-200 transition-all shadow-sm hover:shadow-md"
+                    >
+                      <Shield className="h-5 w-5 text-primary-600" />
+                      <span className="text-sm font-semibold">Verification Reports</span>
+                    </Link>
+                  </div>
+                )
+              }
               reports={reports}
               loading={loading}
               searchTerm={searchTerm}
@@ -394,24 +405,10 @@ export function Reports() {
             />
           </main>
 
-          {/* RIGHT COLUMN: Emergency Contacts & LGU Info - Shows on tablet/desktop only */}
-          <aside className="hidden md:block md:order-2 lg:order-3 border-l border-gray-200 bg-white pt-6 px-4 pb-6">
-            <div className="space-y-4">
-              {/* Emergency Contacts */}
-              <EmergencyContacts />
-
-              {/* LGU Information */}
-              <LGUInfo />
-            </div>
-          </aside>
-
-          {/* MOBILE ONLY: Emergency Contacts and LGU Info at bottom */}
+          {/* MOBILE ONLY: Emergency Contacts at bottom */}
           <div className="md:hidden order-2 px-4 py-6 space-y-5 border-t border-gray-200">
             {/* Emergency Contacts for Mobile */}
             <EmergencyContacts />
-
-            {/* LGU Info for Mobile */}
-            <LGUInfo />
           </div>
 
         </div>
@@ -450,9 +447,9 @@ export function Reports() {
           reportTitle={likeDetailsModal.reportTitle}
         />
       )}
-      {toast.visible && (
+        {toast.visible && (
         <div className="fixed bottom-4 left-0 right-0 z-[9999] px-4 flex justify-center">
-          <div className={`px-4 py-2 rounded-xl shadow-lg text-sm font-medium ${toast.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}>
+          <div className={`px-4 py-2 rounded-xl shadow-lg text-sm font-medium ${toast.type === 'success' ? 'bg-success text-white' : 'bg-danger text-white'}`}>
             {toast.text}
           </div>
         </div>
