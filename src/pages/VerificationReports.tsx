@@ -562,7 +562,9 @@ export function VerificationReports() {
                   <div className="flex items-center justify-between text-xs text-gray-500 mb-2.5">
                     <div className="flex items-center gap-1">
                       <User className="h-3 w-3" />
-                      <span className="truncate max-w-[80px]">{report.user_profile?.username || 'Anonymous'}</span>
+                      <span className="truncate max-w-[80px]">
+                        {report.is_anonymous ? 'Anonymous Reporter' : (report.user_profile?.username || 'Anonymous')}
+                      </span>
                     </div>
                     <div className="flex items-center gap-1 text-gray-400">
                       <Calendar className="h-3 w-3" />

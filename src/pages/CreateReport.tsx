@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { track } from '@vercel/analytics';
 import { useNavigate } from 'react-router-dom';
-import { Camera, MapPin, Loader2, AlertCircle, X, CheckCircle, Upload, Bot, Sparkles, Trophy, Construction, Shield, Leaf, Building2, HelpCircle, ChevronRight } from 'lucide-react';
+import { Camera, MapPin, Loader2, AlertCircle, X, CheckCircle, Upload, Bot, Sparkles, Trophy, Construction, Shield, Leaf, Building2, HelpCircle, ChevronRight, EyeOff, Eye } from 'lucide-react';
 import { MapPicker } from '../components/MapPicker';
 import { useAuthStore } from '../store/authStore';
 import { uploadMultipleImages } from '../lib/cloudinaryStorage';
@@ -104,6 +104,7 @@ export function CreateReport() {
   const [currentStep, setCurrentStep] = useState<string | null>(null);
   const [isDirty, setIsDirty] = useState(false);
   const [activeFormStep, setActiveFormStep] = useState(1);
+  const [isAnonymous, setIsAnonymous] = useState(false); // Anonymous reporting toggle
   const submitButtonRef = React.useRef<HTMLButtonElement | null>(null);
   
   // Calculate word count for description
@@ -301,6 +302,7 @@ export function CreateReport() {
         location_lng: location.lng,
         location_address: location.address || `${location.lat}, ${location.lng}`,
         images: imageUrls,
+        is_anonymous: isAnonymous, // Include anonymous flag
         idempotency_key: `rep_${user.id}_${Date.now()}`,
       };
 
@@ -320,16 +322,21 @@ export function CreateReport() {
       })();
       console.log('✅ Report created successfully:', createdReport);
 
-      // Award points with the real report ID
-      try {
-        setCurrentStep('Awarding points');
-        await awardPoints(user.id, 'REPORT_SUBMITTED', createdReport.id);
-        console.log('🎯 Points awarded successfully');
-        safeTrack('report_submit_points_awarded', { reportId: createdReport.id });
-      } catch (error) {
-        console.error('❌ Error awarding points:', error);
-        safeTrack('report_submit_points_failed');
-        // Don't throw here, as the report was still created successfully
+      // Award points with the real report ID (skip for anonymous reports)
+      if (!isAnonymous) {
+        try {
+          setCurrentStep('Awarding points');
+          await awardPoints(user.id, 'REPORT_SUBMITTED', createdReport.id);
+          console.log('🎯 Points awarded successfully');
+          safeTrack('report_submit_points_awarded', { reportId: createdReport.id });
+        } catch (error) {
+          console.error('❌ Error awarding points:', error);
+          safeTrack('report_submit_points_failed');
+          // Don't throw here, as the report was still created successfully
+        }
+      } else {
+        console.log('⚠️ Skipping points award for anonymous report');
+        safeTrack('report_submit_anonymous', { reportId: createdReport.id });
       }
 
       // Track report creation for achievements/stats
@@ -826,8 +833,53 @@ export function CreateReport() {
               
             </div>
             
+            {/* Anonymous Reporting Toggle */}
+            <div className="mt-6 sm:mt-8 mb-5">
+              <div className="max-w-4xl mx-auto">
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl p-5 shadow-sm">
+                  <div className="flex items-start space-x-4">
+                    <div className="flex items-center h-6 mt-0.5">
+                      <input
+                        id="anonymous-toggle"
+                        type="checkbox"
+                        checked={isAnonymous}
+                        onChange={(e) => setIsAnonymous(e.target.checked)}
+                        className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 focus:ring-2 cursor-pointer transition-all"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <label htmlFor="anonymous-toggle" className="flex items-center space-x-2 cursor-pointer">
+                        <div className="flex items-center space-x-2">
+                          {isAnonymous ? (
+                            <EyeOff className="w-5 h-5 text-blue-600" />
+                          ) : (
+                            <Eye className="w-5 h-5 text-gray-600" />
+                          )}
+                          <span className="text-sm sm:text-base font-bold text-gray-900">
+                            {isAnonymous ? 'Submit Anonymously' : 'Submit with your identity'}
+                          </span>
+                        </div>
+                      </label>
+                      <p className="text-xs sm:text-sm text-gray-700 mt-2 leading-relaxed">
+                        {isAnonymous ? (
+                          <>
+                            <Shield className="w-4 h-4 inline-block text-blue-600 mr-1" />
+                            <strong>Your identity will be hidden</strong> from public view. Only system administrators can see your information for moderation purposes. You won't earn points for anonymous reports.
+                          </>
+                        ) : (
+                          <>
+                            Your name and profile will be visible with this report. You'll earn {POINTS_FOR_REPORT} points for your contribution.
+                          </>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
             {/* HORIZONTAL SECTION - Points Box & Submit Button Side by Side */}
-            <div className="mt-6 sm:mt-8 mb-4">
+            <div className="mb-4">
               {/* Decorative separator line */}
               <div className="flex items-center justify-center mb-5 sm:mb-6">
                 <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent max-w-2xl"></div>
@@ -837,23 +889,25 @@ export function CreateReport() {
               <div className="max-w-4xl mx-auto">
                 <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-5 mb-3">
                   
-                  {/* Compact Points Reward Box */}
-                  <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-300 rounded-lg p-3.5 sm:p-4 shadow-sm flex items-center space-x-3 w-full sm:w-auto">
-                    {/* Small Trophy Icon */}
-                    <div className="bg-gradient-to-br from-amber-400 to-orange-500 p-2 rounded-lg shadow-sm flex-shrink-0">
-                      <Trophy className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                  {/* Compact Points Reward Box - Only show if NOT anonymous */}
+                  {!isAnonymous && (
+                    <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-300 rounded-lg p-3.5 sm:p-4 shadow-sm flex items-center space-x-3 w-full sm:w-auto">
+                      {/* Small Trophy Icon */}
+                      <div className="bg-gradient-to-br from-amber-400 to-orange-500 p-2 rounded-lg shadow-sm flex-shrink-0">
+                        <Trophy className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                      </div>
+                      
+                      {/* Compact Message */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm sm:text-base font-bold text-gray-900">
+                          Earn <span className="text-amber-600">{POINTS_FOR_REPORT} points</span> for your report!
+                        </p>
+                        <p className="text-xs text-amber-800 mt-0.5">
+                          Help improve your community
+                        </p>
+                      </div>
                     </div>
-                    
-                    {/* Compact Message */}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm sm:text-base font-bold text-gray-900">
-                        Earn <span className="text-amber-600">{POINTS_FOR_REPORT} points</span> for your report!
-                      </p>
-                      <p className="text-xs text-amber-800 mt-0.5">
-                        Help improve your community
-                      </p>
-                    </div>
-                  </div>
+                  )}
                   
                   {/* Submit Button */}
                   <button
@@ -913,15 +967,28 @@ export function CreateReport() {
               <h3 id="report-success-title" className="text-3xl font-bold text-gray-900 mb-2">Report Submitted!</h3>
               <p className="text-gray-600 mb-6 text-lg">Thank you for helping improve your community.</p>
               
-              {/* Points Award Display */}
-              <div className="bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-300 rounded-2xl p-6 mb-6">
-                <div className="flex items-center justify-center space-x-3 mb-2">
-                  <Trophy className="h-8 w-8 text-amber-600" />
-                  <span className="text-4xl font-bold text-amber-700">+{POINTS_FOR_REPORT}</span>
+              {/* Points Award Display - Only show if NOT anonymous */}
+              {!isAnonymous && (
+                <div className="bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-300 rounded-2xl p-6 mb-6">
+                  <div className="flex items-center justify-center space-x-3 mb-2">
+                    <Trophy className="h-8 w-8 text-amber-600" />
+                    <span className="text-4xl font-bold text-amber-700">+{POINTS_FOR_REPORT}</span>
+                  </div>
+                  <p className="text-amber-800 font-semibold">Points Earned!</p>
+                  <p className="text-xs text-amber-700 mt-1">Your contribution has been recorded</p>
                 </div>
-                <p className="text-amber-800 font-semibold">Points Earned!</p>
-                <p className="text-xs text-amber-700 mt-1">Your contribution has been recorded</p>
-              </div>
+              )}
+              
+              {/* Anonymous Confirmation - Only show if anonymous */}
+              {isAnonymous && (
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-300 rounded-2xl p-6 mb-6">
+                  <div className="flex items-center justify-center space-x-3 mb-2">
+                    <Shield className="h-8 w-8 text-blue-600" />
+                  </div>
+                  <p className="text-blue-800 font-semibold">Anonymous Report Submitted</p>
+                  <p className="text-xs text-blue-700 mt-1">Your identity is protected</p>
+                </div>
+              )}
               
               <div className="flex items-center justify-center space-x-3">
                 <button

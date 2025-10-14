@@ -29,6 +29,7 @@ interface Report {
   likes_count: number;
   comments_count: number;
   is_liked: boolean;
+  is_anonymous?: boolean; // Anonymous reporting flag
   // Ticketing system fields
   case_number?: string;
   priority_level?: number;
@@ -164,7 +165,7 @@ export function ReportDetail() {
 
       if (reportError) throw reportError;
 
-      // Fetch user profile
+      // Fetch user profile (but may not use it if report is anonymous)
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('username, avatar_url')
@@ -187,7 +188,8 @@ export function ReportDetail() {
         user: profileData,
         likes_count: reportData.likes?.[0]?.count || 0,
         comments_count: (reportData.comments?.[0]?.count || 0) + (reportData.report_comments?.[0]?.count || 0),
-        is_liked: userLikes && userLikes.length > 0
+        is_liked: userLikes && userLikes.length > 0,
+        is_anonymous: reportData.is_anonymous || false // Ensure is_anonymous is included
       } as any;
       setReport(full);
       // Load my rating if any
@@ -1262,7 +1264,7 @@ export function ReportDetail() {
           >
             <h1 className="text-2xl font-bold text-gray-900 mb-1">{report.title}</h1>
             <div className="flex flex-wrap items-center gap-2 text-sm text-gray-500 mb-4">
-              <span>Reported by <span className="font-medium text-gray-700">{report.user.username}</span></span>
+              <span>Reported by <span className="font-medium text-gray-700">{report.is_anonymous ? 'Anonymous Reporter' : report.user.username}</span></span>
               <span>• {new Date(report.created_at).toLocaleString()}</span>
               <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${getStatusColor(report.status)}`}>{report.status.replace('_', ' ')}</span>
               <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${getPriorityColor(report.priority)}`}>{capitalize(report.priority)}</span>
@@ -1347,11 +1349,27 @@ export function ReportDetail() {
             <div className="border-t border-gray-100 pt-4 mt-6">
               {/* User Details Row */}
               <div className="flex items-center gap-3 mb-3 sm:mb-0">
-                <img className="h-10 w-10 rounded-full object-cover border border-gray-200" src={report.user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(report.user.username)}`} alt={report.user.username} />
-                <div>
-                  <div className="text-sm font-medium text-gray-900">{report.user.username}</div>
-                  <p className="text-xs text-gray-700">{new Date(report.created_at).toLocaleString()}</p>
-                </div>
+                {report.is_anonymous ? (
+                  // Anonymous reporter display
+                  <>
+                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center border border-blue-200">
+                      <span className="text-blue-600 font-bold text-lg">?</span>
+                    </div>
+                    <div>
+                      <div className="text-sm font-medium text-gray-900">Anonymous Reporter</div>
+                      <p className="text-xs text-gray-700">{new Date(report.created_at).toLocaleString()}</p>
+                    </div>
+                  </>
+                ) : (
+                  // Normal reporter display
+                  <>
+                    <img className="h-10 w-10 rounded-full object-cover border border-gray-200" src={report.user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(report.user.username)}`} alt={report.user.username} />
+                    <div>
+                      <div className="text-sm font-medium text-gray-900">{report.user.username}</div>
+                      <p className="text-xs text-gray-700">{new Date(report.created_at).toLocaleString()}</p>
+                    </div>
+                  </>
+                )}
               </div>
               
               {/* Action Icons Row - Responsive layout */}

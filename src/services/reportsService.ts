@@ -163,6 +163,7 @@ export const reportsService = {
               location_lng: (reportData as any).location_lng,
               location_address: (reportData as any).location_address,
               images: (reportData as any).images,
+              is_anonymous: (reportData as any).is_anonymous || false,
               assigned_group: (reportData as any).assigned_group,
               can_cancel: (reportData as any).can_cancel
             })
@@ -204,6 +205,7 @@ export const reportsService = {
         },
         location_address: (reportData as any).location_address,
         images: (reportData as any).images || [],
+        is_anonymous: (reportData as any).is_anonymous || false, // Anonymous reporting flag
         // Ticketing system fields
         // Auto-derive from priority when not provided
         priority_level: (reportData as any).priority_level ?? deriveLevelFromPriority((reportData as any).priority),
@@ -215,7 +217,7 @@ export const reportsService = {
       const { data, error } = await supabase
         .from('reports')
         .insert([payload])
-        .select('id, user_id, title, description, category, priority, status, location, location_address, images, created_at, updated_at, case_number, priority_level, assigned_group, assigned_patroller_name, can_cancel')
+        .select('id, user_id, title, description, category, priority, status, location, location_address, images, is_anonymous, created_at, updated_at, case_number, priority_level, assigned_group, assigned_patroller_name, can_cancel')
         .single();
 
       if (error) {
@@ -236,6 +238,7 @@ export const reportsService = {
                 location_lng: payload.location?.lng,
                 location_address: payload.location_address,
                 images: payload.images,
+                is_anonymous: payload.is_anonymous,
                 assigned_group: payload.assigned_group,
                 can_cancel: payload.can_cancel
               })

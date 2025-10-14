@@ -31,6 +31,7 @@ export interface Report {
   user_profile?: { username: string; avatar_url: string | null };
   patrol_profile?: { username: string; avatar_url: string | null };
   is_liked?: boolean;
+  is_anonymous?: boolean; // When true, reporter identity is hidden from public view
   // Ticketing system fields
   case_number?: string;
   priority_level?: number; // 1-5 scale, 5 = highest

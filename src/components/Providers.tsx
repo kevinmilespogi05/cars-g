@@ -1,33 +1,7 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { ErrorBoundary } from 'react-error-boundary';
 import { Suspense, useCallback, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import React from 'react';
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 1000 * 60 * 5, // 5 minutes
-      cacheTime: 1000 * 60 * 30, // 30 minutes
-      retry: (failureCount, error: any) => {
-        // Don't retry on 4xx errors
-        if (error?.response?.status >= 400 && error?.response?.status < 500) {
-          return false;
-        }
-        return failureCount < 3;
-      },
-      refetchOnWindowFocus: true,
-      refetchOnReconnect: true,
-      refetchOnMount: true,
-      retryDelay: (attemptIndex) => Math.min(1000 * Math.pow(2, attemptIndex), 30000),
-    },
-    mutations: {
-      retry: 1,
-      retryDelay: 1000,
-    },
-  },
-});
 
 function ErrorFallback({ error, resetErrorBoundary }: { error: Error; resetErrorBoundary: () => void }) {
   const [isResetting, setIsResetting] = useState(false);
@@ -109,26 +83,22 @@ export function Providers({ children }: { children: React.ReactNode }) {
       FallbackComponent={ErrorFallback}
       onReset={() => {
         // Reset the state of your app here
-        queryClient.clear();
       }}
     >
-      <QueryClientProvider client={queryClient}>
-        <Suspense fallback={<LoadingFallback />}>
-          <AnimatePresence mode="sync" initial={false}>
-            {React.Children.map(children, (child, index) => (
-              <motion.div
-                key={`provider-child-${index}`}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-              >
-                {child}
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </Suspense>
-        {process.env.NODE_ENV === 'development' && <ReactQueryDevtools initialIsOpen={false} />}
-      </QueryClientProvider>
+      <Suspense fallback={<LoadingFallback />}>
+        <AnimatePresence mode="sync" initial={false}>
+          {React.Children.map(children, (child, index) => (
+            <motion.div
+              key={`provider-child-${index}`}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              {child}
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </Suspense>
     </ErrorBoundary>
   );
 } 

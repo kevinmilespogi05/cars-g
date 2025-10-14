@@ -13,7 +13,6 @@ import { NetworkStatus } from './components/NetworkStatus';
 import { WelcomeGuide } from './components/WelcomeGuide';
 
 import { usePushNotifications } from './hooks/usePushNotifications';
-import { PerformanceMonitor } from './components/PerformanceMonitor';
 import { useAchievementNotifications, AchievementNotification } from './components/AchievementNotification';
 import { Footer } from './components/Footer';
 
@@ -223,11 +222,6 @@ function AppContent() {
           
           {/* PWA Install Prompt */}
           <PWAPrompt />
-
-          {/* Performance Monitor - only show in development or for admins */}
-          {(import.meta.env.DEV || user?.role === 'admin') && (
-            <PerformanceMonitor />
-          )}
 
           {/* Achievement Notifications */}
           {notifications.map((notification) => (

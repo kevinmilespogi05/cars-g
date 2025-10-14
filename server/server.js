@@ -422,6 +422,7 @@ app.post('/api/reports', authenticateToken, async (req, res) => {
       location_lng,
       location_address,
       images,
+      is_anonymous,
       assigned_group,
       can_cancel
     } = req.body || {};
@@ -440,6 +441,7 @@ app.post('/api/reports', authenticateToken, async (req, res) => {
       location: { lat: location_lat, lng: location_lng },
       location_address: location_address || `${location_lat}, ${location_lng}`,
       images: Array.isArray(images) ? images : [],
+      is_anonymous: Boolean(is_anonymous || false), // Anonymous reporting flag
       priority_level: Number.isFinite(priority_level) ? priority_level : (priority === 'high' ? 5 : priority === 'medium' ? 3 : 1),
       assigned_group: assigned_group || null,
       can_cancel: can_cancel !== false
@@ -448,7 +450,7 @@ app.post('/api/reports', authenticateToken, async (req, res) => {
     const { data, error } = await supabaseAdmin
       .from('reports')
       .insert([payload])
-      .select('id, user_id, title, description, category, priority, status, location, location_address, images, created_at, updated_at, case_number, priority_level, assigned_group, assigned_patroller_name, can_cancel')
+      .select('id, user_id, title, description, category, priority, status, location, location_address, images, is_anonymous, created_at, updated_at, case_number, priority_level, assigned_group, assigned_patroller_name, can_cancel')
       .single();
 
     if (error) {

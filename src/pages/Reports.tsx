@@ -298,7 +298,7 @@ export function Reports() {
   // Loading state
   if (loading && reports.length === 0) {
     return (
-      <div className="min-h-screen bg-primary-50">
+      <div className="min-h-screen bg-primary-50/40 backdrop-blur-sm">
         <div className="w-full">
           <div className="grid grid-cols-1 md:grid-cols-[minmax(0,2fr)_minmax(280px,1fr)] lg:grid-cols-[minmax(280px,1fr)_minmax(0,2.5fr)_minmax(280px,1fr)]">
             {/* Left sidebar skeleton */}
@@ -346,7 +346,7 @@ export function Reports() {
 
   return (
     <>
-    <div className="min-h-[100dvh] reports-page bg-primary-50">
+    <div className="min-h-[100dvh] reports-page bg-primary-50/40 backdrop-blur-sm">
       {/* 
         Multi-Column Responsive Layout - Full Width Edge-to-Edge
         - Desktop (lg+): 2 columns [sidebar | main content]
