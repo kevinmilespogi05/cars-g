@@ -50,12 +50,16 @@ export function AdminCaseRequests() {
 
   const accept = async (reportId: string) => {
     try {
+      const report = reports.find(r => r.id === reportId);
+      const newStatus = report?.status === 'awaiting_verification' ? 'resolved' : 'pending';
+      const message = newStatus === 'resolved' ? 'Report marked as resolved' : 'Report marked as pending';
+      
       setReports(prev => prev.filter(r => r.id !== reportId));
-      await reportsService.updateReportStatus(reportId, 'resolved');
-      showToast('Report marked as resolved', 'success');
+      await reportsService.updateReportStatus(reportId, newStatus);
+      showToast(message, 'success');
     } catch (e) {
       await load();
-      showToast('Failed to accept/resolve report', 'error');
+      showToast('Failed to accept report', 'error');
     }
   };
 

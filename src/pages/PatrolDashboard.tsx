@@ -924,16 +924,16 @@ export function PatrolDashboard() {
       {/* Detail Modal */}
       {selectedReport && (
         <div
-          className="fixed inset-0 z-50 overflow-y-auto"
+          className="fixed inset-0 z-[1000] overflow-y-auto"
           role="dialog"
           aria-modal="true"
           aria-labelledby="patrol-modal-title"
           onKeyDown={(e) => { if (e.key === 'Escape') setSelectedReport(null); }}
         >
-          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div className="fixed inset-0 bg-black/60 transition-opacity" onClick={() => setSelectedReport(null)}></div>
+          <div className="flex items-center justify-center min-h-screen pt-24 px-4 pb-20 text-center sm:block sm:p-0">
+            <div className="fixed inset-0 bg-black/60 transition-opacity z-[1001]" onClick={() => setSelectedReport(null)}></div>
             
-            <div className="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-5xl sm:w-full">
+            <div className="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-24 sm:align-middle sm:max-w-5xl sm:w-full relative z-[1002]">
               <div className="bg-white px-6 py-4 border-b border-gray-200 sticky top-0 z-10">
                 <div className="flex items-start justify-between">
                   <div className="min-w-0">
@@ -1275,8 +1275,8 @@ export function PatrolDashboard() {
 
       {/* Lightbox */}
       {lightboxIndex !== null && selectedReport && Array.isArray(selectedReport.images) && (
-        <div className="fixed inset-0 z-50 bg-black bg-opacity-90 flex items-center justify-center">
-          <div className="relative max-w-4xl max-h-full p-4">
+        <div className="fixed inset-0 z-[1003] bg-black bg-opacity-90 flex items-center justify-center">
+          <div className="relative max-w-4xl max-h-full p-4 z-[1004]">
             <button
               onClick={() => setLightboxIndex(null)}
               className="absolute top-4 right-4 text-white hover:text-gray-300 z-10"

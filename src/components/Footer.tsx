@@ -42,7 +42,7 @@ export function Footer() {
   };
 
   return (
-    <footer className="bg-gray-900 text-white relative z-10">
+    <footer className="bg-gray-900 text-white relative z-[5]">
       <div className="w-full px-2 sm:px-6 lg:px-8 py-1">
         <div className="max-w-7xl mx-auto pt-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">

@@ -59,6 +59,7 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
   const [isTyping, setIsTyping] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const emojiPickerRef = useRef<HTMLDivElement>(null);
+  const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -237,9 +238,26 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
           setSeenMessageIds(prev => new Set([...prev, ...data.messageIds]));
         };
 
+        // Handle user online/offline events
+        const handleUserOnline = (data: { userId: string }) => {
+          console.log('User came online:', data.userId);
+          setOnlineUsers(prev => new Set([...prev, data.userId]));
+        };
+
+        const handleUserOffline = (data: { userId: string }) => {
+          console.log('User went offline:', data.userId);
+          setOnlineUsers(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(data.userId);
+            return newSet;
+          });
+        };
+
         socketManager.onMessageReceived(handleMessageReceived);
         socketManager.onMessageSent(handleMessageSent);
         socketManager.onMessagesSeen(handleMessagesSeen);
+        socketManager.onUserOnline(handleUserOnline);
+        socketManager.onUserOffline(handleUserOffline);
 
         // Load existing chats from the database
         await loadExistingChats();
@@ -248,6 +266,8 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
           socketManager.offMessageReceived(handleMessageReceived);
           socketManager.offMessageSent(handleMessageSent);
           socketManager.offMessagesSeen(handleMessagesSeen);
+          socketManager.offUserOnline(handleUserOnline);
+          socketManager.offUserOffline(handleUserOffline);
         };
 
       } catch (error) {
@@ -621,7 +641,9 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
                           </span>
                         </div>
                       )}
-                      <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
+                      {onlineUsers.has(chat.user_id) && (
+                        <div className="absolute bottom-0 right-0 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
+                      )}
                     </div>
                     
                     <div className="flex-1 min-w-0">
@@ -686,7 +708,9 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
                           </span>
                         </div>
                       )}
-                      <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
+                      {onlineUsers.has(selectedChat.user_id) && (
+                        <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
+                      )}
                     </div>
                     
                     <div>
@@ -694,8 +718,14 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
                         {selectedChat.user?.username || 'Unknown User'}
                       </p>
                       <div className="flex items-center gap-1">
-                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                        <p className="text-sm text-gray-500">Active now</p>
+                        {onlineUsers.has(selectedChat.user_id) ? (
+                          <>
+                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                            <p className="text-sm text-gray-500">Active now</p>
+                          </>
+                        ) : (
+                          <p className="text-sm text-gray-400">Offline</p>
+                        )}
                       </div>
                     </div>
                   </div>

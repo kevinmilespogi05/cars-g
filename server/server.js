@@ -2363,6 +2363,19 @@ io.on('connection', async (socket) => {
               // Notify all users that admin is online
               io.emit('admin_online', { isOnline: true });
               console.log('Admin user connected, notifying all users');
+              
+              // Send list of currently online users to the admin
+              const onlineUserIds = Array.from(connectedUsers.keys()).filter(userId => userId !== profile.id);
+              onlineUserIds.forEach(userId => {
+                socket.emit('user_online', { userId });
+              });
+              console.log(`Sent ${onlineUserIds.length} online users to admin`);
+            } else {
+              // If user is not admin, notify all admins that this user came online
+              adminSockets.forEach(adminSocketId => {
+                io.to(adminSocketId).emit('user_online', { userId: profile.id });
+              });
+              console.log(`Notified admins that user ${profile.username} is online`);
             }
 
             socket.emit('authenticated', { 
@@ -2397,6 +2410,19 @@ io.on('connection', async (socket) => {
           // Notify all users that admin is online
           io.emit('admin_online', { isOnline: true });
           console.log('Admin user connected, notifying all users');
+          
+          // Send list of currently online users to the admin
+          const onlineUserIds = Array.from(connectedUsers.keys()).filter(uid => uid !== userId);
+          onlineUserIds.forEach(uid => {
+            socket.emit('user_online', { userId: uid });
+          });
+          console.log(`Sent ${onlineUserIds.length} online users to admin`);
+        } else {
+          // If user is not admin, notify all admins that this user came online
+          adminSockets.forEach(adminSocketId => {
+            io.to(adminSocketId).emit('user_online', { userId });
+          });
+          console.log(`Notified admins that user ${username} is online`);
         }
 
         socket.emit('authenticated', { 
@@ -2710,7 +2736,8 @@ io.on('connection', async (socket) => {
     console.log('Socket disconnected:', socket.id);
     
     if (socket.userId) {
-      connectedUsers.delete(socket.userId);
+      const userId = socket.userId;
+      connectedUsers.delete(userId);
       
       // If admin disconnected, notify users
       if (socket.userRole === 'admin') {
@@ -2718,6 +2745,12 @@ io.on('connection', async (socket) => {
         if (adminSockets.size === 0) {
           io.emit('admin_online', { isOnline: false });
         }
+      } else {
+        // If regular user disconnected, notify all admins
+        adminSockets.forEach(adminSocketId => {
+          io.to(adminSocketId).emit('user_offline', { userId });
+        });
+        console.log(`Notified admins that user ${userId} went offline`);
       }
     }
   });

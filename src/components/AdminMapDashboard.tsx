@@ -1523,7 +1523,7 @@ export function AdminMapDashboard() {
   });
 
   return (
-    <div className="h-screen bg-gray-50 pt-20">
+    <div className="h-screen bg-gray-50 pt-0">
       {/* Header */}
       <div className="sticky top-0 z-50 border-b border-gray-200 bg-white/80 supports-[backdrop-filter]:bg-white/70 backdrop-blur">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

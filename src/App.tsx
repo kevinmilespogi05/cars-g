@@ -83,6 +83,12 @@ function AppContent() {
   
   // Check if we're on login or register page
   const isAuthPage = location.pathname === '/login' || location.pathname === '/register';
+  
+  // Check if we're on admin map page
+  const isAdminMapPage = location.pathname === '/admin/map';
+  
+  // Check if we're on admin chat page
+  const isAdminChatPage = location.pathname === '/admin/chat';
 
   // Show welcome guide for new users
   useEffect(() => {
@@ -184,7 +190,7 @@ function AppContent() {
           
           {/* Only show Navigation on non-landing pages */}
           {!isLandingPage && <Navigation />}
-          <main className={isLandingPage ? 'pt-0' : 'pt-20 sm:pt-24 relative z-10'}>
+          <main className={isLandingPage ? 'pt-0' : 'pt-20 sm:pt-24 relative'}>
             <Suspense fallback={<LoadingSpinner />}>
               <Routes>
                 {publicRoutes.map((route) => (
@@ -212,8 +218,8 @@ function AppContent() {
             </Suspense>
           </main>
           
-          {/* Footer - only show on non-landing pages and non-auth pages */}
-          {!isLandingPage && !isAuthPage && <Footer />}
+          {/* Footer - only show on non-landing pages and non-auth pages and non-admin-map pages and non-admin-chat pages */}
+          {!isLandingPage && !isAuthPage && !isAdminMapPage && !isAdminChatPage && <Footer />}
           
           {/* Network Status Indicator */}
           {!isOnline && (

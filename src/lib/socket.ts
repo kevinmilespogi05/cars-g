@@ -224,6 +224,18 @@ class SocketManager {
     }
   }
 
+  onUserOnline(callback: (data: { userId: string }) => void): void {
+    if (this.socket) {
+      this.socket.on('user_online', callback);
+    }
+  }
+
+  onUserOffline(callback: (data: { userId: string }) => void): void {
+    if (this.socket) {
+      this.socket.on('user_offline', callback);
+    }
+  }
+
   onChatConnected(callback: (data: { success: boolean; message?: string }) => void): void {
     if (this.socket) {
       this.socket.on('chat_connected', callback);
@@ -276,6 +288,18 @@ class SocketManager {
   offAdminOnline(callback: (data: { isOnline: boolean }) => void): void {
     if (this.socket) {
       this.socket.off('admin_online', callback);
+    }
+  }
+
+  offUserOnline(callback: (data: { userId: string }) => void): void {
+    if (this.socket) {
+      this.socket.off('user_online', callback);
+    }
+  }
+
+  offUserOffline(callback: (data: { userId: string }) => void): void {
+    if (this.socket) {
+      this.socket.off('user_offline', callback);
     }
   }
 
