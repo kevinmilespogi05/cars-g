@@ -1,9 +1,6 @@
 // ID image upload service
 // This endpoint handles uploading ID images to Cloudinary
 
-import formidable from 'formidable';
-import fs from 'fs';
-
 export const config = {
   api: {
     bodyParser: false,
@@ -25,18 +22,71 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Parse multipart form data using formidable
-    const form = formidable({
-      maxFileSize: 5 * 1024 * 1024, // 5MB limit
-      filter: ({ mimetype }) => {
-        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-        return allowedTypes.includes(mimetype);
-      }
-    });
+    console.log('📤 ID image upload request received');
+    console.log('Content-Type:', req.headers['content-type']);
+    
+    // Parse multipart form data manually
+    const contentType = req.headers['content-type'];
+    if (!contentType || !contentType.includes('multipart/form-data')) {
+      console.error('❌ Invalid content type:', contentType);
+      return res.status(400).json({
+        success: false,
+        error: 'Content-Type must be multipart/form-data'
+      });
+    }
 
-    const [fields, files] = await form.parse(req);
-    const frontImage = files.frontImage?.[0];
-    const backImage = files.backImage?.[0];
+    // Get the raw body
+    const chunks = [];
+    for await (const chunk of req) {
+      chunks.push(chunk);
+    }
+    const buffer = Buffer.concat(chunks);
+    console.log('📦 Received buffer size:', buffer.length);
+    
+    // Parse the multipart data manually
+    const boundary = contentType.split('boundary=')[1];
+    console.log('🔍 Boundary:', boundary);
+    const parts = buffer.toString('binary').split(`--${boundary}`);
+    console.log('📋 Found parts:', parts.length);
+    
+    const files = {};
+    
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      if (part.includes('Content-Disposition: form-data')) {
+        const nameMatch = part.match(/name="([^"]+)"/);
+        const filenameMatch = part.match(/filename="([^"]+)"/);
+        const contentTypeMatch = part.match(/Content-Type: ([^\r\n]+)/);
+        
+        if (nameMatch && filenameMatch) {
+          const name = nameMatch[1];
+          const filename = filenameMatch[1];
+          const contentType = contentTypeMatch ? contentTypeMatch[1] : 'application/octet-stream';
+          
+          console.log(`📁 Found file: ${name} (${filename}) - ${contentType}`);
+          
+          // Extract the file data (skip headers)
+          const headerEnd = part.indexOf('\r\n\r\n');
+          if (headerEnd !== -1) {
+            const fileData = part.substring(headerEnd + 4);
+            const fileBuffer = Buffer.from(fileData, 'binary');
+            
+            files[name] = {
+              filename,
+              contentType,
+              buffer: fileBuffer,
+              size: fileBuffer.length
+            };
+            
+            console.log(`✅ Parsed file ${name}: ${fileBuffer.length} bytes`);
+          }
+        }
+      }
+    }
+    
+    console.log('📋 Parsed files:', Object.keys(files));
+    const frontImage = files.frontImage;
+    const backImage = files.backImage;
 
     if (!frontImage || !backImage) {
       return res.status(400).json({
@@ -45,12 +95,21 @@ export default async function handler(req, res) {
       });
     }
 
-    // Validate file types (already done by formidable filter, but double-check)
+    // Validate file types
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-    if (!allowedTypes.includes(frontImage.mimetype) || !allowedTypes.includes(backImage.mimetype)) {
+    if (!allowedTypes.includes(frontImage.contentType) || !allowedTypes.includes(backImage.contentType)) {
       return res.status(400).json({
         success: false,
         error: 'Only JPEG, PNG, and WebP images are allowed'
+      });
+    }
+
+    // Validate file sizes (5MB limit)
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (frontImage.size > maxSize || backImage.size > maxSize) {
+      return res.status(400).json({
+        success: false,
+        error: 'File size must be less than 5MB'
       });
     }
 
@@ -66,11 +125,20 @@ export default async function handler(req, res) {
     }
 
     // Upload front image to Cloudinary
+    console.log('☁️ Uploading front image to Cloudinary...');
     const frontFormData = new FormData();
-    const frontFileStream = fs.createReadStream(frontImage.filepath);
-    frontFormData.append('file', frontFileStream);
+    const frontBlob = new Blob([frontImage.buffer], { type: frontImage.contentType });
+    frontFormData.append('file', frontBlob, frontImage.filename);
     frontFormData.append('upload_preset', uploadPreset);
     frontFormData.append('folder', 'cars-g/id-verification');
+
+    console.log('📤 Front image upload details:', {
+      cloudName,
+      uploadPreset,
+      filename: frontImage.filename,
+      size: frontImage.size,
+      contentType: frontImage.contentType
+    });
 
     const frontResponse = await fetch(
       `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
@@ -82,7 +150,7 @@ export default async function handler(req, res) {
 
     if (!frontResponse.ok) {
       const errorText = await frontResponse.text();
-      console.error('Front image upload error:', errorText);
+      console.error('❌ Front image upload error:', errorText);
       return res.status(500).json({
         success: false,
         error: 'Failed to upload front image to Cloudinary',
@@ -91,13 +159,23 @@ export default async function handler(req, res) {
     }
 
     const frontResult = await frontResponse.json();
+    console.log('✅ Front image uploaded successfully:', frontResult.public_id);
 
     // Upload back image to Cloudinary
+    console.log('☁️ Uploading back image to Cloudinary...');
     const backFormData = new FormData();
-    const backFileStream = fs.createReadStream(backImage.filepath);
-    backFormData.append('file', backFileStream);
+    const backBlob = new Blob([backImage.buffer], { type: backImage.contentType });
+    backFormData.append('file', backBlob, backImage.filename);
     backFormData.append('upload_preset', uploadPreset);
     backFormData.append('folder', 'cars-g/id-verification');
+
+    console.log('📤 Back image upload details:', {
+      cloudName,
+      uploadPreset,
+      filename: backImage.filename,
+      size: backImage.size,
+      contentType: backImage.contentType
+    });
 
     const backResponse = await fetch(
       `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
@@ -109,7 +187,7 @@ export default async function handler(req, res) {
 
     if (!backResponse.ok) {
       const errorText = await backResponse.text();
-      console.error('Back image upload error:', errorText);
+      console.error('❌ Back image upload error:', errorText);
       return res.status(500).json({
         success: false,
         error: 'Failed to upload back image to Cloudinary',
@@ -118,18 +196,7 @@ export default async function handler(req, res) {
     }
 
     const backResult = await backResponse.json();
-
-    // Clean up temporary files
-    try {
-      if (frontImage.filepath) {
-        fs.unlinkSync(frontImage.filepath);
-      }
-      if (backImage.filepath) {
-        fs.unlinkSync(backImage.filepath);
-      }
-    } catch (cleanupError) {
-      console.warn('Error cleaning up temporary files:', cleanupError);
-    }
+    console.log('✅ Back image uploaded successfully:', backResult.public_id);
 
     return res.json({
       success: true,
@@ -140,18 +207,6 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('ID image upload error:', error);
-    
-    // Clean up temporary files on error
-    try {
-      if (frontImage?.filepath) {
-        fs.unlinkSync(frontImage.filepath);
-      }
-      if (backImage?.filepath) {
-        fs.unlinkSync(backImage.filepath);
-      }
-    } catch (cleanupError) {
-      console.warn('Error cleaning up temporary files:', cleanupError);
-    }
     
     return res.status(500).json({
       success: false,
