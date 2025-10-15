@@ -400,6 +400,51 @@ app.post('/api/reports/:reportId/comments', handleCreateComment);
 // Alias route (in case reverse proxy strips /api)
 app.post('/reports/:reportId/comments', handleCreateComment);
 
+// Ratings: create report rating via service role
+async function handleCreateRating(req, res) {
+  try {
+    const { reportId } = req.params;
+    const { userId, stars, comment } = req.body || {};
+
+    if (!reportId || !userId || !stars) {
+      return res.status(400).json({ error: 'reportId, userId and stars are required' });
+    }
+
+    if (stars < 1 || stars > 5) {
+      return res.status(400).json({ error: 'stars must be between 1 and 5' });
+    }
+
+    if (!supabaseAdmin) {
+      return res.status(503).json({ error: 'Admin privileges required' });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('report_ratings')
+      .upsert({
+        report_id: reportId,
+        requester_user_id: userId,
+        stars: parseInt(stars),
+        comment: comment || null
+      }, { onConflict: 'report_id,requester_user_id' })
+      .select('*')
+      .single();
+
+    if (error) {
+      return res.status(500).json({ error: error.message || 'Failed to submit rating' });
+    }
+
+    res.json(data);
+  } catch (e) {
+    console.error('Create rating error:', e);
+    res.status(500).json({ error: 'Failed to create rating' });
+  }
+}
+
+// Primary route
+app.post('/api/reports/:reportId/ratings', handleCreateRating);
+// Alias route (in case reverse proxy strips /api)
+app.post('/reports/:reportId/ratings', handleCreateRating);
+
 // Helper to handle comment reply creation
 async function handleCreateCommentReply(req, res) {
   try {

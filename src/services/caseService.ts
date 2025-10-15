@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase';
 import type { DutySchedule, ReportRating } from '../types';
 import { useAuthStore } from '../store/authStore';
+import { getApiUrl } from '../lib/config';
 
 export const caseService = {
   async generateMonthly(year: number, month: number): Promise<number> {
@@ -139,13 +140,43 @@ export const caseService = {
       stars,
       comment: comment ?? null,
     };
-    const { data, error } = await supabase
-      .from('report_ratings')
-      .upsert(payload, { onConflict: 'report_id,requester_user_id' })
-      .select('*')
-      .single();
-    if (error) throw error;
-    return data as ReportRating;
+
+    // Try Supabase session first
+    const getUserRes = await supabase.auth.getUser();
+    let supabaseUser = getUserRes.data.user as any;
+    const hasSupabaseSession = !!supabaseUser;
+
+    // Try direct upsert first only if we have a Supabase session
+    if (hasSupabaseSession) {
+      try {
+        const { data, error } = await supabase
+          .from('report_ratings')
+          .upsert(payload, { onConflict: 'report_id,requester_user_id' })
+          .select('*')
+          .single();
+        if (error) throw error;
+        return data as ReportRating;
+      } catch (clientErr: any) {
+        console.warn('Client-side rating failed, trying server endpoint:', clientErr);
+        // Fall through to server endpoint
+      }
+    }
+
+    // Fallback to server endpoint with service role
+    try {
+      const res = await fetch(getApiUrl(`/api/reports/${reportId}/ratings`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, stars, comment })
+      });
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(errText || 'Failed to submit rating');
+      }
+      return await res.json();
+    } catch (serverErr) {
+      throw new Error(`Failed to submit rating: ${serverErr.message}`);
+    }
   },
 };
 

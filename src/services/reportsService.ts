@@ -1752,14 +1752,26 @@ export const reportsService = {
         try {
           // Get main comments first
           const [{ count: legacyCount }, { count: newCount }] = await Promise.all([
-            supabase.from('comments').select('*', { count: 'exact', head: true }).eq('report_id', reportId),
-            supabase.from('report_comments').select('*', { count: 'exact', head: true }).eq('report_id', reportId)
+            supabase.from('comments').select('*', { count: 'exact', head: true }).eq('report_id', reportId).catch(err => {
+              console.warn('Error fetching legacy comments count:', err);
+              return { count: 0, error: err };
+            }),
+            supabase.from('report_comments').select('*', { count: 'exact', head: true }).eq('report_id', reportId).catch(err => {
+              console.warn('Error fetching report comments count:', err);
+              return { count: 0, error: err };
+            })
           ] as any);
 
           // Get comment IDs to find replies
           const [legacyComments, newComments] = await Promise.all([
-            supabase.from('comments').select('id').eq('report_id', reportId),
-            supabase.from('report_comments').select('id').eq('report_id', reportId)
+            supabase.from('comments').select('id').eq('report_id', reportId).catch(err => {
+              console.warn('Error fetching legacy comments:', err);
+              return { data: [], error: err };
+            }),
+            supabase.from('report_comments').select('id').eq('report_id', reportId).catch(err => {
+              console.warn('Error fetching report comments:', err);
+              return { data: [], error: err };
+            })
           ]);
 
           const commentIds = [
@@ -1793,14 +1805,26 @@ export const reportsService = {
         try {
           // Get main comments first
           const [{ count: legacyCount }, { count: newCount }] = await Promise.all([
-            supabase.from('comments').select('*', { count: 'exact', head: true }).eq('report_id', reportId),
-            supabase.from('report_comments').select('*', { count: 'exact', head: true }).eq('report_id', reportId)
+            supabase.from('comments').select('*', { count: 'exact', head: true }).eq('report_id', reportId).catch(err => {
+              console.warn('Error fetching legacy comments count:', err);
+              return { count: 0, error: err };
+            }),
+            supabase.from('report_comments').select('*', { count: 'exact', head: true }).eq('report_id', reportId).catch(err => {
+              console.warn('Error fetching report comments count:', err);
+              return { count: 0, error: err };
+            })
           ] as any);
 
           // Get comment IDs to find replies
           const [legacyComments, newComments] = await Promise.all([
-            supabase.from('comments').select('id').eq('report_id', reportId),
-            supabase.from('report_comments').select('id').eq('report_id', reportId)
+            supabase.from('comments').select('id').eq('report_id', reportId).catch(err => {
+              console.warn('Error fetching legacy comments:', err);
+              return { data: [], error: err };
+            }),
+            supabase.from('report_comments').select('id').eq('report_id', reportId).catch(err => {
+              console.warn('Error fetching report comments:', err);
+              return { data: [], error: err };
+            })
           ]);
 
           const commentIds = [
@@ -1846,14 +1870,26 @@ export const reportsService = {
         try {
           // Get main comments first
           const [{ count: legacyCount }, { count: newCount }] = await Promise.all([
-            supabase.from('comments').select('*', { count: 'exact', head: true }).eq('report_id', reportId),
-            supabase.from('report_comments').select('*', { count: 'exact', head: true }).eq('report_id', reportId)
+            supabase.from('comments').select('*', { count: 'exact', head: true }).eq('report_id', reportId).catch(err => {
+              console.warn('Error fetching legacy comments count:', err);
+              return { count: 0, error: err };
+            }),
+            supabase.from('report_comments').select('*', { count: 'exact', head: true }).eq('report_id', reportId).catch(err => {
+              console.warn('Error fetching report comments count:', err);
+              return { count: 0, error: err };
+            })
           ] as any);
 
           // Get comment IDs to find replies
           const [legacyComments, newComments] = await Promise.all([
-            supabase.from('comments').select('id').eq('report_id', reportId),
-            supabase.from('report_comments').select('id').eq('report_id', reportId)
+            supabase.from('comments').select('id').eq('report_id', reportId).catch(err => {
+              console.warn('Error fetching legacy comments:', err);
+              return { data: [], error: err };
+            }),
+            supabase.from('report_comments').select('id').eq('report_id', reportId).catch(err => {
+              console.warn('Error fetching report comments:', err);
+              return { data: [], error: err };
+            })
           ]);
 
           const commentIds = [
@@ -1899,14 +1935,26 @@ export const reportsService = {
         try {
           // Get main comments first
           const [{ count: legacyCount }, { count: newCount }] = await Promise.all([
-            supabase.from('comments').select('*', { count: 'exact', head: true }).eq('report_id', reportId),
-            supabase.from('report_comments').select('*', { count: 'exact', head: true }).eq('report_id', reportId)
+            supabase.from('comments').select('*', { count: 'exact', head: true }).eq('report_id', reportId).catch(err => {
+              console.warn('Error fetching legacy comments count:', err);
+              return { count: 0, error: err };
+            }),
+            supabase.from('report_comments').select('*', { count: 'exact', head: true }).eq('report_id', reportId).catch(err => {
+              console.warn('Error fetching report comments count:', err);
+              return { count: 0, error: err };
+            })
           ] as any);
 
           // Get comment IDs to find replies
           const [legacyComments, newComments] = await Promise.all([
-            supabase.from('comments').select('id').eq('report_id', reportId),
-            supabase.from('report_comments').select('id').eq('report_id', reportId)
+            supabase.from('comments').select('id').eq('report_id', reportId).catch(err => {
+              console.warn('Error fetching legacy comments:', err);
+              return { data: [], error: err };
+            }),
+            supabase.from('report_comments').select('id').eq('report_id', reportId).catch(err => {
+              console.warn('Error fetching report comments:', err);
+              return { data: [], error: err };
+            })
           ]);
 
           const commentIds = [

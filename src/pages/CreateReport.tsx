@@ -6,6 +6,9 @@ import { MapPicker } from '../components/MapPicker';
 import { useAuthStore } from '../store/authStore';
 import { uploadMultipleImages } from '../lib/cloudinaryStorage';
 import { awardPoints } from '../lib/points';
+
+// Points awarded when a report is verified by admin
+const POINTS_FOR_REPORT = 25;
 import { reportsService } from '../services/reportsService';
 import { activityService } from '../services/activityService';
 import { enqueueReport, flushQueuedReports } from '../lib/offlineQueue';
@@ -942,7 +945,7 @@ export function CreateReport() {
         )}
 
         {submitSuccess && (
-          <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50 animate-fade-in" role="dialog" aria-modal="true" aria-labelledby="report-success-title">
+          <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in" role="dialog" aria-modal="true" aria-labelledby="report-success-title">
             <FocusTrap>
             <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl p-10 text-center animate-slide-up" tabIndex={0}>
               <div className="mx-auto mb-6 relative h-20 w-20">
@@ -985,7 +988,7 @@ export function CreateReport() {
         )}
 
         {submitError && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 animate-fade-in" role="dialog" aria-modal="true" aria-labelledby="report-fail-title">
+          <div className="fixed inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in" role="dialog" aria-modal="true" aria-labelledby="report-fail-title">
             <FocusTrap>
             <div className="bg-white rounded-2xl max-w-sm w-full shadow-2xl p-8 text-center animate-slide-up" tabIndex={0}>
               <div className="mx-auto mb-4 relative h-16 w-16">

@@ -80,6 +80,11 @@ function AppContent() {
   const { notifications, removeNotification } = useAchievementNotifications();
   const [showWelcomeGuide, setShowWelcomeGuide] = useState(false);
 
+  // Scroll to top on route change
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [location.pathname]);
+
   // Check if we're on the landing page
   const isLandingPage = location.pathname === '/' && !isAuthenticated;
   
