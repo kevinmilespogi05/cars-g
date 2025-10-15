@@ -993,15 +993,7 @@ export const reportsService = {
 
       let query = supabase
         .from('reports')
-        .select(`
-          *,
-          likes:likes(count),
-          comments:comments(count),
-          comment_count:report_comments(count),
-          reply_count:comment_replies(count),
-          rating_avg:report_ratings(stars),
-          rating_count:report_ratings(count)
-        `)
+        .select('*')
         .order('case_number', { ascending: true });
       if (filters?.limit && Number.isFinite(filters.limit)) {
         const end = Math.max(0, Math.floor(filters.limit) - 1);
@@ -1089,21 +1081,90 @@ export const reportsService = {
       
       const likedReportIds = new Set(userLikes.data?.map(like => like.report_id) || []);
 
+      // Fetch additional data for each report
+      const reportIds = reportsData.map(report => report.id);
+      
+      // Fetch likes, comments, and ratings data in parallel
+      const [likesData, commentsData, reportCommentsData, replyData, ratingsData] = await Promise.all([
+        supabase.from('likes').select('report_id').in('report_id', reportIds),
+        supabase.from('comments').select('report_id').in('report_id', reportIds),
+        supabase.from('report_comments').select('report_id').in('report_id', reportIds),
+        supabase.from('comment_replies').select('report_id').in('report_id', reportIds),
+        supabase.from('report_ratings').select('report_id, stars').in('report_id', reportIds)
+      ]);
+
+      // Create lookup maps for counts
+      const likesCountMap = new Map();
+      const commentsCountMap = new Map();
+      const reportCommentsCountMap = new Map();
+      const replyCountMap = new Map();
+      const ratingsMap = new Map();
+
+      // Process likes
+      if (likesData.data) {
+        likesData.data.forEach(like => {
+          const count = likesCountMap.get(like.report_id) || 0;
+          likesCountMap.set(like.report_id, count + 1);
+        });
+      }
+
+      // Process comments
+      if (commentsData.data) {
+        commentsData.data.forEach(comment => {
+          const count = commentsCountMap.get(comment.report_id) || 0;
+          commentsCountMap.set(comment.report_id, count + 1);
+        });
+      }
+
+      // Process report comments
+      if (reportCommentsData.data) {
+        reportCommentsData.data.forEach(comment => {
+          const count = reportCommentsCountMap.get(comment.report_id) || 0;
+          reportCommentsCountMap.set(comment.report_id, count + 1);
+        });
+      }
+
+      // Process replies
+      if (replyData.data) {
+        replyData.data.forEach(reply => {
+          const count = replyCountMap.get(reply.report_id) || 0;
+          replyCountMap.set(reply.report_id, count + 1);
+        });
+      }
+
+      // Process ratings
+      if (ratingsData.data) {
+        const ratingsByReport = new Map();
+        ratingsData.data.forEach(rating => {
+          if (!ratingsByReport.has(rating.report_id)) {
+            ratingsByReport.set(rating.report_id, []);
+          }
+          ratingsByReport.get(rating.report_id).push(rating.stars);
+        });
+
+        ratingsByReport.forEach((stars, reportId) => {
+          const avg = stars.reduce((sum, star) => sum + star, 0) / stars.length;
+          ratingsMap.set(reportId, {
+            avg: Math.round(avg * 10) / 10,
+            count: stars.length
+          });
+        });
+      }
+
       // Combine data efficiently
       const result = reportsData.map(report => ({
         ...report,
         user_profile: profilesMap.get(report.user_id),
         is_liked: likedReportIds.has(report.id),
-        likes: { count: report.likes?.[0]?.count || 0 },
+        likes: { count: likesCountMap.get(report.id) || 0 },
         // Normalize comment count: sum legacy `comments`, new `report_comments`, and replies
-        comments: { count: (report.comments?.[0]?.count || 0) + (report.comment_count?.[0]?.count || 0) + (report.reply_count?.[0]?.count || 0) },
-        rating_avg: (() => {
-          const stars = Array.isArray(report.rating_avg) ? report.rating_avg.map((r:any)=>r.stars) : [];
-          if (!stars.length) return undefined;
-          const sum = stars.reduce((a:number,b:number)=>a+b,0);
-          return Math.round((sum / stars.length) * 10) / 10;
-        })(),
-        rating_count: report.rating_count?.[0]?.count || 0
+        comments: { 
+          count: (commentsCountMap.get(report.id) || 0) + 
+                 (reportCommentsCountMap.get(report.id) || 0) + 
+                 (replyCountMap.get(report.id) || 0) 
+        },
+        rating_avg: ratingsMap.get(report.id)?.avg,
+        rating_count: ratingsMap.get(report.id)?.count || 0
       }));
 
       // Cache the result
@@ -1149,15 +1210,7 @@ export const reportsService = {
 
       let query = supabase
         .from('reports')
-        .select(`
-          *,
-          likes:likes(count),
-          comments:comments(count),
-          comment_count:report_comments(count),
-          reply_count:comment_replies(count),
-          rating_avg:report_ratings(stars),
-          rating_count:report_ratings(count)
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
       if (filters?.limit && Number.isFinite(filters.limit)) {
         const end = Math.max(0, Math.floor(filters.limit) - 1);
@@ -1252,21 +1305,90 @@ export const reportsService = {
       
       const likedReportIds = new Set(userLikes.data?.map(like => like.report_id) || []);
 
+      // Fetch additional data for each report
+      const reportIds = reportsData.map(report => report.id);
+      
+      // Fetch likes, comments, and ratings data in parallel
+      const [likesData, commentsData, reportCommentsData, replyData, ratingsData] = await Promise.all([
+        supabase.from('likes').select('report_id').in('report_id', reportIds),
+        supabase.from('comments').select('report_id').in('report_id', reportIds),
+        supabase.from('report_comments').select('report_id').in('report_id', reportIds),
+        supabase.from('comment_replies').select('report_id').in('report_id', reportIds),
+        supabase.from('report_ratings').select('report_id, stars').in('report_id', reportIds)
+      ]);
+
+      // Create lookup maps for counts
+      const likesCountMap = new Map();
+      const commentsCountMap = new Map();
+      const reportCommentsCountMap = new Map();
+      const replyCountMap = new Map();
+      const ratingsMap = new Map();
+
+      // Process likes
+      if (likesData.data) {
+        likesData.data.forEach(like => {
+          const count = likesCountMap.get(like.report_id) || 0;
+          likesCountMap.set(like.report_id, count + 1);
+        });
+      }
+
+      // Process comments
+      if (commentsData.data) {
+        commentsData.data.forEach(comment => {
+          const count = commentsCountMap.get(comment.report_id) || 0;
+          commentsCountMap.set(comment.report_id, count + 1);
+        });
+      }
+
+      // Process report comments
+      if (reportCommentsData.data) {
+        reportCommentsData.data.forEach(comment => {
+          const count = reportCommentsCountMap.get(comment.report_id) || 0;
+          reportCommentsCountMap.set(comment.report_id, count + 1);
+        });
+      }
+
+      // Process replies
+      if (replyData.data) {
+        replyData.data.forEach(reply => {
+          const count = replyCountMap.get(reply.report_id) || 0;
+          replyCountMap.set(reply.report_id, count + 1);
+        });
+      }
+
+      // Process ratings
+      if (ratingsData.data) {
+        const ratingsByReport = new Map();
+        ratingsData.data.forEach(rating => {
+          if (!ratingsByReport.has(rating.report_id)) {
+            ratingsByReport.set(rating.report_id, []);
+          }
+          ratingsByReport.get(rating.report_id).push(rating.stars);
+        });
+
+        ratingsByReport.forEach((stars, reportId) => {
+          const avg = stars.reduce((sum, star) => sum + star, 0) / stars.length;
+          ratingsMap.set(reportId, {
+            avg: Math.round(avg * 10) / 10,
+            count: stars.length
+          });
+        });
+      }
+
       // Combine data efficiently
       const result = reportsData.map(report => ({
         ...report,
         user_profile: profilesMap.get(report.user_id),
         is_liked: likedReportIds.has(report.id),
-        likes: { count: report.likes?.[0]?.count || 0 },
+        likes: { count: likesCountMap.get(report.id) || 0 },
         // Normalize comment count: sum legacy `comments`, new `report_comments`, and replies
-        comments: { count: (report.comments?.[0]?.count || 0) + (report.comment_count?.[0]?.count || 0) + (report.reply_count?.[0]?.count || 0) },
-        rating_avg: (() => {
-          const stars = Array.isArray(report.rating_avg) ? report.rating_avg.map((r:any)=>r.stars) : [];
-          if (!stars.length) return undefined;
-          const sum = stars.reduce((a:number,b:number)=>a+b,0);
-          return Math.round((sum / stars.length) * 10) / 10;
-        })(),
-        rating_count: report.rating_count?.[0]?.count || 0
+        comments: { 
+          count: (commentsCountMap.get(report.id) || 0) + 
+                 (reportCommentsCountMap.get(report.id) || 0) + 
+                 (replyCountMap.get(report.id) || 0) 
+        },
+        rating_avg: ratingsMap.get(report.id)?.avg,
+        rating_count: ratingsMap.get(report.id)?.count || 0
       }));
 
       // Cache the result with the new namespace to prevent key collisions across pages
