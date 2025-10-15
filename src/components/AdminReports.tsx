@@ -336,10 +336,11 @@ export function AdminReports() {
                     const year = Number(yStr || now.getFullYear());
                     const month = Number((mStr || String(now.getMonth() + 1)).padStart(2, '0'));
                     try {
-                      const all = await caseService.getMonthlyCases(year, month);
+                      const all = await caseService.getMonthlyCases(year, month, status);
                       await caseService.generateMonthly(year, month);
                       const monthName = new Date(year, month - 1, 1).toLocaleString('en-US', { month: 'long' });
-                      exportReportsCsv(all as any, `${monthName}, ${year} report.csv`);
+                      const statusText = status === 'All' ? 'All' : status;
+                      exportReportsCsv(all as any, `${monthName}, ${year} - ${statusText} report.csv`);
                       setShowMonthPicker(false);
                     } catch (e: any) {
                       alert(e?.message || 'Failed to export monthly report');
@@ -377,9 +378,10 @@ export function AdminReports() {
                   onClick={async () => {
                     const year = yearValue || now.getFullYear();
                     try {
-                      const all = await caseService.getYearlyCases(year);
+                      const all = await caseService.getYearlyCases(year, status);
                       await caseService.generateYearly(year);
-                      exportReportsCsv(all as any, `${year} report.csv`);
+                      const statusText = status === 'All' ? 'All' : status;
+                      exportReportsCsv(all as any, `${year} - ${statusText} report.csv`);
                       setShowYearPicker(false);
                     } catch (e: any) {
                       alert(e?.message || 'Failed to export yearly report');

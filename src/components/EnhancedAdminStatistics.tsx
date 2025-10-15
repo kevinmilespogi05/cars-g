@@ -368,7 +368,6 @@ export function EnhancedAdminStatistics() {
               />
               <EnhancedExport
                 onExportCSV={() => console.log('Export CSV')}
-                onExportPDF={() => console.log('Export PDF')}
                 onGenerateLink={handleGenerateLink}
                 onShareEmail={handleShareEmail}
               />

@@ -24,7 +24,6 @@ import {
   ChevronDown,
   ChevronUp,
   ShieldCheck,
-  History,
   Hash
 } from 'lucide-react';
 import { Notification } from './Notification';
@@ -1572,27 +1571,6 @@ export function AdminMapDashboard() {
                 >
                   <Filter className="w-4 h-4 mr-2" />
                   <span className="hidden md:inline">Filters</span>
-                </button>
-                <div className="w-px h-6 bg-gray-200" />
-                <button
-                  onClick={() => {
-                    const resolvedReports = reports.filter(r => r.status === 'resolved');
-                    const queryParams = new URLSearchParams();
-                    resolvedReports.forEach((report, index) => {
-                      queryParams.append(`report_${index}`, JSON.stringify(report));
-                    });
-                    window.location.href = `/admin/history?${queryParams.toString()}`;
-                  }}
-                  aria-label="Open history"
-                  className="inline-flex items-center px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors relative"
-                >
-                  <History className="w-4 h-4 mr-2" />
-                  <span className="hidden md:inline">History</span>
-                  {reports.filter(r => r.status === 'resolved').length > 0 && (
-                    <span className="absolute -top-2 -right-2 bg-green-600 text-white text-[10px] rounded-full h-5 w-5 flex items-center justify-center">
-                      {reports.filter(r => r.status === 'resolved').length}
-                    </span>
-                  )}
                 </button>
                 <div className="w-px h-6 bg-gray-200" />
                 <button

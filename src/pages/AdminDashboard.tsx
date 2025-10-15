@@ -4,7 +4,6 @@ import { useAuthStore } from '../store/authStore';
 import { 
   Users, 
   BarChart3, 
-  Settings, 
   LayoutDashboard,
   FileText,
   Megaphone,
@@ -18,7 +17,6 @@ import {
 import { supabase } from '../lib/supabase';
 import { UserManagement } from '../components/UserManagement';
 import { AdminStatistics } from '../components/AdminStatistics';
-import { AdminSettings } from '../components/AdminSettings';
 import { Notification } from '../components/Notification';
 import { AdminReports } from '../components/AdminReports';
 import { AnnouncementManagement } from '../components/AnnouncementManagement';
@@ -215,7 +213,6 @@ export function AdminDashboard() {
               <TabButton icon={ShieldCheck} label="Verification" value="verification" />
               <TabButton icon={BarChart3} label="Statistics" value="stats" />
               <TabButton icon={Megaphone} label="Announcements" value="announcements" />
-              <TabButton icon={Settings} label="Settings" value="settings" />
             </div>
           </div>
         </div>
@@ -257,11 +254,6 @@ export function AdminDashboard() {
           {activeSection === 'announcements' && (
             <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3 md:p-4">
               <AnnouncementManagement />
-            </div>
-          )}
-          {activeSection === 'settings' && (
-            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3 md:p-4">
-              <AdminSettings />
             </div>
           )}
         </div>
@@ -341,16 +333,6 @@ export function AdminDashboard() {
                 <li>Create scheduled announcements.</li>
                 <li>Attach images and categorize messages.</li>
                 <li>Review engagement metrics.</li>
-              </ul>
-            </div>
-          )}
-          {activeSection === 'settings' && (
-            <div>
-              <p className="text-sm text-gray-700 mb-2">Configure platform preferences.</p>
-              <ul className="list-disc pl-5 text-sm text-gray-600 space-y-1">
-                <li>Security and access settings.</li>
-                <li>Notification rules and integrations.</li>
-                <li>Branding and appearance.</li>
               </ul>
             </div>
           )}

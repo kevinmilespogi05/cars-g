@@ -16,10 +16,11 @@ export const caseService = {
     return data as number;
   },
 
-  async getMonthlyCases(year: number, month: number) {
+  async getMonthlyCases(year: number, month: number, status?: string) {
     const from = new Date(year, month - 1, 1).toISOString();
     const to = new Date(year, month, 0, 23, 59, 59, 999).toISOString();
-    const { data, error } = await supabase
+    
+    let query = supabase
       .from('reports')
       .select(`
         *,
@@ -30,9 +31,14 @@ export const caseService = {
         rating_count:report_ratings(count)
       `)
       .gte('created_at', from)
-      .lte('created_at', to)
-      .eq('status', 'resolved')
-      .order('created_at', { ascending: true });
+      .lte('created_at', to);
+    
+    // Only filter by status if specified, otherwise get all reports
+    if (status && status !== 'All') {
+      query = query.eq('status', status);
+    }
+    
+    const { data, error } = await query.order('created_at', { ascending: true });
     if (error) throw error;
 
     const rows = data || [];
@@ -60,10 +66,11 @@ export const caseService = {
     });
   },
 
-  async getYearlyCases(year: number) {
+  async getYearlyCases(year: number, status?: string) {
     const from = new Date(year, 0, 1).toISOString();
     const to = new Date(year, 11, 31, 23, 59, 59, 999).toISOString();
-    const { data, error } = await supabase
+    
+    let query = supabase
       .from('reports')
       .select(`
         *,
@@ -74,9 +81,14 @@ export const caseService = {
         rating_count:report_ratings(count)
       `)
       .gte('created_at', from)
-      .lte('created_at', to)
-      .eq('status', 'resolved')
-      .order('created_at', { ascending: true });
+      .lte('created_at', to);
+    
+    // Only filter by status if specified, otherwise get all reports
+    if (status && status !== 'All') {
+      query = query.eq('status', status);
+    }
+    
+    const { data, error } = await query.order('created_at', { ascending: true });
     if (error) throw error;
 
     const rows = data || [];

@@ -3,7 +3,6 @@ import { Download, Share2, Link as LinkIcon, Mail, Copy, Check, FileText, Image 
 
 interface EnhancedExportProps {
   onExportCSV: () => void;
-  onExportPDF: () => void;
   onExportImage?: () => void;
   onGenerateLink?: () => Promise<string>;
   onShareEmail?: (email: string) => void;
@@ -11,7 +10,6 @@ interface EnhancedExportProps {
 
 export function EnhancedExport({
   onExportCSV,
-  onExportPDF,
   onExportImage,
   onGenerateLink,
   onShareEmail,
@@ -105,21 +103,6 @@ export function EnhancedExport({
                   </div>
                 </button>
 
-                <button
-                  onClick={() => {
-                    onExportPDF();
-                    setIsOpen(false);
-                  }}
-                  className="w-full flex items-center gap-3 px-4 py-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-left group"
-                >
-                  <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center group-hover:bg-red-200 transition-colors">
-                    <FileText className="h-5 w-5 text-red-600" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900">PDF Report</p>
-                    <p className="text-xs text-gray-500">Full dashboard with charts</p>
-                  </div>
-                </button>
 
                 {onExportImage && (
                   <button
