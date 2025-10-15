@@ -311,6 +311,11 @@ export const reportsService = {
   // Fetch replies for a comment with nested replies and like info
   async getCommentReplies(commentId: string, maxDepth: number = 5): Promise<CommentReply[]> {
     try {
+      // Validate commentId to prevent undefined query errors
+      if (!commentId || commentId === undefined || commentId === null) {
+        console.warn('getCommentReplies called with invalid commentId:', commentId);
+        return [];
+      }
       // Always load simulated (report comment) replies from localStorage first
       const repliesKey = 'report_comment_replies';
       const stored = JSON.parse(localStorage.getItem(repliesKey) || '{}');
@@ -1127,7 +1132,7 @@ export const reportsService = {
       const commentIds = [...new Set([
         ...(commentsData.data?.map(c => c.id) || []),
         ...(reportCommentsData.data?.map(c => c.id) || [])
-      ])];
+      ])].filter(id => id && id !== undefined && id !== null);
 
       if (commentIds.length > 0) {
         // Fetch replies for both comment systems
@@ -1380,7 +1385,7 @@ export const reportsService = {
       const commentIds = [...new Set([
         ...(commentsData.data?.map(c => c.id) || []),
         ...(reportCommentsData.data?.map(c => c.id) || [])
-      ])];
+      ])].filter(id => id && id !== undefined && id !== null);
 
       if (commentIds.length > 0) {
         // Fetch replies for both comment systems
@@ -1734,7 +1739,7 @@ export const reportsService = {
           const commentIds = [
             ...(legacyComments.data?.map(c => c.id) || []),
             ...(newComments.data?.map(c => c.id) || [])
-          ];
+          ].filter(id => id && id !== undefined && id !== null);
 
           let replyCount = 0;
           if (commentIds.length > 0) {
@@ -1775,7 +1780,7 @@ export const reportsService = {
           const commentIds = [
             ...(legacyComments.data?.map(c => c.id) || []),
             ...(newComments.data?.map(c => c.id) || [])
-          ];
+          ].filter(id => id && id !== undefined && id !== null);
 
           let replyCount = 0;
           if (commentIds.length > 0) {
@@ -1828,7 +1833,7 @@ export const reportsService = {
           const commentIds = [
             ...(legacyComments.data?.map(c => c.id) || []),
             ...(newComments.data?.map(c => c.id) || [])
-          ];
+          ].filter(id => id && id !== undefined && id !== null);
 
           let replyCount = 0;
           if (commentIds.length > 0) {
@@ -1881,7 +1886,7 @@ export const reportsService = {
           const commentIds = [
             ...(legacyComments.data?.map(c => c.id) || []),
             ...(newComments.data?.map(c => c.id) || [])
-          ];
+          ].filter(id => id && id !== undefined && id !== null);
 
           let replyCount = 0;
           if (commentIds.length > 0) {
