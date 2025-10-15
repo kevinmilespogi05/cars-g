@@ -193,18 +193,34 @@ export function Register() {
     try {
       setCameraError(null);
       
-      // Stop any existing camera stream first
+      // Stop any existing camera stream first and wait for it to fully stop
       if (cameraStream) {
-        cameraStream.getTracks().forEach(track => track.stop());
+        cameraStream.getTracks().forEach(track => {
+          track.stop();
+          console.log('Stopped track:', track.label);
+        });
+        setCameraStream(null);
+        
+        // Wait a bit longer to ensure the device is fully released
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
 
-      const stream = await navigator.mediaDevices.getUserMedia({ 
+      // Request camera with more specific constraints
+      const constraints = {
         video: { 
-          facingMode: 'environment', // Use back camera if available
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
+          facingMode: type === 'back' ? 'environment' : 'user',
+          width: { ideal: 1280, max: 1920 },
+          height: { ideal: 720, max: 1080 }
         } 
-      });
+      };
+
+      console.log('Requesting camera with constraints:', constraints);
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      
+      // Verify the stream is active
+      if (!stream.active) {
+        throw new Error('Camera stream is not active');
+      }
       
       setCameraStream(stream);
       setShowCamera(prev => ({ ...prev, [type]: true }));
@@ -223,6 +239,7 @@ export function Register() {
     } catch (error: any) {
       console.error('Error accessing camera:', error);
       setShowCamera({ front: false, back: false });
+      setCameraStream(null);
       
       let errorMessage = 'Camera access denied. Please use file upload instead.';
       if (error.name === 'NotAllowedError') {
@@ -231,6 +248,8 @@ export function Register() {
         errorMessage = 'No camera found. Please use file upload instead.';
       } else if (error.name === 'NotReadableError') {
         errorMessage = 'Camera is being used by another application. Please close other apps and try again.';
+      } else if (error.name === 'OverconstrainedError') {
+        errorMessage = 'Camera constraints cannot be satisfied. Please try again.';
       }
       
       setError(errorMessage);
@@ -239,7 +258,11 @@ export function Register() {
 
   const stopCamera = () => {
     if (cameraStream) {
-      cameraStream.getTracks().forEach(track => track.stop());
+      console.log('Stopping camera stream...');
+      cameraStream.getTracks().forEach(track => {
+        track.stop();
+        console.log('Stopped track:', track.label, 'readyState:', track.readyState);
+      });
       setCameraStream(null);
     }
     setShowCamera({ front: false, back: false });

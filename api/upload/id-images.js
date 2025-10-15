@@ -1,17 +1,14 @@
 // ID image upload service
-// This endpoint handles uploading ID images to Supabase storage
+// This endpoint handles uploading ID images to Cloudinary
 
-import { createClient } from '@supabase/supabase-js';
+import formidable from 'formidable';
+import fs from 'fs';
 
-// Initialize Supabase client
-const supabaseUrl = process.env.VITE_SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-if (!supabaseUrl || !supabaseServiceKey) {
-  throw new Error('Missing Supabase configuration');
-}
-
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
 
 export default async function handler(req, res) {
   // Enable CORS
@@ -28,10 +25,18 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Parse multipart form data
-    const formData = await req.formData();
-    const frontImage = formData.get('frontImage');
-    const backImage = formData.get('backImage');
+    // Parse multipart form data using formidable
+    const form = formidable({
+      maxFileSize: 5 * 1024 * 1024, // 5MB limit
+      filter: ({ mimetype }) => {
+        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+        return allowedTypes.includes(mimetype);
+      }
+    });
+
+    const [fields, files] = await form.parse(req);
+    const frontImage = files.frontImage?.[0];
+    const backImage = files.backImage?.[0];
 
     if (!frontImage || !backImage) {
       return res.status(400).json({
@@ -40,21 +45,12 @@ export default async function handler(req, res) {
       });
     }
 
-    // Validate file types
+    // Validate file types (already done by formidable filter, but double-check)
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-    if (!allowedTypes.includes(frontImage.type) || !allowedTypes.includes(backImage.type)) {
+    if (!allowedTypes.includes(frontImage.mimetype) || !allowedTypes.includes(backImage.mimetype)) {
       return res.status(400).json({
         success: false,
         error: 'Only JPEG, PNG, and WebP images are allowed'
-      });
-    }
-
-    // Validate file sizes (5MB limit)
-    const maxSize = 5 * 1024 * 1024; // 5MB
-    if (frontImage.size > maxSize || backImage.size > maxSize) {
-      return res.status(400).json({
-        success: false,
-        error: 'File size must be less than 5MB'
       });
     }
 
@@ -71,7 +67,8 @@ export default async function handler(req, res) {
 
     // Upload front image to Cloudinary
     const frontFormData = new FormData();
-    frontFormData.append('file', frontImage);
+    const frontFileStream = fs.createReadStream(frontImage.filepath);
+    frontFormData.append('file', frontFileStream);
     frontFormData.append('upload_preset', uploadPreset);
     frontFormData.append('folder', 'cars-g/id-verification');
 
@@ -84,10 +81,12 @@ export default async function handler(req, res) {
     );
 
     if (!frontResponse.ok) {
-      console.error('Front image upload error:', await frontResponse.text());
+      const errorText = await frontResponse.text();
+      console.error('Front image upload error:', errorText);
       return res.status(500).json({
         success: false,
-        error: 'Failed to upload front image to Cloudinary'
+        error: 'Failed to upload front image to Cloudinary',
+        details: errorText
       });
     }
 
@@ -95,7 +94,8 @@ export default async function handler(req, res) {
 
     // Upload back image to Cloudinary
     const backFormData = new FormData();
-    backFormData.append('file', backImage);
+    const backFileStream = fs.createReadStream(backImage.filepath);
+    backFormData.append('file', backFileStream);
     backFormData.append('upload_preset', uploadPreset);
     backFormData.append('folder', 'cars-g/id-verification');
 
@@ -108,14 +108,28 @@ export default async function handler(req, res) {
     );
 
     if (!backResponse.ok) {
-      console.error('Back image upload error:', await backResponse.text());
+      const errorText = await backResponse.text();
+      console.error('Back image upload error:', errorText);
       return res.status(500).json({
         success: false,
-        error: 'Failed to upload back image to Cloudinary'
+        error: 'Failed to upload back image to Cloudinary',
+        details: errorText
       });
     }
 
     const backResult = await backResponse.json();
+
+    // Clean up temporary files
+    try {
+      if (frontImage.filepath) {
+        fs.unlinkSync(frontImage.filepath);
+      }
+      if (backImage.filepath) {
+        fs.unlinkSync(backImage.filepath);
+      }
+    } catch (cleanupError) {
+      console.warn('Error cleaning up temporary files:', cleanupError);
+    }
 
     return res.json({
       success: true,
@@ -126,9 +140,23 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('ID image upload error:', error);
+    
+    // Clean up temporary files on error
+    try {
+      if (frontImage?.filepath) {
+        fs.unlinkSync(frontImage.filepath);
+      }
+      if (backImage?.filepath) {
+        fs.unlinkSync(backImage.filepath);
+      }
+    } catch (cleanupError) {
+      console.warn('Error cleaning up temporary files:', cleanupError);
+    }
+    
     return res.status(500).json({
       success: false,
-      error: 'Internal server error'
+      error: 'Internal server error',
+      details: error.message
     });
   }
 }
