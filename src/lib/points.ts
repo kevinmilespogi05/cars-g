@@ -1,8 +1,8 @@
 import { supabase } from './supabase';
 
 const POINTS_CONFIG = {
-  REPORT_SUBMITTED: 25,   // Points awarded when a report is submitted
-  REPORT_VERIFIED: 50,    // Points awarded when report is verified by authorities
+  REPORT_SUBMITTED: 0,    // No points for submitting (wait for verification)
+  REPORT_VERIFIED: 25,     // Points awarded when report is verified by admin
   REPORT_RESOLVED: 100,   // Points awarded when the issue is resolved
   DAILY_LOGIN: 5,         // Points for daily engagement
   PROFILE_COMPLETED: 25,  // Points for completing profile

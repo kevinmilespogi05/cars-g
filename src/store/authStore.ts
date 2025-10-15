@@ -756,34 +756,49 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   initializeJWT: async () => {
     try {
+      console.log('🔄 Initializing JWT authentication...');
+      
       // Check if we have stored JWT authentication
-      if (isJWTAuthenticated()) {
+      const isJWTValid = isJWTAuthenticated();
+      console.log('🔍 JWT authentication check result:', isJWTValid);
+      
+      if (isJWTValid) {
+        console.log('✅ JWT authentication valid, getting current user...');
         // Try to get current user from server
         const user = await getCurrentUser();
         
         if (user) {
+          console.log('✅ JWT user retrieved successfully:', user.email);
           set({ 
             user,
             isAuthenticated: true,
           });
           return;
+        } else {
+          console.log('❌ Failed to get current user from server');
         }
+      } else {
+        console.log('❌ JWT authentication not valid, trying to refresh token...');
       }
 
       // If JWT auth fails, try to refresh token
       const refreshed = await refreshAccessToken();
       if (refreshed) {
+        console.log('✅ Token refresh successful:', refreshed.user.email);
         set({ 
           user: refreshed.user,
           isAuthenticated: true,
         });
         return;
+      } else {
+        console.log('❌ Token refresh failed');
       }
 
       // If all JWT methods fail, clear state
+      console.log('❌ All JWT authentication methods failed, clearing state');
       set({ user: null, isAuthenticated: false });
     } catch (error) {
-      console.error('JWT initialization error:', error);
+      console.error('❌ JWT initialization error:', error);
       set({ user: null, isAuthenticated: false });
     }
   },

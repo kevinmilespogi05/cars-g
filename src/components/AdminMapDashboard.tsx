@@ -28,6 +28,7 @@ import {
   Hash
 } from 'lucide-react';
 import { Notification } from './Notification';
+import { ImageViewer } from './ImageViewer';
 
 interface Report {
   id: string;
@@ -1434,13 +1435,14 @@ export function AdminMapDashboard() {
     }
   };
 
-  const giveReporterRewards = async (reporterUserId: string, reportId: string) => {
+  const giveReporterRewards = async (reporterUserId: string, reportId: string, reason: 'REPORT_VERIFIED' | 'REPORT_RESOLVED') => {
     try {
       // Award points to the reporter using the existing points system
-      const pointsAwarded = await awardPoints(reporterUserId, 'REPORT_RESOLVED', reportId);
+      const pointsAwarded = await awardPoints(reporterUserId, reason, reportId);
       
       // Show reward notification
-      showNotification(`Reporter rewarded: +${pointsAwarded} points`, 'success');
+      const reasonText = reason === 'REPORT_VERIFIED' ? 'verified' : 'resolved';
+      showNotification(`Reporter rewarded for ${reasonText} report: +${pointsAwarded} points`, 'success');
 
     } catch (error) {
       console.error('Error giving reporter rewards:', error);
@@ -1450,9 +1452,15 @@ export function AdminMapDashboard() {
 
   const handleReportAction = async (reportId: string, newStatus: Report['status']) => {
     try {
-      // Get the current report to check if we're moving from in_progress to resolved
+      // Get the current report to check status transitions
       const currentReport = reports.find(r => r.id === reportId);
+      const isVerifyingReport = currentReport?.status === 'verifying' && newStatus === 'in_progress';
       const isCompletingReport = currentReport?.status === 'in_progress' && newStatus === 'resolved';
+
+      // If verifying a report (moving from verifying to in_progress), give verification rewards to reporter
+      if (isVerifyingReport) {
+        await giveReporterRewards(currentReport.user_id, reportId, 'REPORT_VERIFIED');
+      }
 
       // If completing a report (moving from in_progress to resolved), give rewards to both patrol officer and reporter
       if (isCompletingReport) {
@@ -1461,8 +1469,8 @@ export function AdminMapDashboard() {
           await givePatrolRewards(currentReport.patrol_user_id, currentReport.priority);
         }
         
-        // Give rewards to the reporter
-        await giveReporterRewards(currentReport.user_id, reportId);
+        // Give rewards to the reporter for resolution
+        await giveReporterRewards(currentReport.user_id, reportId, 'REPORT_RESOLVED');
       }
 
       const { error } = await supabase
@@ -2707,65 +2715,32 @@ export function AdminMapDashboard() {
 
       {/* Full-Screen Image Modal */}
       {showImageModal && selectedImage && (
-        <div className="fixed top-0 left-0 right-0 bottom-0 bg-black flex items-center justify-center z-[99999] p-4" style={{ margin: 0, padding: '1rem' }}>
-          <div className="relative max-w-[95vw] max-h-[95vh]">
-            {/* Close Button */}
-            <button
-              onClick={() => {
-                setShowImageModal(false);
-                setSelectedImage(null);
-              }}
-              className="absolute -top-12 right-0 text-white hover:text-gray-300 transition-colors z-10"
-            >
-              <X className="w-8 h-8" />
-            </button>
-            
-            {/* Image */}
-            <img
-              src={selectedImage}
-              alt="Full size report image"
-              className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
-            />
-            
-            {/* Navigation Arrows (if multiple images) */}
-            {selectedReportForModal?.images && selectedReportForModal.images.length > 1 && (
-              <>
-                {/* Previous Button */}
-                <button
-                  onClick={() => {
-                    const currentIndex = selectedReportForModal.images.indexOf(selectedImage);
-                    const prevIndex = currentIndex > 0 ? currentIndex - 1 : selectedReportForModal.images.length - 1;
-                    setSelectedImage(selectedReportForModal.images[prevIndex]);
-                  }}
-                  className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 hover:bg-opacity-70 text-white p-2 rounded-full transition-all hover:scale-110"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
-                
-                {/* Next Button */}
-                <button
-                  onClick={() => {
-                    const currentIndex = selectedReportForModal.images.indexOf(selectedImage);
-                    const nextIndex = currentIndex < selectedReportForModal.images.length - 1 ? currentIndex + 1 : 0;
-                    setSelectedImage(selectedReportForModal.images[nextIndex]);
-                  }}
-                  className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-black bg-opacity-50 hover:bg-opacity-70 text-white p-2 rounded-full transition-all hover:scale-110"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
-                
-                {/* Image Counter */}
-                <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-50 text-white px-3 py-1 rounded-full text-sm">
-                  {selectedReportForModal.images.indexOf(selectedImage) + 1} / {selectedReportForModal.images.length}
-                </div>
-              </>
-            )}
-          </div>
-        </div>
+        <ImageViewer
+          isOpen={showImageModal}
+          onClose={() => {
+            setShowImageModal(false);
+            setSelectedImage(null);
+          }}
+          imageUrl={selectedImage}
+          alt="Full size report image"
+          images={selectedReportForModal?.images || []}
+          currentIndex={selectedReportForModal?.images ? selectedReportForModal.images.indexOf(selectedImage) : 0}
+          onPrevious={() => {
+            if (selectedReportForModal?.images) {
+              const currentIndex = selectedReportForModal.images.indexOf(selectedImage);
+              const prevIndex = currentIndex > 0 ? currentIndex - 1 : selectedReportForModal.images.length - 1;
+              setSelectedImage(selectedReportForModal.images[prevIndex]);
+            }
+          }}
+          onNext={() => {
+            if (selectedReportForModal?.images) {
+              const currentIndex = selectedReportForModal.images.indexOf(selectedImage);
+              const nextIndex = currentIndex < selectedReportForModal.images.length - 1 ? currentIndex + 1 : 0;
+              setSelectedImage(selectedReportForModal.images[nextIndex]);
+            }
+          }}
+          showNavigation={!!(selectedReportForModal?.images && selectedReportForModal.images.length > 1)}
+        />
       )}
 
       {/* Cluster Reports Modal */}

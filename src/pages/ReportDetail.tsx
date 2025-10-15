@@ -11,6 +11,7 @@ import { reportsService } from '../services/reportsService';
 import { CommentsService } from '../services/commentsService';
 import { ReplyThread } from '../components/ReplyThread';
 import { caseService } from '../services/caseService';
+import { ImageViewer } from '../components/ImageViewer';
 
 interface Report {
   id: string;
@@ -915,7 +916,13 @@ export function ReportDetail() {
                             {/* Action buttons - Facebook style */}
                             <div className="flex items-center gap-3 mt-1 px-3">
                               <span className="text-[11px] text-gray-500">
-                                {new Date(comment.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                                {new Date(comment.created_at).toLocaleString('en-US', { 
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: 'numeric', 
+                                  minute: '2-digit' 
+                                })}
                               </span>
                               <div className="flex items-center gap-1">
                                 <button 
@@ -1134,7 +1141,13 @@ export function ReportDetail() {
                             {/* Action buttons - Facebook style */}
                             <div className="flex items-center gap-3 mt-1 px-3">
                               <span className="text-[11px] text-blue-600">
-                                {new Date(comment.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                                {new Date(comment.created_at).toLocaleString('en-US', { 
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: 'numeric', 
+                                  minute: '2-digit' 
+                                })}
                               </span>
                               <div className="flex items-center gap-1">
                                 <button 
@@ -1463,59 +1476,23 @@ export function ReportDetail() {
 
       {/* Image Modal */}
       {selectedImage && report.images && (
-        <div
-          className="fixed top-0 left-0 right-0 bottom-0 z-[99999] bg-black flex items-center justify-center p-4"
-          onClick={() => setSelectedImage(null)}
-          style={{ margin: 0, padding: '1rem' }}
-        >
-          <div className="relative max-w-5xl w-full flex items-center justify-center mx-auto" onClick={(e) => e.stopPropagation()}>
-            <button
-              onClick={() => setSelectedImage(null)}
-              className="absolute -top-10 right-0 text-white/80 hover:text-white"
-              aria-label="Close full image"
-            >
-              <X className="h-6 w-6" />
-            </button>
-            <img
-              src={getImageUrl(selectedImage.url)}
-              alt={`Report image ${selectedImage.index + 1}`}
-              className="block mx-auto max-h-[90vh] max-w-[95vw] object-contain rounded-lg bg-gray-100 cursor-zoom-out"
-              loading="eager"
-              decoding="sync"
-              fetchpriority="high"
-              referrerPolicy="no-referrer"
-              crossOrigin="anonymous"
-              onError={(e) => {
-                console.error(`Failed to load modal image: ${selectedImage.url}`);
-                const imgElement = e.target as HTMLImageElement;
-                imgElement.src = fallbackImageUrl;
-              }}
-              onClick={() => setSelectedImage(null)}
-            />
-            {report.images.length > 1 && (
-              <>
-                <button
-                  onClick={() => {
-                    const prevIndex = (selectedImage.index - 1 + report.images.length) % report.images.length;
-                    setSelectedImage({ url: report.images[prevIndex], index: prevIndex });
-                  }}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 text-white hover:text-gray-300"
-                >
-                  <ChevronLeft className="h-8 w-8" />
-                </button>
-                <button
-                  onClick={() => {
-                    const nextIndex = (selectedImage.index + 1) % report.images.length;
-                    setSelectedImage({ url: report.images[nextIndex], index: nextIndex });
-                  }}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-white hover:text-gray-300"
-                >
-                  <ChevronRight className="h-8 w-8" />
-                </button>
-              </>
-            )}
-          </div>
-        </div>
+        <ImageViewer
+          isOpen={!!selectedImage}
+          onClose={() => setSelectedImage(null)}
+          imageUrl={getImageUrl(selectedImage.url)}
+          alt={`Report image ${selectedImage.index + 1}`}
+          images={report.images.map(img => getImageUrl(img))}
+          currentIndex={selectedImage.index}
+          onPrevious={() => {
+            const prevIndex = (selectedImage.index - 1 + report.images.length) % report.images.length;
+            setSelectedImage({ url: report.images[prevIndex], index: prevIndex });
+          }}
+          onNext={() => {
+            const nextIndex = (selectedImage.index + 1) % report.images.length;
+            setSelectedImage({ url: report.images[nextIndex], index: nextIndex });
+          }}
+          showNavigation={report.images.length > 1}
+        />
       )}
 
       {/* Like Details Modal */}

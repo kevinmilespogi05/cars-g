@@ -92,7 +92,13 @@ export function ReplyThread({
             {/* Reply Actions - Facebook style */}
             <div className="flex items-center gap-3 mt-1 px-3">
               <span className="text-[11px] text-gray-500">
-                {new Date(reply.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                {new Date(reply.created_at).toLocaleString('en-US', { 
+                  year: 'numeric',
+                  month: 'short',
+                  day: 'numeric',
+                  hour: 'numeric', 
+                  minute: '2-digit' 
+                })}
               </span>
               <div className="flex items-center gap-1">
                 <button

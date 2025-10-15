@@ -322,22 +322,9 @@ export function CreateReport() {
       })();
       console.log('✅ Report created successfully:', createdReport);
 
-      // Award points with the real report ID (skip for anonymous reports)
-      if (!isAnonymous) {
-        try {
-          setCurrentStep('Awarding points');
-          await awardPoints(user.id, 'REPORT_SUBMITTED', createdReport.id);
-          console.log('🎯 Points awarded successfully');
-          safeTrack('report_submit_points_awarded', { reportId: createdReport.id });
-        } catch (error) {
-          console.error('❌ Error awarding points:', error);
-          safeTrack('report_submit_points_failed');
-          // Don't throw here, as the report was still created successfully
-        }
-      } else {
-        console.log('⚠️ Skipping points award for anonymous report');
-        safeTrack('report_submit_anonymous', { reportId: createdReport.id });
-      }
+      // Points will be awarded when the report is verified by admin
+      console.log('📝 Report submitted - points will be awarded after verification');
+      safeTrack('report_submit_no_points', { reportId: createdReport.id });
 
       // Track report creation for achievements/stats
       try {
@@ -969,15 +956,15 @@ export function CreateReport() {
               <h3 id="report-success-title" className="text-3xl font-bold text-gray-900 mb-2">Report Submitted!</h3>
               <p className="text-gray-600 mb-6 text-lg">Thank you for helping improve your community.</p>
               
-              {/* Points Award Display - Only show if NOT anonymous */}
+              {/* Points Information - Only show if NOT anonymous */}
               {!isAnonymous && (
-                <div className="bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-300 rounded-2xl p-6 mb-6">
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-300 rounded-2xl p-6 mb-6">
                   <div className="flex items-center justify-center space-x-3 mb-2">
-                    <Trophy className="h-8 w-8 text-amber-600" />
-                    <span className="text-4xl font-bold text-amber-700">+{POINTS_FOR_REPORT}</span>
+                    <Trophy className="h-8 w-8 text-blue-600" />
+                    <span className="text-4xl font-bold text-blue-700">+25</span>
                   </div>
-                  <p className="text-amber-800 font-semibold">Points Earned!</p>
-                  <p className="text-xs text-amber-700 mt-1">Your contribution has been recorded</p>
+                  <p className="text-blue-800 font-semibold">Points Pending Verification</p>
+                  <p className="text-xs text-blue-700 mt-1">You'll earn 25 points once an admin verifies your report</p>
                 </div>
               )}
               

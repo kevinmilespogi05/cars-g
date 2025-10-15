@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { getApiUrl } from '../lib/config';
 import { authenticatedRequest } from '../lib/jwt';
+import { ImageViewer } from './ImageViewer';
 
 interface VerificationRequest {
   id: string;
@@ -657,65 +658,12 @@ export function AdminVerificationDashboard() {
 
       {/* Full-screen Image Modal */}
       {showImageModal && selectedImageUrl && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75">
-          <div className="relative max-w-4xl max-h-[90vh] w-full mx-4">
-            <div className="bg-white rounded-lg overflow-hidden">
-              <div className="flex items-center justify-between p-4 border-b">
-                <h3 className="text-lg font-semibold text-gray-900">{selectedImageTitle}</h3>
-                <button
-                  onClick={() => setShowImageModal(false)}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <X className="h-6 w-6" />
-                </button>
-              </div>
-              <div className="p-4">
-                <div className="relative">
-                  {fullScreenImageLoading && (
-                    <div className="absolute inset-0 bg-gray-100 rounded-lg flex items-center justify-center z-10">
-                      <Loader2 className="h-12 w-12 animate-spin text-gray-400" />
-                    </div>
-                  )}
-                  <img
-                    src={selectedImageUrl}
-                    alt={selectedImageTitle}
-                    className="w-full h-auto max-h-[70vh] object-contain rounded-lg bg-gray-50"
-                    onLoadStart={() => {
-                      setFullScreenImageLoading(true);
-                      console.log('🔄 Full-screen image loading started');
-                    }}
-                    onLoad={() => {
-                      setFullScreenImageLoading(false);
-                      console.log('✅ Full-screen image loaded successfully');
-                    }}
-                    onError={(e) => {
-                      setFullScreenImageLoading(false);
-                      console.error('❌ Failed to load full-screen image:', selectedImageUrl);
-                      e.currentTarget.style.display = 'none';
-                      e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                    }}
-                  />
-                  {/* Fallback for failed image load */}
-                  <div className="hidden w-full h-64 bg-gray-100 rounded-lg items-center justify-center">
-                    <div className="text-center">
-                      <AlertTriangle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                      <p className="text-lg text-gray-500 mb-2">Image failed to load</p>
-                      <p className="text-sm text-gray-400">URL: {selectedImageUrl}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="flex justify-end p-4 border-t">
-                <button
-                  onClick={() => setShowImageModal(false)}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <ImageViewer
+          isOpen={showImageModal}
+          onClose={() => setShowImageModal(false)}
+          imageUrl={selectedImageUrl}
+          alt={selectedImageTitle}
+        />
       )}
     </div>
   );

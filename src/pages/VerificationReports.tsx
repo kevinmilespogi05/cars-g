@@ -7,6 +7,7 @@ import { Report } from '../types';
 import { reportsService } from '../services/reportsService';
 import { LikeDetailsModal } from '../components/LikeDetailsModal';
 import { ConfirmationModal } from '../components/ConfirmationModal';
+import { ImageViewer } from '../components/ImageViewer';
 
 const CATEGORIES = ['All', 'Infrastructure', 'Safety', 'Environmental', 'Public Services', 'Other'];
 const PRIORITIES = ['All', 'Low', 'Medium', 'High'];
@@ -113,6 +114,11 @@ export function VerificationReports() {
       console.log('New verification report received:', newReport);
       // Only add reports that are verifying, awaiting verification, or cancelled
       if (newReport.status !== 'verifying' && newReport.status !== 'awaiting_verification' && newReport.status !== 'cancelled') return;
+      // CRITICAL: Only add reports that belong to the current user
+      if (user?.id && newReport.user_id !== user.id) {
+        console.log('Ignoring report from other user:', newReport.user_id, 'current user:', user.id);
+        return;
+      }
       if (!matchesFilters(newReport)) return;
       setReports(prev => {
         // Check if report already exists to prevent duplicates
@@ -123,6 +129,14 @@ export function VerificationReports() {
 
     const statusSubscription = reportsService.subscribeToReportStatusChanges((reportId, newStatus) => {
       console.log('Status change received for verification report:', reportId, 'new status:', newStatus);
+      
+      // Check if this report belongs to the current user
+      const currentReport = reports.find(r => r.id === reportId);
+      if (user?.id && currentReport && currentReport.user_id !== user.id) {
+        console.log('Ignoring status change for report from other user:', reportId);
+        return;
+      }
+      
       if (newStatus !== 'verifying' && newStatus !== 'awaiting_verification' && newStatus !== 'cancelled') {
         setReports(prev => prev.filter(r => r.id !== reportId));
       } else {
@@ -138,6 +152,14 @@ export function VerificationReports() {
 
     const likesSubscription = reportsService.subscribeToLikesChanges(async (reportId, likeCount) => {
       console.log('Likes callback triggered for verification report:', reportId, 'count:', likeCount);
+      
+      // Check if this report belongs to the current user
+      const currentReport = reports.find(r => r.id === reportId);
+      if (user?.id && currentReport && currentReport.user_id !== user.id) {
+        console.log('Ignoring likes change for report from other user:', reportId);
+        return;
+      }
+      
       setReports(prev => {
         const updated = prev.map(report => 
           report.id === reportId 
@@ -153,6 +175,14 @@ export function VerificationReports() {
 
     const commentsSubscription = reportsService.subscribeToCommentsChanges((reportId, commentCount) => {
       console.log('Comments callback triggered for verification report:', reportId, 'count:', commentCount);
+      
+      // Check if this report belongs to the current user
+      const currentReport = reports.find(r => r.id === reportId);
+      if (user?.id && currentReport && currentReport.user_id !== user.id) {
+        console.log('Ignoring comments change for report from other user:', reportId);
+        return;
+      }
+      
       setReports(prev => 
         prev.map(report => 
           report.id === reportId 
@@ -196,21 +226,24 @@ export function VerificationReports() {
           status: 'verifying',
           priority: filters.priority,
           search: searchTerm,
-          limit: 40
+          limit: 40,
+          user_id: user?.id // Only get current user's reports
         }),
         reportsService.getReports({
           category: filters.category,
           status: 'awaiting_verification',
           priority: filters.priority,
           search: searchTerm,
-          limit: 40
+          limit: 40,
+          user_id: user?.id // Only get current user's reports
         }),
         reportsService.getReports({
           category: filters.category,
           status: 'cancelled',
           priority: filters.priority,
           search: searchTerm,
-          limit: 40
+          limit: 40,
+          user_id: user?.id // Only get current user's reports
         })
       ]);
 
@@ -221,11 +254,13 @@ export function VerificationReports() {
       });
       
       // Combine all reports and remove duplicates based on ID
+      // Backend now filters by user_id, so no need for frontend filtering
       let allReports = deduplicateReports([...verifyingReports, ...awaitingReports, ...cancelledReports]);
 
-      console.log('Combined reports before filtering:', { 
+      console.log('Combined reports (already filtered by user):', { 
         totalReports: allReports.length, 
-        reports: allReports.map(r => ({ id: r.id, title: r.title, status: r.status }))
+        currentUserId: user?.id,
+        reports: allReports.map(r => ({ id: r.id, title: r.title, status: r.status, user_id: r.user_id }))
       });
       
       // Apply status filter if not 'All'
@@ -664,21 +699,12 @@ export function VerificationReports() {
 
       {/* Image Modal */}
       {selectedImage && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-          <div className="relative max-w-4xl max-h-full p-4">
-            <button
-              onClick={() => setSelectedImage(null)}
-              className="absolute top-4 right-4 text-white hover:text-gray-300 z-10"
-            >
-              <X className="h-8 w-8" />
-            </button>
-            <img
-              src={selectedImage.url}
-              alt={`Report image ${selectedImage.index + 1}`}
-              className="max-w-full max-h-full object-contain"
-            />
-          </div>
-        </div>
+        <ImageViewer
+          isOpen={!!selectedImage}
+          onClose={() => setSelectedImage(null)}
+          imageUrl={selectedImage.url}
+          alt={`Report image ${selectedImage.index + 1}`}
+        />
       )}
 
       {/* Like Details Modal */}

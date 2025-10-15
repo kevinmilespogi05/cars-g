@@ -54,6 +54,18 @@ export function AdminCaseRequests() {
       const newStatus = report?.status === 'awaiting_verification' ? 'resolved' : 'pending';
       const message = newStatus === 'resolved' ? 'Report marked as resolved' : 'Report marked as pending';
       
+      // Award points to reporter when report is verified/accepted
+      if (report?.user_id) {
+        try {
+          const { awardPoints } = await import('../lib/points');
+          await awardPoints(report.user_id, 'REPORT_VERIFIED', reportId);
+          console.log('🎯 Points awarded for verified report');
+        } catch (error) {
+          console.error('❌ Error awarding points:', error);
+          // Don't fail the whole operation if points fail
+        }
+      }
+      
       setReports(prev => prev.filter(r => r.id !== reportId));
       await reportsService.updateReportStatus(reportId, newStatus);
       showToast(message, 'success');

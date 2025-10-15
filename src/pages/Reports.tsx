@@ -11,6 +11,7 @@ import { SideNav } from '../components/SideNav';
 import { EmergencyContacts } from '../components/EmergencyContacts';
 import { ReportsList } from '../components/ReportsList';
 import { QuickActions } from '../components/QuickActions';
+import { ImageViewer } from '../components/ImageViewer';
 import { Report } from '../types';
 
 // Note: Filter constants (CATEGORIES, STATUSES, PRIORITIES) have been moved to ReportsList component
@@ -421,21 +422,12 @@ export function Reports() {
 
       {/* Image Modal */}
       {selectedImage && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-          <div className="relative max-w-5xl w-full max-h-full p-4 flex items-center justify-center mx-auto">
-            <button
-              onClick={() => setSelectedImage(null)}
-              className="absolute top-4 right-4 text-white hover:text-gray-300 z-10"
-            >
-              <X className="h-8 w-8" />
-            </button>
-            <img
-              src={selectedImage.url}
-              alt={`Report image ${selectedImage.index + 1}`}
-              className="block mx-auto max-w-full max-h-full object-contain"
-            />
-          </div>
-        </div>
+        <ImageViewer
+          isOpen={!!selectedImage}
+          onClose={() => setSelectedImage(null)}
+          imageUrl={selectedImage.url}
+          alt={`Report image ${selectedImage.index + 1}`}
+        />
       )}
 
       {/* Like Details Modal */}

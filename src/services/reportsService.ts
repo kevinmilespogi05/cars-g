@@ -998,6 +998,7 @@ export const reportsService = {
           likes:likes(count),
           comments:comments(count),
           comment_count:report_comments(count),
+          reply_count:comment_replies(count),
           rating_avg:report_ratings(stars),
           rating_count:report_ratings(count)
         `)
@@ -1094,8 +1095,8 @@ export const reportsService = {
         user_profile: profilesMap.get(report.user_id),
         is_liked: likedReportIds.has(report.id),
         likes: { count: report.likes?.[0]?.count || 0 },
-        // Normalize comment count: sum legacy `comments` and new `report_comments`
-        comments: { count: (report.comments?.[0]?.count || 0) + (report.comment_count?.[0]?.count || 0) },
+        // Normalize comment count: sum legacy `comments`, new `report_comments`, and replies
+        comments: { count: (report.comments?.[0]?.count || 0) + (report.comment_count?.[0]?.count || 0) + (report.reply_count?.[0]?.count || 0) },
         rating_avg: (() => {
           const stars = Array.isArray(report.rating_avg) ? report.rating_avg.map((r:any)=>r.stars) : [];
           if (!stars.length) return undefined;
@@ -1124,6 +1125,7 @@ export const reportsService = {
     priority?: string;
     search?: string;
     limit?: number;
+    user_id?: string; // Add user_id filter for user-specific reports
   }): Promise<Report[]> {
     try {
       // Create stable cache key based on explicit filter parts to avoid collisions
@@ -1132,7 +1134,8 @@ export const reportsService = {
         `category=${String(filters?.category ?? 'All')}`,
         `priority=${String(filters?.priority ?? 'All')}`,
         `search=${String(filters?.search ?? '')}`,
-        `limit=${String((filters?.limit as any) ?? '')}`
+        `limit=${String((filters?.limit as any) ?? '')}`,
+        `user_id=${String(filters?.user_id ?? 'All')}`
       ].join('|');
       
       // Check session cache first
@@ -1151,6 +1154,7 @@ export const reportsService = {
           likes:likes(count),
           comments:comments(count),
           comment_count:report_comments(count),
+          reply_count:comment_replies(count),
           rating_avg:report_ratings(stars),
           rating_count:report_ratings(count)
         `)
@@ -1185,6 +1189,9 @@ export const reportsService = {
       }
       if (filters?.search) {
         query = query.or(`title.ilike.%${filters.search}%,description.ilike.%${filters.search}%`);
+      }
+      if (filters?.user_id) {
+        query = query.eq('user_id', filters.user_id);
       }
 
       const { data: reportsData, error: reportsError } = await query;
@@ -1251,8 +1258,8 @@ export const reportsService = {
         user_profile: profilesMap.get(report.user_id),
         is_liked: likedReportIds.has(report.id),
         likes: { count: report.likes?.[0]?.count || 0 },
-        // Normalize comment count: sum legacy `comments` and new `report_comments`
-        comments: { count: (report.comments?.[0]?.count || 0) + (report.comment_count?.[0]?.count || 0) },
+        // Normalize comment count: sum legacy `comments`, new `report_comments`, and replies
+        comments: { count: (report.comments?.[0]?.count || 0) + (report.comment_count?.[0]?.count || 0) + (report.reply_count?.[0]?.count || 0) },
         rating_avg: (() => {
           const stars = Array.isArray(report.rating_avg) ? report.rating_avg.map((r:any)=>r.stars) : [];
           if (!stars.length) return undefined;
@@ -1532,11 +1539,12 @@ export const reportsService = {
       if (!reportId) return;
       _debouncedUpdate(`comments_${reportId}`, async () => {
         try {
-          const [{ count: legacyCount }, { count: newCount }] = await Promise.all([
+          const [{ count: legacyCount }, { count: newCount }, { count: replyCount }] = await Promise.all([
             supabase.from('comments').select('*', { count: 'exact', head: true }).eq('report_id', reportId),
-            supabase.from('report_comments').select('*', { count: 'exact', head: true }).eq('report_id', reportId)
+            supabase.from('report_comments').select('*', { count: 'exact', head: true }).eq('report_id', reportId),
+            supabase.from('comment_replies').select('*', { count: 'exact', head: true }).eq('report_id', reportId)
           ] as any);
-          callback(reportId, (legacyCount || 0) + (newCount || 0));
+          callback(reportId, (legacyCount || 0) + (newCount || 0) + (replyCount || 0));
         } catch (error) {
           console.error('Error in comments subscription (legacy):', error);
         }
@@ -1550,13 +1558,33 @@ export const reportsService = {
       if (!reportId) return;
       _debouncedUpdate(`comments_${reportId}`, async () => {
         try {
-          const [{ count: legacyCount }, { count: newCount }] = await Promise.all([
+          const [{ count: legacyCount }, { count: newCount }, { count: replyCount }] = await Promise.all([
             supabase.from('comments').select('*', { count: 'exact', head: true }).eq('report_id', reportId),
-            supabase.from('report_comments').select('*', { count: 'exact', head: true }).eq('report_id', reportId)
+            supabase.from('report_comments').select('*', { count: 'exact', head: true }).eq('report_id', reportId),
+            supabase.from('comment_replies').select('*', { count: 'exact', head: true }).eq('report_id', reportId)
           ] as any);
-          callback(reportId, (legacyCount || 0) + (newCount || 0));
+          callback(reportId, (legacyCount || 0) + (newCount || 0) + (replyCount || 0));
         } catch (error) {
           console.error('Error in comments subscription (new):', error);
+        }
+      });
+    });
+
+    const unsubscribeReplies = _createSubscription('comment_replies_changes', [
+      { event: '*', schema: 'public', table: 'comment_replies' }
+    ], async (payload) => {
+      const reportId = payload.new?.report_id || payload.old?.report_id;
+      if (!reportId) return;
+      _debouncedUpdate(`comments_${reportId}`, async () => {
+        try {
+          const [{ count: legacyCount }, { count: newCount }, { count: replyCount }] = await Promise.all([
+            supabase.from('comments').select('*', { count: 'exact', head: true }).eq('report_id', reportId),
+            supabase.from('report_comments').select('*', { count: 'exact', head: true }).eq('report_id', reportId),
+            supabase.from('comment_replies').select('*', { count: 'exact', head: true }).eq('report_id', reportId)
+          ] as any);
+          callback(reportId, (legacyCount || 0) + (newCount || 0) + (replyCount || 0));
+        } catch (error) {
+          console.error('Error in comments subscription (replies):', error);
         }
       });
     });
@@ -1564,6 +1592,7 @@ export const reportsService = {
     return () => {
       if (typeof unsubscribeLegacy === 'function') unsubscribeLegacy();
       if (typeof unsubscribeNew === 'function') unsubscribeNew();
+      if (typeof unsubscribeReplies === 'function') unsubscribeReplies();
     };
   },
 

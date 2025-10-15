@@ -116,11 +116,28 @@ export function getTokenExpiration(token: string): Date | null {
  * Get API base URL
  */
 function getApiUrl(): string {
-  const isDevelopment = process.env.NODE_ENV === 'development' || 
-                       window.location.hostname === 'localhost' || 
-                       window.location.hostname === '127.0.0.1';
+  // Use the same logic as the main config
+  const hostname = window.location.hostname;
+  const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
   
-  return isDevelopment ? 'http://localhost:3001' : 'https://cars-g-api.onrender.com';
+  console.log('🔧 JWT getApiUrl() called:', {
+    hostname,
+    isLocalhost,
+    protocol: window.location.protocol,
+    origin: window.location.origin
+  });
+  
+  // CRITICAL: Always use production URL when not on localhost
+  if (!isLocalhost) {
+    const productionUrl = 'https://cars-g-api.onrender.com';
+    console.log('🌐 JWT using production URL:', productionUrl);
+    return productionUrl;
+  }
+  
+  // Only use localhost for actual local development
+  const localhostUrl = 'http://localhost:3001';
+  console.log('🏠 JWT using localhost URL:', localhostUrl);
+  return localhostUrl;
 }
 
 /**
@@ -194,12 +211,19 @@ export async function refreshAccessToken(): Promise<AuthResponse | null> {
 export async function getCurrentUser(): Promise<User | null> {
   const tokens = getStoredTokens();
   
+  console.log('👤 Getting current user from server...');
+  console.log('🔑 Token available:', !!tokens?.accessToken);
+  
   if (!tokens?.accessToken) {
+    console.log('❌ No access token available');
     return null;
   }
 
   try {
-    const response = await fetch(`${getApiUrl()}/api/auth/me`, {
+    const apiUrl = getApiUrl();
+    console.log('🌐 Making request to:', `${apiUrl}/api/auth/me`);
+    
+    const response = await fetch(`${apiUrl}/api/auth/me`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${tokens.accessToken}`,
@@ -207,21 +231,26 @@ export async function getCurrentUser(): Promise<User | null> {
       },
     });
 
+    console.log('📡 Response status:', response.status);
     const data = await response.json();
+    console.log('📋 Response data:', data);
 
     if (response.ok && data.success) {
+      console.log('✅ User retrieved successfully:', data.user.email);
       storeUser(data.user);
       return data.user;
     } else {
+      console.log('❌ Failed to get user, status:', response.status);
       // If unauthorized, try to refresh token
       if (response.status === 401) {
+        console.log('🔄 Token expired, trying to refresh...');
         const refreshed = await refreshAccessToken();
         return refreshed?.user || null;
       }
       return null;
     }
   } catch (error) {
-    console.error('Failed to get current user:', error);
+    console.error('❌ Failed to get current user:', error);
     return null;
   }
 }
@@ -319,16 +348,30 @@ export function isAuthenticated(): boolean {
   const tokens = getStoredTokens();
   const user = getStoredUser();
   
+  console.log('🔍 JWT Authentication Check:', {
+    hasTokens: !!tokens,
+    hasAccessToken: !!tokens?.accessToken,
+    hasRefreshToken: !!tokens?.refreshToken,
+    hasUser: !!user,
+    accessTokenExpired: tokens?.accessToken ? isTokenExpired(tokens.accessToken) : 'N/A',
+    refreshTokenExpired: tokens?.refreshToken ? isTokenExpired(tokens.refreshToken) : 'N/A'
+  });
+  
   if (!tokens?.accessToken || !user) {
+    console.log('❌ JWT Authentication failed: Missing tokens or user data');
     return false;
   }
 
   // Check if access token is expired
   if (isTokenExpired(tokens.accessToken)) {
+    console.log('⚠️ Access token expired, checking refresh token...');
     // If we have a refresh token, we might still be able to refresh
-    return !!tokens.refreshToken && !isTokenExpired(tokens.refreshToken);
+    const canRefresh = !!tokens.refreshToken && !isTokenExpired(tokens.refreshToken);
+    console.log('🔄 Can refresh token:', canRefresh);
+    return canRefresh;
   }
 
+  console.log('✅ JWT Authentication successful');
   return true;
 }
 
@@ -346,19 +389,26 @@ export function getAccessToken(): string | null {
   const tokens = getStoredTokens();
   const token = tokens?.accessToken || null;
   
+  console.log('🔑 Getting access token:', {
+    hasTokens: !!tokens,
+    hasAccessToken: !!tokens?.accessToken,
+    tokenLength: token?.length || 0,
+    tokenPreview: token ? token.substring(0, 20) + '...' : 'None'
+  });
+  
   if (token) {
     console.log('JWT Token found:', token.substring(0, 20) + '...');
     console.log('Token length:', token.length);
     
     // Check if token is expired
     if (isTokenExpired(token)) {
-      console.log('JWT Token is expired');
+      console.log('❌ JWT Token is expired');
       return null;
     } else {
-      console.log('JWT Token is valid');
+      console.log('✅ JWT Token is valid');
     }
   } else {
-    console.log('No JWT token found');
+    console.log('❌ No JWT token found');
   }
   
   return token;

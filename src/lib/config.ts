@@ -28,25 +28,27 @@ export const config = {
         isDeployed,
         importMetaDev: import.meta.env.DEV,
         importMetaProd: import.meta.env.PROD,
-        viteApiUrl: import.meta.env.VITE_API_URL
+        viteApiUrl: import.meta.env.VITE_API_URL,
+        protocol: window.location.protocol,
+        origin: window.location.origin
       });
       
-      // If we're in a deployed environment, always use production URL
-      if (isDeployed) {
+      // CRITICAL: Always use production URL when not on localhost
+      if (!isLocalhost) {
         const apiUrl = import.meta.env.VITE_API_URL || 'https://cars-g-api.onrender.com';
-        console.log('Using production API URL:', apiUrl);
+        console.log('🌐 Using production API URL (not localhost):', apiUrl);
         return apiUrl;
       }
       
       // Only use localhost for actual local development
       if (isDev && isLocalhost) {
-        console.log('Using development API URL: http://localhost:3001');
+        console.log('🏠 Using development API URL: http://localhost:3001');
         return 'http://localhost:3001';
       }
       
       // Default to production for any other case
       const apiUrl = import.meta.env.VITE_API_URL || 'https://cars-g-api.onrender.com';
-      console.log('Defaulting to production API URL:', apiUrl);
+      console.log('🔄 Defaulting to production API URL:', apiUrl);
       return apiUrl;
     })()
   },

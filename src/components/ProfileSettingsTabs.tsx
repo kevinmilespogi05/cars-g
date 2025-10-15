@@ -46,20 +46,6 @@ const tabs: Tab[] = [
     color: 'green'
   },
   {
-    id: 'notifications',
-    label: 'Notifications',
-    icon: Bell,
-    description: 'Manage notification preferences',
-    color: 'purple'
-  },
-  {
-    id: 'account',
-    label: 'Account',
-    icon: Lock,
-    description: 'Account settings and security',
-    color: 'gray'
-  },
-  {
     id: 'achievements',
     label: 'Achievements',
     icon: Award,

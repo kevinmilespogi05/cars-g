@@ -83,8 +83,11 @@ export function Footer() {
                 <div className="min-w-0">
                   <p className="text-gray-500 text-xs font-medium mb-0.5">Email</p>
                   <a 
-                    href={`mailto:${LGU_EMAIL}`}
+                    href={`https://mail.google.com/mail/?view=cm&fs=1&to=${LGU_EMAIL}&su=Contact%20from%20CARS-G%20App&body=Hello,%0A%0AI%20am%20contacting%20you%20through%20the%20CARS-G%20community%20safety%20app.%0A%0A`}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="text-gray-300 hover:text-blue-400 transition-colors text-xs break-all"
+                    title="Open Gmail to compose email"
                   >
                     {LGU_EMAIL}
                   </a>

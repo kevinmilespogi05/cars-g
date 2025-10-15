@@ -412,6 +412,13 @@ export function ProfileTabContent({
                 </div>
               </div>
               <div className="flex items-center gap-3">
+                <Smartphone className="w-4 h-4 text-gray-500" />
+                <div>
+                  <p className="text-sm text-gray-600">Phone</p>
+                  <p className="font-medium text-gray-900">{user?.phone || 'Not set'}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
                 <Calendar className="w-4 h-4 text-gray-500" />
                 <div>
                   <p className="text-sm text-gray-600">Member Since</p>
@@ -1059,12 +1066,6 @@ export function ProfileTabContent({
       break;
     case 'reports':
       content = renderReports();
-      break;
-    case 'notifications':
-      content = renderNotifications();
-      break;
-    case 'account':
-      content = renderAccount();
       break;
     case 'achievements':
       content = renderAchievements();
