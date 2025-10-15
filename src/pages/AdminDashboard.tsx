@@ -12,7 +12,8 @@ import {
   Clock,
   Info,
   ClipboardList,
-  Shield
+  Shield,
+  ShieldCheck
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { UserManagement } from '../components/UserManagement';
@@ -23,18 +24,20 @@ import { AdminReports } from '../components/AdminReports';
 import { AnnouncementManagement } from '../components/AnnouncementManagement';
 import { AdminCaseRequests } from '../components/AdminCaseRequests';
 import { AdminDutySchedule } from '../components/AdminDutySchedule';
+import { AdminVerificationDashboard } from '../components/AdminVerificationDashboard';
 
 export function AdminDashboard() {
   const { user } = useAuthStore();
   const navigate = useNavigate();
 
-  const [activeSection, setActiveSection] = useState<'reports' | 'requests' | 'duty' | 'users' | 'stats' | 'settings' | 'announcements'>('reports');
+  const [activeSection, setActiveSection] = useState<'reports' | 'requests' | 'duty' | 'users' | 'stats' | 'settings' | 'announcements' | 'verification'>('reports');
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [showInfo, setShowInfo] = useState<boolean>(false);
   const [totalReports, setTotalReports] = useState<number>(0);
   const [requestReports, setRequestReports] = useState<number>(0);
   const [totalUsers, setTotalUsers] = useState<number>(0);
   const [activePatrols, setActivePatrols] = useState<number>(0);
+  const [pendingVerifications, setPendingVerifications] = useState<number>(0);
 
   useEffect(() => {
     // Optional: protect route
@@ -62,17 +65,19 @@ export function AdminDashboard() {
   useEffect(() => {
     const fetchCounts = async () => {
       try {
-        const [reportsAll, reportsVerifying, usersAll, dutySchedules] = await Promise.all([
+        const [reportsAll, reportsVerifying, usersAll, dutySchedules, verificationRequests] = await Promise.all([
           supabase.from('reports').select('*', { count: 'exact', head: true }),
           supabase.from('reports').select('*', { count: 'exact', head: true }).eq('status', 'verifying'),
           supabase.from('profiles').select('*', { count: 'exact', head: true }),
-          supabase.from('duty_schedules').select('*').gte('duty_date', new Date().toISOString().slice(0, 10))
+          supabase.from('duty_schedules').select('*').gte('duty_date', new Date().toISOString().slice(0, 10)),
+          supabase.from('user_verification_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending')
         ]);
 
         setTotalReports(reportsAll.count || 0);
         setRequestReports(reportsVerifying.count || 0);
         setTotalUsers(usersAll.count || 0);
         setActivePatrols(countActivePatrols(dutySchedules.data || []));
+        setPendingVerifications(verificationRequests.count || 0);
       } catch (e) {
         console.error('Failed to fetch admin dashboard counts', e);
       }
@@ -87,7 +92,7 @@ export function AdminDashboard() {
   }: {
     icon: any;
     label: string;
-    value: 'reports' | 'requests' | 'duty' | 'users' | 'stats' | 'settings' | 'announcements';
+    value: 'reports' | 'requests' | 'duty' | 'users' | 'stats' | 'settings' | 'announcements' | 'verification';
   }) => (
     <button
       onClick={() => setActiveSection(value)}
@@ -139,7 +144,7 @@ export function AdminDashboard() {
           </div>
 
           {/* Quick stat tiles */}
-          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
             <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
               <div className="flex items-center">
                 <div className="h-10 w-10 rounded-lg bg-blue-600/10 text-blue-700 flex items-center justify-center">
@@ -184,6 +189,20 @@ export function AdminDashboard() {
                 </div>
               </div>
             </div>
+            <div 
+              className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+              onClick={() => setActiveSection('verification')}
+            >
+              <div className="flex items-center">
+                <div className="h-10 w-10 rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <div className="ml-3">
+                  <p className="text-xs text-gray-600">Pending Verification</p>
+                  <p className="text-xl font-semibold text-gray-900">{pendingVerifications}</p>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Top tabs */}
@@ -193,6 +212,7 @@ export function AdminDashboard() {
               <TabButton icon={ClipboardList} label="Requests" value="requests" />
               <TabButton icon={ClipboardList} label="Duty" value="duty" />
               <TabButton icon={Users} label="Users" value="users" />
+              <TabButton icon={ShieldCheck} label="Verification" value="verification" />
               <TabButton icon={BarChart3} label="Statistics" value="stats" />
               <TabButton icon={Megaphone} label="Announcements" value="announcements" />
               <TabButton icon={Settings} label="Settings" value="settings" />
@@ -222,6 +242,11 @@ export function AdminDashboard() {
           {activeSection === 'users' && (
             <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3 md:p-4">
               <UserManagement />
+            </div>
+          )}
+          {activeSection === 'verification' && (
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3 md:p-4">
+              <AdminVerificationDashboard />
             </div>
           )}
           {activeSection === 'stats' && (
@@ -285,6 +310,17 @@ export function AdminDashboard() {
                 <li>View profiles and roles.</li>
                 <li>Promote, deactivate, or reset credentials.</li>
                 <li>Audit login and activity if available.</li>
+              </ul>
+            </div>
+          )}
+          {activeSection === 'verification' && (
+            <div>
+              <p className="text-sm text-gray-700 mb-2">Review and verify user ID submissions.</p>
+              <ul className="list-disc pl-5 text-sm text-gray-600 space-y-1">
+                <li>View pending ID verification requests.</li>
+                <li>Review AI analysis and confidence scores.</li>
+                <li>Approve or reject verification requests.</li>
+                <li>Override AI decisions when necessary.</li>
               </ul>
             </div>
           )}

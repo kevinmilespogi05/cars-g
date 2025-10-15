@@ -20,7 +20,13 @@ import {
   XCircle,
   X,
   ChevronRight,
-  ChevronLeft
+  ChevronLeft,
+  Upload,
+  Image,
+  Camera,
+  FileImage,
+  CameraIcon,
+  FileUp
  } from 'lucide-react';
 
 export function Register() {
@@ -43,6 +49,23 @@ export function Register() {
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
+  
+  // ID image upload states
+  const [idFrontImage, setIdFrontImage] = useState<File | null>(null);
+  const [idBackImage, setIdBackImage] = useState<File | null>(null);
+  const [idFrontPreview, setIdFrontPreview] = useState<string | null>(null);
+  const [idBackPreview, setIdBackPreview] = useState<string | null>(null);
+  const [isUploadingImages, setIsUploadingImages] = useState(false);
+  
+  // File input refs to reset inputs after file removal
+  const frontFileInputRef = useRef<HTMLInputElement>(null);
+  const backFileInputRef = useRef<HTMLInputElement>(null);
+  const [showCamera, setShowCamera] = useState<{ front: boolean; back: boolean }>({ front: false, back: false });
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const [captureType, setCaptureType] = useState<'camera' | 'upload' | null>(null);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   
   // Scroll tracking states
   const [privacyScrollProgress, setPrivacyScrollProgress] = useState(0);
@@ -116,6 +139,195 @@ export function Register() {
     setShowPrivacyModal(true);
   };
 
+  // Handle ID image uploads
+  const handleIdImageUpload = (file: File, type: 'front' | 'back') => {
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      setError('Please upload a valid image file.');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Image file size must be less than 5MB.');
+      return;
+    }
+
+    // Create preview URL
+    const previewUrl = URL.createObjectURL(file);
+
+    if (type === 'front') {
+      setIdFrontImage(file);
+      setIdFrontPreview(previewUrl);
+    } else {
+      setIdBackImage(file);
+      setIdBackPreview(previewUrl);
+    }
+
+    setError(''); // Clear any previous errors
+  };
+
+  // Remove ID image
+  const removeIdImage = (type: 'front' | 'back') => {
+    if (type === 'front') {
+      if (idFrontPreview) URL.revokeObjectURL(idFrontPreview);
+      setIdFrontImage(null);
+      setIdFrontPreview(null);
+      // Reset file input to allow re-uploading the same file
+      if (frontFileInputRef.current) {
+        frontFileInputRef.current.value = '';
+      }
+    } else {
+      if (idBackPreview) URL.revokeObjectURL(idBackPreview);
+      setIdBackImage(null);
+      setIdBackPreview(null);
+      // Reset file input to allow re-uploading the same file
+      if (backFileInputRef.current) {
+        backFileInputRef.current.value = '';
+      }
+    }
+  };
+
+  // Camera capture functions
+  const startCamera = async (type: 'front' | 'back') => {
+    try {
+      setCameraError(null);
+      
+      // Stop any existing camera stream first
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          facingMode: 'environment', // Use back camera if available
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        } 
+      });
+      
+      setCameraStream(stream);
+      setShowCamera(prev => ({ ...prev, [type]: true }));
+      setCaptureType('camera');
+      
+      // Wait for the modal to render, then set the video source
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play().catch(error => {
+            console.error('Error playing video:', error);
+            setCameraError('Camera started but video failed to play. Please try again.');
+          });
+        }
+      }, 100);
+    } catch (error: any) {
+      console.error('Error accessing camera:', error);
+      setShowCamera({ front: false, back: false });
+      
+      let errorMessage = 'Camera access denied. Please use file upload instead.';
+      if (error.name === 'NotAllowedError') {
+        errorMessage = 'Camera permission denied. Please allow camera access and try again.';
+      } else if (error.name === 'NotFoundError') {
+        errorMessage = 'No camera found. Please use file upload instead.';
+      } else if (error.name === 'NotReadableError') {
+        errorMessage = 'Camera is being used by another application. Please close other apps and try again.';
+      }
+      
+      setError(errorMessage);
+    }
+  };
+
+  const stopCamera = () => {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(track => track.stop());
+      setCameraStream(null);
+    }
+    setShowCamera({ front: false, back: false });
+    setCaptureType(null);
+    setCameraError(null);
+  };
+
+  const capturePhoto = (type: 'front' | 'back') => {
+    if (!videoRef.current || !canvasRef.current) return;
+
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    const context = canvas.getContext('2d');
+
+    if (!context) return;
+
+    // Set canvas dimensions to match video
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    // Draw video frame to canvas
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    // Convert canvas to blob
+    canvas.toBlob((blob) => {
+      if (blob) {
+        const file = new File([blob], `${type}-id-${Date.now()}.jpg`, { type: 'image/jpeg' });
+        handleIdImageUpload(file, type);
+        stopCamera();
+      }
+    }, 'image/jpeg', 0.8);
+  };
+
+  // Handle video element when camera modal opens
+  useEffect(() => {
+    if ((showCamera.front || showCamera.back) && cameraStream && videoRef.current) {
+      console.log('Setting video source object:', cameraStream);
+      videoRef.current.srcObject = cameraStream;
+      videoRef.current.play().catch(error => {
+        console.error('Error playing video:', error);
+      });
+    }
+  }, [showCamera, cameraStream]);
+
+  // Debug camera stream
+  useEffect(() => {
+    if (cameraStream) {
+      console.log('Camera stream active:', cameraStream.active);
+      console.log('Video tracks:', cameraStream.getVideoTracks());
+    }
+  }, [cameraStream]);
+
+  // Cleanup camera on unmount
+  useEffect(() => {
+    return () => {
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [cameraStream]);
+
+  // Upload ID images to storage
+  const uploadIdImages = async (frontImage: File, backImage: File) => {
+    try {
+      const formData = new FormData();
+      formData.append('frontImage', frontImage);
+      formData.append('backImage', backImage);
+
+      const response = await fetch('/api/upload/id-images', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to upload ID images');
+      }
+
+      const result = await response.json();
+      return {
+        idFrontImageUrl: result.frontImageUrl,
+        idBackImageUrl: result.backImageUrl,
+      };
+    } catch (error: any) {
+      throw new Error(error.message || 'Failed to upload ID images');
+    }
+  };
+
   // Handle checkbox click - open Privacy Policy if not completed
   const handleCheckboxClick = (e: React.MouseEvent<HTMLInputElement>) => {
     if (!privacyCompleted || !termsCompleted) {
@@ -167,11 +379,22 @@ export function Register() {
       return;
     }
 
+    // Check if ID images are uploaded
+    if (!idFrontImage || !idBackImage) {
+      setError('Please upload both front and back images of your ID for verification.');
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      await signUp(email, password, username, firstName || '', lastName || '', phone || '', confirmPassword || '');
-      setSuccess('Registration successful! You can now sign in with your account.');
+      // Upload ID images first
+      setIsUploadingImages(true);
+      const { idFrontImageUrl, idBackImageUrl } = await uploadIdImages(idFrontImage!, idBackImage!);
+      
+      // Register with ID image URLs
+      await signUp(email, password, username, firstName || '', lastName || '', phone || '', confirmPassword || '', idFrontImageUrl, idBackImageUrl);
+      setSuccess('Registration successful! Your account is pending verification. You will be notified once verified.');
       setTimeout(() => {
         navigate('/login');
       }, 2000);
@@ -179,6 +402,7 @@ export function Register() {
       setError(error.message || 'Registration failed. Please try again.');
     } finally {
       setIsLoading(false);
+      setIsUploadingImages(false);
     }
   };
 
@@ -213,7 +437,7 @@ export function Register() {
           transition={{ duration: 0.6, ease: "easeOut" }}
           className="bg-white rounded-2xl shadow-2xl overflow-hidden"
         >
-          <div className="grid lg:grid-cols-2 min-h-[600px]">
+          <div className="grid lg:grid-cols-3 min-h-[600px]">
             {/* Left Column - Hero Image & Branding */}
             <div className="hidden lg:flex relative bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 overflow-hidden">
               {/* Background Pattern */}
@@ -310,7 +534,7 @@ export function Register() {
               </div>
             </div>
 
-            {/* Right Column - Registration Form */}
+            {/* Middle Column - Registration Form */}
             <div className="p-5 sm:p-6 lg:p-8 overflow-auto flex flex-col justify-center">
               {/* Mobile Hero */}
               <div className="lg:hidden mb-6 text-center pt-6">
@@ -715,7 +939,9 @@ export function Register() {
                   {isLoading ? (
                     <>
                       <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                      <span>Creating Account...</span>
+                      <span>
+                        {isUploadingImages ? 'Uploading ID images...' : 'Creating Account...'}
+                      </span>
                     </>
                   ) : (
                     <>
@@ -766,10 +992,404 @@ export function Register() {
                   </Link>
                 </p>
               </div>
+
+              {/* Mobile ID Verification Section */}
+              <div className="lg:hidden mt-6">
+                <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-lg p-4 border border-amber-200">
+                  {/* Header */}
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="h-8 w-8 bg-amber-500 rounded-lg flex items-center justify-center">
+                      <Shield className="h-4 w-4 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-base font-bold text-amber-900">ID Verification Required</h3>
+                      <p className="text-xs text-amber-700">Take photos of both sides of your ID</p>
+                    </div>
+                  </div>
+
+                  {/* Instructions */}
+                  <div className="bg-white/70 rounded-lg p-3 mb-4 border border-amber-200">
+                    <p className="text-xs text-amber-800 font-medium mb-2">📋 Instructions:</p>
+                    <ul className="text-xs text-amber-700 space-y-1">
+                      <li>• Take clear photos of both sides of your ID</li>
+                      <li>• Ensure all text is readable</li>
+                      <li>• Good lighting and no glare</li>
+                    </ul>
+                  </div>
+
+                  {/* Mobile ID Upload */}
+                  <div className="space-y-4">
+                    {/* Front ID */}
+                    <div className="space-y-2">
+                      <label className="block text-sm font-semibold text-amber-900">
+                        Front of ID <span className="text-red-500">*</span>
+                      </label>
+                      
+                      <div className="grid grid-cols-2 gap-2 mb-2">
+                        <button
+                          type="button"
+                          onClick={() => startCamera('front')}
+                          className="flex items-center justify-center gap-2 px-3 py-2 bg-amber-500 text-white rounded-lg text-xs font-medium hover:bg-amber-600 transition-colors"
+                        >
+                          <CameraIcon className="h-4 w-4" />
+                          Take Photo
+                        </button>
+                        <label className="flex items-center justify-center gap-2 px-3 py-2 bg-white text-amber-700 border border-amber-300 rounded-lg text-xs font-medium hover:bg-amber-50 transition-colors cursor-pointer">
+                          <FileUp className="h-4 w-4" />
+                          Upload
+                          <input
+                            ref={frontFileInputRef}
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleIdImageUpload(file, 'front');
+                            }}
+                            className="hidden"
+                          />
+                        </label>
+                      </div>
+
+                      <div className="relative">
+                        {!idFrontPreview ? (
+                          <div className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-amber-300 rounded-lg bg-white/50">
+                            <Camera className="w-6 h-6 text-amber-400 mb-1" />
+                            <p className="text-xs text-amber-600 font-medium">No image</p>
+                          </div>
+                        ) : (
+                          <div className="relative">
+                            <img
+                              src={idFrontPreview}
+                              alt="Front ID preview"
+                              className="w-full h-24 object-cover rounded-lg border-2 border-amber-200"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removeIdImage('front')}
+                              className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Back ID */}
+                    <div className="space-y-2">
+                      <label className="block text-sm font-semibold text-amber-900">
+                        Back of ID <span className="text-red-500">*</span>
+                      </label>
+                      
+                      <div className="grid grid-cols-2 gap-2 mb-2">
+                        <button
+                          type="button"
+                          onClick={() => startCamera('back')}
+                          className="flex items-center justify-center gap-2 px-3 py-2 bg-amber-500 text-white rounded-lg text-xs font-medium hover:bg-amber-600 transition-colors"
+                        >
+                          <CameraIcon className="h-4 w-4" />
+                          Take Photo
+                        </button>
+                        <label className="flex items-center justify-center gap-2 px-3 py-2 bg-white text-amber-700 border border-amber-300 rounded-lg text-xs font-medium hover:bg-amber-50 transition-colors cursor-pointer">
+                          <FileUp className="h-4 w-4" />
+                          Upload
+                          <input
+                            ref={backFileInputRef}
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleIdImageUpload(file, 'back');
+                            }}
+                            className="hidden"
+                          />
+                        </label>
+                      </div>
+
+                      <div className="relative">
+                        {!idBackPreview ? (
+                          <div className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-amber-300 rounded-lg bg-white/50">
+                            <Camera className="w-6 h-6 text-amber-400 mb-1" />
+                            <p className="text-xs text-amber-600 font-medium">No image</p>
+                          </div>
+                        ) : (
+                          <div className="relative">
+                            <img
+                              src={idBackPreview}
+                              alt="Back ID preview"
+                              className="w-full h-24 object-cover rounded-lg border-2 border-amber-200"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removeIdImage('back')}
+                              className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Upload Status */}
+                    {idFrontImage && idBackImage && (
+                      <div className="flex items-center gap-2 text-green-600 text-xs bg-green-50 p-2 rounded-lg border border-green-200">
+                        <CheckCircle className="h-3 w-3" />
+                        <span className="font-medium">Both ID images ready</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Column - ID Verification (Desktop Only) */}
+            <div className="hidden lg:flex flex-col bg-gradient-to-br from-amber-50 to-orange-50 border-l border-amber-200">
+              <div className="p-6 flex flex-col h-full">
+                {/* Header */}
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="h-10 w-10 bg-amber-500 rounded-lg flex items-center justify-center">
+                    <Shield className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-amber-900">ID Verification</h3>
+                    <p className="text-sm text-amber-700">Required for account activation</p>
+                  </div>
+                </div>
+
+                {/* Instructions */}
+                <div className="bg-white/70 rounded-lg p-4 mb-6 border border-amber-200">
+                  <p className="text-sm text-amber-800 font-medium mb-2">📋 Instructions:</p>
+                  <ul className="text-xs text-amber-700 space-y-1">
+                    <li>• Take clear photos of both sides of your ID</li>
+                    <li>• Ensure all text is readable</li>
+                    <li>• Good lighting and no glare</li>
+                    <li>• Government-issued ID only</li>
+                  </ul>
+                </div>
+
+                {/* Capture Options */}
+                <div className="space-y-4 flex-1">
+                  {/* Front ID Section */}
+                  <div className="space-y-3">
+                    <label className="block text-sm font-semibold text-amber-900">
+                      Front of ID <span className="text-red-500">*</span>
+                    </label>
+                    
+                    {/* Capture Options */}
+                    <div className="grid grid-cols-2 gap-2 mb-3">
+                      <button
+                        type="button"
+                        onClick={() => startCamera('front')}
+                        className="flex items-center justify-center gap-2 px-3 py-2 bg-amber-500 text-white rounded-lg text-xs font-medium hover:bg-amber-600 transition-colors"
+                      >
+                        <CameraIcon className="h-4 w-4" />
+                        Take Photo
+                      </button>
+                      <label className="flex items-center justify-center gap-2 px-3 py-2 bg-white text-amber-700 border border-amber-300 rounded-lg text-xs font-medium hover:bg-amber-50 transition-colors cursor-pointer">
+                        <FileUp className="h-4 w-4" />
+                        Upload File
+                        <input
+                          ref={frontFileInputRef}
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleIdImageUpload(file, 'front');
+                          }}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+
+                    {/* Front ID Preview */}
+                    <div className="relative">
+                      {!idFrontPreview ? (
+                        <div className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-amber-300 rounded-lg bg-white/50">
+                          <Camera className="w-8 h-8 text-amber-400 mb-2" />
+                          <p className="text-xs text-amber-600 font-medium">No image selected</p>
+                        </div>
+                      ) : (
+                        <div className="relative">
+                          <img
+                            src={idFrontPreview}
+                            alt="Front ID preview"
+                            className="w-full h-32 object-cover rounded-lg border-2 border-amber-200"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeIdImage('front')}
+                            className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                          <div className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+                            Front of ID
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Back ID Section */}
+                  <div className="space-y-3">
+                    <label className="block text-sm font-semibold text-amber-900">
+                      Back of ID <span className="text-red-500">*</span>
+                    </label>
+                    
+                    {/* Capture Options */}
+                    <div className="grid grid-cols-2 gap-2 mb-3">
+                      <button
+                        type="button"
+                        onClick={() => startCamera('back')}
+                        className="flex items-center justify-center gap-2 px-3 py-2 bg-amber-500 text-white rounded-lg text-xs font-medium hover:bg-amber-600 transition-colors"
+                      >
+                        <CameraIcon className="h-4 w-4" />
+                        Take Photo
+                      </button>
+                      <label className="flex items-center justify-center gap-2 px-3 py-2 bg-white text-amber-700 border border-amber-300 rounded-lg text-xs font-medium hover:bg-amber-50 transition-colors cursor-pointer">
+                        <FileUp className="h-4 w-4" />
+                        Upload File
+                        <input
+                          ref={backFileInputRef}
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleIdImageUpload(file, 'back');
+                          }}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+
+                    {/* Back ID Preview */}
+                    <div className="relative">
+                      {!idBackPreview ? (
+                        <div className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-amber-300 rounded-lg bg-white/50">
+                          <Camera className="w-8 h-8 text-amber-400 mb-2" />
+                          <p className="text-xs text-amber-600 font-medium">No image selected</p>
+                        </div>
+                      ) : (
+                        <div className="relative">
+                          <img
+                            src={idBackPreview}
+                            alt="Back ID preview"
+                            className="w-full h-32 object-cover rounded-lg border-2 border-amber-200"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeIdImage('back')}
+                            className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                          <div className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+                            Back of ID
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Upload Status */}
+                  {idFrontImage && idBackImage && (
+                    <div className="flex items-center gap-2 text-green-600 text-sm bg-green-50 p-3 rounded-lg border border-green-200">
+                      <CheckCircle className="h-4 w-4" />
+                      <span className="font-medium">Both ID images ready for verification</span>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </motion.div>
       </div>
+
+      {/* Camera Capture Modal */}
+      {(showCamera.front || showCamera.back) && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-[9999]">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-xl shadow-2xl w-full max-w-md"
+          >
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-gray-900">
+                  Capture {showCamera.front ? 'Front' : 'Back'} of ID
+                </h3>
+                <button
+                  onClick={stopCamera}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="relative bg-gray-100 rounded-lg overflow-hidden">
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full h-64 object-cover"
+                    style={{ transform: 'scaleX(-1)' }} // Mirror the video for better UX
+                  />
+                  {!cameraStream && !cameraError && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-gray-200">
+                      <div className="text-center">
+                        <Camera className="w-12 h-12 text-gray-400 mx-auto mb-2" />
+                        <p className="text-sm text-gray-600">Starting camera...</p>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {cameraError && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-red-50">
+                      <div className="text-center p-4">
+                        <XCircle className="w-12 h-12 text-red-400 mx-auto mb-2" />
+                        <p className="text-sm text-red-600 mb-3">{cameraError}</p>
+                        <button
+                          onClick={() => startCamera(showCamera.front ? 'front' : 'back')}
+                          className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600 transition-colors"
+                        >
+                          Try Again
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  <div className="absolute inset-0 border-2 border-amber-400 border-dashed m-4 rounded-lg pointer-events-none">
+                    <div className="absolute top-2 left-2 bg-amber-500 text-white text-xs px-2 py-1 rounded">
+                      Position ID within frame
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => capturePhoto(showCamera.front ? 'front' : 'back')}
+                    className="flex-1 bg-amber-500 text-white py-3 px-4 rounded-lg font-medium hover:bg-amber-600 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Camera className="h-4 w-4" />
+                    Capture Photo
+                  </button>
+                  <button
+                    onClick={stopCamera}
+                    className="px-4 py-3 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Hidden canvas for photo capture */}
+      <canvas ref={canvasRef} className="hidden" />
 
       {/* Privacy Policy Modal */}
       {showPrivacyModal && (
@@ -995,7 +1615,7 @@ export function Register() {
                 <section>
                   <h3 className="text-xl font-semibold text-gray-900 mb-4">1. Acceptance of Terms</h3>
                   <p>
-                    By accessing and using CARS-G (Community Action and Response System), you accept and agree to be bound by the terms 
+                    By accessing and using CARS-G (Community Assistance Reporting System - Gamified), you accept and agree to be bound by the terms 
                     and provision of this agreement.
                   </p>
                 </section>

@@ -55,7 +55,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { email, password, username, firstName, lastName, phone } = req.body || {};
+    const { email, password, username, firstName, lastName, phone, idFrontImageUrl, idBackImageUrl } = req.body || {};
 
     // Input validation
     if (!email || !password || !username) {
@@ -146,12 +146,19 @@ export default async function handler(req, res) {
       role: 'user',
       points: 0,
       email_verified: true,
+      verification_status: 'pending', // Set to pending for ID verification
       created_at: new Date().toISOString()
     };
 
     // Add phone if provided and valid
     if (phone) {
       profilePayload.phone = phone;
+    }
+
+    // Add ID image URLs if provided
+    if (idFrontImageUrl && idBackImageUrl) {
+      profilePayload.id_front_image_url = idFrontImageUrl;
+      profilePayload.id_back_image_url = idBackImageUrl;
     }
 
     // Create profile in profiles table
@@ -177,11 +184,16 @@ export default async function handler(req, res) {
       });
     }
 
+    // Note: Verification requests are now created automatically by database trigger
+    // No need to manually trigger AI verification during registration
+    // This prevents duplicate entries and auto-approval issues
+
     return res.json({ 
       success: true, 
-      message: 'Registration successful! You can now sign in.',
+      message: 'Registration successful! Your account is pending ID verification. You will be notified once verified.',
       email,
-      requiresVerification: false
+      requiresVerification: true,
+      verificationStatus: 'pending'
     });
 
   } catch (error) {

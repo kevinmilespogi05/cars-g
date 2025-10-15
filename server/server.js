@@ -998,7 +998,7 @@ app.post('/api/auth/login', async (req, res) => {
     // Get user profile from Supabase
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('id, email, username, first_name, last_name, role, points, avatar_url, phone')
+      .select('id, email, username, first_name, last_name, role, points, avatar_url, phone, verification_status')
       .eq('id', authData.user.id)
       .single();
 
@@ -1007,6 +1007,23 @@ app.post('/api/auth/login', async (req, res) => {
         success: false,
         error: 'Failed to fetch user profile',
         code: 'PROFILE_ERROR'
+      });
+    }
+
+    // Check verification status
+    if (profile.verification_status === 'pending') {
+      return res.status(403).json({
+        success: false,
+        error: 'Your account is pending ID verification. Please wait for admin approval before signing in.',
+        code: 'VERIFICATION_PENDING'
+      });
+    }
+    
+    if (profile.verification_status === 'rejected') {
+      return res.status(403).json({
+        success: false,
+        error: 'Your account verification was rejected. Please contact support for assistance.',
+        code: 'VERIFICATION_REJECTED'
       });
     }
 
@@ -1560,10 +1577,10 @@ app.post('/api/auth/check-availability', async (req, res) => {
   }
 });
 
-// Registration endpoint - Direct registration without OTP verification
+// Registration endpoint with ID verification support
 app.post('/api/auth/register', async (req, res) => {
   try {
-    const { email, password, username, firstName, lastName, phone } = req.body || {};
+    const { email, password, username, firstName, lastName, phone, idFrontImageUrl, idBackImageUrl } = req.body || {};
 
     if (!email || !password || !username) {
       return res.status(400).json({ success: false, error: 'Email, password, and username are required', code: 'MISSING_FIELDS' });
@@ -1632,12 +1649,19 @@ app.post('/api/auth/register', async (req, res) => {
       role: 'user',
       points: 0,
       email_verified: true,
+      verification_status: 'pending', // Set to pending for ID verification
       created_at: new Date().toISOString()
     };
 
     // Add phone if provided and valid
     if (phone) {
       profilePayload.phone = phone;
+    }
+
+    // Add ID image URLs if provided
+    if (idFrontImageUrl && idBackImageUrl) {
+      profilePayload.id_front_image_url = idFrontImageUrl;
+      profilePayload.id_back_image_url = idBackImageUrl;
     }
 
     // Create profile in profiles table
@@ -1663,11 +1687,37 @@ app.post('/api/auth/register', async (req, res) => {
       });
     }
 
+    // Create verification request if ID images were provided
+    if (idFrontImageUrl && idBackImageUrl) {
+      try {
+        // Create verification request manually since the trigger might not work
+        const { data: verificationRequest, error: verificationError } = await supabaseAdmin
+          .from('user_verification_requests')
+          .insert({
+            user_id: authData.user.id,
+            id_front_image_url: idFrontImageUrl,
+            id_back_image_url: idBackImageUrl,
+            status: 'pending'
+          })
+          .select('id')
+          .single();
+
+        if (verificationError) {
+          console.error('Error creating verification request:', verificationError);
+        }
+        // Note: AI verification is now manual-only through admin dashboard
+      } catch (error) {
+        console.error('Error creating verification request:', error);
+        // Don't fail the registration if verification request creation fails
+      }
+    }
+
     return res.json({ 
       success: true, 
-      message: 'Registration successful! You can now sign in.',
+      message: 'Registration successful! Your account is pending ID verification. You will be notified once verified.',
       email,
-      requiresVerification: false
+      requiresVerification: true,
+      verificationStatus: 'pending'
     });
 
   } catch (error) {
@@ -1676,6 +1726,136 @@ app.post('/api/auth/register', async (req, res) => {
   }
 });
 
+
+
+// Admin verification requests endpoint
+app.get('/api/admin/verification-requests', authenticateToken, requireRole('admin'), async (req, res) => {
+  try {
+    if (!supabaseAdmin) {
+      return res.status(503).json({ success: false, error: 'Admin privileges required' });
+    }
+
+    const { status, search } = req.query;
+
+    let query = supabaseAdmin
+      .from('user_verification_requests')
+      .select(`
+        *,
+        user_profile:profiles!user_id(
+          id,
+          username,
+          email,
+          first_name,
+          last_name,
+          phone,
+          avatar_url
+        )
+      `)
+      .order('created_at', { ascending: false });
+
+    // Filter by status if provided
+    if (status && status !== 'all') {
+      query = query.eq('status', status);
+    }
+
+    // Search by user details if search term provided
+    if (search) {
+      query = query.or(`user_profile.username.ilike.%${search}%,user_profile.email.ilike.%${search}%,user_profile.first_name.ilike.%${search}%,user_profile.last_name.ilike.%${search}%`);
+    }
+
+    const { data: requests, error } = await query;
+
+    if (error) {
+      console.error('Error fetching verification requests:', error);
+      return res.status(500).json({ success: false, error: 'Failed to fetch verification requests' });
+    }
+
+    return res.json({
+      success: true,
+      requests: requests || []
+    });
+
+  } catch (error) {
+    console.error('Admin verification requests error:', error);
+    return res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+// Admin verify user endpoint
+app.post('/api/admin/verify-user', authenticateToken, requireRole('admin'), async (req, res) => {
+  try {
+    if (!supabaseAdmin) {
+      return res.status(503).json({ success: false, error: 'Admin privileges required' });
+    }
+
+    const { requestId, decision, notes } = req.body;
+
+    if (!requestId || !decision) {
+      return res.status(400).json({ success: false, error: 'Request ID and decision are required' });
+    }
+
+    if (!['approved', 'rejected'].includes(decision)) {
+      return res.status(400).json({ success: false, error: 'Decision must be approved or rejected' });
+    }
+
+    // Get the verification request
+    const { data: request, error: requestError } = await supabaseAdmin
+      .from('user_verification_requests')
+      .select('*')
+      .eq('id', requestId)
+      .single();
+
+    if (requestError || !request) {
+      return res.status(404).json({ success: false, error: 'Verification request not found' });
+    }
+
+    const isApproved = decision === 'approved';
+    const newStatus = decision;
+
+    // Update verification request
+    const { error: updateRequestError } = await supabaseAdmin
+      .from('user_verification_requests')
+      .update({
+        status: newStatus,
+        admin_notes: notes || null,
+        processed_by: req.user.id,
+        processed_at: new Date().toISOString()
+      })
+      .eq('id', requestId);
+
+    if (updateRequestError) {
+      console.error('Error updating verification request:', updateRequestError);
+      return res.status(500).json({ success: false, error: 'Failed to update verification request' });
+    }
+
+    // Update user profile
+    const { error: updateProfileError } = await supabaseAdmin
+      .from('profiles')
+      .update({
+        verification_status: isApproved ? 'verified' : 'rejected',
+        verification_notes: notes || null,
+        verified_by: req.user.id,
+        verified_at: new Date().toISOString()
+      })
+      .eq('id', request.user_id);
+
+    if (updateProfileError) {
+      console.error('Error updating user profile:', updateProfileError);
+      return res.status(500).json({ success: false, error: 'Failed to update user profile' });
+    }
+
+    return res.json({
+      success: true,
+      message: `User ${isApproved ? 'approved' : 'rejected'} successfully`,
+      decision,
+      requestId
+    });
+
+  } catch (error) {
+    console.error('Admin verify user error:', error);
+    return res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
 
 // Reports: like/unlike using service role (supports JWT-authenticated users)
 app.post('/api/reports/:reportId/likes', authenticateToken, async (req, res) => {
@@ -2061,6 +2241,123 @@ app.put('/api/auth/profile', authenticateToken, async (req, res) => {
     res.status(500).json({ 
       error: 'Failed to update profile',
       details: error.message 
+    });
+  }
+});
+
+// ID image upload endpoint
+app.post('/api/upload/id-images', upload.fields([
+  { name: 'frontImage', maxCount: 1 },
+  { name: 'backImage', maxCount: 1 }
+]), async (req, res) => {
+  try {
+    const { frontImage, backImage } = req.files;
+
+    if (!frontImage || !backImage) {
+      return res.status(400).json({
+        success: false,
+        error: 'Both front and back images are required'
+      });
+    }
+
+    // Validate file types
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(frontImage[0].mimetype) || !allowedTypes.includes(backImage[0].mimetype)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Only JPEG, PNG, and WebP images are allowed'
+      });
+    }
+
+    // Validate file sizes (5MB limit)
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (frontImage[0].size > maxSize || backImage[0].size > maxSize) {
+      return res.status(400).json({
+        success: false,
+        error: 'File size must be less than 5MB'
+      });
+    }
+
+    if (!supabaseAdmin) {
+      return res.status(503).json({
+        success: false,
+        error: 'Admin privileges required'
+      });
+    }
+
+    // Upload to Cloudinary instead of Supabase storage
+    const cloudName = process.env.VITE_CLOUDINARY_CLOUD_NAME;
+    const uploadPreset = process.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'cars-g-uploads';
+
+    if (!cloudName) {
+      return res.status(500).json({
+        success: false,
+        error: 'Cloudinary not configured'
+      });
+    }
+
+    // Upload front image to Cloudinary
+    const frontFormData = new FormData();
+    const frontBlob = new Blob([frontImage[0].buffer], { type: frontImage[0].mimetype });
+    frontFormData.append('file', frontBlob, `id-front-${Date.now()}.${frontImage[0].mimetype.split('/')[1]}`);
+    frontFormData.append('upload_preset', uploadPreset);
+    frontFormData.append('folder', 'cars-g/id-verification');
+
+    const frontResponse = await fetch(
+      `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+      {
+        method: 'POST',
+        body: frontFormData,
+      }
+    );
+
+    if (!frontResponse.ok) {
+      console.error('Front image upload error:', await frontResponse.text());
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to upload front image to Cloudinary'
+      });
+    }
+
+    const frontResult = await frontResponse.json();
+
+    // Upload back image to Cloudinary
+    const backFormData = new FormData();
+    const backBlob = new Blob([backImage[0].buffer], { type: backImage[0].mimetype });
+    backFormData.append('file', backBlob, `id-back-${Date.now()}.${backImage[0].mimetype.split('/')[1]}`);
+    backFormData.append('upload_preset', uploadPreset);
+    backFormData.append('folder', 'cars-g/id-verification');
+
+    const backResponse = await fetch(
+      `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
+      {
+        method: 'POST',
+        body: backFormData,
+      }
+    );
+
+    if (!backResponse.ok) {
+      console.error('Back image upload error:', await backResponse.text());
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to upload back image to Cloudinary'
+      });
+    }
+
+    const backResult = await backResponse.json();
+
+    return res.json({
+      success: true,
+      frontImageUrl: frontResult.secure_url,
+      backImageUrl: backResult.secure_url,
+      message: 'ID images uploaded successfully to Cloudinary'
+    });
+
+  } catch (error) {
+    console.error('ID image upload error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Internal server error'
     });
   }
 });

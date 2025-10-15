@@ -20,6 +20,7 @@ const TermsOfService = lazy(() => import('../pages/TermsOfService').then(module 
 const AdminMapDashboard = lazy(() => import('../components/AdminMapDashboard').then(module => ({ default: module.AdminMapDashboard })));
 const AdminHistory = lazy(() => import('../pages/AdminHistory').then(module => ({ default: module.AdminHistory })));
 const AdminChat = lazy(() => import('../pages/AdminChat').then(module => ({ default: module.AdminChat })));
+const AdminVerification = lazy(() => import('../pages/AdminVerification').then(module => ({ default: module.AdminVerification })));
 const VerificationReports = lazy(() => import('../pages/VerificationReports').then(module => ({ default: module.VerificationReports })));
 const Announcements = lazy(() => import('../pages/Announcements').then(module => ({ default: module.Announcements })));
 const CaseDetailsPage = lazy(() => import('../pages/CaseDetailsPage').then(module => ({ default: module.CaseDetailsPage })));
@@ -121,5 +122,9 @@ export const adminRoutes: RouteObject[] = [
   {
     path: '/admin/chat',
     element: <ProtectedRoute><AdminChat /></ProtectedRoute>
+  },
+  {
+    path: '/admin/verification',
+    element: <ProtectedRoute><AdminVerification /></ProtectedRoute>
   }
 ]; 

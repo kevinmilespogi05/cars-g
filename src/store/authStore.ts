@@ -16,6 +16,21 @@ import {
   storeUser
 } from '../lib/jwt';
 
+// Helper function to check verification status
+const checkVerificationStatus = async (profile: any) => {
+  if (profile.verification_status === 'pending') {
+    // Sign out the user if they're not verified
+    await supabase.auth.signOut();
+    throw new Error('Your account is pending ID verification. Please wait for admin approval before signing in.');
+  }
+  
+  if (profile.verification_status === 'rejected') {
+    // Sign out the user if they're rejected
+    await supabase.auth.signOut();
+    throw new Error('Your account verification was rejected. Please contact support for assistance.');
+  }
+};
+
 interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
@@ -23,7 +38,7 @@ interface AuthState {
   signIn: (email: string, password: string) => Promise<void>;
   signInWithUsername: (username: string, password: string) => Promise<void>;
   signInWithEmailOrUsername: (emailOrUsername: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, username: string, firstName?: string, lastName?: string, phone?: string, confirmPassword?: string) => Promise<void>;
+  signUp: (email: string, password: string, username: string, firstName?: string, lastName?: string, phone?: string, confirmPassword?: string, idFrontImageUrl?: string, idBackImageUrl?: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signInWithFacebook: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -327,6 +342,9 @@ export const useAuthStore = create<AuthState>((set) => ({
           
         if (profileError) throw profileError;
 
+        // Check verification status
+        await checkVerificationStatus(profile);
+
         // Initialize user stats if they don't exist
         await initializeUserStats(data.user.id);
           
@@ -402,6 +420,9 @@ export const useAuthStore = create<AuthState>((set) => ({
         .maybeSingle();
           
         if (fullProfileError) throw fullProfileError;
+
+        // Check verification status
+        await checkVerificationStatus(fullProfile);
 
         // Initialize user stats if they don't exist
         await initializeUserStats(data.user.id);
@@ -499,6 +520,9 @@ export const useAuthStore = create<AuthState>((set) => ({
         .maybeSingle();
           
         if (fullProfileError) throw fullProfileError;
+
+        // Check verification status
+        await checkVerificationStatus(fullProfile);
 
         // Initialize user stats if they don't exist
         await initializeUserStats(data.user.id);
@@ -602,7 +626,9 @@ export const useAuthStore = create<AuthState>((set) => ({
     firstName?: string,
     lastName?: string,
     phone?: string,
-    confirmPassword?: string
+    confirmPassword?: string,
+    idFrontImageUrl?: string,
+    idBackImageUrl?: string
   ) => {
     try {
       // Use the server-side registration endpoint (direct registration without verification)
@@ -618,7 +644,9 @@ export const useAuthStore = create<AuthState>((set) => ({
           username, 
           firstName: firstName || '', 
           lastName: lastName || '',
-          phone: phone || ''
+          phone: phone || '',
+          idFrontImageUrl: idFrontImageUrl || '',
+          idBackImageUrl: idBackImageUrl || ''
         }),
       });
 
@@ -632,12 +660,13 @@ export const useAuthStore = create<AuthState>((set) => ({
         throw new Error(result.error || 'Registration failed');
       }
 
-      // Return success - account is ready to use immediately
+      // Return success - account needs verification
       return {
         success: true,
-        message: result.message || 'Registration successful! You can now sign in.',
+        message: result.message || 'Registration successful! Your account is pending ID verification.',
         email: result.email,
-        requiresVerification: false
+        requiresVerification: result.requiresVerification || true,
+        verificationStatus: result.verificationStatus || 'pending'
       };
     } catch (error) {
       console.error('Signup error:', error);
