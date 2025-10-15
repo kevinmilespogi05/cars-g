@@ -182,7 +182,25 @@ export function LandingPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen relative">
+      {/* Background Image - Same as login page */}
+      <div 
+        className="fixed inset-0 z-0"
+        style={{
+          backgroundImage: 'url(/images/Castillejos,Zambalesjf7377_05.JPG)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+          filter: 'blur(4px) brightness(1.1)',
+          transform: 'scale(1.05)'
+        }}
+        aria-hidden="true"
+      />
+      {/* Overlay for better content readability */}
+      <div 
+        className="fixed inset-0 z-0 bg-white/75"
+        aria-hidden="true"
+      />
       {/* Navigation */}
       <motion.nav 
         className="fixed w-full z-50 transition-all duration-300 shadow-lg"
@@ -196,7 +214,6 @@ export function LandingPage() {
             <Link to="/" className="flex items-center space-x-4 group">
               <div className="relative">
                 <img src="/images/logo.jpg" alt="CARS-G Logo" className="h-14 w-14 lg:h-16 lg:w-16 rounded-full object-cover shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-105 ring-2 ring-white/30 group-hover:ring-white/50" loading="lazy" />
-                <div className="absolute -top-1 -right-1 h-3.5 w-3.5 bg-green-500 rounded-full border-2 border-white animate-pulse"></div>
               </div>
               <div className="flex flex-col justify-center">
                 <span className="text-xl lg:text-2xl font-bold text-white leading-tight">
@@ -289,12 +306,8 @@ export function LandingPage() {
 
       {/* Hero Section - Redesigned */}
       <section className="relative pt-24 pb-32 px-4 sm:px-6 lg:px-8 overflow-hidden min-h-screen flex items-center">
-        {/* Animated Gradient Background */}
+        {/* Animated blob elements */}
         <div className="absolute inset-0 -z-10">
-          {/* Base gradient */}
-          <div className="absolute inset-0 bg-gradient-to-br from-purple-50 via-blue-50 to-pink-50"></div>
-          
-          {/* Animated blob elements */}
           <motion.div
             animate={{
               scale: [1, 1.2, 1],
@@ -681,7 +694,7 @@ export function LandingPage() {
       </section>
 
       {/* Stats Section */}
-      <section id="stats" className="py-20 bg-white">
+      <section id="stats" className="py-20 relative z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -706,7 +719,7 @@ export function LandingPage() {
                 transition={{ duration: 0.5, delay: index * 0.1 }}
                 className="text-center group"
               >
-                <div className="bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 group-hover:-translate-y-2 border border-gray-100">
+                <div className="relative z-20 bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 group-hover:-translate-y-2 border border-gray-100">
                   <div className="h-16 w-16 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300 relative" style={{backgroundColor: '#800000'}}>
                     <stat.icon className="h-8 w-8 text-white" />
                     {stat.isLive && !loadingUsers && !loadingReports && (
@@ -733,7 +746,7 @@ export function LandingPage() {
       </section>
 
       {/* Features Section */}
-      <section id="features" className="py-24 bg-white">
+      <section id="features" className="py-24 relative z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -762,7 +775,7 @@ export function LandingPage() {
                 transition={{ duration: 0.5, delay: index * 0.1 }}
                 className="group relative"
               >
-                <div className="bg-white p-8 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 group-hover:-translate-y-2 border border-gray-100 h-full">
+                <div className="relative z-20 bg-white p-8 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 group-hover:-translate-y-2 border border-gray-100 h-full">
                   <div className={`h-16 w-16 bg-gradient-to-br ${feature.color} rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300`}>
                     <feature.icon className="h-8 w-8 text-white" />
                   </div>
@@ -807,7 +820,7 @@ export function LandingPage() {
       </section>
 
       {/* How It Works Section */}
-      <section id="how-it-works" className="py-24 bg-gray-50">
+      <section id="how-it-works" className="py-24 relative z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -869,7 +882,7 @@ export function LandingPage() {
             transition={{ duration: 0.8, delay: 0.6 }}
             className="mt-20 text-center"
           >
-            <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-100">
+            <div className="relative z-20 bg-white rounded-2xl p-8 shadow-lg border border-gray-100">
               <h3 className="text-2xl font-bold text-gray-900 mb-6">
                 Real-Time Process Flow
               </h3>
@@ -957,7 +970,7 @@ export function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-white py-6">
+      <footer className="relative z-20 bg-gray-900 text-white py-6">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             {/* Brand Section */}
