@@ -696,6 +696,27 @@ p {
   border: none;
 }
 
+/* Tailwind-compatible utility classes */
+.bg-primary-color {
+  background-color: var(--primary-color);
+}
+
+.text-primary-color {
+  color: var(--primary-color);
+}
+
+.border-primary-color {
+  border-color: var(--primary-color);
+}
+
+.hover\:bg-primary-dark:hover {
+  background-color: var(--primary-dark);
+}
+
+.hover\:text-primary-dark:hover {
+  color: var(--primary-dark);
+}
+
 .btn-primary:hover {
   background-color: var(--primary-dark);
 }

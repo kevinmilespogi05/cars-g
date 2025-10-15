@@ -316,67 +316,36 @@ export const reportsService = {
         console.warn('getCommentReplies called with invalid commentId:', commentId);
         return [];
       }
-      // Always load simulated (report comment) replies from localStorage first
-      const repliesKey = 'report_comment_replies';
-      const stored = JSON.parse(localStorage.getItem(repliesKey) || '{}');
+      // Check if this is a report comment or regular comment
+      const { data: reportComment } = await supabase
+        .from('report_comments')
+        .select('id')
+        .eq('id', commentId)
+        .single();
 
-      const rawReplies = Array.isArray(stored[commentId]) ? stored[commentId] : [];
+      let rootReplies: any[] = [];
+      
+      if (reportComment) {
+        // This is a report comment, fetch from report_comment_replies table
+        const { data, error } = await supabase
+          .from('report_comment_replies')
+          .select('*')
+          .eq('comment_id', commentId)
+          .order('created_at', { ascending: true });
 
-      // Build like maps for mock replies
-      const allLikes = JSON.parse(localStorage.getItem('report_comment_reply_all_likes') || '{}');
-      const user = getCurrentUser();
+        if (error) throw error;
+        rootReplies = data || [];
+      } else {
+        // This is a regular comment, fetch from comment_replies table
+        const { data, error } = await supabase
+          .from('comment_replies')
+          .select('*')
+          .eq('parent_comment_id', commentId)
+          .order('created_at', { ascending: true });
 
-      // Ensure profiles are cached for mock replies
-      const mockUserIds = [...new Set(rawReplies.map((r: any) => r.user_id))];
-      const uncachedMock = mockUserIds.filter(id => !_getCachedProfile(id));
-      if (uncachedMock.length > 0) {
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('id, username, avatar_url')
-          .in('id', uncachedMock);
-        (profiles || []).forEach(p => _cacheProfile(p.id, { username: p.username, avatar_url: p.avatar_url }));
+        if (error) throw error;
+        rootReplies = data || [];
       }
-
-      const mapLikes = (replyId: string) => {
-        let count = 0;
-        Object.keys(allLikes).forEach(uid => {
-          if (allLikes[uid] && allLikes[uid][replyId]) count++;
-        });
-        const isLiked = user ? !!(allLikes[user.id] && allLikes[user.id][replyId]) : false;
-        return { count, isLiked };
-      };
-
-      const buildMockTree = (list: any[], depth: number): CommentReply[] => {
-        return (list || []).map((r: any) => {
-          const profile = _getCachedProfile(r.user_id) || { username: 'User', avatar_url: null };
-          const likeInfo = mapLikes(r.id);
-          const nested = r.replies ? buildMockTree(r.replies, depth + 1) : [];
-          return {
-            id: r.id,
-            parent_comment_id: r.parent_comment_id || undefined,
-            parent_reply_id: r.parent_reply_id || undefined,
-            user_id: r.user_id,
-            content: r.content,
-            created_at: r.created_at,
-            updated_at: r.updated_at,
-            user: { username: profile.username, avatar_url: profile.avatar_url },
-            replies: nested,
-            reply_depth: depth,
-            likes_count: likeInfo.count,
-            is_liked: likeInfo.isLiked
-          } as CommentReply;
-        });
-      };
-
-      const mockReplies = buildMockTree(rawReplies, 0);
-
-      const { data: rootReplies, error } = await supabase
-        .from('comment_replies')
-        .select('*')
-        .eq('parent_comment_id', commentId)
-        .order('created_at', { ascending: true });
-
-      if (error) throw error;
 
       const hydrateReplies = async (replies: any[], depth: number): Promise<CommentReply[]> => {
         if (!replies || replies.length === 0) return [];
@@ -406,12 +375,14 @@ export const reportsService = {
 
           let nested: CommentReply[] | undefined = undefined;
           if (depth < maxDepth) {
-            const { data: childReplies } = await supabase
-              .from('comment_replies')
-              .select('*')
-              .eq('parent_reply_id', r.id)
-              .order('created_at', { ascending: true });
-            if (childReplies && childReplies.length > 0) {
+            // For nested replies, check both tables
+            const [legacyChildReplies, reportChildReplies] = await Promise.all([
+              supabase.from('comment_replies').select('*').eq('parent_reply_id', r.id).order('created_at', { ascending: true }),
+              supabase.from('report_comment_replies').select('*').eq('parent_reply_id', r.id).order('created_at', { ascending: true })
+            ]);
+            
+            const childReplies = [...(legacyChildReplies.data || []), ...(reportChildReplies.data || [])];
+            if (childReplies.length > 0) {
               nested = await hydrateReplies(childReplies, depth + 1);
             }
           }
@@ -419,10 +390,10 @@ export const reportsService = {
           const profile = _getCachedProfile(r.user_id) || { username: 'User', avatar_url: null };
           result.push({
             id: r.id,
-            parent_comment_id: r.parent_comment_id || undefined,
+            parent_comment_id: r.parent_comment_id || r.comment_id || undefined,
             parent_reply_id: r.parent_reply_id || undefined,
             user_id: r.user_id,
-            content: r.content,
+            content: r.content || r.reply_text,
             created_at: r.created_at,
             updated_at: r.updated_at,
             user: { username: profile.username, avatar_url: profile.avatar_url },
@@ -436,10 +407,9 @@ export const reportsService = {
         return result;
       };
 
-      // Merge DB replies (if any) with mock replies from localStorage
-      const dbReplies = await hydrateReplies(rootReplies || [], 0);
-      // Prefer to show DB replies first, then mock replies
-      return [...dbReplies, ...mockReplies];
+      // Process all replies from database
+      const dbReplies = await hydrateReplies(rootReplies, 0);
+      return dbReplies;
     } catch (error) {
       throw new ReportsServiceError(`Failed to get comment replies: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
@@ -530,14 +500,65 @@ export const reportsService = {
         return newReply;
       }
 
-      // Check if this is a report comment
-      const { data: reportComment, error: reportCommentError } = await supabase
-        .from('report_comments')
-        .select('id')
-        .eq('id', parentId)
-        .single();
+      // Try Supabase session first
+      const getUserRes = await supabase.auth.getUser();
+      let supabaseUser = getUserRes.data.user as any;
+      const hasSupabaseSession = !!supabaseUser;
+      
+      // Fallback to app auth store if Supabase session is missing
+      if (!supabaseUser) {
+        try {
+          const storeUser = getCurrentUser();
+          supabaseUser = { id: storeUser.id } as any;
+        } catch (e) {
+          throw new ReportsServiceError('User not authenticated');
+        }
+      }
 
-      if (reportCommentError && reportCommentError.code !== 'PGRST116') {
+      // Check if this is a report comment or report reply
+      let isReportComment = false;
+      let actualCommentId = parentId;
+      
+      if (isNested) {
+        // For nested replies, we need to find the parent comment
+        // Check if parentId is a report comment reply
+        const { data: reportReply } = await supabase
+          .from('report_comment_replies')
+          .select('comment_id')
+          .eq('id', parentId)
+          .single();
+        
+        if (reportReply) {
+          isReportComment = true;
+          actualCommentId = reportReply.comment_id;
+        } else {
+          // Check if it's a regular comment reply
+          const { data: regularReply } = await supabase
+            .from('comment_replies')
+            .select('parent_comment_id')
+            .eq('id', parentId)
+            .single();
+          
+          if (regularReply) {
+            actualCommentId = regularReply.parent_comment_id;
+          }
+        }
+      } else {
+        // For direct replies, check if parentId is a report comment
+        const { data: reportComment, error: reportCommentError } = await supabase
+          .from('report_comments')
+          .select('id')
+          .eq('id', parentId)
+          .single();
+        
+        if (reportComment) {
+          isReportComment = true;
+        }
+      }
+
+      let data: any;
+      
+      if (!isReportComment) {
         // If it's not a report comment, use the old system
         const payload: any = {
           user_id: user.id,
@@ -546,13 +567,35 @@ export const reportsService = {
           parent_reply_id: isNested ? parentId : null,
         };
 
-        const { data, error } = await supabase
-          .from('comment_replies')
-          .insert([payload])
-          .select()
-          .single();
+        // Try direct insert first only if we have a Supabase session
+        if (hasSupabaseSession) {
+          try {
+            const insertRes = await supabase
+              .from('comment_replies')
+              .insert([payload])
+              .select()
+              .single();
+            if (insertRes.error) throw insertRes.error;
+            data = insertRes.data;
+          } catch (clientErr: any) {
+            // Fall through to server endpoint
+            console.warn('Direct Supabase insert failed, falling back to server:', clientErr.message);
+          }
+        }
 
-        if (error) throw error;
+        if (!data) {
+          // Use server endpoint with service role
+          const res = await fetch(getApiUrl(`/api/comments/${actualCommentId}/replies`), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: user.id, content, isNested })
+          });
+          if (!res.ok) {
+            const errText = await res.text();
+            throw new ReportsServiceError(errText || 'Failed to add reply');
+          }
+          data = await res.json();
+        }
 
         const profile = _getCachedProfile(user.id) || (() => ({ username: user.email?.split('@')[0] || 'User', avatar_url: null }))();
 
@@ -572,17 +615,58 @@ export const reportsService = {
         } as CommentReply;
       }
 
-      // For report comments, persist simulated reply in localStorage
+      // For report comments, try direct insert first if we have a Supabase session
+      if (hasSupabaseSession) {
+        try {
+          const payload: any = {
+            user_id: user.id,
+            reply_text: content,
+            comment_id: isNested ? actualCommentId : parentId,
+            parent_reply_id: isNested ? parentId : null,
+          };
+
+          const insertRes = await supabase
+            .from('report_comment_replies')
+            .insert([payload])
+            .select()
+            .single();
+          if (insertRes.error) throw insertRes.error;
+          data = insertRes.data;
+        } catch (clientErr: any) {
+          // Fall through to server endpoint
+          console.warn('Direct Supabase insert failed, falling back to server:', clientErr.message);
+        }
+      }
+
+      if (!data) {
+        // Use server endpoint with service role
+        const res = await fetch(getApiUrl(`/api/reports/${actualCommentId}/replies`), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            userId: user.id, 
+            content, 
+            isNested,
+            parentReplyId: isNested ? parentId : undefined
+          })
+        });
+        if (!res.ok) {
+          const errText = await res.text();
+          throw new ReportsServiceError(errText || 'Failed to add reply');
+        }
+        data = await res.json();
+      }
+
       const profile = _getCachedProfile(user.id) || (() => ({ username: user.email?.split('@')[0] || 'User', avatar_url: null }))();
 
       const newReply: CommentReply = {
-        id: `mock-${Date.now()}`,
-        parent_comment_id: isNested ? undefined : parentId,
-        parent_reply_id: isNested ? parentId : undefined,
+        id: data.id,
+        parent_comment_id: data.comment_id || data.parent_comment_id || undefined,
+        parent_reply_id: data.parent_reply_id || undefined,
         user_id: user.id,
-        content: content,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        content: data.reply_text || data.content,
+        created_at: data.created_at,
+        updated_at: data.updated_at,
         user: { username: profile.username, avatar_url: profile.avatar_url },
         replies: [],
         reply_depth: isNested ? 1 : 0,
@@ -590,64 +674,6 @@ export const reportsService = {
         is_liked: false,
       } as CommentReply;
 
-      const repliesKey = 'report_comment_replies';
-      const stored = JSON.parse(localStorage.getItem(repliesKey) || '{}');
-      
-      if (!isNested) {
-        // Top-level reply - store directly under the comment ID
-        if (!Array.isArray(stored[parentId])) {
-          stored[parentId] = [];
-        }
-        stored[parentId].push(newReply);
-      } else {
-        // Nested reply - find the comment and add to the appropriate reply's replies array
-        // We need to find which comment this reply belongs to
-        let commentId: string | null = null;
-        let foundInComment = false;
-        
-        // Helper function to add nested reply recursively
-        const addNestedReplyToTree = (replies: any[]): boolean => {
-          for (let i = 0; i < replies.length; i++) {
-            if (replies[i].id === parentId) {
-              if (!Array.isArray(replies[i].replies)) {
-                replies[i].replies = [];
-              }
-              replies[i].replies.push(newReply);
-              return true;
-            }
-            if (replies[i].replies && Array.isArray(replies[i].replies)) {
-              if (addNestedReplyToTree(replies[i].replies)) {
-                return true;
-              }
-            }
-          }
-          return false;
-        };
-        
-        // Search through all comments to find where this reply belongs
-        for (const [cId, replies] of Object.entries(stored)) {
-          if (Array.isArray(replies)) {
-            if (addNestedReplyToTree(replies)) {
-              commentId = cId;
-              foundInComment = true;
-              break;
-            }
-          }
-        }
-        
-        // If we couldn't find the parent reply, it might be a new structure
-        // In this case, create a new entry
-        if (!foundInComment) {
-          console.warn('Could not find parent reply in storage, creating new entry');
-          if (!Array.isArray(stored[parentId])) {
-            stored[parentId] = [];
-          }
-          stored[parentId].push(newReply);
-        }
-      }
-      
-      localStorage.setItem(repliesKey, JSON.stringify(stored));
-      
       return newReply;
     } catch (error) {
       throw new ReportsServiceError(`Failed to add reply: ${error instanceof Error ? error.message : 'Unknown error'}`);

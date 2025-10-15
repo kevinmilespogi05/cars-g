@@ -158,7 +158,7 @@ export function ReplyThread({
                     {nestedReplyForms[reply.id]?.submitting ? (
                       <Loader2 className="h-3 w-3 animate-spin" />
                     ) : (
-                      'Reply'
+                      'Send'
                     )}
                   </button>
                 </div>

@@ -400,6 +400,82 @@ app.post('/api/reports/:reportId/comments', handleCreateComment);
 // Alias route (in case reverse proxy strips /api)
 app.post('/reports/:reportId/comments', handleCreateComment);
 
+// Helper to handle comment reply creation
+async function handleCreateCommentReply(req, res) {
+  try {
+    const { commentId } = req.params;
+    const { userId, content, isNested = false } = req.body || {};
+
+    if (!commentId || !userId || !content) {
+      return res.status(400).json({ error: 'commentId, userId and content are required' });
+    }
+
+    if (!supabaseAdmin) {
+      return res.status(503).json({ error: 'Admin privileges required' });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('comment_replies')
+      .insert({
+        parent_comment_id: isNested ? null : commentId,
+        parent_reply_id: isNested ? commentId : null,
+        user_id: userId,
+        content: content
+      })
+      .select('*')
+      .single();
+
+    if (error) {
+      return res.status(500).json({ error: error.message || 'Failed to add reply' });
+    }
+
+    res.json(data);
+  } catch (e) {
+    console.error('Error creating comment reply:', e);
+    res.status(500).json({ error: 'Failed to create comment reply' });
+  }
+}
+
+// Helper to handle report comment reply creation
+async function handleCreateReportCommentReply(req, res) {
+  try {
+    const { reportId } = req.params;
+    const { userId, content, isNested = false } = req.body || {};
+
+    if (!reportId || !userId || !content) {
+      return res.status(400).json({ error: 'reportId, userId and content are required' });
+    }
+
+    if (!supabaseAdmin) {
+      return res.status(503).json({ error: 'Admin privileges required' });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('report_comment_replies')
+      .insert({
+        comment_id: reportId, // Always the comment ID
+        parent_reply_id: isNested ? req.body.parentReplyId : null, // When nested, this should be the reply ID being replied to
+        user_id: userId,
+        reply_text: content
+      })
+      .select('*')
+      .single();
+
+    if (error) {
+      return res.status(500).json({ error: error.message || 'Failed to add reply' });
+    }
+
+    res.json(data);
+  } catch (e) {
+    console.error('Error creating report comment reply:', e);
+    res.status(500).json({ error: 'Failed to create report comment reply' });
+  }
+}
+
+// Comment reply endpoints
+app.post('/api/comments/:commentId/replies', handleCreateCommentReply);
+app.post('/api/reports/:reportId/replies', handleCreateReportCommentReply);
+
 // Reports: create via service role to avoid client RLS/session issues
 app.post('/api/reports', authenticateToken, async (req, res) => {
   try {
