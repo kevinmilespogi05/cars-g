@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useImageViewerStore } from '../store/imageViewerStore';
 
 interface ImageViewerProps {
   isOpen: boolean;
@@ -24,9 +25,14 @@ export function ImageViewer({
   onNext,
   showNavigation = false
 }: ImageViewerProps) {
+  const { setIsImageViewerOpen } = useImageViewerStore();
+
   // Prevent body scroll when modal is open
   useEffect(() => {
     if (isOpen) {
+      // Set global state
+      setIsImageViewerOpen(true);
+      
       // Store the current scroll position
       const scrollY = window.scrollY;
       
@@ -37,6 +43,9 @@ export function ImageViewer({
       document.body.style.overflow = 'hidden';
       
       return () => {
+        // Clear global state
+        setIsImageViewerOpen(false);
+        
         // Restore scroll position
         document.body.style.position = '';
         document.body.style.top = '';
@@ -45,7 +54,7 @@ export function ImageViewer({
         window.scrollTo(0, scrollY);
       };
     }
-  }, [isOpen]);
+  }, [isOpen, setIsImageViewerOpen]);
 
   // Handle keyboard navigation
   useEffect(() => {

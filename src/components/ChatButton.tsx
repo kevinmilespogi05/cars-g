@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuthStore } from '../store/authStore';
+import { useImageViewerStore } from '../store/imageViewerStore';
 import { socketManager } from '../lib/socket';
 import { ChatWindow } from './ChatWindow';
 import { MoveableChatButton } from './MoveableChatButton';
@@ -15,6 +16,7 @@ export const ChatButton: React.FC<ChatButtonProps> = ({
   className = ''
 }) => {
   const { user, isAuthenticated } = useAuthStore();
+  const { isImageViewerOpen } = useImageViewerStore();
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isAdminOnline, setIsAdminOnline] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -74,7 +76,7 @@ export const ChatButton: React.FC<ChatButtonProps> = ({
     setButtonPosition(position);
   };
 
-  if (!isAuthenticated || !user || user.role === 'admin' || user.role === 'patrol') {
+  if (!isAuthenticated || !user || user.role === 'admin' || user.role === 'patrol' || isImageViewerOpen) {
     return null;
   }
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { useImageViewerStore } from '../store/imageViewerStore';
 import {
   Plus,
   Search,
@@ -109,18 +110,18 @@ export function ReportsList({
   const navigate = useNavigate();
   
   // Lightbox state
-  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const { isImageViewerOpen, setIsImageViewerOpen } = useImageViewerStore();
   const [lightboxImages, setLightboxImages] = useState<string[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [lightboxReportTitle, setLightboxReportTitle] = useState('');
 
   // Keyboard support for lightbox
   useEffect(() => {
-    if (!isLightboxOpen) return;
+    if (!isImageViewerOpen) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        setIsLightboxOpen(false);
+        setIsImageViewerOpen(false);
       } else if (e.key === 'ArrowLeft') {
         e.preventDefault();
         setLightboxIndex((prev) => (prev - 1 + lightboxImages.length) % lightboxImages.length);
@@ -132,14 +133,14 @@ export function ReportsList({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isLightboxOpen, lightboxImages.length]);
+  }, [isImageViewerOpen, lightboxImages.length]);
 
   // Function to open lightbox
   const openLightbox = (images: string[], index: number, reportTitle: string) => {
     setLightboxImages(images);
     setLightboxIndex(index);
     setLightboxReportTitle(reportTitle);
-    setIsLightboxOpen(true);
+    setIsImageViewerOpen(true);
   };
 
   // Pagination state
@@ -689,17 +690,17 @@ export function ReportsList({
       )}
 
       {/* Lightbox for fullscreen image view */}
-      {isLightboxOpen && lightboxImages.length > 0 && (
+      {isImageViewerOpen && lightboxImages.length > 0 && (
         <div
           className="fixed top-0 left-0 right-0 bottom-0 z-[99999] bg-black flex items-center justify-center p-4"
-          onClick={() => setIsLightboxOpen(false)}
+          onClick={() => setIsImageViewerOpen(false)}
           style={{ margin: 0, padding: '1rem' }}
         >
           <button
             className="absolute top-4 right-4 text-white hover:text-gray-300 z-10"
             onClick={(e) => {
               e.stopPropagation();
-              setIsLightboxOpen(false);
+              setIsImageViewerOpen(false);
             }}
             aria-label="Close fullscreen"
           >

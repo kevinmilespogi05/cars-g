@@ -40,6 +40,8 @@ export function Profile() {
   const { user: currentUser, setUser } = useAuthStore();
   const [isUpdating, setIsUpdating] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [editedFirstName, setEditedFirstName] = useState('');
+  const [editedLastName, setEditedLastName] = useState('');
   const [editedUsername, setEditedUsername] = useState('');
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [userStats, setUserStats] = useState<UserStats>({
@@ -142,6 +144,8 @@ export function Profile() {
   useEffect(() => {
     if (isOwnProfile) {
       if (currentUser?.id) {
+        setEditedFirstName(currentUser.first_name || '');
+        setEditedLastName(currentUser.last_name || '');
         setEditedUsername(currentUser.username || '');
         // Always refresh own profile from DB so points and stats are up-to-date
         fetchProfile(currentUser.id);
@@ -413,6 +417,20 @@ export function Profile() {
     }
   };
 
+  const handleUserUpdate = (updatedUser: any) => {
+    // Update the current user in the auth store
+    setUser(updatedUser);
+    
+    // Update local state variables
+    setEditedFirstName(updatedUser.first_name || '');
+    setEditedLastName(updatedUser.last_name || '');
+    setEditedUsername(updatedUser.username || '');
+    
+    // Show success message
+    setToast({ text: 'Profile updated', type: 'success', visible: true });
+    setTimeout(() => setToast(prev => ({ ...prev, visible: false })), 1800);
+  };
+
   const handleSaveProfile = async () => {
     if (!user) return;
     
@@ -420,13 +438,23 @@ export function Profile() {
       setIsUpdating(true);
       const { error } = await supabase
         .from('profiles')
-        .update({ username: editedUsername })
+        .update({ 
+          first_name: editedFirstName,
+          last_name: editedLastName,
+          username: editedUsername 
+        })
         .eq('id', user.id);
 
       if (error) throw error;
       
       // Update local state
-      setUser({ ...user, username: editedUsername });
+      const updatedUser = { 
+        ...user, 
+        first_name: editedFirstName,
+        last_name: editedLastName,
+        username: editedUsername 
+      };
+      setUser(updatedUser);
       setIsEditing(false);
       setToast({ text: 'Profile saved', type: 'success', visible: true });
       setTimeout(() => setToast(prev => ({ ...prev, visible: false })), 1800);
@@ -527,24 +555,30 @@ export function Profile() {
                       loading="lazy"
                     />
                   )}
-                  {/* Online Status Indicator */}
-                  <div className="absolute -bottom-2 -right-2 w-5 h-5 lg:w-8 lg:h-8 bg-green-500 border-4 border-white rounded-full flex items-center justify-center">
-                    <div className="w-2 h-2 lg:w-3 lg:h-3 bg-white rounded-full"></div>
-                  </div>
                 </div>
                 
                 <div className="text-white flex-1 min-w-0">
                   {isOwnProfile && isEditing ? (
-                    <div className="flex items-center gap-2 lg:gap-3 mb-2">
-                      <input
-                        type="text"
-                        value={editedUsername}
-                        onChange={(e) => setEditedUsername(e.target.value)}
-                        className="text-xl lg:text-3xl font-bold bg-white/90 text-gray-900 border-2 border-white/50 rounded-xl px-3 py-2 lg:px-4 shadow-lg focus:outline-none focus:ring-4 focus:ring-white/50 focus:border-white w-full max-w-[320px] transition-all"
-                        placeholder="Enter username"
-                        aria-label="Edit username"
-                        autoFocus
-                      />
+                    <div className="flex flex-col gap-2 lg:gap-3 mb-2">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={editedFirstName}
+                          onChange={(e) => setEditedFirstName(e.target.value)}
+                          className="text-lg lg:text-2xl font-bold bg-white/90 text-gray-900 border-2 border-white/50 rounded-xl px-3 py-2 lg:px-4 shadow-lg focus:outline-none focus:ring-4 focus:ring-white/50 focus:border-white w-full max-w-[200px] transition-all"
+                          placeholder="First name"
+                          aria-label="Edit first name"
+                          autoFocus
+                        />
+                        <input
+                          type="text"
+                          value={editedLastName}
+                          onChange={(e) => setEditedLastName(e.target.value)}
+                          className="text-lg lg:text-2xl font-bold bg-white/90 text-gray-900 border-2 border-white/50 rounded-xl px-3 py-2 lg:px-4 shadow-lg focus:outline-none focus:ring-4 focus:ring-white/50 focus:border-white w-full max-w-[200px] transition-all"
+                          placeholder="Last name"
+                          aria-label="Edit last name"
+                        />
+                      </div>
                       <button
                         onClick={handleSaveProfile}
                         disabled={isUpdating}
@@ -574,16 +608,6 @@ export function Profile() {
                         <span className="inline-flex items-center px-2 lg:px-3 py-0.5 lg:py-1 rounded-full text-[10px] lg:text-xs font-semibold bg-emerald-400/20 text-emerald-100 border border-emerald-300/30 whitespace-nowrap">
                           Group: {patrolGroup}
                         </span>
-                      )}
-                      {isOwnProfile && (
-                        <button
-                          onClick={() => setIsEditing(true)}
-                          className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/20 text-white hover:bg-white/30 hover:scale-105 active:scale-95 transition-all duration-200 shadow-lg hover:shadow-xl flex-shrink-0 group"
-                          aria-label="Edit username"
-                        >
-                          <Edit2 className="w-4 h-4 group-hover:rotate-12 transition-transform" />
-                          <span className="hidden sm:inline text-sm font-medium">Edit</span>
-                        </button>
                       )}
                     </div>
                   )}
@@ -668,6 +692,7 @@ export function Profile() {
               clearFilters={clearFilters}
               filteredReports={filteredReports}
               setDeleteTarget={setDeleteTarget}
+              onUserUpdate={handleUserUpdate}
             />
           </ProfileSettingsTabs>
         ) : (
@@ -812,6 +837,26 @@ export function Profile() {
                     />
                   </div>
                 </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
+                <input
+                  type="text"
+                  value={editedFirstName}
+                  onChange={(e) => setEditedFirstName(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                  placeholder="Enter first name"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+                <input
+                  type="text"
+                  value={editedLastName}
+                  onChange={(e) => setEditedLastName(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                  placeholder="Enter last name"
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Username</label>

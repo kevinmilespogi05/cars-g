@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Calendar, User, Eye, Clock, AlertCircle, Info, AlertTriangle, Star, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { useImageViewerStore } from '../store/imageViewerStore';
 
 export interface Announcement {
   id: string;
@@ -27,7 +28,7 @@ interface AnnouncementCardProps {
 
 export function AnnouncementCard({ announcement, onView, showAuthor = true }: AnnouncementCardProps) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const { isImageViewerOpen, setIsImageViewerOpen } = useImageViewerStore();
 
   const imageUrls = (announcement.image_url || '')
     .split(',')
@@ -36,11 +37,11 @@ export function AnnouncementCard({ announcement, onView, showAuthor = true }: An
 
   // Keyboard support for lightbox
   React.useEffect(() => {
-    if (!isLightboxOpen) return;
+    if (!isImageViewerOpen) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        setIsLightboxOpen(false);
+        setIsImageViewerOpen(false);
       } else if (e.key === 'ArrowLeft') {
         e.preventDefault();
         setCurrentImageIndex((prev) => (prev - 1 + imageUrls.length) % imageUrls.length);
@@ -52,7 +53,7 @@ export function AnnouncementCard({ announcement, onView, showAuthor = true }: An
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isLightboxOpen, currentImageIndex, imageUrls.length]);
+  }, [isImageViewerOpen, currentImageIndex, imageUrls.length]);
 
   const getPriorityIcon = (priority: string) => {
     switch (priority) {
@@ -127,7 +128,7 @@ export function AnnouncementCard({ announcement, onView, showAuthor = true }: An
             className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-200 cursor-zoom-in"
             onClick={(e) => {
               e.stopPropagation();
-              setIsLightboxOpen(true);
+              setIsImageViewerOpen(true);
             }}
             onError={(e) => {
               const target = e.target as HTMLImageElement;
@@ -177,12 +178,12 @@ export function AnnouncementCard({ announcement, onView, showAuthor = true }: An
       )}
 
       {/* Lightbox */}
-      {isLightboxOpen && imageUrls.length > 0 && (
+      {isImageViewerOpen && imageUrls.length > 0 && (
         <div
           className="fixed top-0 left-0 right-0 bottom-0 z-[99999] bg-black flex items-center justify-center p-4"
           onClick={(e) => {
             e.stopPropagation();
-            setIsLightboxOpen(false);
+            setIsImageViewerOpen(false);
           }}
           style={{ margin: 0, padding: '1rem' }}
         >
@@ -190,7 +191,7 @@ export function AnnouncementCard({ announcement, onView, showAuthor = true }: An
             className="absolute top-4 right-4 text-white hover:text-gray-300 z-10"
             onClick={(e) => {
               e.stopPropagation();
-              setIsLightboxOpen(false);
+              setIsImageViewerOpen(false);
             }}
             aria-label="Close lightbox"
           >
@@ -204,11 +205,11 @@ export function AnnouncementCard({ announcement, onView, showAuthor = true }: An
             </div>
           )}
 
-          <div className="relative w-full h-full flex items-center justify-center">
+          <div className="relative w-full h-full flex items-center justify-center p-4">
             <img
               src={imageUrls[currentImageIndex]}
               alt={`${announcement.title} - Image ${currentImageIndex + 1}`}
-              className="max-w-full max-h-full object-contain cursor-default"
+              className="max-w-[95vw] max-h-[90vh] object-contain cursor-default"
               onClick={(e) => e.stopPropagation()}
             />
 

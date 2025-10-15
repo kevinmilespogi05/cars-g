@@ -28,8 +28,10 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { Report } from '../types';
 import { AchievementsPanel } from './AchievementsPanel';
+import { useImageViewerStore } from '../store/imageViewerStore';
 import { supabase } from '../lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
+import { authenticatedRequest } from '../lib/jwt';
 
 interface ProfileTabContentProps {
   activeTab: string;
@@ -50,6 +52,7 @@ interface ProfileTabContentProps {
   clearFilters?: () => void;
   filteredReports?: Report[];
   setDeleteTarget?: (report: Report | null) => void;
+  onUserUpdate?: (updatedUser: any) => void;
 }
 
 export function ProfileTabContent({
@@ -70,24 +73,25 @@ export function ProfileTabContent({
   setPriorityFilter = () => {},
   clearFilters = () => {},
   filteredReports = [],
-  setDeleteTarget = () => {}
+  setDeleteTarget = () => {},
+  onUserUpdate = () => {}
 }: ProfileTabContentProps) {
   const navigate = useNavigate();
   const [showTooltip, setShowTooltip] = React.useState<string | null>(null);
   
   // Lightbox state
-  const [isLightboxOpen, setIsLightboxOpen] = React.useState(false);
+  const { isImageViewerOpen, setIsImageViewerOpen } = useImageViewerStore();
   const [lightboxImages, setLightboxImages] = React.useState<string[]>([]);
   const [lightboxIndex, setLightboxIndex] = React.useState(0);
   const [lightboxReportTitle, setLightboxReportTitle] = React.useState('');
 
   // Keyboard support for lightbox
   React.useEffect(() => {
-    if (!isLightboxOpen) return;
+    if (!isImageViewerOpen) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        setIsLightboxOpen(false);
+        setIsImageViewerOpen(false);
       } else if (e.key === 'ArrowLeft') {
         e.preventDefault();
         setLightboxIndex((prev) => (prev - 1 + lightboxImages.length) % lightboxImages.length);
@@ -99,14 +103,14 @@ export function ProfileTabContent({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isLightboxOpen, lightboxImages.length]);
+  }, [isImageViewerOpen, lightboxImages.length]);
 
   // Function to open lightbox
   const openLightbox = (images: string[], index: number, reportTitle: string) => {
     setLightboxImages(images);
     setLightboxIndex(index);
     setLightboxReportTitle(reportTitle);
-    setIsLightboxOpen(true);
+    setIsImageViewerOpen(true);
   };
 
   function PhoneEditor({ initialValue }: { initialValue: string }) {
@@ -153,15 +157,17 @@ export function ProfileTabContent({
         }
         // Normalize to +639######### for server
         const serverPhone = value === '+63 ' ? '' : '+63' + value.slice(4);
-        const resp = await fetch('/api/auth/me', {
+        const resp = await authenticatedRequest('/api/auth/me', {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ phone: serverPhone })
         });
         const data = await resp.json();
         if (!resp.ok) throw new Error(data?.error || 'Failed to save');
         setSuccess('Saved');
         setEditing(false);
+        
+        // Update the parent component with the new user data
+        onUserUpdate({ ...user, phone: serverPhone });
       } catch (e: any) {
         setError(e?.message || 'Failed to save');
       } finally {
@@ -253,6 +259,184 @@ export function ProfileTabContent({
     );
   }
 
+  function EditableName({ initialValue, field }: { initialValue: string; field: 'first_name' | 'last_name' }) {
+    const [value, setValue] = React.useState(initialValue);
+    const [editing, setEditing] = React.useState(false);
+    const [saving, setSaving] = React.useState(false);
+    const [error, setError] = React.useState('');
+    const [success, setSuccess] = React.useState('');
+
+    const handleSave = async () => {
+      try {
+        setSaving(true);
+        setError('');
+        setSuccess('');
+        
+        if (value.trim() === '') {
+          setError('Name cannot be empty');
+          setSaving(false);
+          return;
+        }
+        
+        const resp = await authenticatedRequest('/api/auth/me', {
+          method: 'PUT',
+          body: JSON.stringify({ [field]: value.trim() })
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data?.error || 'Failed to save');
+        setSuccess('Saved');
+        setEditing(false);
+        
+        // Update the parent component with the new user data
+        onUserUpdate({ ...user, [field]: value.trim() });
+      } catch (e: any) {
+        setError(e?.message || 'Failed to save');
+      } finally {
+        setSaving(false);
+      }
+    };
+
+    return (
+      <div>
+        {!editing ? (
+          <div className="flex items-center gap-3">
+            <p className="text-blue-900 font-medium">{value || 'Not set'}</p>
+            <button 
+              onClick={() => setEditing(true)} 
+              className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-semibold hover:from-blue-700 hover:to-indigo-700 hover:shadow-lg hover:scale-105 active:scale-95 transition-all duration-200"
+              aria-label={`Edit ${field.replace('_', ' ')}`}
+            >
+              Edit
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3">
+            <input
+              type="text"
+              value={value}
+              onChange={(e) => { setValue(e.target.value); setError(''); setSuccess(''); }}
+              className="w-full px-4 py-3 bg-white/80 border border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 shadow-sm"
+              placeholder={`Enter ${field.replace('_', ' ')}`}
+            />
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold hover:from-blue-700 hover:to-indigo-700 hover:shadow-lg hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 transition-all duration-200"
+              aria-label={saving ? `Saving ${field.replace('_', ' ')}` : `Save ${field.replace('_', ' ')}`}
+            >
+              {saving ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <span>Saving...</span>
+                </>
+              ) : (
+                'Save'
+              )}
+            </button>
+            <button
+              onClick={() => { setEditing(false); setValue(initialValue); setError(''); setSuccess(''); }}
+              className="px-4 py-2.5 rounded-xl bg-gray-500 text-white font-semibold hover:bg-gray-600 hover:scale-105 active:scale-95 transition-all duration-200"
+              aria-label="Cancel editing"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
+        {error && <p className="text-red-600 text-sm mt-1">{error}</p>}
+        {success && <p className="text-green-600 text-sm mt-1">{success}</p>}
+      </div>
+    );
+  }
+
+  function EditableUsername({ initialValue }: { initialValue: string }) {
+    const [value, setValue] = React.useState(initialValue);
+    const [editing, setEditing] = React.useState(false);
+    const [saving, setSaving] = React.useState(false);
+    const [error, setError] = React.useState('');
+    const [success, setSuccess] = React.useState('');
+
+    const handleSave = async () => {
+      try {
+        setSaving(true);
+        setError('');
+        setSuccess('');
+        
+        if (value.trim() === '') {
+          setError('Username cannot be empty');
+          setSaving(false);
+          return;
+        }
+        
+        const resp = await authenticatedRequest('/api/auth/me', {
+          method: 'PUT',
+          body: JSON.stringify({ username: value.trim() })
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data?.error || 'Failed to save');
+        setSuccess('Saved');
+        setEditing(false);
+        
+        // Update the parent component with the new user data
+        onUserUpdate({ ...user, username: value.trim() });
+      } catch (e: any) {
+        setError(e?.message || 'Failed to save');
+      } finally {
+        setSaving(false);
+      }
+    };
+
+    return (
+      <div>
+        {!editing ? (
+          <div className="flex items-center gap-3">
+            <p className="text-blue-900 font-medium">{value || 'Not set'}</p>
+            <button 
+              onClick={() => setEditing(true)} 
+              className="px-4 py-2 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white text-sm font-semibold hover:from-blue-700 hover:to-indigo-700 hover:shadow-lg hover:scale-105 active:scale-95 transition-all duration-200"
+              aria-label="Edit username"
+            >
+              Edit
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3">
+            <input
+              type="text"
+              value={value}
+              onChange={(e) => { setValue(e.target.value); setError(''); setSuccess(''); }}
+              className="w-full px-4 py-3 bg-white/80 border border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 shadow-sm"
+              placeholder="Enter username"
+            />
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold hover:from-blue-700 hover:to-indigo-700 hover:shadow-lg hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 transition-all duration-200"
+              aria-label={saving ? 'Saving username' : 'Save username'}
+            >
+              {saving ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <span>Saving...</span>
+                </>
+              ) : (
+                'Save'
+              )}
+            </button>
+            <button
+              onClick={() => { setEditing(false); setValue(initialValue); setError(''); setSuccess(''); }}
+              className="px-4 py-2.5 rounded-xl bg-gray-500 text-white font-semibold hover:bg-gray-600 hover:scale-105 active:scale-95 transition-all duration-200"
+              aria-label="Cancel editing"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
+        {error && <p className="text-red-600 text-sm mt-1">{error}</p>}
+        {success && <p className="text-green-600 text-sm mt-1">{success}</p>}
+      </div>
+    );
+  }
+
   function EditableEmail({ initialValue }: { initialValue: string }) {
     const [value, setValue] = React.useState<string>(initialValue || '');
     const [editing, setEditing] = React.useState(false);
@@ -271,15 +455,17 @@ export function ProfileTabContent({
           setSaving(false);
           return;
         }
-        const resp = await fetch('/api/auth/me', {
+        const resp = await authenticatedRequest('/api/auth/me', {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: value })
         });
         const data = await resp.json();
         if (!resp.ok) throw new Error(data?.error || 'Failed to save');
         setSuccess('Saved');
         setEditing(false);
+        
+        // Update the parent component with the new user data
+        onUserUpdate({ ...user, email: value });
       } catch (e: any) {
         setError(e?.message || 'Failed to save');
       } finally {
@@ -404,6 +590,39 @@ export function ProfileTabContent({
               Personal Information
             </h4>
             <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <User className="w-4 h-4 text-gray-500" />
+                <div className="flex-1">
+                  <p className="text-sm text-gray-600">First Name</p>
+                  {isOwnProfile ? (
+                    <EditableName initialValue={user?.first_name || ''} field="first_name" />
+                  ) : (
+                    <p className="font-medium text-gray-900">{user?.first_name || 'Not set'}</p>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <User className="w-4 h-4 text-gray-500" />
+                <div className="flex-1">
+                  <p className="text-sm text-gray-600">Last Name</p>
+                  {isOwnProfile ? (
+                    <EditableName initialValue={user?.last_name || ''} field="last_name" />
+                  ) : (
+                    <p className="font-medium text-gray-900">{user?.last_name || 'Not set'}</p>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <User className="w-4 h-4 text-gray-500" />
+                <div className="flex-1">
+                  <p className="text-sm text-gray-600">Username</p>
+                  {isOwnProfile ? (
+                    <EditableUsername initialValue={user?.username || ''} />
+                  ) : (
+                    <p className="font-medium text-gray-900">{user?.username || 'Not set'}</p>
+                  )}
+                </div>
+              </div>
               <div className="flex items-center gap-3">
                 <Mail className="w-4 h-4 text-gray-500" />
                 <div className="flex-1">
@@ -1090,17 +1309,17 @@ export function ProfileTabContent({
       {content}
       
       {/* Lightbox for fullscreen image view */}
-      {isLightboxOpen && lightboxImages.length > 0 && (
+      {isImageViewerOpen && lightboxImages.length > 0 && (
         <div
           className="fixed top-0 left-0 right-0 bottom-0 z-[99999] bg-black flex items-center justify-center p-4"
-          onClick={() => setIsLightboxOpen(false)}
+          onClick={() => setIsImageViewerOpen(false)}
           style={{ margin: 0, padding: '1rem' }}
         >
           <button
             className="absolute top-4 right-4 text-white hover:text-gray-300 z-10"
             onClick={(e) => {
               e.stopPropagation();
-              setIsLightboxOpen(false);
+              setIsImageViewerOpen(false);
             }}
             aria-label="Close fullscreen"
           >

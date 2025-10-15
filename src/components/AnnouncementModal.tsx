@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Calendar, User, Clock, AlertCircle, Info, AlertTriangle, Star, Shield, Users, MapPin, ChevronLeft, ChevronRight } from 'lucide-react';
 import { FocusTrap } from './FocusTrap';
+import { useImageViewerStore } from '../store/imageViewerStore';
 
 export interface Announcement {
   id: string;
@@ -27,7 +28,7 @@ interface AnnouncementModalProps {
 
 export function AnnouncementModal({ announcement, onClose }: AnnouncementModalProps) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const { isImageViewerOpen, setIsImageViewerOpen } = useImageViewerStore();
 
   // Reset image index when announcement changes
   React.useEffect(() => {
@@ -61,17 +62,17 @@ export function AnnouncementModal({ announcement, onClose }: AnnouncementModalPr
 
   // Keyboard support for lightbox
   React.useEffect(() => {
-    if (!isLightboxOpen) return;
+    if (!isImageViewerOpen) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        setIsLightboxOpen(false);
+        setIsImageViewerOpen(false);
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isLightboxOpen]);
+  }, [isImageViewerOpen]);
 
   if (!announcement) return null;
 
@@ -195,7 +196,7 @@ export function AnnouncementModal({ announcement, onClose }: AnnouncementModalPr
                             src={urls[currentImageIndex]}
                             alt={`${announcement.title} - Image ${currentImageIndex + 1}`}
                             className="w-full max-h-[500px] object-contain rounded-lg cursor-zoom-in"
-                            onClick={() => setIsLightboxOpen(true)}
+                            onClick={() => setIsImageViewerOpen(true)}
                             onError={(e) => {
                               const target = e.target as HTMLImageElement;
                               target.style.display = 'none';
@@ -304,17 +305,17 @@ export function AnnouncementModal({ announcement, onClose }: AnnouncementModalPr
       </div>
 
       {/* Lightbox for fullscreen image view */}
-      {isLightboxOpen && announcement.image_url && (
+      {isImageViewerOpen && announcement.image_url && (
         <div
           className="fixed top-0 left-0 right-0 bottom-0 z-[99999] bg-black flex items-center justify-center p-4"
-          onClick={() => setIsLightboxOpen(false)}
+          onClick={() => setIsImageViewerOpen(false)}
           style={{ margin: 0, padding: '1rem' }}
         >
           <button
             className="absolute top-4 right-4 text-white hover:text-gray-300 z-10"
             onClick={(e) => {
               e.stopPropagation();
-              setIsLightboxOpen(false);
+              setIsImageViewerOpen(false);
             }}
             aria-label="Close fullscreen"
           >
@@ -336,11 +337,11 @@ export function AnnouncementModal({ announcement, onClose }: AnnouncementModalPr
                   </div>
                 )}
 
-                <div className="relative w-full h-full flex items-center justify-center">
+                <div className="relative w-full h-full flex items-center justify-center p-4">
                   <img
                     src={urls[currentImageIndex]}
                     alt={`${announcement.title} - Image ${currentImageIndex + 1}`}
-                    className="max-w-[95vw] max-h-[95vh] object-contain cursor-default"
+                    className="max-w-[95vw] max-h-[90vh] object-contain cursor-default"
                     onClick={(e) => e.stopPropagation()}
                   />
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, X, AlertCircle, Info, AlertTriangle, CheckCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
+import { useImageViewerStore } from '../store/imageViewerStore';
 
 interface Announcement {
   id: string;
@@ -31,7 +32,7 @@ export function AnnouncementCarousel({ className = '' }: AnnouncementCarouselPro
   const [isRefreshing, setIsRefreshing] = useState(false);
   const pullStartYRef = useRef<number | null>(null);
   const pullDistanceRef = useRef(0);
-  const [isImageOpen, setIsImageOpen] = useState(false);
+  const { isImageViewerOpen, setIsImageViewerOpen } = useImageViewerStore();
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [imageIndex, setImageIndex] = useState(0);
 
@@ -286,7 +287,7 @@ export function AnnouncementCarousel({ className = '' }: AnnouncementCarouselPro
                   src={imageUrls[imageIndex]}
                   alt={currentAnnouncement.title}
                   className="max-w-full h-auto object-contain bg-white max-h-40 sm:max-h-48 md:max-h-56 lg:max-h-[420px] xl:max-h-[520px] cursor-zoom-in"
-                  onClick={() => { setIsImageOpen(true); setLightboxIndex(imageIndex); }}
+                  onClick={() => { setIsImageViewerOpen(true); setLightboxIndex(imageIndex); }}
                   onError={(e) => {
                     const target = e.target as HTMLImageElement;
                     target.style.display = 'none';
@@ -366,10 +367,10 @@ export function AnnouncementCarousel({ className = '' }: AnnouncementCarouselPro
       </div>
 
       {/* Lightbox for image */}
-      {isImageOpen && imageUrls.length > 0 && (
+      {isImageViewerOpen && imageUrls.length > 0 && (
         <div
           className="fixed top-0 left-0 right-0 bottom-0 z-[99999] bg-black flex items-center justify-center p-4"
-          onClick={() => setIsImageOpen(false)}
+          onClick={() => setIsImageViewerOpen(false)}
           style={{ margin: 0, padding: '1rem' }}
         >
           <button
@@ -377,19 +378,19 @@ export function AnnouncementCarousel({ className = '' }: AnnouncementCarouselPro
             className="absolute top-4 right-4 text-white/80 hover:text-white"
             onClick={(e) => {
               e.stopPropagation();
-              setIsImageOpen(false);
+              setIsImageViewerOpen(false);
             }}
           >
             <X className="w-6 h-6" />
           </button>
-          <div className="relative w-full h-full flex items-center justify-center">
+          <div className="relative w-full h-full flex items-center justify-center p-4">
             <img
               src={imageUrls[lightboxIndex ?? 0]}
               alt={currentAnnouncement.title}
               className="max-w-[95vw] max-h-[90vh] object-contain cursor-zoom-out"
               onClick={(e) => {
                 e.stopPropagation();
-                setIsImageOpen(false);
+                setIsImageViewerOpen(false);
               }}
             />
             {imageUrls.length > 1 && lightboxIndex !== null && (

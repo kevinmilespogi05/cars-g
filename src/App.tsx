@@ -2,6 +2,7 @@ import React, { useEffect, useState, Suspense } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Navigation } from './components/Navigation';
 import { useAuthStore } from './store/authStore';
+import { useImageViewerStore } from './store/imageViewerStore';
 import { Analytics } from "@vercel/analytics/react";
 import { initializeAchievements } from './lib/initAchievements';
 import { Providers } from './components/Providers';
@@ -73,6 +74,7 @@ const ErrorFallback = ({ error, resetErrorBoundary }: { error: Error; resetError
 
 function AppContent() {
   const { isAuthenticated, user } = useAuthStore();
+  const { isImageViewerOpen } = useImageViewerStore();
   const location = useLocation();
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const { notifications, removeNotification } = useAchievementNotifications();
@@ -218,8 +220,8 @@ function AppContent() {
             </Suspense>
           </main>
           
-          {/* Footer - only show on non-landing pages and non-auth pages and non-admin-map pages and non-admin-chat pages */}
-          {!isLandingPage && !isAuthPage && !isAdminMapPage && !isAdminChatPage && <Footer />}
+          {/* Footer - only show on non-landing pages and non-auth pages and non-admin-map pages and non-admin-chat pages and when image viewer is not open */}
+          {!isLandingPage && !isAuthPage && !isAdminMapPage && !isAdminChatPage && !isImageViewerOpen && <Footer />}
           
           {/* Network Status Indicator */}
           {!isOnline && (

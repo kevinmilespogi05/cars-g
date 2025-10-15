@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, AlertCircle, Info, AlertTriangle, CheckCircle, ChevronDown, ChevronUp, ChevronLeft, ChevronRight } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
+import { useImageViewerStore } from '../store/imageViewerStore';
 
 interface Announcement {
   id: string;
@@ -26,7 +27,7 @@ export function AnnouncementBanner({ className = '' }: AnnouncementBannerProps) 
   const [loading, setLoading] = useState(true);
   const [isExpanded, setIsExpanded] = useState(true);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const { isImageViewerOpen, setIsImageViewerOpen } = useImageViewerStore();
 
   const fetchAnnouncements = async () => {
     try {
@@ -93,11 +94,11 @@ export function AnnouncementBanner({ className = '' }: AnnouncementBannerProps) 
 
   // Keyboard support for lightbox
   useEffect(() => {
-    if (!isLightboxOpen || imageUrls.length === 0) return;
+    if (!isImageViewerOpen || imageUrls.length === 0) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        setIsLightboxOpen(false);
+        setIsImageViewerOpen(false);
       } else if (e.key === 'ArrowLeft') {
         e.preventDefault();
         setCurrentImageIndex((prev) => (prev - 1 + imageUrls.length) % imageUrls.length);
@@ -109,7 +110,7 @@ export function AnnouncementBanner({ className = '' }: AnnouncementBannerProps) 
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isLightboxOpen, currentImageIndex, imageUrls.length]);
+  }, [isImageViewerOpen, currentImageIndex, imageUrls.length]);
 
   const getPriorityIcon = (priority: string) => {
     switch (priority) {
@@ -194,7 +195,7 @@ export function AnnouncementBanner({ className = '' }: AnnouncementBannerProps) 
                           src={imageUrls[currentImageIndex]} 
                           alt={`${currentAnnouncement.title} - Image ${currentImageIndex + 1}`}
                           className="w-full max-h-96 object-contain rounded-lg cursor-zoom-in"
-                          onClick={() => setIsLightboxOpen(true)}
+                          onClick={() => setIsImageViewerOpen(true)}
                         />
                         
                         {/* Navigation Buttons */}
@@ -277,17 +278,17 @@ export function AnnouncementBanner({ className = '' }: AnnouncementBannerProps) 
       </div>
 
       {/* Lightbox for fullscreen image view */}
-      {isLightboxOpen && imageUrls.length > 0 && (
+      {isImageViewerOpen && imageUrls.length > 0 && (
         <div
           className="fixed top-0 left-0 right-0 bottom-0 z-[99999] bg-black flex items-center justify-center p-4"
-          onClick={() => setIsLightboxOpen(false)}
+          onClick={() => setIsImageViewerOpen(false)}
           style={{ margin: 0, padding: '1rem' }}
         >
           <button
             className="absolute top-4 right-4 text-white hover:text-gray-300 z-10"
             onClick={(e) => {
               e.stopPropagation();
-              setIsLightboxOpen(false);
+              setIsImageViewerOpen(false);
             }}
             aria-label="Close fullscreen"
           >
@@ -301,11 +302,11 @@ export function AnnouncementBanner({ className = '' }: AnnouncementBannerProps) 
             </div>
           )}
 
-          <div className="relative w-full h-full flex items-center justify-center">
+          <div className="relative w-full h-full flex items-center justify-center p-4">
             <img
               src={imageUrls[currentImageIndex]}
               alt={`${currentAnnouncement.title} - Image ${currentImageIndex + 1}`}
-              className="max-w-[95vw] max-h-[95vh] object-contain cursor-default"
+              className="max-w-[95vw] max-h-[90vh] object-contain cursor-default"
               onClick={(e) => e.stopPropagation()}
             />
 

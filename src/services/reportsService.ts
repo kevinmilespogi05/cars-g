@@ -1719,12 +1719,34 @@ export const reportsService = {
       if (!reportId) return;
       _debouncedUpdate(`comments_${reportId}`, async () => {
         try {
-          const [{ count: legacyCount }, { count: newCount }, { count: replyCount }] = await Promise.all([
+          // Get main comments first
+          const [{ count: legacyCount }, { count: newCount }] = await Promise.all([
             supabase.from('comments').select('*', { count: 'exact', head: true }).eq('report_id', reportId),
-            supabase.from('report_comments').select('*', { count: 'exact', head: true }).eq('report_id', reportId),
-            supabase.from('comment_replies').select('*', { count: 'exact', head: true }).eq('report_id', reportId)
+            supabase.from('report_comments').select('*', { count: 'exact', head: true }).eq('report_id', reportId)
           ] as any);
-          callback(reportId, (legacyCount || 0) + (newCount || 0) + (replyCount || 0));
+
+          // Get comment IDs to find replies
+          const [legacyComments, newComments] = await Promise.all([
+            supabase.from('comments').select('id').eq('report_id', reportId),
+            supabase.from('report_comments').select('id').eq('report_id', reportId)
+          ]);
+
+          const commentIds = [
+            ...(legacyComments.data?.map(c => c.id) || []),
+            ...(newComments.data?.map(c => c.id) || [])
+          ];
+
+          let replyCount = 0;
+          if (commentIds.length > 0) {
+            // Get replies for both comment systems
+            const [legacyReplies, newReplies] = await Promise.all([
+              supabase.from('comment_replies').select('*', { count: 'exact', head: true }).in('parent_comment_id', commentIds),
+              supabase.from('report_comment_replies').select('*', { count: 'exact', head: true }).in('comment_id', commentIds)
+            ]);
+            replyCount = (legacyReplies.count || 0) + (newReplies.count || 0);
+          }
+
+          callback(reportId, (legacyCount || 0) + (newCount || 0) + replyCount);
         } catch (error) {
           console.error('Error in comments subscription (legacy):', error);
         }
@@ -1738,12 +1760,34 @@ export const reportsService = {
       if (!reportId) return;
       _debouncedUpdate(`comments_${reportId}`, async () => {
         try {
-          const [{ count: legacyCount }, { count: newCount }, { count: replyCount }] = await Promise.all([
+          // Get main comments first
+          const [{ count: legacyCount }, { count: newCount }] = await Promise.all([
             supabase.from('comments').select('*', { count: 'exact', head: true }).eq('report_id', reportId),
-            supabase.from('report_comments').select('*', { count: 'exact', head: true }).eq('report_id', reportId),
-            supabase.from('comment_replies').select('*', { count: 'exact', head: true }).eq('report_id', reportId)
+            supabase.from('report_comments').select('*', { count: 'exact', head: true }).eq('report_id', reportId)
           ] as any);
-          callback(reportId, (legacyCount || 0) + (newCount || 0) + (replyCount || 0));
+
+          // Get comment IDs to find replies
+          const [legacyComments, newComments] = await Promise.all([
+            supabase.from('comments').select('id').eq('report_id', reportId),
+            supabase.from('report_comments').select('id').eq('report_id', reportId)
+          ]);
+
+          const commentIds = [
+            ...(legacyComments.data?.map(c => c.id) || []),
+            ...(newComments.data?.map(c => c.id) || [])
+          ];
+
+          let replyCount = 0;
+          if (commentIds.length > 0) {
+            // Get replies for both comment systems
+            const [legacyReplies, newReplies] = await Promise.all([
+              supabase.from('comment_replies').select('*', { count: 'exact', head: true }).in('parent_comment_id', commentIds),
+              supabase.from('report_comment_replies').select('*', { count: 'exact', head: true }).in('comment_id', commentIds)
+            ]);
+            replyCount = (legacyReplies.count || 0) + (newReplies.count || 0);
+          }
+
+          callback(reportId, (legacyCount || 0) + (newCount || 0) + replyCount);
         } catch (error) {
           console.error('Error in comments subscription (new):', error);
         }
@@ -1753,18 +1797,105 @@ export const reportsService = {
     const unsubscribeReplies = _createSubscription('comment_replies_changes', [
       { event: '*', schema: 'public', table: 'comment_replies' }
     ], async (payload) => {
-      const reportId = payload.new?.report_id || payload.old?.report_id;
-      if (!reportId) return;
+      // For replies, we need to find which report the parent comment belongs to
+      const parentCommentId = payload.new?.parent_comment_id || payload.old?.parent_comment_id;
+      if (!parentCommentId) return;
+      
+      // Find the report ID by looking up the parent comment
+      const { data: parentComment } = await supabase
+        .from('comments')
+        .select('report_id')
+        .eq('id', parentCommentId)
+        .single();
+      
+      if (!parentComment) return;
+      
+      const reportId = parentComment.report_id;
       _debouncedUpdate(`comments_${reportId}`, async () => {
         try {
-          const [{ count: legacyCount }, { count: newCount }, { count: replyCount }] = await Promise.all([
+          // Get main comments first
+          const [{ count: legacyCount }, { count: newCount }] = await Promise.all([
             supabase.from('comments').select('*', { count: 'exact', head: true }).eq('report_id', reportId),
-            supabase.from('report_comments').select('*', { count: 'exact', head: true }).eq('report_id', reportId),
-            supabase.from('comment_replies').select('*', { count: 'exact', head: true }).eq('report_id', reportId)
+            supabase.from('report_comments').select('*', { count: 'exact', head: true }).eq('report_id', reportId)
           ] as any);
-          callback(reportId, (legacyCount || 0) + (newCount || 0) + (replyCount || 0));
+
+          // Get comment IDs to find replies
+          const [legacyComments, newComments] = await Promise.all([
+            supabase.from('comments').select('id').eq('report_id', reportId),
+            supabase.from('report_comments').select('id').eq('report_id', reportId)
+          ]);
+
+          const commentIds = [
+            ...(legacyComments.data?.map(c => c.id) || []),
+            ...(newComments.data?.map(c => c.id) || [])
+          ];
+
+          let replyCount = 0;
+          if (commentIds.length > 0) {
+            // Get replies for both comment systems
+            const [legacyReplies, newReplies] = await Promise.all([
+              supabase.from('comment_replies').select('*', { count: 'exact', head: true }).in('parent_comment_id', commentIds),
+              supabase.from('report_comment_replies').select('*', { count: 'exact', head: true }).in('comment_id', commentIds)
+            ]);
+            replyCount = (legacyReplies.count || 0) + (newReplies.count || 0);
+          }
+
+          callback(reportId, (legacyCount || 0) + (newCount || 0) + replyCount);
         } catch (error) {
           console.error('Error in comments subscription (replies):', error);
+        }
+      });
+    });
+
+    const unsubscribeReportCommentReplies = _createSubscription('report_comment_replies_changes', [
+      { event: '*', schema: 'public', table: 'report_comment_replies' }
+    ], async (payload) => {
+      // For report comment replies, we need to find which report the parent comment belongs to
+      const commentId = payload.new?.comment_id || payload.old?.comment_id;
+      if (!commentId) return;
+      
+      // Find the report ID by looking up the parent comment
+      const { data: parentComment } = await supabase
+        .from('report_comments')
+        .select('report_id')
+        .eq('id', commentId)
+        .single();
+      
+      if (!parentComment) return;
+      
+      const reportId = parentComment.report_id;
+      _debouncedUpdate(`comments_${reportId}`, async () => {
+        try {
+          // Get main comments first
+          const [{ count: legacyCount }, { count: newCount }] = await Promise.all([
+            supabase.from('comments').select('*', { count: 'exact', head: true }).eq('report_id', reportId),
+            supabase.from('report_comments').select('*', { count: 'exact', head: true }).eq('report_id', reportId)
+          ] as any);
+
+          // Get comment IDs to find replies
+          const [legacyComments, newComments] = await Promise.all([
+            supabase.from('comments').select('id').eq('report_id', reportId),
+            supabase.from('report_comments').select('id').eq('report_id', reportId)
+          ]);
+
+          const commentIds = [
+            ...(legacyComments.data?.map(c => c.id) || []),
+            ...(newComments.data?.map(c => c.id) || [])
+          ];
+
+          let replyCount = 0;
+          if (commentIds.length > 0) {
+            // Get replies for both comment systems
+            const [legacyReplies, newReplies] = await Promise.all([
+              supabase.from('comment_replies').select('*', { count: 'exact', head: true }).in('parent_comment_id', commentIds),
+              supabase.from('report_comment_replies').select('*', { count: 'exact', head: true }).in('comment_id', commentIds)
+            ]);
+            replyCount = (legacyReplies.count || 0) + (newReplies.count || 0);
+          }
+
+          callback(reportId, (legacyCount || 0) + (newCount || 0) + replyCount);
+        } catch (error) {
+          console.error('Error in comments subscription (report comment replies):', error);
         }
       });
     });
@@ -1773,6 +1904,7 @@ export const reportsService = {
       if (typeof unsubscribeLegacy === 'function') unsubscribeLegacy();
       if (typeof unsubscribeNew === 'function') unsubscribeNew();
       if (typeof unsubscribeReplies === 'function') unsubscribeReplies();
+      if (typeof unsubscribeReportCommentReplies === 'function') unsubscribeReportCommentReplies();
     };
   },
 
