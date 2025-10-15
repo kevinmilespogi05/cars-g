@@ -57,7 +57,6 @@ const PRIORITY_OPTIONS = [
 ];
 
 const MAX_IMAGES = 5;
-const POINTS_FOR_REPORT = 25;
 
 export function CreateReport() {
   const navigate = useNavigate();
@@ -956,17 +955,6 @@ export function CreateReport() {
               <h3 id="report-success-title" className="text-3xl font-bold text-gray-900 mb-2">Report Submitted!</h3>
               <p className="text-gray-600 mb-6 text-lg">Thank you for helping improve your community.</p>
               
-              {/* Points Information - Only show if NOT anonymous */}
-              {!isAnonymous && (
-                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-300 rounded-2xl p-6 mb-6">
-                  <div className="flex items-center justify-center space-x-3 mb-2">
-                    <Trophy className="h-8 w-8 text-blue-600" />
-                    <span className="text-4xl font-bold text-blue-700">+25</span>
-                  </div>
-                  <p className="text-blue-800 font-semibold">Points Pending Verification</p>
-                  <p className="text-xs text-blue-700 mt-1">You'll earn 25 points once an admin verifies your report</p>
-                </div>
-              )}
               
               {/* Anonymous Confirmation - Only show if anonymous */}
               {isAnonymous && (

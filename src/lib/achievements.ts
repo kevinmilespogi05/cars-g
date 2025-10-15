@@ -110,13 +110,12 @@ export async function getUserStatsWithCache(userId: string) {
       .eq('id', userId)
       .single(),
     
-    // Calculate days active (simplified - could be enhanced)
+    // Calculate days active and reporting streak
     supabase
       .from('reports')
       .select('created_at')
       .eq('user_id', userId)
       .order('created_at', { ascending: true })
-      .limit(1)
   ]);
 
   const stats = {
@@ -124,7 +123,8 @@ export async function getUserStatsWithCache(userId: string) {
     reports_verified: reportsVerified.count || 0,
     reports_resolved: reportsResolved.count || 0,
     total_points: userProfile.data?.points || 0,
-    days_active: calculateDaysActive(userProfile.data?.created_at, daysActive.data?.[0]?.created_at)
+    days_active: calculateDaysActive(userProfile.data?.created_at, daysActive.data?.[0]?.created_at),
+    reporting_streak: calculateReportingStreak(daysActive.data || [])
   };
 
   // Cache the results
@@ -142,6 +142,45 @@ function calculateDaysActive(profileCreatedAt: string, firstReportAt: string): n
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   
   return Math.min(diffDays, 365); // Cap at 365 days
+}
+
+function calculateReportingStreak(reports: Array<{ created_at: string }>): number {
+  if (!reports || reports.length === 0) return 0;
+  
+  // Group reports by date
+  const reportsByDate = new Map<string, number>();
+  reports.forEach(report => {
+    const date = new Date(report.created_at).toDateString();
+    reportsByDate.set(date, (reportsByDate.get(date) || 0) + 1);
+  });
+  
+  // Get unique dates and sort them
+  const uniqueDates = Array.from(reportsByDate.keys())
+    .map(dateStr => new Date(dateStr))
+    .sort((a, b) => b.getTime() - a.getTime()); // Sort descending (most recent first)
+  
+  if (uniqueDates.length === 0) return 0;
+  
+  // Calculate consecutive days from today backwards
+  let streak = 0;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  for (let i = 0; i < uniqueDates.length; i++) {
+    const reportDate = new Date(uniqueDates[i]);
+    reportDate.setHours(0, 0, 0, 0);
+    
+    const expectedDate = new Date(today);
+    expectedDate.setDate(today.getDate() - i);
+    
+    if (reportDate.getTime() === expectedDate.getTime()) {
+      streak++;
+    } else {
+      break;
+    }
+  }
+  
+  return Math.min(streak, 7); // Cap at 7 days for the achievement
 }
 
 export async function checkAchievements(userId: string): Promise<Achievement[]> {
@@ -277,7 +316,12 @@ export async function getUserAchievementProgress(userId: string): Promise<{
           currentValue = userStats.reports_resolved;
           break;
         case 'days_active':
-          currentValue = userStats.days_active;
+          // For reporting streak, use the actual streak calculation
+          if (achievement.id === 'reporting_streak') {
+            currentValue = userStats.reporting_streak || 0;
+          } else {
+            currentValue = userStats.days_active;
+          }
           break;
         case 'points_earned':
           currentValue = userStats.total_points;
@@ -285,13 +329,15 @@ export async function getUserAchievementProgress(userId: string): Promise<{
       }
 
       const unlocked = earnedIds.has(achievement.id);
-      const progress = Math.min(100, Math.round((currentValue / achievement.requirement.count) * 100));
+      // Cap currentValue at the requirement to prevent showing values like 5/1 or 63/7
+      const cappedCurrentValue = Math.min(currentValue, achievement.requirement.count);
+      const progress = Math.min(100, Math.round((cappedCurrentValue / achievement.requirement.count) * 100));
 
       return {
         ...achievement,
         unlocked,
         progress,
-        currentValue
+        currentValue: cappedCurrentValue
       };
     });
 

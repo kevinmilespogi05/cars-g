@@ -44,7 +44,6 @@ export async function flushQueuedReports(): Promise<number> {
   for (const item of queue) {
     try {
       const created = await reportsService.createReport(item.payload);
-      try { await awardPoints(item.payload.user_id, 'REPORT_SUBMITTED', created.id); } catch {}
       try { await activityService.trackReportCreated(item.payload.user_id, created.id); } catch {}
       success++;
     } catch (e) {

@@ -1085,11 +1085,10 @@ export const reportsService = {
       const reportIds = reportsData.map(report => report.id);
       
       // Fetch likes, comments, and ratings data in parallel
-      const [likesData, commentsData, reportCommentsData, replyData, ratingsData] = await Promise.all([
+      const [likesData, commentsData, reportCommentsData, ratingsData] = await Promise.all([
         supabase.from('likes').select('report_id').in('report_id', reportIds),
         supabase.from('comments').select('report_id').in('report_id', reportIds),
         supabase.from('report_comments').select('report_id').in('report_id', reportIds),
-        supabase.from('comment_replies').select('report_id').in('report_id', reportIds),
         supabase.from('report_ratings').select('report_id, stars').in('report_id', reportIds)
       ]);
 
@@ -1124,12 +1123,42 @@ export const reportsService = {
         });
       }
 
-      // Process replies
-      if (replyData.data) {
-        replyData.data.forEach(reply => {
-          const count = replyCountMap.get(reply.report_id) || 0;
-          replyCountMap.set(reply.report_id, count + 1);
-        });
+      // Process replies - need to get comment IDs first, then count replies
+      const commentIds = [...new Set([
+        ...(commentsData.data?.map(c => c.id) || []),
+        ...(reportCommentsData.data?.map(c => c.id) || [])
+      ])];
+
+      if (commentIds.length > 0) {
+        // Fetch replies for both comment systems
+        const [legacyRepliesData, reportCommentRepliesData] = await Promise.all([
+          supabase.from('comment_replies').select('parent_comment_id').in('parent_comment_id', commentIds),
+          supabase.from('report_comment_replies').select('comment_id').in('comment_id', commentIds)
+        ]);
+
+        // Count legacy comment replies
+        if (legacyRepliesData.data) {
+          legacyRepliesData.data.forEach(reply => {
+            // Find which report this comment belongs to
+            const comment = commentsData.data?.find(c => c.id === reply.parent_comment_id);
+            if (comment) {
+              const count = replyCountMap.get(comment.report_id) || 0;
+              replyCountMap.set(comment.report_id, count + 1);
+            }
+          });
+        }
+
+        // Count report comment replies
+        if (reportCommentRepliesData.data) {
+          reportCommentRepliesData.data.forEach(reply => {
+            // Find which report this comment belongs to
+            const comment = reportCommentsData.data?.find(c => c.id === reply.comment_id);
+            if (comment) {
+              const count = replyCountMap.get(comment.report_id) || 0;
+              replyCountMap.set(comment.report_id, count + 1);
+            }
+          });
+        }
       }
 
       // Process ratings
@@ -1309,11 +1338,10 @@ export const reportsService = {
       const reportIds = reportsData.map(report => report.id);
       
       // Fetch likes, comments, and ratings data in parallel
-      const [likesData, commentsData, reportCommentsData, replyData, ratingsData] = await Promise.all([
+      const [likesData, commentsData, reportCommentsData, ratingsData] = await Promise.all([
         supabase.from('likes').select('report_id').in('report_id', reportIds),
         supabase.from('comments').select('report_id').in('report_id', reportIds),
         supabase.from('report_comments').select('report_id').in('report_id', reportIds),
-        supabase.from('comment_replies').select('report_id').in('report_id', reportIds),
         supabase.from('report_ratings').select('report_id, stars').in('report_id', reportIds)
       ]);
 
@@ -1348,12 +1376,42 @@ export const reportsService = {
         });
       }
 
-      // Process replies
-      if (replyData.data) {
-        replyData.data.forEach(reply => {
-          const count = replyCountMap.get(reply.report_id) || 0;
-          replyCountMap.set(reply.report_id, count + 1);
-        });
+      // Process replies - need to get comment IDs first, then count replies
+      const commentIds = [...new Set([
+        ...(commentsData.data?.map(c => c.id) || []),
+        ...(reportCommentsData.data?.map(c => c.id) || [])
+      ])];
+
+      if (commentIds.length > 0) {
+        // Fetch replies for both comment systems
+        const [legacyRepliesData, reportCommentRepliesData] = await Promise.all([
+          supabase.from('comment_replies').select('parent_comment_id').in('parent_comment_id', commentIds),
+          supabase.from('report_comment_replies').select('comment_id').in('comment_id', commentIds)
+        ]);
+
+        // Count legacy comment replies
+        if (legacyRepliesData.data) {
+          legacyRepliesData.data.forEach(reply => {
+            // Find which report this comment belongs to
+            const comment = commentsData.data?.find(c => c.id === reply.parent_comment_id);
+            if (comment) {
+              const count = replyCountMap.get(comment.report_id) || 0;
+              replyCountMap.set(comment.report_id, count + 1);
+            }
+          });
+        }
+
+        // Count report comment replies
+        if (reportCommentRepliesData.data) {
+          reportCommentRepliesData.data.forEach(reply => {
+            // Find which report this comment belongs to
+            const comment = reportCommentsData.data?.find(c => c.id === reply.comment_id);
+            if (comment) {
+              const count = replyCountMap.get(comment.report_id) || 0;
+              replyCountMap.set(comment.report_id, count + 1);
+            }
+          });
+        }
       }
 
       // Process ratings

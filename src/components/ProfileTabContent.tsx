@@ -406,16 +406,24 @@ export function ProfileTabContent({
             <div className="space-y-4">
               <div className="flex items-center gap-3">
                 <Mail className="w-4 h-4 text-gray-500" />
-                <div>
+                <div className="flex-1">
                   <p className="text-sm text-gray-600">Email</p>
-                  <p className="font-medium text-gray-900">{user?.email || 'Not set'}</p>
+                  {isOwnProfile ? (
+                    <EditableEmail initialValue={user?.email || ''} />
+                  ) : (
+                    <p className="font-medium text-gray-900">{user?.email || 'Not set'}</p>
+                  )}
                 </div>
               </div>
               <div className="flex items-center gap-3">
                 <Smartphone className="w-4 h-4 text-gray-500" />
-                <div>
+                <div className="flex-1">
                   <p className="text-sm text-gray-600">Phone</p>
-                  <p className="font-medium text-gray-900">{user?.phone || 'Not set'}</p>
+                  {isOwnProfile ? (
+                    <PhoneEditor initialValue={user?.phone || ''} />
+                  ) : (
+                    <p className="font-medium text-gray-900">{user?.phone || 'Not set'}</p>
+                  )}
                 </div>
               </div>
               <div className="flex items-center gap-3">
