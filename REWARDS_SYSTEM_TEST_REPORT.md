@@ -114,3 +114,4 @@ PATROL_LOW: 10 points
 ---
 
 **Note:** The rewards system is partially functional. Patrol rewards work correctly, but reporter rewards and database consistency need to be fixed before the system can be considered fully operational.
+
