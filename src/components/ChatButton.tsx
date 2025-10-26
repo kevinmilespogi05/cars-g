@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { MessageCircle, X } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useImageViewerStore } from '../store/imageViewerStore';
 import { socketManager } from '../lib/socket';
@@ -9,15 +10,17 @@ import { checkAdminStatus } from '../services/adminService';
 interface ChatButtonProps {
   adminId?: string;
   className?: string;
+  variant?: 'default' | 'icon' | 'full';
 }
 
 export const ChatButton: React.FC<ChatButtonProps> = ({ 
   adminId = 'admin', // Default admin ID, should be configured
-  className = ''
+  className = '',
+  variant = 'default'
 }) => {
   const { user, isAuthenticated } = useAuthStore();
   const { isImageViewerOpen } = useImageViewerStore();
-  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(true);
   const [isAdminOnline, setIsAdminOnline] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [buttonPosition, setButtonPosition] = useState<{ x: number; y: number } | undefined>(undefined);
@@ -80,21 +83,80 @@ export const ChatButton: React.FC<ChatButtonProps> = ({
     return null;
   }
 
+  if (variant === 'icon' || variant === 'full') {
+    // Sidebar variant - simple button
+    return (
+      <>
+        <button
+          onClick={handleChatClick}
+          className={`flex items-center px-3 py-3 rounded-xl text-sm font-medium transition-all duration-200 relative group text-white hover:bg-white/10 ${className}`}
+        >
+          <MessageCircle className="h-5 w-5 mr-3" />
+          {variant === 'full' && <span>Chat with Admin</span>}
+          {unreadCount > 0 && (
+            <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+              {unreadCount}
+            </div>
+          )}
+          {isAdminOnline && (
+            <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
+          )}
+        </button>
+
+        <ChatWindow
+          isOpen={isChatOpen}
+          onClose={handleChatClose}
+          adminId={adminId}
+          position={buttonPosition}
+          unreadCount={unreadCount}
+        />
+      </>
+    );
+  }
+
   return (
     <>
-      <MoveableChatButton
-        isOpen={isChatOpen}
-        onClick={handleChatClick}
-        unreadCount={unreadCount}
-        isOnline={isAdminOnline}
-        onPositionChange={handlePositionChange}
-      />
+      {/* Fixed bottom chat button - no longer moveable */}
+      <div className="fixed bottom-4 right-4 z-50">
+        <button
+          onClick={handleChatClick}
+          className={`
+            w-12 h-12 rounded-full shadow-md transition-all duration-300 transform hover:scale-105 active:scale-95
+            ${isChatOpen 
+              ? 'bg-gray-500 hover:bg-gray-600' 
+              : 'bg-blue-500 hover:bg-blue-600'
+            }
+          `}
+          style={{
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.08)'
+          }}
+        >
+          {isChatOpen ? (
+            <X className="w-5 h-5 text-white mx-auto" />
+          ) : (
+            <MessageCircle className="w-5 h-5 text-white mx-auto" />
+          )}
+        </button>
+        
+        {/* Unread count badge */}
+        {unreadCount > 0 && !isChatOpen && (
+          <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold shadow-md animate-pulse border border-white">
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </div>
+        )}
+        
+        {/* Online indicator */}
+        {isAdminOnline && !isChatOpen && (
+          <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-400 border border-white rounded-full shadow-sm"></div>
+        )}
+      </div>
 
       <ChatWindow
         isOpen={isChatOpen}
         onClose={handleChatClose}
         adminId={adminId}
         position={buttonPosition}
+        unreadCount={unreadCount}
       />
     </>
   );

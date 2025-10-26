@@ -1,6 +1,6 @@
 import React, { useEffect, useState, Suspense } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { Navigation } from './components/Navigation';
+import { SidebarNavigation } from './components/SidebarNavigation';
 import { useAuthStore } from './store/authStore';
 import { useImageViewerStore } from './store/imageViewerStore';
 import { Analytics } from "@vercel/analytics/react";
@@ -195,9 +195,27 @@ function AppContent() {
             </>
           )}
           
-          {/* Only show Navigation on non-landing pages */}
-          {!isLandingPage && <Navigation />}
-          <main className={isLandingPage ? 'pt-0' : 'pt-20 sm:pt-24 relative'}>
+          {/* Only show SidebarNavigation on non-landing pages */}
+          {!isLandingPage && <SidebarNavigation />}
+          
+          {/* Mobile Menu Button - only show on mobile when sidebar is collapsed */}
+          {!isLandingPage && (
+            <button
+              onClick={() => {
+                // This will be handled by the SidebarNavigation component
+                const event = new CustomEvent('toggleSidebar');
+                window.dispatchEvent(event);
+              }}
+              className="fixed top-4 left-4 z-[2001] lg:hidden p-2 rounded-lg bg-white/90 backdrop-blur-sm shadow-lg border border-gray-200 hover:bg-white transition-colors"
+              aria-label="Open menu"
+            >
+              <svg className="h-6 w-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+          )}
+          
+          <main className={isLandingPage ? 'pt-0' : 'pl-0 lg:pl-72 relative min-h-screen'}>
             <Suspense fallback={<LoadingSpinner />}>
               <Routes>
                 {publicRoutes.map((route) => (

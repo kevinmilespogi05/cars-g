@@ -1,14 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { X, Shield } from 'lucide-react';
+import { X, Shield, FileText } from 'lucide-react';
 import { getStatusColor as badgeStatusColor, getStatusIcon as badgeStatusIcon, getPriorityColor as badgePriorityColor } from '../lib/badges';
 import { useAuthStore } from '../store/authStore';
 import { reportsService } from '../services/reportsService';
-import { AnnouncementBanner } from '../components/AnnouncementBanner';
 import { LikeDetailsModal } from '../components/LikeDetailsModal';
 import { ReportsGridSkeleton } from '../components/SkeletonLoader';
-import { SideNav } from '../components/SideNav';
-import { EmergencyContacts } from '../components/EmergencyContacts';
 import { ReportsList } from '../components/ReportsList';
 import { QuickActions } from '../components/QuickActions';
 import { ImageViewer } from '../components/ImageViewer';
@@ -356,19 +353,33 @@ export function Reports() {
       */}
       <div className="w-full">
         
-        {/* 2-Column Grid Layout - No gaps for edge-to-edge design */}
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(280px,1fr)_minmax(0,2.5fr)] items-start">
+        {/* Reports Dashboard - Clean Layout */}
+        <div className="w-full py-6 px-4 sm:px-6">
           
-          {/* LEFT COLUMN: Sidebar Navigation - Hidden on mobile/tablet, visible on desktop */}
-          <aside className="hidden lg:block lg:order-1 border-r border-gray-200 bg-white pt-6 px-4 pb-6 h-auto">
-            <SideNav />
-          </aside>
-
-          {/* MAIN COLUMN: Content (Announcements + Reports List) */}
-          <main className="order-1 lg:order-2 py-6 px-4 sm:px-6">
-            {/* Announcement Banner */}
-            <div className="mb-5">
-              <AnnouncementBanner />
+          {/* MAIN CONTENT: Reports Section */}
+          <main className="max-w-7xl mx-auto">
+            {/* Reports Section Header - Enhanced */}
+            <div className="mb-8 pb-6 border-b-2 border-gray-200">
+              <div className="flex items-start justify-between">
+                <div>
+                  <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-gray-900 mb-3 flex items-center gap-3 animate-fade-in">
+                    <div className="p-2 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-lg">
+                      <FileText className="h-8 w-8 sm:h-10 sm:w-10 text-white" />
+                    </div>
+                    Reports Dashboard
+                  </h1>
+                  <p className="text-base sm:text-lg text-gray-600 ml-1">
+                    View, manage, and track all community reports
+                  </p>
+                </div>
+                {/* Quick Stats Badge */}
+                <div className="hidden sm:block">
+                  <div className="px-4 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border-2 border-blue-200 shadow-sm">
+                    <div className="text-xs text-gray-600 font-medium">Total Reports</div>
+                    <div className="text-2xl font-bold text-blue-600">{reports.length}</div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Reports List with Search & Filters */}
@@ -405,12 +416,6 @@ export function Reports() {
               isRefreshing={isRefreshing}
             />
           </main>
-
-          {/* MOBILE ONLY: Emergency Contacts at bottom */}
-          <div className="md:hidden order-2 px-4 py-6 space-y-5 border-t border-gray-200">
-            {/* Emergency Contacts for Mobile */}
-            <EmergencyContacts />
-          </div>
 
         </div>
       </div>

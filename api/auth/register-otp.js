@@ -1,5 +1,5 @@
 // Vercel serverless function for OTP-based user registration
-// Step 1: Initial Sign-up with OTP generation and email sending
+// Step 1: Initial Registration with OTP generation and email sending
 
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
@@ -148,8 +148,10 @@ export default async function handler(req, res) {
       phone, 
       password, 
       confirmPassword,
-      acceptTerms 
-    } = req.body || {};
+      acceptTerms,
+      idFrontImageUrl,
+      idBackImageUrl
+    } = req.body;
 
     // ========================================
     // STEP 1: COMPREHENSIVE FORM VALIDATION
@@ -278,7 +280,7 @@ export default async function handler(req, res) {
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({
       email: email,
       password: password,
-      email_confirm: false, // Keep unconfirmed until email verification
+      email_confirm: false, // Keep unconfirmed until OTP verification
       user_metadata: {
         username: username,
         first_name: firstName,
@@ -296,7 +298,7 @@ export default async function handler(req, res) {
     }
 
     // ========================================
-    // STEP 4: CREATE PROFILE WITH PENDING STATUS
+    // STEP 4: CREATE PROFILE WITH OTP STATUS
     // ========================================
 
     // Prepare profile payload with OTP verification status
@@ -308,7 +310,7 @@ export default async function handler(req, res) {
       last_name: lastName,
       role: 'user',
       points: 0,
-      email_verified: false, // Will be set to true after OTP verification
+      email_verified: false,
       verification_status: 'pending_email_otp', // New OTP status
       email_otp: otp, // Store plain OTP for email
       email_otp_hash: otpHash, // Store hashed OTP for verification
@@ -319,6 +321,12 @@ export default async function handler(req, res) {
     // Add phone if provided and valid
     if (phone && phone.trim() !== '') {
       profilePayload.phone = phone.trim();
+    }
+
+    // Add ID image URLs if provided
+    if (idFrontImageUrl && idBackImageUrl) {
+      profilePayload.id_front_image_url = idFrontImageUrl;
+      profilePayload.id_back_image_url = idBackImageUrl;
     }
 
     // Create profile in profiles table
@@ -345,7 +353,7 @@ export default async function handler(req, res) {
     }
 
     // ========================================
-    // STEP 5: SEND VERIFICATION EMAIL
+    // STEP 5: SEND OTP EMAIL
     // ========================================
 
     try {
@@ -381,8 +389,7 @@ export default async function handler(req, res) {
           nextStep: 'email_otp_verification',
           otpExpiry: otpExpiry,
           emailSent: false,
-          emailError: 'Failed to send verification email. Please request a new code.',
-          redirectUrl: `${FRONTEND_URL}/verify-email`
+          emailError: 'Failed to send verification email. Please request a new code.'
         }
       });
     }

@@ -1,0 +1,18 @@
+{
+  "name": "otp-dev-server",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Development server for testing OTP registration system",
+  "main": "dev-server.js",
+  "scripts": {
+    "dev": "node dev-server.js",
+    "test": "TEST_BASE_URL=http://localhost:3001 node run-tests.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "@supabase/supabase-js": "^2.38.0",
+    "@getbrevo/brevo": "^1.0.0"
+  }
+}

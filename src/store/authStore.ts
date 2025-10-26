@@ -666,7 +666,8 @@ export const useAuthStore = create<AuthState>((set) => ({
         message: result.message || 'Registration successful! Your account is pending ID verification.',
         email: result.email,
         requiresVerification: result.requiresVerification || true,
-        verificationStatus: result.verificationStatus || 'pending'
+        verificationStatus: result.verificationStatus || 'pending',
+        redirectUrl: result.data?.redirectUrl || null
       };
     } catch (error) {
       console.error('Signup error:', error);

@@ -8,6 +8,8 @@ interface ChatHeaderProps {
   isLoading: boolean;
   isExpanded?: boolean;
   onToggleExpand?: () => void;
+  onEnlarge?: () => void;
+  onMinimize?: () => void;
 }
 
 export const ChatHeader: React.FC<ChatHeaderProps> = ({
@@ -16,7 +18,9 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   isAdminOnline,
   isLoading,
   isExpanded = false,
-  onToggleExpand
+  onToggleExpand,
+  onEnlarge,
+  onMinimize
 }) => {
   return (
     <div className="flex items-center justify-between p-4 border-b border-gray-200/60 bg-gradient-to-r from-blue-50/80 to-indigo-50/80 backdrop-blur-sm">
@@ -52,8 +56,30 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
       </div>
 
       <div className="flex items-center space-x-1">
-        {/* Expand/Collapse button */}
-        {onToggleExpand && (
+        {/* Enlarge button */}
+        {onEnlarge && (
+          <button
+            onClick={onEnlarge}
+            className="p-2 hover:bg-blue-100 rounded-full transition-all duration-200 hover:scale-105"
+            aria-label="Enlarge chat"
+          >
+            <Maximize2 className="w-4 h-4 text-blue-600" />
+          </button>
+        )}
+
+        {/* Minimize button */}
+        {onMinimize && (
+          <button
+            onClick={onMinimize}
+            className="p-2 hover:bg-blue-100 rounded-full transition-all duration-200 hover:scale-105"
+            aria-label="Minimize chat"
+          >
+            <Minimize2 className="w-4 h-4 text-blue-600" />
+          </button>
+        )}
+
+        {/* Fallback toggle button for backward compatibility */}
+        {onToggleExpand && !onEnlarge && !onMinimize && (
           <button
             onClick={onToggleExpand}
             className="p-2 hover:bg-blue-100 rounded-full transition-all duration-200 hover:scale-105"

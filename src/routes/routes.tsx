@@ -23,7 +23,9 @@ const AdminChat = lazy(() => import('../pages/AdminChat').then(module => ({ defa
 const AdminVerification = lazy(() => import('../pages/AdminVerification').then(module => ({ default: module.AdminVerification })));
 const VerificationReports = lazy(() => import('../pages/VerificationReports').then(module => ({ default: module.VerificationReports })));
 const Announcements = lazy(() => import('../pages/Announcements').then(module => ({ default: module.Announcements })));
+const EmergencyContacts = lazy(() => import('../pages/EmergencyContacts').then(module => ({ default: module.EmergencyContacts })));
 const CaseDetailsPage = lazy(() => import('../pages/CaseDetailsPage').then(module => ({ default: module.CaseDetailsPage })));
+const VerifyEmail = lazy(() => import('../pages/VerifyEmail').then(module => ({ default: module.VerifyEmail })));
 
 export const publicRoutes: RouteObject[] = [
   {
@@ -53,6 +55,10 @@ export const publicRoutes: RouteObject[] = [
   {
     path: '/terms-of-service',
     element: <TermsOfService />
+  },
+  {
+    path: '/verify-email',
+    element: <VerifyEmail />
   }
 ];
 
@@ -88,6 +94,10 @@ export const protectedRoutes: RouteObject[] = [
   {
     path: '/announcements',
     element: <ProtectedRoute><Announcements /></ProtectedRoute>
+  },
+  {
+    path: '/emergency-contacts',
+    element: <ProtectedRoute><EmergencyContacts /></ProtectedRoute>
   }
 ];
 

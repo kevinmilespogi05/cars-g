@@ -163,24 +163,39 @@ export function AnnouncementBanner({ className = '' }: AnnouncementBannerProps) 
   }
 
   return (
-    <div className={`bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden ${className}`}>
-      <div className="p-4">
+    <div className={`bg-gradient-to-br from-white to-blue-50/30 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 border border-blue-100 overflow-hidden animate-fade-in ${className}`}>
+      {/* Modern Header with Icon */}
+      <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4">
+        <div className="flex items-center gap-3">
+          <div className="bg-white/20 backdrop-blur-sm p-2 rounded-lg">
+            <span className="text-2xl">📢</span>
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-white">Announcements</h2>
+            <p className="text-xs text-blue-100">Stay updated with the latest news</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="p-6">
         <div className="flex items-start justify-between">
-          <div className="flex items-start gap-3 flex-1">
-            {getPriorityIcon(currentAnnouncement.priority)}
+          <div className="flex items-start gap-4 flex-1">
+            <div className="flex-shrink-0">
+              {getPriorityIcon(currentAnnouncement.priority)}
+            </div>
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-2">
-                <h3 className="font-semibold text-gray-900 text-sm">
+              <div className="flex items-center gap-3 mb-3">
+                <h3 className="font-bold text-gray-900 text-lg">
                   {currentAnnouncement.title}
                 </h3>
-                <span className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border ${getPriorityColor(currentAnnouncement.priority)}`}>
-                  {currentAnnouncement.priority}
+                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border-2 ${getPriorityColor(currentAnnouncement.priority)}`}>
+                  {currentAnnouncement.priority.toUpperCase()}
                 </span>
               </div>
               
               {isExpanded ? (
-                <div className="text-sm text-gray-600 leading-relaxed">
-                  <p className="mb-3">{currentAnnouncement.content}</p>
+                <div className="text-base text-gray-700 leading-relaxed">
+                  <p className="mb-4">{currentAnnouncement.content}</p>
                   {imageUrls.length > 0 && (
                     <div className="mt-3 relative">
                       {/* Image Counter */}
@@ -228,7 +243,7 @@ export function AnnouncementBanner({ className = '' }: AnnouncementBannerProps) 
                   )}
                 </div>
               ) : (
-                <p className="text-sm text-gray-600 line-clamp-2">
+                <p className="text-base text-gray-700 line-clamp-2">
                   {currentAnnouncement.content}
                 </p>
               )}

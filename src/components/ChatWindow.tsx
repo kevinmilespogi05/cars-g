@@ -13,9 +13,10 @@ interface ChatWindowProps {
   onClose: () => void;
   adminId?: string;
   position?: { x: number; y: number };
+  unreadCount?: number;
 }
 
-export const ChatWindow: React.FC<ChatWindowProps> = ({ isOpen, onClose, adminId, position }) => {
+export const ChatWindow: React.FC<ChatWindowProps> = ({ isOpen, onClose, adminId, position, unreadCount = 0 }) => {
   const { user, isAuthenticated } = useAuthStore();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isConnected, setIsConnected] = useState(false);
@@ -25,14 +26,25 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ isOpen, onClose, adminId
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(true);
+  const [isMaximized, setIsMaximized] = useState(false);
   const [isMobile, setIsMobile] = useState<boolean>(typeof window !== 'undefined' ? window.innerWidth < 640 : false);
+  const [windowSize, setWindowSize] = useState({ width: 0, height: 0 });
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
-  // Mobile detection effect - must be at the top with other hooks
+  // Mobile detection and window resize effect
   useEffect(() => {
-    const onResize = () => setIsMobile(window.innerWidth < 640);
+    const onResize = () => {
+      const newWidth = window.innerWidth;
+      const newHeight = window.innerHeight;
+      setIsMobile(newWidth < 640);
+      setWindowSize({ width: newWidth, height: newHeight });
+    };
+    
+    // Initialize window size
+    onResize();
+    
     window.addEventListener('resize', onResize, { passive: true });
     return () => window.removeEventListener('resize', onResize);
   }, []);
@@ -282,113 +294,153 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ isOpen, onClose, adminId
     }
   };
 
+  const handleEnlarge = () => {
+    setIsExpanded(true);
+    setIsMaximized(true);
+  };
+
+  const handleMinimize = () => {
+    setIsExpanded(false);
+    setIsMaximized(false);
+  };
+
   if (!isOpen) return null;
 
-  // Calculate position for chat window
+  // Calculate position for chat window - now fixed at bottom like Messenger
   const getChatPosition = () => {
-    if (isMobile) {
-      // Anchor to bottom on mobile so expand grows upward
-      return { mobile: true } as const;
-    }
-    if (position) {
-      // Position chat window near the button but adjust to fit on screen
-      const chatWidth = isExpanded ? 384 : 320; // w-96 = 384px, w-80 = 320px
-      const chatHeight = isExpanded ? 600 : 384; // h-[600px] = 600px, h-96 = 384px
-      
-      // Calculate position to place chat above and to the left of the button
-      let x = position.x - chatWidth - 20; // 20px gap from button
-      let y = position.y - chatHeight - 20; // 20px gap from button
-      
-      // Ensure chat window stays within viewport bounds
-      const maxX = window.innerWidth - chatWidth - 20;
-      const maxY = window.innerHeight - chatHeight - 20;
-      
-      x = Math.max(20, Math.min(x, maxX));
-      y = Math.max(20, Math.min(y, maxY));
-      
-      return { x, y };
-    }
+    // Get viewport dimensions (use state for consistency)
+    const viewportWidth = windowSize.width || window.innerWidth;
+    const viewportHeight = windowSize.height || window.innerHeight;
     
-    // Default position (bottom right)
-    return { x: window.innerWidth - 336, y: window.innerHeight - 408 }; // 320 + 16, 384 + 24
+    // Calculate safe margins and spacing
+    const margin = 16; // Reduced margin for better integration
+    const bottomMargin = 16; // Space from bottom edge
+    const sidebarWidth = 288; // Account for sidebar navigation (w-72 = 288px)
+    
+    // On very small screens, sidebar might be collapsed
+    const effectiveSidebarWidth = viewportWidth < 1024 ? 64 : sidebarWidth;
+    
+    // Chat dimensions - fixed at bottom
+    const chatHeight = isMaximized ? 600 : (isExpanded ? 500 : 60); // Maximized: 600px, Expanded: 500px, Collapsed: 60px
+    const chatWidth = isMaximized ? Math.min(500, viewportWidth - effectiveSidebarWidth - (margin * 2)) : Math.min(400, viewportWidth - effectiveSidebarWidth - (margin * 2));
+    
+    // Position at bottom right of screen
+    const x = viewportWidth - chatWidth - margin;
+    const y = viewportHeight - chatHeight - bottomMargin;
+    
+    return { 
+      x, 
+      y, 
+      width: chatWidth, 
+      height: chatHeight,
+      isBottomFixed: true
+    };
   };
 
   const chatPosition = getChatPosition();
 
   return (
     <div 
-      className={`fixed z-50 bg-white rounded-3xl shadow-2xl border border-gray-300/50 flex flex-col overflow-hidden transition-all duration-300 ease-in-out backdrop-blur-sm ${
-        isMobile
-          ? (isExpanded ? 'w-auto h-[70vh]' : 'w-auto h-[55vh]')
-          : (isExpanded ? 'w-96 h-[600px]' : 'w-80 h-96')
+      className={`fixed z-40 bg-white border-t border-gray-200 flex flex-col overflow-hidden transition-all duration-300 ease-in-out ${
+        isExpanded 
+          ? 'rounded-t-2xl shadow-lg' 
+          : 'rounded-t-xl shadow-sm'
       }`}
-      style={
-        (chatPosition as any).mobile
-          ? {
-              left: 12,
-              right: 12,
-              bottom: 90,
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.1)'
-            }
-          : {
-              left: `${(chatPosition as any).x}px`,
-              top: `${(chatPosition as any).y}px`,
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.1)'
-            }
-      }
+      style={{
+        left: `${(chatPosition as any).x}px`,
+        bottom: '16px',
+        width: `${(chatPosition as any).width}px`,
+        height: `${(chatPosition as any).height}px`,
+        maxWidth: `${(chatPosition as any).width}px`,
+        maxHeight: `${(chatPosition as any).height}px`,
+        boxShadow: isExpanded 
+          ? '0 -8px 20px -4px rgba(0, 0, 0, 0.08), 0 -2px 4px -1px rgba(0, 0, 0, 0.04)'
+          : '0 -2px 8px -1px rgba(0, 0, 0, 0.06), 0 -1px 2px -1px rgba(0, 0, 0, 0.04)'
+      }}
     >
-      <ChatHeader
-        onClose={onClose}
-        isConnected={isConnected}
-        isAdminOnline={isAdminOnline}
-        isLoading={isLoading}
-        isExpanded={isExpanded}
-        onToggleExpand={() => setIsExpanded(!isExpanded)}
-      />
-      
-      {error && (
-        <div className="px-4 py-3 bg-red-50/80 border-b border-red-200/50">
+      {isExpanded ? (
+        <>
+          <ChatHeader
+            onClose={onClose}
+            isConnected={isConnected}
+            isAdminOnline={isAdminOnline}
+            isLoading={isLoading}
+            isExpanded={isExpanded}
+            onEnlarge={handleEnlarge}
+            onMinimize={handleMinimize}
+          />
+          
+          {error && (
+            <div className="px-4 py-3 bg-red-50/80 border-b border-red-200/50">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                <p className="text-red-600 text-sm font-medium">{error}</p>
+              </div>
+            </div>
+          )}
+
+          <div 
+            ref={messagesContainerRef} 
+            className="flex-1 flex flex-col overflow-y-auto bg-gradient-to-b from-gray-50/50 to-white relative"
+          >
+            <MessageList
+              messages={messages}
+              currentUserId={user?.id}
+              isTyping={isTyping}
+              typingUser={typingUser}
+            />
+            <div ref={messagesEndRef} />
+            
+            {/* Scroll to bottom button */}
+            {showScrollButton && (
+              <button
+                onClick={scrollToBottom}
+                className="absolute bottom-4 right-4 p-3 bg-blue-500 text-white rounded-full shadow-lg hover:bg-blue-600 transition-colors duration-200 z-10"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                </svg>
+              </button>
+            )}
+          </div>
+
+          <div className="border-t border-gray-200/50 bg-white/80 backdrop-blur-sm">
+            <MessageInput
+              onSendMessage={handleSendMessage}
+              onTypingStart={handleTypingStart}
+              onTypingStop={handleTypingStop}
+              disabled={!isConnected || isLoading}
+              placeholder={isAdminOnline ? "Type your message..." : "Admin is offline"}
+            />
+          </div>
+        </>
+      ) : (
+        /* Collapsed view - compact header */
+        <div 
+          className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-gray-50/50 transition-colors"
+          onClick={() => setIsExpanded(true)}
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <div className={`w-2.5 h-2.5 rounded-full ${isAdminOnline ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+              <span className="font-medium text-gray-800 text-sm">Chat with Admin</span>
+            </div>
+            {unreadCount > 0 && (
+              <div className="bg-red-500 text-white text-xs rounded-full px-2 py-0.5 font-bold min-w-[20px] text-center">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </div>
+            )}
+          </div>
           <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-            <p className="text-red-600 text-sm font-medium">{error}</p>
+            {isTyping && (
+              <span className="text-xs text-gray-500">typing...</span>
+            )}
+            <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
           </div>
         </div>
       )}
-
-      <div 
-        ref={messagesContainerRef} 
-        className="flex-1 flex flex-col overflow-y-auto bg-gradient-to-b from-gray-50/50 to-white relative"
-      >
-        <MessageList
-          messages={messages}
-          currentUserId={user?.id}
-          isTyping={isTyping}
-          typingUser={typingUser}
-        />
-        <div ref={messagesEndRef} />
-        
-        {/* Scroll to bottom button */}
-        {showScrollButton && (
-          <button
-            onClick={scrollToBottom}
-            className="absolute bottom-4 right-4 p-3 bg-blue-500 text-white rounded-full shadow-lg hover:bg-blue-600 transition-colors duration-200 z-10"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-            </svg>
-          </button>
-        )}
-      </div>
-
-      <div className="border-t border-gray-200/50 bg-white/80 backdrop-blur-sm">
-        <MessageInput
-          onSendMessage={handleSendMessage}
-          onTypingStart={handleTypingStart}
-          onTypingStop={handleTypingStop}
-          disabled={!isConnected || isLoading}
-          placeholder={isAdminOnline ? "Type your message..." : "Admin is offline"}
-        />
-      </div>
     </div>
   );
 };

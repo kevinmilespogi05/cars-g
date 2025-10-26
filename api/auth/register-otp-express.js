@@ -1,6 +1,4 @@
-// Vercel serverless function for OTP-based user registration
-// Step 1: Initial Sign-up with OTP generation and email sending
-
+// Express version of OTP registration endpoint for local development
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
 import { TransactionalEmailsApi, SendSmtpEmail } from '@getbrevo/brevo';
@@ -18,7 +16,7 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
 // Brevo API configuration
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
 const EMAIL_SENDER = process.env.EMAIL_SENDER || 'CARS-G <noreply@cars-g.com>';
-const FRONTEND_URL = process.env.FRONTEND_URL || 'https://cars-g.vercel.app';
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 
 if (!BREVO_API_KEY) {
   throw new Error('Missing Brevo API configuration');
@@ -125,20 +123,8 @@ async function sendOTPEmail(email, firstName, otp) {
   }
 }
 
+// Express handler
 export default async function handler(req, res) {
-  // Enable CORS
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
-  if (req.method !== 'POST') {
-    return res.status(405).json({ success: false, error: 'Method not allowed' });
-  }
-
   try {
     const { 
       firstName, 
@@ -148,8 +134,10 @@ export default async function handler(req, res) {
       phone, 
       password, 
       confirmPassword,
-      acceptTerms 
-    } = req.body || {};
+      acceptTerms,
+      idFrontImageUrl,
+      idBackImageUrl
+    } = req.body;
 
     // ========================================
     // STEP 1: COMPREHENSIVE FORM VALIDATION
@@ -278,7 +266,7 @@ export default async function handler(req, res) {
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({
       email: email,
       password: password,
-      email_confirm: false, // Keep unconfirmed until email verification
+      email_confirm: false, // Keep unconfirmed until OTP verification
       user_metadata: {
         username: username,
         first_name: firstName,
@@ -296,7 +284,7 @@ export default async function handler(req, res) {
     }
 
     // ========================================
-    // STEP 4: CREATE PROFILE WITH PENDING STATUS
+    // STEP 4: CREATE PROFILE WITH OTP STATUS
     // ========================================
 
     // Prepare profile payload with OTP verification status
@@ -308,7 +296,7 @@ export default async function handler(req, res) {
       last_name: lastName,
       role: 'user',
       points: 0,
-      email_verified: false, // Will be set to true after OTP verification
+      email_verified: false,
       verification_status: 'pending_email_otp', // New OTP status
       email_otp: otp, // Store plain OTP for email
       email_otp_hash: otpHash, // Store hashed OTP for verification
@@ -319,6 +307,12 @@ export default async function handler(req, res) {
     // Add phone if provided and valid
     if (phone && phone.trim() !== '') {
       profilePayload.phone = phone.trim();
+    }
+
+    // Add ID image URLs if provided
+    if (idFrontImageUrl && idBackImageUrl) {
+      profilePayload.id_front_image_url = idFrontImageUrl;
+      profilePayload.id_back_image_url = idBackImageUrl;
     }
 
     // Create profile in profiles table
@@ -345,7 +339,7 @@ export default async function handler(req, res) {
     }
 
     // ========================================
-    // STEP 5: SEND VERIFICATION EMAIL
+    // STEP 5: SEND OTP EMAIL
     // ========================================
 
     try {
@@ -362,7 +356,9 @@ export default async function handler(req, res) {
           otpExpiry: otpExpiry,
           emailSent: true,
           messageId: emailResult.messageId,
-          redirectUrl: `${FRONTEND_URL}/verify-email`
+          redirectUrl: `${FRONTEND_URL}/verify-email`,
+          // For development testing, include the OTP in response
+          devOTP: otp
         }
       });
 
@@ -382,7 +378,8 @@ export default async function handler(req, res) {
           otpExpiry: otpExpiry,
           emailSent: false,
           emailError: 'Failed to send verification email. Please request a new code.',
-          redirectUrl: `${FRONTEND_URL}/verify-email`
+          // For development testing, include the OTP in response
+          devOTP: otp
         }
       });
     }

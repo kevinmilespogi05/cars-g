@@ -51,9 +51,12 @@ export const MoveableChatButton: React.FC<MoveableChatButtonProps> = ({
   // Handle window resize to keep button in bounds
   useEffect(() => {
     const handleResize = () => {
+      const newWidth = window.innerWidth;
+      const newHeight = window.innerHeight;
+      
       setPosition(prev => ({
-        x: Math.min(prev.x, window.innerWidth - 80),
-        y: Math.min(prev.y, window.innerHeight - 80)
+        x: Math.max(0, Math.min(prev.x, newWidth - 80)),
+        y: Math.max(0, Math.min(prev.y, newHeight - 80))
       }));
     };
 
@@ -79,9 +82,10 @@ export const MoveableChatButton: React.FC<MoveableChatButtonProps> = ({
     const newX = e.clientX - dragStart.x;
     const newY = e.clientY - dragStart.y;
 
-    // Keep button within viewport bounds
-    const maxX = window.innerWidth - 80;
-    const maxY = window.innerHeight - 80;
+    // Keep button within viewport bounds with proper margins
+    const buttonSize = 80; // 64px button + 16px margin
+    const maxX = window.innerWidth - buttonSize;
+    const maxY = window.innerHeight - buttonSize;
 
     setPosition({
       x: Math.max(0, Math.min(newX, maxX)),

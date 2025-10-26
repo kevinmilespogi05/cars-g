@@ -416,11 +416,22 @@ export function Register() {
       const { idFrontImageUrl, idBackImageUrl } = await uploadIdImages(idFrontImage!, idBackImage!);
       
       // Register with ID image URLs
-      await signUp(email, password, username, firstName || '', lastName || '', phone || '', confirmPassword || '', idFrontImageUrl, idBackImageUrl);
-      setSuccess('Registration successful! Your account is pending verification. You will be notified once verified.');
-      setTimeout(() => {
-        navigate('/login');
-      }, 2000);
+      const result = await signUp(email, password, username, firstName || '', lastName || '', phone || '', confirmPassword || '', idFrontImageUrl, idBackImageUrl);
+      
+      // Check if we need to redirect to email verification
+      if (result.redirectUrl) {
+        // Store email for the verification page
+        localStorage.setItem('registeredEmail', email);
+        setSuccess('Registration successful! Please check your Gmail for the verification code.');
+        setTimeout(() => {
+          navigate('/verify-email');
+        }, 2000);
+      } else {
+        setSuccess('Registration successful! Your account is pending verification. You will be notified once verified.');
+        setTimeout(() => {
+          navigate('/login');
+        }, 2000);
+      }
     } catch (error: any) {
       setError(error.message || 'Registration failed. Please try again.');
     } finally {

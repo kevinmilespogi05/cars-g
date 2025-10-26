@@ -54,3 +54,4 @@ logs
 Thumbs.db
 server/env.example
 .env
+.env
