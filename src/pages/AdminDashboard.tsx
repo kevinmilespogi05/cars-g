@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { 
   Users, 
@@ -27,8 +27,10 @@ import { AdminVerificationDashboard } from '../components/AdminVerificationDashb
 export function AdminDashboard() {
   const { user } = useAuthStore();
   const navigate = useNavigate();
-
-  const [activeSection, setActiveSection] = useState<'reports' | 'requests' | 'duty' | 'users' | 'stats' | 'settings' | 'announcements' | 'verification'>('reports');
+  const [searchParams] = useSearchParams();
+  
+  // Get active section from URL query params, default to 'reports'
+  const activeSection = (searchParams.get('section') || 'reports') as 'reports' | 'requests' | 'duty' | 'users' | 'stats' | 'settings' | 'announcements' | 'verification';
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [showInfo, setShowInfo] = useState<boolean>(false);
   const [totalReports, setTotalReports] = useState<number>(0);
@@ -83,28 +85,6 @@ export function AdminDashboard() {
     fetchCounts();
   }, []);
 
-  const TabButton = ({
-    icon: Icon,
-    label,
-    value
-  }: {
-    icon: any;
-    label: string;
-    value: 'reports' | 'requests' | 'duty' | 'users' | 'stats' | 'settings' | 'announcements' | 'verification';
-  }) => (
-    <button
-      onClick={() => setActiveSection(value)}
-      className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors border ${
-        activeSection === value
-          ? 'bg-blue-50 border-blue-200 text-blue-700 shadow-sm'
-          : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
-      }`}
-      title={label}
-    >
-      <Icon className="w-4 h-4" />
-      <span>{label}</span>
-    </button>
-  );
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -189,7 +169,7 @@ export function AdminDashboard() {
             </div>
             <div 
               className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-              onClick={() => setActiveSection('verification')}
+              onClick={() => navigate('/admin?section=verification')}
             >
               <div className="flex items-center">
                 <div className="h-10 w-10 rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center">
@@ -203,18 +183,6 @@ export function AdminDashboard() {
             </div>
           </div>
 
-          {/* Top tabs */}
-          <div className="mt-4 flex items-center gap-2 overflow-x-auto pb-2 admin-nav-scroll">
-            <div className="inline-flex items-center gap-2 bg-white border border-gray-200 rounded-xl p-1 shadow-sm min-w-max">
-              <TabButton icon={FileText} label="Reports" value="reports" />
-              <TabButton icon={ClipboardList} label="Requests" value="requests" />
-              <TabButton icon={ClipboardList} label="Duty" value="duty" />
-              <TabButton icon={Users} label="Users" value="users" />
-              <TabButton icon={ShieldCheck} label="Verification" value="verification" />
-              <TabButton icon={BarChart3} label="Statistics" value="stats" />
-              <TabButton icon={Megaphone} label="Announcements" value="announcements" />
-            </div>
-          </div>
         </div>
       </div>
 

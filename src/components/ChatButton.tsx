@@ -20,7 +20,7 @@ export const ChatButton: React.FC<ChatButtonProps> = ({
 }) => {
   const { user, isAuthenticated } = useAuthStore();
   const { isImageViewerOpen } = useImageViewerStore();
-  const [isChatOpen, setIsChatOpen] = useState(true);
+  const [isChatOpen, setIsChatOpen] = useState(false);
   const [isAdminOnline, setIsAdminOnline] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [buttonPosition, setButtonPosition] = useState<{ x: number; y: number } | undefined>(undefined);
@@ -89,9 +89,10 @@ export const ChatButton: React.FC<ChatButtonProps> = ({
       <>
         <button
           onClick={handleChatClick}
-          className={`flex items-center px-3 py-3 rounded-xl text-sm font-medium transition-all duration-200 relative group text-white hover:bg-white/10 ${className}`}
+          className={`flex items-center px-3 py-3 rounded-xl text-sm font-medium transition-all duration-200 relative group text-white hover:bg-white/10 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-white/50 focus:ring-offset-2 focus:ring-offset-[#800000] ${className}`}
+          aria-label="Open chat with administrator"
         >
-          <MessageCircle className="h-5 w-5 mr-3" />
+          <MessageCircle className="h-5 w-5 mr-3" aria-hidden="true" />
           {variant === 'full' && <span>Chat with Admin</span>}
           {unreadCount > 0 && (
             <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
@@ -117,24 +118,26 @@ export const ChatButton: React.FC<ChatButtonProps> = ({
   return (
     <>
       {/* Fixed bottom chat button - no longer moveable */}
-      <div className="fixed bottom-4 right-4 z-50">
+      <div className="fixed bottom-4 right-4 z-chat">
         <button
           onClick={handleChatClick}
           className={`
-            w-12 h-12 rounded-full shadow-md transition-all duration-300 transform hover:scale-105 active:scale-95
+            w-12 h-12 min-h-[48px] min-w-[48px] rounded-full shadow-md transition-all duration-300 transform hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-offset-2
             ${isChatOpen 
-              ? 'bg-gray-500 hover:bg-gray-600' 
-              : 'bg-blue-500 hover:bg-blue-600'
+              ? 'bg-gray-500 hover:bg-gray-600 focus:ring-gray-500' 
+              : 'bg-blue-500 hover:bg-blue-600 focus:ring-blue-500'
             }
           `}
           style={{
             boxShadow: '0 2px 8px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.08)'
           }}
+          aria-label={isChatOpen ? 'Close chat window' : 'Open chat with administrator'}
+          aria-expanded={isChatOpen}
         >
           {isChatOpen ? (
-            <X className="w-5 h-5 text-white mx-auto" />
+            <X className="w-5 h-5 text-white mx-auto" aria-hidden="true" />
           ) : (
-            <MessageCircle className="w-5 h-5 text-white mx-auto" />
+            <MessageCircle className="w-5 h-5 text-white mx-auto" aria-hidden="true" />
           )}
         </button>
         

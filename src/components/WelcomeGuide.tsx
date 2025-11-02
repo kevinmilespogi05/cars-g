@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronRight, ChevronLeft, Shield, MapPin, Award, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -132,6 +132,27 @@ export function WelcomeGuide({ isOpen, onClose, userRole }: WelcomeGuideProps) {
     onClose();
   };
 
+  // Handle ESC key to close modal
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        skipTour();
+      }
+    };
+
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [isOpen]);
+
+  // Handle click outside modal (backdrop click)
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) {
+      skipTour();
+    }
+  };
+
   if (!isOpen) return null;
 
   const currentStepData = steps[currentStep];
@@ -143,13 +164,13 @@ export function WelcomeGuide({ isOpen, onClose, userRole }: WelcomeGuideProps) {
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-        onClick={onClose}
+        onClick={handleBackdropClick}
       >
         <motion.div
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.9, opacity: 0 }}
-          className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6"
+          className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 relative"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
@@ -162,9 +183,11 @@ export function WelcomeGuide({ isOpen, onClose, userRole }: WelcomeGuideProps) {
             </div>
             <button
               onClick={skipTour}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full p-1.5 transition-colors focus:outline-none focus:ring-2 focus:ring-[#800000] focus:ring-offset-2"
+              aria-label="Close welcome guide"
+              title="Close (ESC)"
             >
-              <X className="h-5 w-5" />
+              <X className="h-6 w-6" />
             </button>
           </div>
 
@@ -212,7 +235,7 @@ export function WelcomeGuide({ isOpen, onClose, userRole }: WelcomeGuideProps) {
           </div>
 
           {/* Navigation */}
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <button
               onClick={prevStep}
               disabled={currentStep === 0}
@@ -220,6 +243,12 @@ export function WelcomeGuide({ isOpen, onClose, userRole }: WelcomeGuideProps) {
             >
               <ChevronLeft className="h-4 w-4" />
               <span>Previous</span>
+            </button>
+            <button
+              onClick={skipTour}
+              className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900 transition-colors underline"
+            >
+              Skip Tour
             </button>
             <button
               onClick={nextStep}

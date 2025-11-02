@@ -24,10 +24,10 @@ const checkVerificationStatus = async (profile: any) => {
     throw new Error('Your account is pending ID verification. Please wait for admin approval before signing in.');
   }
   
-  if (profile.verification_status === 'rejected') {
-    // Sign out the user if they're rejected
+  if (profile.verification_status === 'declined') {
+    // Sign out the user if they're declined
     await supabase.auth.signOut();
-    throw new Error('Your account verification was rejected. Please contact support for assistance.');
+    throw new Error('Your account verification was declined. Please contact support for assistance.');
   }
 };
 
@@ -726,7 +726,24 @@ export const useAuthStore = create<AuthState>((set) => ({
       }
     } catch (error: any) {
       console.error('JWT Authentication error:', error);
-      throw new Error(error.message || 'Failed to sign in with JWT');
+      
+      // Handle backend connection failures with user-friendly messages
+      if (error.message?.includes('Failed to fetch') || 
+          error.message?.includes('ERR_EMPTY_RESPONSE') ||
+          error.message?.includes('NetworkError')) {
+        throw new Error(
+          'Cannot connect to server. Please ensure the backend server is running ' +
+          'or check your internet connection. If the problem persists, contact support.'
+        );
+      }
+      
+      // Handle authentication errors
+      if (error.message?.includes('Invalid') || error.message?.includes('credentials')) {
+        throw new Error('Invalid email or password. Please try again.');
+      }
+      
+      // Generic error fallback
+      throw new Error(error.message || 'Failed to sign in. Please try again.');
     }
   },
 

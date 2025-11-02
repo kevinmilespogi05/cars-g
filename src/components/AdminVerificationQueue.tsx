@@ -23,7 +23,7 @@ interface VerificationRequest {
   user_id: string;
   id_front_image_url: string;
   id_back_image_url: string;
-  status: 'pending' | 'approved' | 'rejected' | 'ai_processing';
+  status: 'pending' | 'approved' | 'declined' | 'ai_processing';
   admin_notes?: string;
   created_at: string;
   processed_at?: string;
@@ -67,7 +67,7 @@ const AdminVerificationQueue: React.FC<AdminVerificationQueueProps> = ({ onClose
   }, []);
 
   // Handle admin decision
-  const handleAdminDecision = async (requestId: string, decision: 'approved' | 'rejected') => {
+  const handleAdminDecision = async (requestId: string, decision: 'approved' | 'declined') => {
     try {
       setProcessing(requestId);
       
@@ -79,7 +79,7 @@ const AdminVerificationQueue: React.FC<AdminVerificationQueueProps> = ({ onClose
         body: JSON.stringify({
           requestId,
           decision,
-          notes: decision === 'rejected' ? rejectNotes : undefined
+          notes: decision === 'declined' ? rejectNotes : undefined
         }),
       });
 
@@ -128,7 +128,7 @@ const AdminVerificationQueue: React.FC<AdminVerificationQueueProps> = ({ onClose
     const statusConfig = {
       pending: { color: 'bg-yellow-100 text-yellow-800', icon: ClockIcon, text: 'Pending' },
       approved: { color: 'bg-green-100 text-green-800', icon: CheckCircleIcon, text: 'Approved' },
-      rejected: { color: 'bg-red-100 text-red-800', icon: XCircleIcon, text: 'Rejected' },
+      declined: { color: 'bg-red-100 text-red-800', icon: XCircleIcon, text: 'Declined' },
       ai_processing: { color: 'bg-blue-100 text-blue-800', icon: ClockIcon, text: 'AI Processing' }
     };
 
@@ -388,7 +388,7 @@ const AdminVerificationQueue: React.FC<AdminVerificationQueueProps> = ({ onClose
                       Approve
                     </button>
                     <button
-                      onClick={() => handleAdminDecision(selectedRequest.id, 'rejected')}
+                      onClick={() => handleAdminDecision(selectedRequest.id, 'declined')}
                       disabled={processing === selectedRequest.id}
                       className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50"
                     >

@@ -162,10 +162,10 @@ export const MoveableChatButton: React.FC<MoveableChatButtonProps> = ({
       <button
         onClick={handleClick}
         className={`
-          w-16 h-16 rounded-2xl shadow-2xl transition-all duration-300 transform hover:scale-110 active:scale-95
+          w-16 h-16 min-h-[64px] min-w-[64px] rounded-2xl shadow-2xl transition-all duration-300 transform hover:scale-110 active:scale-95 focus:outline-none focus:ring-2 focus:ring-offset-2
           ${isOpen 
-            ? 'bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700' 
-            : 'bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700'
+            ? 'bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 focus:ring-gray-500' 
+            : 'bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 focus:ring-blue-500'
           }
           ${isDragging ? 'scale-105 shadow-3xl' : ''}
         `}
@@ -174,11 +174,13 @@ export const MoveableChatButton: React.FC<MoveableChatButtonProps> = ({
             ? '0 20px 40px -10px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1)'
             : '0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1)'
         }}
+        aria-label={isOpen ? 'Close chat window' : 'Open chat with administrator (draggable)'}
+        aria-expanded={isOpen}
       >
         {isOpen ? (
-          <X className="w-6 h-6 text-white mx-auto" />
+          <X className="w-6 h-6 text-white mx-auto" aria-hidden="true" />
         ) : (
-          <MessageCircle className="w-6 h-6 text-white mx-auto" />
+          <MessageCircle className="w-6 h-6 text-white mx-auto" aria-hidden="true" />
         )}
       </button>
     </div>

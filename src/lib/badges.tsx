@@ -1,7 +1,7 @@
 import React from 'react';
 import { AlertCircle, CheckCircle, Clock, ClipboardList, Shield, XCircle } from 'lucide-react';
 
-export type ReportStatus = 'verifying' | 'pending' | 'in_progress' | 'awaiting_verification' | 'resolved' | 'rejected' | 'cancelled' | string;
+export type ReportStatus = 'verifying' | 'pending' | 'in_progress' | 'awaiting_verification' | 'resolved' | 'declined' | 'cancelled' | string;
 export type ReportPriority = 'high' | 'medium' | 'low' | string;
 
 export const getStatusColor = (status: ReportStatus): string => {
@@ -16,7 +16,7 @@ export const getStatusColor = (status: ReportStatus): string => {
       return 'bg-warning-50 text-warning-800 border border-warning-200';
     case 'resolved':
       return 'bg-teal-50 text-teal-700 border border-teal-200';
-    case 'rejected':
+    case 'declined':
       return 'bg-red-50 text-red-700 border border-red-200';
     case 'cancelled':
       return 'bg-gray-100 text-gray-600 border border-gray-200';
@@ -37,7 +37,7 @@ export const getStatusIcon = (status: ReportStatus): React.ReactNode => {
       return <AlertCircle className="w-4 h-4 text-warning-700" />;
     case 'resolved':
       return <CheckCircle className="w-4 h-4 text-teal-600" />;
-    case 'rejected':
+    case 'declined':
       return <XCircle className="w-4 h-4 text-red-600" />;
     case 'cancelled':
       return <XCircle className="w-4 h-4 text-gray-500" />;

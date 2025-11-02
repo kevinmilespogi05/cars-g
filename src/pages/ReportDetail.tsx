@@ -19,7 +19,7 @@ interface Report {
   description: string;
   category: string;
   priority: 'low' | 'medium' | 'high';
-  status: 'pending' | 'in_progress' | 'resolved' | 'rejected';
+  status: 'pending' | 'in_progress' | 'resolved' | 'declined';
   location_address: string;
   created_at: string;
   user: {

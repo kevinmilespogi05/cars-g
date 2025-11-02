@@ -307,7 +307,7 @@ export function CaseInfo({ report, onUpdate, onClose, isPatrolView = false }: Ca
                       {report.status === 'pending' && <Clock className="h-5 w-5 text-yellow-500" />}
                       {report.status === 'in_progress' && <AlertCircle className="h-5 w-5 text-blue-500" />}
                       {report.status === 'resolved' && <CheckCircle className="h-5 w-5 text-green-500" />}
-                      {report.status === 'rejected' && <XCircle className="h-5 w-5 text-red-500" />}
+                      {report.status === 'declined' && <XCircle className="h-5 w-5 text-red-500" />}
                       <span className="text-sm text-gray-900 font-medium capitalize">
                         {report.status.replace('_', ' ')}
                       </span>

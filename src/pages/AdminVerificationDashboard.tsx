@@ -14,7 +14,7 @@ const AdminVerificationDashboard: React.FC = () => {
   const [stats, setStats] = useState({
     pending: 0,
     approved: 0,
-    rejected: 0,
+    declined: 0,
     total: 0
   });
 
@@ -30,7 +30,7 @@ const AdminVerificationDashboard: React.FC = () => {
           setStats({
             pending: data.data.statistics.byStatus.pending || 0,
             approved: data.data.statistics.byStatus.approved || 0,
-            rejected: data.data.statistics.byStatus.rejected || 0,
+            declined: data.data.statistics.byStatus.declined || 0,
             total: Object.values(data.data.statistics.byStatus).reduce((a: number, b: number) => a + b, 0)
           });
         }
@@ -60,8 +60,8 @@ const AdminVerificationDashboard: React.FC = () => {
       bgColor: 'bg-green-50'
     },
     {
-      name: 'Rejected',
-      value: stats.rejected,
+      name: 'Declined',
+      value: stats.declined,
       icon: XCircleIcon,
       color: 'bg-red-500',
       textColor: 'text-red-600',
@@ -161,8 +161,8 @@ const AdminVerificationDashboard: React.FC = () => {
               >
                 <XCircleIcon className="w-8 h-8 text-red-600 mr-4" />
                 <div className="text-left">
-                  <h4 className="font-medium text-gray-900">Rejected Requests</h4>
-                  <p className="text-sm text-gray-600">Review {stats.rejected} rejected verifications</p>
+                  <h4 className="font-medium text-gray-900">Declined Requests</h4>
+                  <p className="text-sm text-gray-600">Review {stats.declined} declined verifications</p>
                 </div>
               </button>
             </div>

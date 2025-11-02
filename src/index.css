@@ -35,6 +35,21 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Base styles for mobile PWA */
+@layer base {
+  body {
+    /* Prevent pull-to-refresh on mobile */
+    overscroll-behavior-y: contain;
+    /* Support safe area insets on iOS */
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+  
+  /* Disable pull-to-refresh for better PWA experience */
+  html {
+    overscroll-behavior: contain;
+  }
+}
+
 /* Custom Scrollbar Styles */
 .scrollbar-thin {
   scrollbar-width: thin;

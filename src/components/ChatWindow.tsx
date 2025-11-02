@@ -180,10 +180,18 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ isOpen, onClose, adminId
 
         // Connect to socket if not already connected
         if (!socketManager.isConnected()) {
-          await socketManager.connect();
+          try {
+            await socketManager.connect();
+            setIsConnected(socketManager.isConnected());
+          } catch (connectError) {
+            // Gracefully handle connection failure - don't block the UI
+            console.warn('Socket connection failed (chat will work offline):', connectError);
+            setIsConnected(false);
+            setError('Chat service is temporarily unavailable. Messages will be queued.');
+          }
+        } else {
+          setIsConnected(true);
         }
-
-        setIsConnected(true);
 
         // Join admin chat - user joins their own admin chat
         if (user) {
@@ -257,9 +265,15 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ isOpen, onClose, adminId
           socketManager.offMessageSeen(handleMessageSeen);
         };
 
-      } catch (error) {
-        console.error('Chat initialization error:', error);
-        setError('Failed to connect to chat. Please try again.');
+      } catch (error: any) {
+        // Gracefully handle errors - don't block the UI
+        console.warn('Chat initialization error (non-fatal):', error);
+        const errorMessage = error.message?.includes('Failed to fetch') || 
+                            error.message?.includes('ERR_EMPTY_RESPONSE')
+          ? 'Chat service is temporarily unavailable. Please check your connection or try again later.'
+          : 'Failed to connect to chat. Some features may be limited.';
+        setError(errorMessage);
+        setIsConnected(false);
       } finally {
         setIsLoading(false);
       }

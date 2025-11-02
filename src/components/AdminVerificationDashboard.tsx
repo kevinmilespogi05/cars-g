@@ -26,7 +26,7 @@ interface VerificationRequest {
   user_id: string;
   id_front_image_url: string;
   id_back_image_url: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved' | 'declined';
   admin_notes?: string;
   processed_by?: string;
   processed_at?: string;
@@ -46,7 +46,7 @@ export function AdminVerificationDashboard() {
   const [selectedRequest, setSelectedRequest] = useState<VerificationRequest | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [processing, setProcessing] = useState<string | null>(null);
-  const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+  const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'declined'>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [showImageModal, setShowImageModal] = useState(false);
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
@@ -147,7 +147,7 @@ export function AdminVerificationDashboard() {
   // Handle AI analysis
 
   // Handle verification decision
-  const handleVerification = async (requestId: string, decision: 'approved' | 'rejected', notes?: string) => {
+  const handleVerification = async (requestId: string, decision: 'approved' | 'declined', notes?: string) => {
     try {
       setProcessing(requestId);
       
@@ -188,7 +188,7 @@ export function AdminVerificationDashboard() {
         return { icon: Clock, color: 'text-yellow-600', bg: 'bg-yellow-100' };
       case 'approved':
         return { icon: CheckCircle, color: 'text-green-600', bg: 'bg-green-100' };
-      case 'rejected':
+      case 'declined':
         return { icon: XCircle, color: 'text-red-600', bg: 'bg-red-100' };
       default:
         return { icon: Clock, color: 'text-gray-600', bg: 'bg-gray-100' };
@@ -242,9 +242,9 @@ export function AdminVerificationDashboard() {
               <XCircle className="h-6 w-6 text-red-600" />
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Rejected</p>
+              <p className="text-sm font-medium text-gray-600">Declined</p>
               <p className="text-2xl font-bold text-gray-900">
-                {requests.filter(r => r.status === 'rejected').length}
+                {requests.filter(r => r.status === 'declined').length}
               </p>
             </div>
           </div>
@@ -268,7 +268,7 @@ export function AdminVerificationDashboard() {
             </div>
           </div>
           <div className="flex gap-2">
-            {(['all', 'pending', 'approved', 'rejected'] as const).map((status) => (
+            {(['all', 'pending', 'approved', 'declined'] as const).map((status) => (
               <button
                 key={status}
                 onClick={() => setFilter(status)}
@@ -390,7 +390,7 @@ export function AdminVerificationDashboard() {
                                 Approve
                               </button>
                               <button
-                                onClick={() => handleVerification(request.id, 'rejected')}
+                                onClick={() => handleVerification(request.id, 'declined')}
                                 disabled={processing === request.id}
                                 className="text-red-600 hover:text-red-700 flex items-center gap-1 disabled:opacity-50"
                               >
@@ -634,11 +634,11 @@ export function AdminVerificationDashboard() {
                   {selectedRequest.status === 'pending' && (
                     <>
                       <button
-                        onClick={() => handleVerification(selectedRequest.id, 'rejected')}
+                        onClick={() => handleVerification(selectedRequest.id, 'declined')}
                         disabled={processing === selectedRequest.id}
                         className="px-4 py-2 text-red-700 bg-red-100 border border-red-300 rounded-lg hover:bg-red-200 disabled:opacity-50"
                       >
-                        Reject
+                        Decline
                       </button>
                       <button
                         onClick={() => handleVerification(selectedRequest.id, 'approved')}

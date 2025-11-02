@@ -23,7 +23,7 @@ DROP CONSTRAINT IF EXISTS profiles_verification_status_check;
 
 ALTER TABLE public.profiles 
 ADD CONSTRAINT profiles_verification_status_check 
-CHECK (verification_status IN ('pending_email_otp', 'pending_email_verification', 'pending_id_verification', 'pending_admin_approval', 'pending', 'active', 'verified', 'rejected', 'ai_verified'));
+CHECK (verification_status IN ('pending_email_otp', 'pending_email_verification', 'pending_id_verification', 'pending_admin_approval', 'pending', 'active', 'verified', 'declined', 'ai_verified'));
 
 -- Create function to clean up expired tokens
 CREATE OR REPLACE FUNCTION cleanup_expired_email_tokens()

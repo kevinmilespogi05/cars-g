@@ -149,8 +149,8 @@ export function ReportsList({
 
   // Filter reports based on search term and filters
   const filteredReports = reports.filter(report => {
-    // Always exclude verifying, awaiting_verification, and rejected reports from the main reports view
-    if (report.status === 'verifying' || report.status === 'awaiting_verification' || report.status === 'rejected') {
+    // Always exclude verifying, awaiting_verification, and declined reports from the main reports view
+    if (report.status === 'verifying' || report.status === 'awaiting_verification' || report.status === 'declined') {
       return false;
     }
     
@@ -319,8 +319,17 @@ export function ReportsList({
             {paginatedReports.map((report) => (
               <div 
                 key={report.id} 
-                className="snap-start w-[85vw] max-w-[380px] bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden cursor-pointer" 
+                className="snap-start w-[85vw] max-w-[380px] bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden cursor-pointer focus-within:ring-2 focus-within:ring-primary-500" 
                 onClick={() => navigate(`/reports/${report.id}`)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    navigate(`/reports/${report.id}`);
+                  }
+                }}
+                role="button"
+                tabIndex={0}
+                aria-label={`View report: ${report.title}`}
               >
                 {report.images && report.images.length > 0 ? (
                   <img 
@@ -431,8 +440,17 @@ export function ReportsList({
             <motion.div
               variants={cardVariants}
               key={report.id}
-              className="group bg-white rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer border border-gray-200 hover:border-gray-300 overflow-hidden hover:-translate-y-1"
+              className="group bg-white rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer border border-gray-200 hover:border-gray-300 overflow-hidden hover:-translate-y-1 focus-within:ring-2 focus-within:ring-primary-500 focus-within:outline-none"
               onClick={() => navigate(`/reports/${report.id}`)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  navigate(`/reports/${report.id}`);
+                }
+              }}
+              role="button"
+              tabIndex={0}
+              aria-label={`View report: ${report.title}`}
             >
               {report.images && report.images.length > 0 && !imageErrors[report.id] ? (
                 <div className="relative h-48 overflow-hidden" onClick={(e) => e.stopPropagation()}>

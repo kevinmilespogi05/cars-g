@@ -74,8 +74,10 @@ export function Navigation() {
 
   return (
     <nav 
-      className={`fixed w-full z-[2000] transition-all duration-300 shadow-lg ${isScrolled ? 'py-2' : 'py-3'}`}
+      className={`fixed w-full z-sidebar transition-all duration-300 shadow-lg ${isScrolled ? 'py-2' : 'py-3'}`}
       style={{backgroundColor: '#800000'}}
+      role="navigation"
+      aria-label="Main navigation"
     >
       <div className="w-full px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center">
@@ -139,7 +141,9 @@ export function Navigation() {
               <div className="relative ml-3" ref={profileMenuRef}>
                 <button
                   onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-                  className="flex items-center space-x-2 px-3 py-2 rounded-xl text-white transition-all duration-200 shadow-sm border border-transparent"
+                  className="flex items-center space-x-2 px-3 py-2 rounded-xl text-white transition-all duration-200 shadow-sm border border-transparent min-h-[44px] focus:outline-none focus:ring-2 focus:ring-white/50 focus:ring-offset-2 focus:ring-offset-[#800000]"
+                  aria-label="Open user profile menu"
+                  aria-expanded={isProfileMenuOpen}
                 >
                   <div className="relative">
                     <img
@@ -155,7 +159,11 @@ export function Navigation() {
                 </button>
 
                 {isProfileMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl py-2 z-[3000] border border-gray-200/50 backdrop-blur-sm">
+                  <div 
+                    className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl py-2 z-popup border border-gray-200/50 backdrop-blur-sm"
+                    role="menu"
+                    aria-label="User profile options"
+                  >
                     <div className="px-4 py-3 border-b border-gray-100">
                       <div className="flex items-center space-x-3">
                         <img
@@ -166,7 +174,7 @@ export function Navigation() {
                         />
                         <div>
                           <div className="text-sm font-medium text-gray-900">{user.username}</div>
-                          <div className="text-xs text-gray-500 capitalize">{user.role}</div>
+                          <div className="text-xs text-gray-700 capitalize">{user.role}</div>
                         </div>
                       </div>
                     </div>
@@ -176,7 +184,7 @@ export function Navigation() {
                         className="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-colors duration-150"
                         onClick={() => setIsProfileMenuOpen(false)}
                       >
-                        <User className="h-4 w-4 mr-3 text-gray-400" />
+                        <User className="h-4 w-4 mr-3 text-gray-600" />
                         Profile Settings
                       </Link>
                       
@@ -202,14 +210,14 @@ export function Navigation() {
           {user && (
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="md:hidden p-2.5 rounded-xl text-white transition-all duration-200 shadow-sm border border-transparent"
-              aria-label="Toggle menu"
+              className="md:hidden p-2.5 rounded-xl text-white transition-all duration-200 shadow-sm border border-transparent min-h-[44px] min-w-[44px] flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-white/50 focus:ring-offset-2 focus:ring-offset-[#800000]"
+              aria-label={isMobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
               aria-expanded={isMobileMenuOpen}
             >
               {isMobileMenuOpen ? (
-                <X className="h-5 w-5" />
+                <X className="h-5 w-5" aria-hidden="true" />
               ) : (
-                <Menu className="h-5 w-5" />
+                <Menu className="h-5 w-5" aria-hidden="true" />
               )}
             </button>
           )}

@@ -20,7 +20,10 @@ class SocketManager {
     try {
       const token = getAccessToken();
       if (!token) {
-        throw new Error('No authentication token available');
+        // Gracefully handle missing token - don't throw error, just return
+        console.warn('No authentication token available for Socket.IO connection');
+        this.isConnecting = false;
+        return;
       }
 
       console.log('Attempting socket connection with token:', token.substring(0, 20) + '...');
@@ -30,19 +33,28 @@ class SocketManager {
       this.socket = io(serverUrl, {
         transports: ['websocket', 'polling'],
         timeout: 20000,
-        forceNew: true
+        forceNew: true,
+        reconnection: true,
+        reconnectionAttempts: this.maxReconnectAttempts,
+        reconnectionDelay: this.reconnectDelay,
+        reconnectionDelayMax: 5000
       });
 
       this.setupEventListeners();
       
       return new Promise((resolve, reject) => {
         if (!this.socket) {
-          reject(new Error('Socket initialization failed'));
+          this.isConnecting = false;
+          console.warn('Socket initialization failed');
+          resolve(); // Resolve instead of reject to prevent crashes
           return;
         }
 
         const timeout = setTimeout(() => {
-          reject(new Error('Connection timeout'));
+          this.isConnecting = false;
+          console.warn('Socket connection timeout - will retry automatically');
+          // Don't reject, let it retry automatically
+          resolve();
         }, 10000);
 
         this.socket.on('connect', () => {
@@ -65,34 +77,36 @@ class SocketManager {
           clearTimeout(timeout);
           this.isConnecting = false;
           console.error('Socket authentication error:', data);
-          reject(new Error(data.error || 'Authentication failed'));
+          // Don't reject - let reconnect handle it
+          resolve();
         });
 
         this.socket.on('connect_error', (error) => {
           clearTimeout(timeout);
           this.isConnecting = false;
-          console.error('Socket connection error:', error);
-          reject(error);
+          console.warn('Socket connection error (will retry):', error.message);
+          // Don't reject - Socket.IO will handle reconnection automatically
+          resolve();
         });
 
         this.socket.on('chat_connected', (data) => {
           if (data.success) {
             console.log('Chat connected successfully');
           } else {
-            console.error('Chat connection failed:', data.message);
+            console.warn('Chat connection failed:', data.message);
           }
         });
 
         this.socket.on('chat_error', (data) => {
-          console.error('Chat error:', data.error);
+          console.warn('Chat error:', data.error);
           // Don't reject the connection for chat errors, just log them
         });
       });
 
     } catch (error) {
       this.isConnecting = false;
-      console.error('Socket connection error:', error);
-      throw error;
+      console.warn('Socket connection setup error (non-fatal):', error);
+      // Don't throw - gracefully degrade
     }
   }
 

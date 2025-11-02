@@ -93,8 +93,8 @@ function generateApprovalEmailHTML(firstName, username) {
   `;
 }
 
-// Generate rejection email HTML template
-function generateRejectionEmailHTML(firstName, reason) {
+// Generate decline email HTML template
+function generateDeclineEmailHTML(firstName, reason) {
   return `
     <!DOCTYPE html>
     <html lang="en">
@@ -124,7 +124,7 @@ function generateRejectionEmailHTML(firstName, reason) {
             <p>Thank you for your interest in joining CARS-G, our community safety platform. After reviewing your verification documents, we were unable to approve your account at this time.</p>
             
             <div class="notice">
-                <h3>📝 Reason for Rejection:</h3>
+                <h3>📝 Reason for Decline:</h3>
                 <p>${reason || 'The provided documents did not meet our verification requirements. Please ensure your ID documents are clear, valid, and match the information provided during registration.'}</p>
             </div>
             
@@ -161,7 +161,7 @@ async function sendNotificationEmail(email, firstName, username, type, reason = 
     htmlContent = generateApprovalEmailHTML(firstName, username);
   } else {
     subject = '📋 CARS-G Account Verification Update';
-    htmlContent = generateRejectionEmailHTML(firstName, reason);
+    htmlContent = generateDeclineEmailHTML(firstName, reason);
   }
   
   const message = new SendSmtpEmail();
@@ -272,10 +272,10 @@ export default async function handler(req, res) {
       });
     }
 
-    if (!['approved', 'rejected'].includes(decision)) {
+    if (!['approved', 'declined'].includes(decision)) {
       return res.status(400).json({ 
         success: false, 
-        error: 'Decision must be either "approved" or "rejected"' 
+        error: 'Decision must be either "approved" or "declined"' 
       });
     }
 
@@ -369,8 +369,8 @@ export default async function handler(req, res) {
       });
     }
 
-    // Handle rejection
-    if (decision === 'rejected') {
+    // Handle decline
+    if (decision === 'declined') {
       // Delete ID images from Cloudinary for privacy
       try {
         const deleteResult = await deleteIDImages(
@@ -383,12 +383,12 @@ export default async function handler(req, res) {
         // Don't fail the request, just log the error
       }
 
-      // Update user profile to rejected status and clear image URLs
+      // Update user profile to declined status and clear image URLs
       const { error: updateProfileError } = await supabase
         .from('profiles')
         .update({
-          verification_status: 'rejected',
-          verification_notes: `Rejected by admin: ${notes || 'No reason provided'}`,
+          verification_status: 'declined',
+          verification_notes: `Declined by admin: ${notes || 'No reason provided'}`,
           id_front_image_url: null,
           id_back_image_url: null,
           verified_at: null,
@@ -404,16 +404,16 @@ export default async function handler(req, res) {
         });
       }
 
-      // Send rejection notification email
+      // Send decline notification email
       try {
         await sendNotificationEmail(
           userProfile.email,
           userProfile.first_name,
           userProfile.username,
-          'rejected',
+          'declined',
           notes
         );
-        console.log('Rejection notification sent successfully');
+        console.log('Decline notification sent successfully');
       } catch (emailError) {
         console.error('Failed to send rejection notification:', emailError);
         // Don't fail the request, just log the error
@@ -421,8 +421,8 @@ export default async function handler(req, res) {
 
       return res.json({
         success: true,
-        message: 'User account rejected and ID images deleted for privacy',
-        verificationStatus: 'rejected',
+        message: 'User account declined and ID images deleted for privacy',
+        verificationStatus: 'declined',
         emailSent: true,
         imagesDeleted: true
       });

@@ -70,14 +70,18 @@ export function ConfirmationModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 overflow-y-auto"
+      className="fixed inset-0 z-modal overflow-y-auto"
       onKeyDown={handleKeyDown}
-      tabIndex={-1}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modal-title"
+      aria-describedby="modal-description"
     >
       {/* Backdrop */}
       <div
         className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
         onClick={handleBackdropClick}
+        aria-hidden="true"
       />
       
       {/* Modal */}
@@ -86,23 +90,24 @@ export function ConfirmationModal({
           {/* Header */}
           <div className="flex items-center justify-between p-6 pb-4">
             <div className="flex items-center gap-3">
-              {getIcon()}
-              <h3 className="text-lg font-semibold text-gray-900">
+              <div aria-hidden="true">{getIcon()}</div>
+              <h3 id="modal-title" className="text-lg font-semibold text-gray-900">
                 {title}
               </h3>
             </div>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
+              className="text-gray-600 hover:text-gray-900 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
               disabled={isLoading}
+              aria-label="Close dialog"
             >
-              <X className="h-5 w-5" />
+              <X className="h-5 w-5" aria-hidden="true" />
             </button>
           </div>
 
           {/* Content */}
           <div className="px-6 pb-4">
-            <p className="text-sm text-gray-600 leading-relaxed">
+            <p id="modal-description" className="text-sm text-gray-700 leading-relaxed">
               {message}
             </p>
           </div>
@@ -112,14 +117,14 @@ export function ConfirmationModal({
             <button
               onClick={onClose}
               disabled={isLoading}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-4 py-2 min-h-[44px] text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {cancelText}
             </button>
             <button
               onClick={onConfirm}
               disabled={isLoading}
-              className={`px-4 py-2 text-sm font-medium text-white rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${getButtonStyles()}`}
+              className={`px-4 py-2 min-h-[44px] text-sm font-medium text-white rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${getButtonStyles()}`}
             >
               {isLoading ? (
                 <div className="flex items-center gap-2">

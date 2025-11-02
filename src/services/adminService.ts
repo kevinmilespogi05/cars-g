@@ -11,7 +11,13 @@ export const checkAdminStatus = async (): Promise<AdminStatus> => {
   try {
     const token = getAccessToken();
     if (!token) {
-      throw new Error('No authentication token available');
+      // Gracefully handle missing token - return default status
+      console.warn('No authentication token available for admin status check');
+      return {
+        success: false,
+        isOnline: false,
+        adminCount: 0
+      };
     }
 
     const response = await fetch(getApiUrl('/api/admin/status'), {
@@ -28,8 +34,9 @@ export const checkAdminStatus = async (): Promise<AdminStatus> => {
 
     const data = await response.json();
     return data;
-  } catch (error) {
-    console.error('Failed to check admin status:', error);
+  } catch (error: any) {
+    // Gracefully handle all errors - don't throw, just return default
+    console.warn('Failed to check admin status (non-fatal):', error.message || error);
     return {
       success: false,
       isOnline: false,

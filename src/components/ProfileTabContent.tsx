@@ -533,7 +533,7 @@ export function ProfileTabContent({
         return 'bg-blue-100 text-blue-800';
       case 'resolved':
         return 'bg-green-100 text-green-800';
-      case 'rejected':
+      case 'declined':
         return 'bg-red-100 text-red-800';
       case 'verifying':
         return 'bg-purple-100 text-purple-800';
@@ -823,7 +823,7 @@ export function ProfileTabContent({
                     <option value="pending">Pending</option>
                     <option value="in_progress">In Progress</option>
                     <option value="resolved">Resolved</option>
-                    <option value="rejected">Rejected</option>
+                    <option value="declined">Declined</option>
                     <option value="verifying">Verifying</option>
                     <option value="awaiting_verification">Awaiting Verification</option>
                   </select>

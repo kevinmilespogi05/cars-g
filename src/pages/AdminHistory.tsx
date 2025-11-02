@@ -31,23 +31,23 @@ export function AdminHistory() {
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [loading, setLoading] = useState(false);
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
-  const [exportStatus, setExportStatus] = useState<'resolved' | 'rejected' | 'both'>('resolved');
-  const [activeTab, setActiveTab] = useState<'resolved' | 'rejected'>('resolved');
+  const [exportStatus, setExportStatus] = useState<'resolved' | 'declined' | 'both'>('resolved');
+  const [activeTab, setActiveTab] = useState<'resolved' | 'declined'>('resolved');
 
   useEffect(() => {
     fetchAllReports();
     
     // Check for tab parameter in URL
     const tabParam = searchParams.get('tab');
-    if (tabParam === 'rejected') {
-      setActiveTab('rejected');
+    if (tabParam === 'declined') {
+      setActiveTab('declined');
     }
   }, [searchParams]);
 
   const fetchAllReports = async () => {
     setLoading(true);
     try {
-      // Fetch both resolved and rejected reports
+      // Fetch both resolved and declined reports
       const { data: reportsData, error } = await supabase
         .from('reports')
         .select(`
@@ -65,7 +65,7 @@ export function AdminHistory() {
           images,
           case_number
         `)
-        .in('status', ['resolved', 'rejected'])
+        .in('status', ['resolved', 'declined'])
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -155,7 +155,7 @@ export function AdminHistory() {
     // Filter reports based on search term, category, and active tab
     let filtered = reports;
     
-    // Filter by active tab (resolved or rejected)
+    // Filter by active tab (resolved or declined)
     filtered = filtered.filter(report => report.status === activeTab);
     
     if (searchTerm) {
@@ -237,12 +237,12 @@ export function AdminHistory() {
 
   const exportToPDF = async () => {
     const getReportsBySelection = () => {
-      if (exportStatus === 'both') return reports.filter(r => r.status === 'resolved' || r.status === 'rejected');
+      if (exportStatus === 'both') return reports.filter(r => r.status === 'resolved' || r.status === 'declined');
       return reports.filter(r => r.status === exportStatus);
     };
 
     const selectedReports = getReportsBySelection();
-    const title = exportStatus === 'both' ? 'Resolved & Rejected Reports' : `${exportStatus.charAt(0).toUpperCase() + exportStatus.slice(1)} Reports`;
+    const title = exportStatus === 'both' ? 'Resolved & Declined Reports' : `${exportStatus.charAt(0).toUpperCase() + exportStatus.slice(1)} Reports`;
     const dateStr = new Date().toLocaleString();
     // Load jsPDF and autotable from CDN
     const loadScript = (src: string) => new Promise<void>((resolve, reject) => {
@@ -324,7 +324,7 @@ export function AdminHistory() {
     drawChip(`Total: ${selectedReports.length}`);
     if (exportStatus === 'both') {
       drawChip(`Resolved: ${selectedReports.filter(r => r.status === 'resolved').length}`);
-      drawChip(`Rejected: ${selectedReports.filter(r => r.status === 'rejected').length}`);
+      drawChip(`Declined: ${selectedReports.filter(r => r.status === 'declined').length}`);
     }
 
     // Table columns
@@ -341,7 +341,7 @@ export function AdminHistory() {
     ] as any[];
 
     const body = selectedReports.map(r => ({
-      status: r.status === 'resolved' ? 'Resolved' : 'Rejected',
+      status: r.status === 'resolved' ? 'Resolved' : 'Declined',
       title: r.title || '',
       category: r.category || '',
       priority: r.priority || '',
@@ -382,7 +382,7 @@ export function AdminHistory() {
             if (val === 'resolved') {
               data.cell.styles.fillColor = [232, 245, 233];
               data.cell.styles.textColor = [37, 96, 41];
-            } else if (val === 'rejected') {
+            } else if (val === 'declined') {
               data.cell.styles.fillColor = [255, 235, 238];
               data.cell.styles.textColor = [183, 28, 28];
             }
@@ -485,7 +485,7 @@ export function AdminHistory() {
                   aria-label="Choose reports to export"
                 >
                   <option value="resolved">Resolved</option>
-                  <option value="rejected">Rejected</option>
+                  <option value="declined">Declined</option>
                   <option value="both">Both</option>
                 </select>
                 <div className="w-px h-6 bg-gray-200" />
@@ -534,18 +534,18 @@ export function AdminHistory() {
               </div>
             </button>
             <button
-              onClick={() => setActiveTab('rejected')}
+              onClick={() => setActiveTab('declined')}
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'rejected'
+                activeTab === 'declined'
                   ? 'border-red-500 text-red-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
               <div className="flex items-center space-x-2">
                 <XCircle className="w-4 h-4" />
-                <span>Rejected</span>
+                <span>Declined</span>
                 <span className="bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full">
-                  {reports.filter(r => r.status === 'rejected').length}
+                  {reports.filter(r => r.status === 'declined').length}
                 </span>
               </div>
             </button>
@@ -624,7 +624,7 @@ export function AdminHistory() {
                 {activeTab === 'resolved' ? <Check className="w-6 h-6 text-white" /> : <XCircle className="w-6 h-6 text-white" />}
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total {activeTab === 'resolved' ? 'Resolved' : 'Rejected'}</p>
+                <p className="text-sm font-medium text-gray-600">Total {activeTab === 'resolved' ? 'Resolved' : 'Declined'}</p>
                 <p className="text-3xl font-bold text-gray-900">{reports.filter(r => r.status === activeTab).length}</p>
               </div>
             </div>
@@ -679,7 +679,7 @@ export function AdminHistory() {
           <div className="px-6 sm:px-8 py-5 border-b border-gray-200 bg-white">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-xl font-semibold text-gray-900">{activeTab === 'resolved' ? 'Resolved' : 'Rejected'} Reports</h2>
+                <h2 className="text-xl font-semibold text-gray-900">{activeTab === 'resolved' ? 'Resolved' : 'Declined'} Reports</h2>
                 <p className="text-sm text-gray-600 mt-1">Showing {filteredReports.length} of {reports.filter(r => r.status === activeTab).length} {activeTab} reports</p>
               </div>
               <div className="inline-flex items-center bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
@@ -759,8 +759,8 @@ export function AdminHistory() {
                       </h3>
                       <span className={`px-3 py-1.5 rounded-full text-xs font-medium border ${getCategoryColor(report.category)}`}>{report.category.charAt(0).toUpperCase() + report.category.slice(1)}</span>
                       <span className={`px-3 py-1.5 rounded-full text-xs font-medium border ${getPriorityColor(report.priority)}`}>{report.priority.charAt(0).toUpperCase() + report.priority.slice(1)} Priority</span>
-                      {report.status === 'rejected' && (
-                        <span className="px-3 py-1.5 rounded-full text-xs font-medium border bg-red-100 text-red-800 border-red-200">Rejected</span>
+                      {report.status === 'declined' && (
+                        <span className="px-3 py-1.5 rounded-full text-xs font-medium border bg-red-100 text-red-800 border-red-200">Declined</span>
                       )}
                     </div>
                     <p className="text-gray-600 text-sm leading-relaxed mb-4">{report.description}</p>

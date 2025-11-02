@@ -31,7 +31,7 @@ interface Statistics {
   pendingReports: number;
   inProgressReports: number;
   resolvedReports: number;
-  rejectedReports: number;
+  declinedReports: number;
   verifyingReports: number;
   awaitingVerificationReports: number;
   cancelledReports: number;
@@ -50,7 +50,7 @@ interface Statistics {
     totalReports: number;
     pendingReports: number;
     resolvedReports: number;
-    rejectedReports: number;
+    declinedReports: number;
     totalUsers: number;
   };
 }
@@ -88,7 +88,7 @@ export function EnhancedAdminStatistics() {
     pendingReports: 0,
     inProgressReports: 0,
     resolvedReports: 0,
-    rejectedReports: 0,
+    declinedReports: 0,
     verifyingReports: 0,
     awaitingVerificationReports: 0,
     cancelledReports: 0,
@@ -128,7 +128,7 @@ export function EnhancedAdminStatistics() {
       const pendingReports = reports.filter(r => r.status === 'pending').length;
       const inProgressReports = reports.filter(r => r.status === 'in_progress').length;
       const resolvedReports = reports.filter(r => r.status === 'resolved').length;
-      const rejectedReports = reports.filter(r => r.status === 'rejected').length;
+      const declinedReports = reports.filter(r => r.status === 'declined').length;
       const verifyingReports = reports.filter(r => r.status === 'verifying').length;
       const awaitingVerificationReports = reports.filter(r => r.status === 'awaiting_verification').length;
       const cancelledReports = reports.filter(r => r.status === 'cancelled').length;
@@ -163,7 +163,7 @@ export function EnhancedAdminStatistics() {
         pendingReports,
         inProgressReports,
         resolvedReports,
-        rejectedReports,
+        declinedReports,
         verifyingReports,
         awaitingVerificationReports,
         cancelledReports,
@@ -182,7 +182,7 @@ export function EnhancedAdminStatistics() {
           totalReports: Math.floor(totalReports * 0.9),
           pendingReports: Math.floor(pendingReports * 1.1),
           resolvedReports: Math.floor(resolvedReports * 0.85),
-          rejectedReports: Math.floor(rejectedReports * 1.05),
+          declinedReports: Math.floor(declinedReports * 1.05),
           totalUsers: Math.floor(totalUsers * 0.95),
         },
       });
@@ -336,7 +336,7 @@ export function EnhancedAdminStatistics() {
 
   const availableCategories = statistics.reportsByCategory.map(c => c.category);
   const availableLocations = statistics.reportsByLocation.map(l => l.location);
-  const availableStatuses = ['pending', 'in_progress', 'resolved', 'rejected', 'verifying', 'awaiting_verification', 'cancelled'];
+  const availableStatuses = ['pending', 'in_progress', 'resolved', 'declined', 'verifying', 'awaiting_verification', 'cancelled'];
 
   const visibleWidgets = widgets.filter(w => w.visible).sort((a, b) => a.order - b.order);
 

@@ -16,14 +16,9 @@ import {
   Settings,
   RefreshCw,
   Layers,
-  ZoomIn,
-  ZoomOut,
   Wrench,
-  PanelLeftClose,
-  PanelLeftOpen,
   ChevronDown,
   ChevronUp,
-  ShieldCheck,
   Hash
 } from 'lucide-react';
 import { Notification } from './Notification';
@@ -34,7 +29,7 @@ interface Report {
   title: string;
   description: string;
   category: string;
-  status: 'verifying' | 'pending' | 'in_progress' | 'resolved' | 'rejected';
+  status: 'verifying' | 'pending' | 'in_progress' | 'resolved' | 'declined';
   priority: 'low' | 'medium' | 'high';
   location: {
     lat: number;
@@ -91,80 +86,15 @@ export function AdminMapDashboard() {
   const markerRefs = useRef<Map<string, any>>(new Map());
   const updateTimerRef = useRef<any>(null);
   const didFitBoundsRef = useRef(false);
-  const [showMobileList, setShowMobileList] = useState(false);
-  const [showSidenav, setShowSidenav] = useState(true);
   const [showReportModal, setShowReportModal] = useState(false);
   const [selectedReportForModal, setSelectedReportForModal] = useState<Report | null>(null);
   const [showLegend, setShowLegend] = useState(true);
-  const [legendPosition, setLegendPosition] = useState({ x: 16, y: 16 }); // Default top-left position
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [showImageModal, setShowImageModal] = useState(false);
 
-  // Drag handlers for legend
-  const handleLegendMouseDown = (e: React.MouseEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-    setDragStart({
-      x: e.clientX - legendPosition.x,
-      y: e.clientY - legendPosition.y
-    });
-  };
-
-  const handleLegendMouseMove = (e: MouseEvent) => {
-    if (!isDragging) return;
-    
-    const newX = e.clientX - dragStart.x;
-    const newY = e.clientY - dragStart.y;
-    
-    // Keep legend within viewport bounds
-    const maxX = window.innerWidth - 220; // Account for legend width
-    const maxY = window.innerHeight - 150; // Account for legend height
-    
-    setLegendPosition({
-      x: Math.max(0, Math.min(newX, maxX)),
-      y: Math.max(0, Math.min(newY, maxY))
-    });
-  };
-
-  const handleLegendDoubleClick = () => {
-    // Reset to default position
-    setLegendPosition({ x: 16, y: 16 });
-  };
-
-  const handleLegendMouseUp = () => {
-    setIsDragging(false);
-  };
-
-  // Add global mouse event listeners for dragging
-  useEffect(() => {
-    if (isDragging) {
-      document.addEventListener('mousemove', handleLegendMouseMove);
-      document.addEventListener('mouseup', handleLegendMouseUp);
-      document.body.style.cursor = 'grabbing';
-      document.body.style.userSelect = 'none';
-    } else {
-      document.removeEventListener('mousemove', handleLegendMouseMove);
-      document.removeEventListener('mouseup', handleLegendMouseUp);
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-    }
-
-    return () => {
-      document.removeEventListener('mousemove', handleLegendMouseMove);
-      document.removeEventListener('mouseup', handleLegendMouseUp);
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-    };
-  }, [isDragging, dragStart]);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [showClusterModal, setShowClusterModal] = useState(false);
   const [clusterReports, setClusterReports] = useState<Report[]>([]);
   const [clusterPosition, setClusterPosition] = useState<[number, number]>([0, 0]);
-  const [patrolReportsCollapsed, setPatrolReportsCollapsed] = useState(false);
-  const [mainReportsCollapsed, setMainReportsCollapsed] = useState(false);
-  const [mobilePatrolReportsCollapsed, setMobilePatrolReportsCollapsed] = useState(false);
-  const [mobileMainReportsCollapsed, setMobileMainReportsCollapsed] = useState(false);
 
   // Keyboard navigation for image modal
   useEffect(() => {
@@ -507,8 +437,11 @@ export function AdminMapDashboard() {
         await new Promise(resolve => setTimeout(resolve, 25));
       }
 
-      // Initialize map
-      mapInstance.current = L.map(mapRef.current, { preferCanvas: true }).setView(mapCenter, zoom);
+      // Initialize map with zoom controls disabled to prevent duplicates
+      mapInstance.current = L.map(mapRef.current, { 
+        preferCanvas: true,
+        zoomControl: false 
+      }).setView(mapCenter, zoom);
 
       // Use a fast raster tile source
       const tileUrl = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
@@ -522,8 +455,8 @@ export function AdminMapDashboard() {
       // Create markers layer
       markersLayer.current = L.layerGroup().addTo(mapInstance.current);
 
-      // Add map controls
-      const zoomControl = L.control.zoom({ position: 'bottomright' }).addTo(mapInstance.current);
+      // Add a single set of zoom controls at top-right position
+      L.control.zoom({ position: 'topright' }).addTo(mapInstance.current);
 
       // Add custom controls
       await addCustomControls();
@@ -729,7 +662,7 @@ export function AdminMapDashboard() {
         return report;
       });
       
-      // Store all reports (including rejected) for the rejected button
+      // Store all reports (including declined) for the declined button
       setReports(updatedReports);
       
       // Cache for next visit for instant paint
@@ -1009,8 +942,8 @@ export function AdminMapDashboard() {
 
       // Filter reports based on current filter and search
       const filteredReports = reports.filter(report => {
-        // Always exclude resolved and rejected reports from the map
-        if (report.status === 'resolved' || report.status === 'rejected') return false;
+        // Always exclude resolved and declined reports from the map
+        if (report.status === 'resolved' || report.status === 'declined') return false;
         const matchesFilter = filter === 'all' || report.status === filter;
         const matchesSearch = searchTerm === '' || 
           report.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -1189,7 +1122,7 @@ export function AdminMapDashboard() {
     if (status === 'in_progress') return 'bg-blue-500';
     if (status === 'awaiting_verification') return 'bg-orange-500';
     if (status === 'resolved') return 'bg-green-500';
-    if (status === 'rejected') return 'bg-red-500';
+    if (status === 'declined') return 'bg-red-500';
     
     // Fallback based on priority
     if (priority === 'high') return 'bg-red-500';
@@ -1204,7 +1137,7 @@ export function AdminMapDashboard() {
     if (status === 'in_progress') return '🔧';
     if (status === 'awaiting_verification') return '📋';
     if (status === 'resolved') return '✅';
-    if (status === 'rejected') return '❌';
+    if (status === 'declined') return '❌';
     
     // Fallback based on priority
     if (priority === 'high') return '🚨';
@@ -1297,7 +1230,7 @@ export function AdminMapDashboard() {
       case 'in_progress': return 'bg-blue-100 text-blue-800';
       case 'awaiting_verification': return 'bg-orange-100 text-orange-800';
       case 'resolved': return 'bg-green-100 text-green-800';
-      case 'rejected': return 'bg-red-100 text-red-800';
+      case 'declined': return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -1481,7 +1414,7 @@ export function AdminMapDashboard() {
 
       const actionText = newStatus === 'in_progress' ? 'approved' : 
                         newStatus === 'resolved' ? (isCompletingReport ? 'completed and resolved' : 'resolved') : 
-                        newStatus === 'rejected' ? 'rejected' : 
+                        newStatus === 'declined' ? 'declined' : 
                         'updated';
       
       showNotification(`Report ${actionText} successfully`, 'success');
@@ -1513,8 +1446,8 @@ export function AdminMapDashboard() {
   };
 
   const filteredReports = reports.filter(report => {
-    // Exclude resolved and rejected reports from the main view - they go to history
-    if (report.status === 'resolved' || report.status === 'rejected') return false;
+    // Exclude resolved and declined reports from the main view - they go to history
+    if (report.status === 'resolved' || report.status === 'declined') return false;
     
     // Exclude patrol reports (in_progress and awaiting_verification) from the main view
     // They should only appear in the Patrol Reports section
@@ -1555,15 +1488,6 @@ export function AdminMapDashboard() {
             <div className="flex items-center">
               <div className="hidden sm:flex items-center bg-white shadow-sm border border-gray-200 rounded-xl">
                 <button
-                  onClick={() => setShowSidenav(!showSidenav)}
-                  aria-label={showSidenav ? 'Hide reports panel' : 'Show reports panel'}
-                  className={`inline-flex items-center px-3 py-2 text-sm font-medium transition-colors ${showSidenav ? 'bg-gray-50 text-gray-900' : 'text-gray-700 hover:bg-gray-50'}`}
-                >
-                  {showSidenav ? <PanelLeftClose className="w-4 h-4 mr-2" /> : <PanelLeftOpen className="w-4 h-4 mr-2" />}
-                  <span className="hidden md:inline">Reports</span>
-                </button>
-                <div className="w-px h-6 bg-gray-200" />
-                <button
                   onClick={() => setShowFilters(!showFilters)}
                   aria-pressed={showFilters}
                   aria-label="Toggle filters"
@@ -1585,13 +1509,6 @@ export function AdminMapDashboard() {
               </div>
               {/* Compact actions for small screens */}
               <div className="sm:hidden flex items-center gap-2">
-                <button
-                  onClick={() => setShowSidenav(!showSidenav)}
-                  className="p-2 bg-white rounded-full border border-gray-200 shadow-sm"
-                  aria-label={showSidenav ? 'Hide reports panel' : 'Show reports panel'}
-                >
-                  {showSidenav ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeftOpen className="w-4 h-4" />}
-                </button>
                 <button
                   onClick={() => setShowFilters(!showFilters)}
                   className="p-2 bg-white rounded-full border border-gray-200 shadow-sm"
@@ -1622,8 +1539,8 @@ export function AdminMapDashboard() {
                 { key: 'in_progress', label: 'In Progress' },
                 { key: 'awaiting_verification', label: 'Awaiting Verification' }
               ] as Array<{ key: 'all' | Report['status']; label: string }>).map(({ key, label }) => {
-                const nonResolvedRejected = reports.filter(r => r.status !== 'resolved' && r.status !== 'rejected');
-                const count = key === 'all' ? nonResolvedRejected.length : nonResolvedRejected.filter(r => r.status === key).length;
+                const nonResolvedDeclined = reports.filter(r => r.status !== 'resolved' && r.status !== 'declined');
+                const count = key === 'all' ? nonResolvedDeclined.length : nonResolvedDeclined.filter(r => r.status === key).length;
                 const isActive = filter === key;
                 return (
                   <button
@@ -1672,7 +1589,7 @@ export function AdminMapDashboard() {
                     <option value="pending">Pending</option>
                     <option value="in_progress">In Progress</option>
                     <option value="awaiting_verification">Awaiting Verification</option>
-                    <option value="rejected">Rejected</option>
+                    <option value="declined">Declined</option>
                   </select>
                 </div>
                 <div>
@@ -1697,364 +1614,76 @@ export function AdminMapDashboard() {
       </div>
 
       {/* Main Content */}
-      <div className="flex h-[calc(100vh-112px)]">
-        {/* Sidebar */}
-        <div className={`hidden md:flex bg-white border-r border-gray-200 relative z-10 flex-col transition-all duration-300 ${
-          showSidenav ? 'md:w-80 xl:w-96' : 'w-0'
-        }`}>
-          {/* Patrol Reports Section */}
-          <div className="sticky top-0 z-20 bg-gradient-to-r from-orange-50 to-amber-50 border-b border-orange-200 px-6 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="h-8 w-8 rounded-lg bg-orange-500 flex items-center justify-center">
-                  <ShieldCheck className="w-4 h-4 text-white" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Patrol Reports</h3>
-                  <p className="text-sm text-gray-600">In progress</p>
-                </div>
-                <span className="px-2 py-1 bg-orange-100 text-orange-800 text-xs font-medium rounded-full">
-                  {reports.filter(r => r.status === 'in_progress' || r.status === 'awaiting_verification').length}
-                </span>
-              </div>
-              <button
-                onClick={() => setPatrolReportsCollapsed(!patrolReportsCollapsed)}
-                className="p-2 hover:bg-orange-100 rounded-lg transition-colors"
-                title={patrolReportsCollapsed ? "Expand Patrol Reports" : "Collapse Patrol Reports"}
-              >
-                {patrolReportsCollapsed ? (
-                  <ChevronDown className="w-5 h-5 text-gray-600" />
-                ) : (
-                  <ChevronUp className="w-5 h-5 text-gray-600" />
-                )}
-              </button>
-            </div>
-          </div>
-          
-          {/* Scrollable Content Container */}
-          <div className="flex-1 overflow-y-auto">
-            {/* Patrol Reports List */}
-            {!patrolReportsCollapsed && (
-              <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-orange-50 to-amber-50">
-              {reports.filter(r => r.status === 'in_progress' || r.status === 'awaiting_verification').length === 0 ? (
-                <div className="text-center py-8">
-                  <div className="mx-auto h-12 w-12 text-gray-400 mb-4">
-                    <Eye className="h-12 w-12" />
-                  </div>
-                  <h3 className="text-sm font-medium text-gray-900 mb-1">No patrol reports</h3>
-                  <p className="text-sm text-gray-500">No reports in progress or awaiting verification</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {reports
-                    .filter(r => r.status === 'in_progress' || r.status === 'awaiting_verification')
-                    .slice(0, 5)
-                    .map((report) => (
-                      <div
-                        key={report.id}
-                        onClick={() => focusReportOnMap(report)}
-                        className={`p-4 rounded-xl border cursor-pointer transition-all hover:shadow-md ${
-                          selectedReport?.id === report.id
-                            ? 'border-blue-500 bg-blue-50'
-                            : 'border-gray-200 hover:border-gray-300 bg-white'
-                        }`}
-                      >
-                        <div className="flex items-start justify-between mb-2">
-                          <h4 className="font-semibold text-gray-900 text-sm leading-tight line-clamp-2 flex-1">
-                            {report.title}
-                          </h4>
-                          <span className={`ml-3 px-2 py-1 rounded-full text-xs font-medium ${
-                            report.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                            report.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
-                            report.status === 'awaiting_verification' ? 'bg-orange-100 text-orange-800' :
-                            report.status === 'resolved' ? 'bg-green-100 text-green-800' :
-                            report.status === 'rejected' ? 'bg-red-100 text-red-800' :
-                            'bg-gray-100 text-gray-800'
-                          }`}>
-                            {report.status === 'awaiting_verification' ? 'Awaiting Verification' : report.status.replace('_', ' ')}
-                          </span>
-                        </div>
-                        {report.case_number && (
-                          <div className="flex items-center gap-1 mb-2">
-                            <Hash className="h-3 w-3 text-gray-500" />
-                            <span className="text-xs text-gray-600 font-medium">{report.case_number}</span>
-                          </div>
-                        )}
-                        <p className="text-sm text-gray-600 mb-3 line-clamp-2 leading-relaxed">
-                          {report.description}
-                        </p>
-                        <div className="flex items-center justify-between text-xs text-gray-500 mb-3">
-                          <div className="flex flex-col">
-                            <span className="truncate max-w-[60%] font-medium">{report.username}</span>
-                            {report.patrol_username ? (
-                              <span className="text-orange-600 font-medium">Patrol: {report.patrol_username}</span>
-                            ) : report.patrol_user_id ? (
-                              <span className="text-orange-600 font-medium">Patrol: {report.patrol_user_id.slice(0, 8)}...</span>
-                            ) : (
-                              <span className="text-gray-400 font-medium">Patrol: Unknown</span>
-                            )}
-                          </div>
-                          <span className="font-medium">{new Date(report.created_at).toLocaleDateString()}</span>
-                        </div>
-                        
-                        {/* Quick Action Buttons */}
-                        <div className="flex items-center space-x-2">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleReportAction(report.id, 'resolved');
-                            }}
-                            className="inline-flex items-center px-3 py-2 text-xs font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
-                            title="Mark as Resolved"
-                          >
-                            <Check className="w-3 h-3 mr-1" />
-                            Resolve
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleReportAction(report.id, 'rejected');
-                            }}
-                            className="inline-flex items-center px-3 py-2 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
-                            title="Reject"
-                          >
-                            <X className="w-3 h-3 mr-1" />
-                            Reject
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedReportForModal(report);
-                              setShowReportModal(true);
-                            }}
-                            className="inline-flex items-center px-3 py-2 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-                            title="View Details"
-                          >
-                            <Eye className="w-3 h-3 mr-1" />
-                            Details
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Main Reports Section */}
-          <div className="sticky top-0 z-10 bg-gradient-to-r from-gray-50 to-blue-50 border-b border-gray-200 px-6 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="h-8 w-8 rounded-lg bg-blue-600 flex items-center justify-center">
-                  <MapPin className="w-4 h-4 text-white" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">All Reports</h3>
-                  <p className="text-sm text-gray-600">Non-patrol reports requiring attention</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setMainReportsCollapsed(!mainReportsCollapsed)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                title={mainReportsCollapsed ? "Expand All Reports" : "Collapse All Reports"}
-              >
-                {mainReportsCollapsed ? (
-                  <ChevronDown className="w-5 h-5 text-gray-600" />
-                ) : (
-                  <ChevronUp className="w-5 h-5 text-gray-600" />
-                )}
-              </button>
-            </div>
-          </div>
-          {!mainReportsCollapsed && (
-            <div className="p-6">
-              {loading ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                </div>
-              ) : filteredReports.length === 0 ? (
-                <div className="text-center py-8">
-                  <div className="mx-auto h-12 w-12 text-gray-400 mb-4">
-                    <MapPin className="h-12 w-12" />
-                  </div>
-                  <h3 className="text-sm font-medium text-gray-900 mb-1">No reports found</h3>
-                  <p className="text-sm text-gray-500">Try adjusting your search or filter criteria</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {filteredReports.slice(0, 14).map((report) => (
-                    <div
-                      key={report.id}
-                      onClick={() => focusReportOnMap(report)}
-                      className={`p-4 rounded-xl border cursor-pointer transition-all hover:shadow-md ${
-                        selectedReport?.id === report.id
-                          ? 'border-blue-500 bg-blue-50'
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between mb-1.5">
-                        <h4 className="font-semibold text-gray-900 text-base leading-tight line-clamp-2">
-                          {report.title}
-                        </h4>
-                        <span className={`ml-3 px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(report.status)}`}>
-                          {report.status.replace('_', ' ')}
-                        </span>
-                      </div>
-                      {report.case_number && (
-                        <div className="flex items-center gap-1 mb-2">
-                          <Hash className="h-3 w-3 text-gray-500" />
-                          <span className="text-xs text-gray-600 font-medium">{report.case_number}</span>
-                        </div>
-                      )}
-                      <p className="text-sm text-gray-700 mb-3 line-clamp-2 leading-relaxed">
-                        {report.description}
-                      </p>
-                      <div className="flex items-center justify-between text-sm text-gray-600 mb-3">
-                        <span className="truncate max-w-[55%] font-medium">{report.username}</span>
-                        <span className="font-medium">{new Date(report.created_at).toLocaleDateString()}</span>
-                      </div>
-                      
-                      {/* Status Management Buttons */}
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {(() => {
-                          // Define smart next actions based on current status
-                          const getNextActions = (currentStatus: typeof report.status) => {
-                            switch (currentStatus) {
-                              case 'pending':
-                                return ['in_progress', 'rejected']; // Start work or reject
-                              case 'in_progress':
-                                return ['awaiting_verification', 'resolved']; // Submit for verification or mark resolved
-                              case 'awaiting_verification':
-                                return ['resolved', 'rejected']; // Approve or reject
-                              case 'verifying':
-                                return ['pending', 'in_progress']; // Move to pending or start work
-                              case 'resolved':
-                                return ['in_progress']; // Reopen if needed
-                              case 'rejected':
-                                return ['pending']; // Reopen if needed
-                              default:
-                                return ['pending', 'in_progress'];
-                            }
-                          };
-
-                          const nextActions = getNextActions(report.status);
-                          
-                          return nextActions.map(target => (
-                            <button
-                              key={target}
-                              onClick={() => handleReportAction(report.id, target)}
-                              className={
-                                target === 'pending'
-                                  ? 'inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-yellow-800 bg-yellow-50 hover:bg-yellow-100 rounded-lg border border-yellow-200 transition-colors'
-                                  : target === 'in_progress'
-                                  ? 'inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition-colors'
-                                  : target === 'awaiting_verification'
-                                  ? 'inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-orange-700 bg-orange-50 hover:bg-orange-100 rounded-lg border border-orange-200 transition-colors'
-                                  : target === 'resolved'
-                                  ? 'inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-lg border border-green-200 transition-colors'
-                                  : 'inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded-lg border border-red-200 transition-colors'
-                              }
-                              title={
-                                target === 'pending'
-                                  ? 'Mark Pending'
-                                  : target === 'in_progress'
-                                  ? 'Mark In Progress'
-                                  : target === 'awaiting_verification'
-                                  ? 'Submit for Verification'
-                                  : target === 'resolved'
-                                  ? 'Mark Resolved'
-                                  : 'Reject'
-                              }
-                            >
-                              {target === 'resolved' ? (
-                                <Check className="w-4 h-4" />
-                              ) : target === 'rejected' ? (
-                                <X className="w-4 h-4" />
-                              ) : target === 'awaiting_verification' ? (
-                                <Eye className="w-4 h-4" />
-                              ) : (
-                                <Wrench className="w-4 h-4" />
-                              )}
-                              {target === 'pending'
-                                ? 'Pending'
-                                : target === 'in_progress'
-                                ? 'Progress'
-                                : target === 'awaiting_verification'
-                                ? 'Verify'
-                                : target === 'resolved'
-                                ? 'Resolved'
-                                : 'Reject'}
-                            </button>
-                          ));
-                        })()}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-          </div>
-        </div>
-
+      <div className="flex flex-col h-[calc(100vh-112px)]">
         {/* Map */}
-        <div className={`relative z-0 transition-all duration-300 ${showSidenav ? 'flex-1' : 'w-full'}`}>
+        <div className="relative z-0 flex-1 w-full min-h-0">
           <div ref={mapRef} className="w-full h-full" />
 
-          {/* Floating toggle button when sidenav is hidden */}
-          {!showSidenav && (
-            <div className="absolute right-4 top-4 z-[1003]">
-              <button
-                onClick={() => setShowSidenav(true)}
-                className="p-3 bg-white/90 supports-[backdrop-filter]:bg-white/70 backdrop-blur rounded-full shadow-lg hover:shadow-xl transition-shadow border border-gray-200"
-                title="Show Reports"
-                aria-label="Show reports panel"
-              >
-                <PanelLeftOpen className="w-5 h-5 text-gray-700" />
-              </button>
+          {/* Report Summary and Map Legend - Top Overlay */}
+          <div className="absolute top-4 left-0 right-4 flex flex-col md:flex-row items-start md:items-center md:justify-between gap-4 z-[1001] pointer-events-none px-4 md:px-4 md:left-[200px]">
+            {/* Report Summary */}
+            <div className="bg-white/90 backdrop-blur rounded-lg shadow-lg p-3 md:p-4 min-w-[200px] pointer-events-auto">
+              <h3 className="text-sm font-medium text-gray-700 mb-2">Report Summary</h3>
+              <div className="space-y-1">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Active:</span>
+                  <span className="font-medium">{reports.filter(r => r.status !== 'resolved' && r.status !== 'in_progress' && r.status !== 'awaiting_verification').length}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Patrol:</span>
+                  <span className="font-medium text-orange-600">
+                    {reports.filter(r => r.status === 'in_progress' || r.status === 'awaiting_verification').length}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Pending:</span>
+                  <span className="font-medium text-yellow-600">
+                    {reports.filter(r => r.status === 'pending').length}
+                  </span>
+                </div>
+              </div>
             </div>
-          )}
 
-          {/* Mobile tools */}
-          <div className="md:hidden absolute left-4 top-1/2 -translate-y-1/2 flex flex-col gap-2 z-[1003]">
-            <button
-              onClick={() => mapInstance.current?.zoomIn()}
-              className="p-2 bg-white/90 supports-[backdrop-filter]:bg-white/70 backdrop-blur rounded-full shadow-md border border-gray-200"
-              title="Zoom In"
-              aria-label="Zoom in"
-            >
-              <ZoomIn className="w-4 h-4 text-gray-700" />
-            </button>
-            <button
-              onClick={() => mapInstance.current?.zoomOut()}
-              className="p-2 bg-white/90 supports-[backdrop-filter]:bg-white/70 backdrop-blur rounded-full shadow-md border border-gray-200"
-              title="Zoom Out"
-              aria-label="Zoom out"
-            >
-              <ZoomOut className="w-4 h-4 text-gray-700" />
-            </button>
-            <button
-              onClick={() => setShowMobileList(true)}
-              className="p-2 bg-white/90 supports-[backdrop-filter]:bg-white/70 backdrop-blur rounded-full shadow-md border border-gray-200"
-              title="Open Reports"
-              aria-label="Open reports list"
-            >
-              <MapPin className="w-4 h-4 text-gray-700" />
-            </button>
+            {/* Map Legend */}
+            <div className="bg-white/90 backdrop-blur rounded-lg shadow-lg select-none pointer-events-auto">
+              <div 
+                className="flex items-center justify-between p-3 hover:bg-gray-50/50 transition-colors cursor-pointer"
+                onClick={() => setShowLegend(!showLegend)}
+              >
+                <h3 className="text-sm font-medium text-gray-700">Map Legend</h3>
+                <div className="flex items-center gap-2">
+                  {showLegend ? (
+                    <ChevronUp className="w-4 h-4 text-gray-500" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-gray-500" />
+                  )}
+                </div>
+              </div>
+              {showLegend && (
+                <div className="px-3 pb-3 min-w-[200px]">
+                  <div className="space-y-1 text-xs">
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 rounded-full border border-white bg-yellow-500"></div>
+                      <span>Pending</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 rounded-full border border-white bg-blue-500"></div>
+                      <span>In Progress</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 rounded-full border border-white bg-orange-500"></div>
+                      <span>Awaiting Verification</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 rounded-full border border-white bg-red-500"></div>
+                      <span>Declined</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Mobile recent reports teaser bar */}
-          <div className="md:hidden fixed right-0 bottom-0 z-[9996] px-3 pb-[env(safe-area-inset-bottom)]">
-            <button
-              onClick={() => setShowMobileList(true)}
-              className="flex items-center justify-between px-4 py-3 bg-white/95 supports-[backdrop-filter]:bg-white/80 backdrop-blur rounded-l-xl shadow-[0_-6px_20px_rgba(0,0,0,0.15)] border border-gray-200"
-              aria-label="Open recent reports"
-            >
-              <span className="text-sm font-semibold text-gray-800">Reports</span>
-              <span className="text-xs text-gray-500 ml-2">{filteredReports?.length ?? 0}</span>
-            </button>
-          </div>
-          
           {/* Map Loading/Error State */}
           {!mapInstance.current && (
             <div className="absolute inset-0 bg-gray-50 flex items-center justify-center">
@@ -2095,21 +1724,7 @@ export function AdminMapDashboard() {
           )}
           
           {/* Map Controls Overlay */}
-          <div className="absolute top-4 left-4 space-y-2 z-10">
-            <button
-              onClick={() => mapInstance.current?.zoomIn()}
-              className="p-2 bg-white/90 backdrop-blur rounded-lg shadow-lg hover:bg-white transition-colors"
-              title="Zoom In"
-            >
-              <ZoomIn className="w-4 h-4 text-gray-700" />
-            </button>
-            <button
-              onClick={() => mapInstance.current?.zoomOut()}
-              className="p-2 bg-white/90 backdrop-blur rounded-lg shadow-lg hover:bg-white transition-colors"
-              title="Zoom Out"
-            >
-              <ZoomOut className="w-4 h-4 text-gray-700" />
-            </button>
+          <div className="absolute top-4 left-4 space-y-2 z-[1002]">
             <button
               onClick={() => {
                 if (mapMarkers.length > 0 && mapInstance.current) {
@@ -2143,404 +1758,9 @@ export function AdminMapDashboard() {
               <RefreshCw className="w-4 h-4 text-gray-700" />
             </button>
           </div>
-
-          {/* Stats Overlay */}
-          <div className="absolute top-4 right-4 bg-white/90 backdrop-blur rounded-lg shadow-lg p-3 md:p-4 min-w-[200px] z-[1001]">
-            <h3 className="text-sm font-medium text-gray-700 mb-2">Report Summary</h3>
-            <div className="space-y-1">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Active:</span>
-                <span className="font-medium">{reports.filter(r => r.status !== 'resolved' && r.status !== 'in_progress' && r.status !== 'awaiting_verification').length}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Patrol:</span>
-                <span className="font-medium text-orange-600">
-                  {reports.filter(r => r.status === 'in_progress' || r.status === 'awaiting_verification').length}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Pending:</span>
-                <span className="font-medium text-yellow-600">
-                  {reports.filter(r => r.status === 'pending').length}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Map Legend */}
-          <div 
-            className="absolute bg-white/90 backdrop-blur rounded-lg shadow-lg z-[1002] select-none"
-            style={{
-              left: `${legendPosition.x}px`,
-              top: `${legendPosition.y}px`,
-              cursor: isDragging ? 'grabbing' : 'grab'
-            }}
-          >
-            <div 
-              className="flex items-center justify-between p-3 hover:bg-gray-50/50 transition-colors"
-              onMouseDown={handleLegendMouseDown}
-              onDoubleClick={handleLegendDoubleClick}
-              onClick={(e) => {
-                // Only toggle if not dragging
-                if (!isDragging) {
-                  setShowLegend(!showLegend);
-                }
-              }}
-            >
-              <h3 className="text-sm font-medium text-gray-700">Map Legend</h3>
-              <div className="flex items-center gap-2">
-                {showLegend ? (
-                  <ChevronUp className="w-4 h-4 text-gray-500" />
-                ) : (
-                  <ChevronDown className="w-4 h-4 text-gray-500" />
-                )}
-                <div className="flex flex-col gap-0.5 opacity-40">
-                  <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
-                  <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
-                  <div className="w-1 h-1 bg-gray-400 rounded-full"></div>
-                </div>
-              </div>
-            </div>
-            {showLegend && (
-              <div className="px-3 pb-3 min-w-[200px]">
-                <div className="space-y-1 text-xs">
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded-full border border-white bg-yellow-500"></div>
-                    <span>Pending</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded-full border border-white bg-blue-500"></div>
-                    <span>In Progress</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded-full border border-white bg-orange-500"></div>
-                    <span>Awaiting Verification</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded-full border border-white bg-red-500"></div>
-                    <span>Rejected</span>
-                  </div>
-                  <div className="text-xs text-gray-500 mt-2 pt-2 border-t border-gray-200">
-                    <span>Patrol reports are highlighted in the sidebar</span>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
         </div>
       </div>
 
-      {/* Mobile Slide-up List */}
-      {showMobileList && (
-        <div className="md:hidden fixed inset-0 z-[9999]">
-          <div
-            className="absolute inset-0 bg-black/40"
-            onClick={() => setShowMobileList(false)}
-          />
-          <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl max-h-[80vh] overflow-y-auto pb-[env(safe-area-inset-bottom)]">
-            <div className="p-4 border-b flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <h3 className="text-base font-semibold text-gray-900">Reports</h3>
-                <button
-                  onClick={() => {
-                    const resolvedReports = reports.filter(r => r.status === 'resolved');
-                    const queryParams = new URLSearchParams();
-                    resolvedReports.forEach((report, index) => {
-                      queryParams.append(`report_${index}`, JSON.stringify(report));
-                    });
-                    window.location.href = `/admin/history?${queryParams.toString()}`;
-                    setShowMobileList(false);
-                  }}
-                  className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded border border-green-200 relative"
-                >
-                  <History className="w-3 h-3" />
-                  History
-                  {reports.filter(r => r.status === 'resolved').length > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-green-600 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center text-[10px]">
-                      {reports.filter(r => r.status === 'resolved').length}
-                    </span>
-                  )}
-                </button>
-              </div>
-              <button
-                className="text-gray-500 hover:text-gray-700"
-                onClick={() => setShowMobileList(false)}
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            
-            {/* Mobile Patrol Reports Section */}
-            <div className="px-4 py-3 bg-orange-50 border-b border-orange-200">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-semibold text-orange-900">Patrol Reports</h3>
-                  <span className="px-2 py-1 bg-orange-100 text-orange-800 text-xs font-medium rounded-full">
-                    {reports.filter(r => r.status === 'in_progress' || r.status === 'awaiting_verification').length}
-                  </span>
-                </div>
-                <button
-                  onClick={() => setMobilePatrolReportsCollapsed(!mobilePatrolReportsCollapsed)}
-                  className="p-1 hover:bg-orange-100 rounded transition-colors"
-                  title={mobilePatrolReportsCollapsed ? "Expand Patrol Reports" : "Collapse Patrol Reports"}
-                >
-                  {mobilePatrolReportsCollapsed ? (
-                    <ChevronDown className="w-4 h-4 text-orange-700" />
-                  ) : (
-                    <ChevronUp className="w-4 h-4 text-orange-700" />
-                  )}
-                </button>
-              </div>
-              <p className="text-xs text-orange-700 mt-1">In progress & awaiting verification</p>
-            </div>
-            
-            {/* Mobile Patrol Reports List */}
-            {!mobilePatrolReportsCollapsed && (
-              <div className="px-4 py-3 border-b border-orange-200 bg-orange-25 max-h-40 overflow-y-auto">
-                {reports.filter(r => r.status === 'in_progress' || r.status === 'awaiting_verification').length === 0 ? (
-                  <div className="text-center py-2 text-orange-600">
-                    <Eye className="w-6 h-6 mx-auto mb-1 text-orange-400" />
-                    <p className="text-xs">No patrol reports</p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {reports
-                      .filter(r => r.status === 'in_progress' || r.status === 'awaiting_verification')
-                      .slice(0, 3)
-                      .map((report) => (
-                        <div
-                          key={report.id}
-                          onClick={() => {
-                            focusReportOnMap(report);
-                            setShowMobileList(false);
-                          }}
-                          className="p-2 rounded-lg border border-orange-200 hover:border-orange-300 bg-white cursor-pointer"
-                        >
-                          <div className="flex items-start justify-between mb-1">
-                            <h4 className="font-medium text-gray-900 text-xs line-clamp-2">
-                              {report.title}
-                            </h4>
-                            <span className={`ml-1 px-1 py-0.5 rounded-full text-xs font-medium ${
-                              report.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
-                              report.status === 'awaiting_verification' ? 'bg-orange-100 text-orange-800' :
-                              'bg-gray-100 text-gray-800'
-                            }`}>
-                              {report.status === 'awaiting_verification' ? 'Verify' : report.status.replace('_', ' ')}
-                            </span>
-                          </div>
-                          {report.case_number && (
-                            <div className="flex items-center gap-1 mb-1">
-                              <Hash className="h-2.5 w-2.5 text-gray-500" />
-                              <span className="text-xs text-gray-600 font-medium">{report.case_number}</span>
-                            </div>
-                          )}
-                          <p className="text-xs text-gray-600 mb-1 line-clamp-1">
-                            {report.description}
-                          </p>
-                          <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
-                            <span className="truncate max-w-[60%]">{report.username}</span>
-                            <span>{new Date(report.created_at).toLocaleDateString()}</span>
-                          </div>
-                          
-                          {/* Quick Action Buttons */}
-                          <div className="flex items-center gap-1">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleReportAction(report.id, 'resolved');
-                              }}
-                              className="inline-flex items-center gap-1 px-1 py-0.5 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded border border-green-200"
-                            >
-                              <Check className="w-3 h-3" />
-                              Approve
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleReportAction(report.id, 'rejected');
-                              }}
-                              className="inline-flex items-center gap-1 px-1 py-0.5 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded border border-red-200"
-                            >
-                              <X className="w-3 h-3" />
-                              Reject
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                )}
-              </div>
-            )}
-            {/* Mobile Main Reports Section Header */}
-            <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-gray-900">All Reports</h3>
-                <button
-                  onClick={() => setMobileMainReportsCollapsed(!mobileMainReportsCollapsed)}
-                  className="p-1 hover:bg-gray-100 rounded transition-colors"
-                  title={mobileMainReportsCollapsed ? "Expand All Reports" : "Collapse All Reports"}
-                >
-                  {mobileMainReportsCollapsed ? (
-                    <ChevronDown className="w-4 h-4 text-gray-700" />
-                  ) : (
-                    <ChevronUp className="w-4 h-4 text-gray-700" />
-                  )}
-                </button>
-              </div>
-            </div>
-            
-            {/* Mobile Filters */}
-            <div className="px-4 pt-3 pb-1 border-b">
-              <div className="flex items-center gap-2">
-                <div className="relative flex-1">
-                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Search..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                <select
-                  value={filter}
-                  onChange={(e) => setFilter(e.target.value as any)}
-                  className="px-2 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="all">All</option>
-                  <option value="verifying">Verifying</option>
-                  <option value="pending">Pending</option>
-                  <option value="in_progress">In Progress</option>
-                  <option value="awaiting_verification">Awaiting Verification</option>
-                  <option value="rejected">Rejected</option>
-                </select>
-              </div>
-            </div>
-            {!mobileMainReportsCollapsed && (
-              <div className="p-4">
-                {loading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                  </div>
-                ) : filteredReports.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
-                    <MapPin className="w-12 h-12 mx-auto mb-2 text-gray-300" />
-                    <p>No reports found</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {filteredReports.map((report) => (
-                      <div
-                        key={report.id}
-                        onClick={() => {
-                          setShowMobileList(false);
-                          focusReportOnMap(report);
-                        }}
-                        className="p-3 rounded-lg border cursor-pointer transition-all hover:shadow-md border-gray-200 hover:border-gray-300"
-                      >
-                        <div className="flex items-start justify-between mb-2">
-                          <h4 className="font-medium text-gray-900 text-sm line-clamp-2">
-                            {report.title}
-                          </h4>
-                          <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(report.status)}`}>
-                            {report.status}
-                          </span>
-                        </div>
-                        {report.case_number && (
-                          <div className="flex items-center gap-1 mb-2">
-                            <Hash className="h-3 w-3 text-gray-500" />
-                            <span className="text-xs text-gray-600 font-medium">{report.case_number}</span>
-                          </div>
-                        )}
-                        <p className="text-xs text-gray-600 mb-2 line-clamp-2">{report.description}</p>
-                        <div className="flex items-center justify-between text-xs text-gray-500 mb-2">
-                          <span>{report.username}</span>
-                          <span>{new Date(report.created_at).toLocaleDateString()}</span>
-                        </div>
-                        
-                        {/* Status Management Buttons - Mobile */}
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          {(() => {
-                            // Define smart next actions based on current status
-                            const getNextActions = (currentStatus: typeof report.status) => {
-                              switch (currentStatus) {
-                                case 'pending':
-                                  return ['in_progress', 'rejected']; // Start work or reject
-                                case 'in_progress':
-                                  return ['awaiting_verification', 'resolved']; // Submit for verification or mark resolved
-                                case 'awaiting_verification':
-                                  return ['resolved', 'rejected']; // Approve or reject
-                                case 'verifying':
-                                  return ['pending', 'in_progress']; // Move to pending or start work
-                                case 'resolved':
-                                  return ['in_progress']; // Reopen if needed
-                                case 'rejected':
-                                  return ['pending']; // Reopen if needed
-                                default:
-                                  return ['pending', 'in_progress'];
-                              }
-                            };
-
-                            const nextActions = getNextActions(report.status);
-                            
-                            return nextActions.map(target => (
-                              <button
-                                key={target}
-                                onClick={() => handleReportAction(report.id, target)}
-                                className={
-                                  target === 'pending'
-                                    ? 'inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-yellow-800 bg-yellow-50 hover:bg-yellow-100 rounded border border-yellow-200 transition-colors'
-                                    : target === 'in_progress'
-                                    ? 'inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded border border-blue-200 transition-colors'
-                                    : target === 'awaiting_verification'
-                                    ? 'inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-orange-700 bg-orange-50 hover:bg-orange-100 rounded border border-orange-200 transition-colors'
-                                    : target === 'resolved'
-                                    ? 'inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded border border-green-200 transition-colors'
-                                    : 'inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded border border-red-200 transition-colors'
-                                }
-                                title={
-                                  target === 'pending'
-                                    ? 'Mark Pending'
-                                    : target === 'in_progress'
-                                    ? 'Mark In Progress'
-                                    : target === 'awaiting_verification'
-                                    ? 'Submit for Verification'
-                                    : target === 'resolved'
-                                    ? 'Mark Resolved'
-                                    : 'Reject'
-                                }
-                              >
-                                {target === 'resolved' ? (
-                                  <Check className="w-3 h-3" />
-                                ) : target === 'rejected' ? (
-                                  <X className="w-3 h-3" />
-                                ) : target === 'awaiting_verification' ? (
-                                  <Eye className="w-3 h-3" />
-                                ) : (
-                                  <Wrench className="w-3 h-3" />
-                                )}
-                                {target === 'pending'
-                                  ? 'Pending'
-                                  : target === 'in_progress'
-                                  ? 'Progress'
-                                  : target === 'awaiting_verification'
-                                  ? 'Verify'
-                                  : target === 'resolved'
-                                  ? 'Resolved'
-                                  : 'Reject'}
-                              </button>
-                            ));
-                          })()}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Report Details Modal */}
       {showReportModal && selectedReportForModal && (
@@ -2801,16 +2021,16 @@ export function AdminMapDashboard() {
 
                     {/* Status Management Buttons */}
                     <div className="flex items-center gap-2 flex-wrap">
-                      {(['verifying','pending','in_progress','awaiting_verification','resolved','rejected'] as const)
+                      {(['verifying','pending','in_progress','awaiting_verification','resolved','declined'] as const)
                         .filter(target => target !== report.status)
                         .sort((a, b) => {
                           const orderMap: Record<Report['status'], Record<string, number>> = {
-                            verifying: { pending: 0, in_progress: 1, awaiting_verification: 2, resolved: 3, rejected: 4, verifying: 99 },
-                            pending: { in_progress: 0, awaiting_verification: 1, resolved: 2, rejected: 3, pending: 99 },
-                            in_progress: { awaiting_verification: 0, resolved: 1, rejected: 2, pending: 3, in_progress: 99 },
-                            awaiting_verification: { resolved: 0, rejected: 1, pending: 2, in_progress: 3, awaiting_verification: 99 },
-                            resolved: { in_progress: 0, pending: 1, rejected: 2, resolved: 99 },
-                            rejected: { pending: 0, in_progress: 1, resolved: 2, rejected: 99 },
+                            verifying: { pending: 0, in_progress: 1, awaiting_verification: 2, resolved: 3, declined: 4, verifying: 99 },
+                            pending: { in_progress: 0, awaiting_verification: 1, resolved: 2, declined: 3, pending: 99 },
+                            in_progress: { awaiting_verification: 0, resolved: 1, declined: 2, pending: 3, in_progress: 99 },
+                            awaiting_verification: { resolved: 0, declined: 1, pending: 2, in_progress: 3, awaiting_verification: 99 },
+                            resolved: { in_progress: 0, pending: 1, declined: 2, resolved: 99 },
+                            declined: { pending: 0, in_progress: 1, resolved: 2, declined: 99 },
                           } as any;
                           return (orderMap[report.status] as any)[a] - (orderMap[report.status] as any)[b];
                         })
@@ -2838,12 +2058,12 @@ export function AdminMapDashboard() {
                                 ? 'Mark Awaiting Verification'
                                 : target === 'resolved'
                                 ? 'Mark Resolved'
-                                : 'Reject'
+                                : 'Decline'
                             }
                           >
                             {target === 'resolved' ? (
                               <Check className="w-4 h-4" />
-                            ) : target === 'rejected' ? (
+                            ) : target === 'declined' ? (
                               <X className="w-4 h-4" />
                             ) : target === 'awaiting_verification' ? (
                               <Eye className="w-4 h-4" />
@@ -2858,7 +2078,7 @@ export function AdminMapDashboard() {
                               ? 'Verify'
                               : target === 'resolved'
                               ? 'Resolved'
-                              : 'Reject'}
+                              : 'Decline'}
                           </button>
                         ))}
                     </div>

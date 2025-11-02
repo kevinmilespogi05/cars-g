@@ -169,7 +169,7 @@ export function PatrolDashboard() {
     setLoading(true);
     setError(null);
     try {
-      // Patrol scope: show non-rejected reports, prioritized by status and priority
+      // Patrol scope: show non-declined reports, prioritized by status and priority
       let query = supabase
         .from('reports')
         .select('id, user_id, patrol_user_id, title, description, category, priority, status, location_address, images, created_at, updated_at, case_number, priority_level, assigned_group, assigned_patroller_name, can_cancel');
@@ -386,7 +386,7 @@ export function PatrolDashboard() {
       case 'pending': return 'Pending';
       case 'awaiting_verification': return 'Awaiting Verification';
       case 'resolved': return 'Resolved';
-      case 'rejected': return 'Rejected';
+      case 'declined': return 'Declined';
       case 'verifying': return 'Verifying';
       default: return String(status || '').replace('_',' ');
     }

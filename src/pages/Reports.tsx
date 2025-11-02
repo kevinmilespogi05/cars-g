@@ -72,9 +72,9 @@ export function Reports() {
     console.log('Setting up real-time subscriptions');
     
     const matchesFilters = (r: any) => {
-      // Always exclude verifying, awaiting_verification, and rejected reports from the main reports view
+      // Always exclude verifying, awaiting_verification, and declined reports from the main reports view
       // These should be handled on the verification page or user profile
-      if (r.status === 'verifying' || r.status === 'awaiting_verification' || r.status === 'rejected') return false;
+      if (r.status === 'verifying' || r.status === 'awaiting_verification' || r.status === 'declined') return false;
       
       const categoryOk = filters.category === 'All' || (r.category || '').toLowerCase().includes(filters.category.toLowerCase().replace(/_/g, ' '));
       const statusOk = filters.status === 'All' || (r.status || '').toLowerCase() === filters.status.toLowerCase().replace(/\s+/g, '_');
@@ -96,8 +96,8 @@ export function Reports() {
       setReports(prev => {
         const exists = prev.some(r => r.id === reportId);
         
-        // If status changes to verifying, awaiting_verification, or rejected, remove it from main reports view
-        if (newStatus === 'verifying' || newStatus === 'awaiting_verification' || newStatus === 'rejected') {
+        // If status changes to verifying, awaiting_verification, or declined, remove it from main reports view
+        if (newStatus === 'verifying' || newStatus === 'awaiting_verification' || newStatus === 'declined') {
           return prev.filter(r => r.id !== reportId);
         }
         
@@ -171,12 +171,12 @@ export function Reports() {
         limit: 40
       });
 
-      // Filter out verifying, awaiting_verification, rejected, and cancelled reports from the main reports view
+      // Filter out verifying, awaiting_verification, declined, and cancelled reports from the main reports view
       // These should be handled on the verification page or user profile
       const filteredReportsData = reportsData.filter(report => 
         report.status !== 'verifying' && 
         report.status !== 'awaiting_verification' && 
-        report.status !== 'rejected' &&
+        report.status !== 'declined' &&
         report.status !== 'cancelled'
       );
 

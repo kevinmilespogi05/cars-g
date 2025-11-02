@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { useAvailabilityCheck } from '../hooks/useAvailabilityCheck';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Mail, 
   Lock, 
@@ -14,7 +14,6 @@ import {
   CheckCircle,
   Shield,
   UserPlus,
-  MapPin,
   Phone,
   Loader2,
   XCircle,
@@ -22,16 +21,18 @@ import {
   ChevronRight,
   ChevronLeft,
   Upload,
-  Image,
-  Camera,
-  FileImage,
-  CameraIcon,
-  FileUp
- } from 'lucide-react';
+  Check
+} from 'lucide-react';
 
 export function Register() {
   const navigate = useNavigate();
   const { signUp, signInWithGoogle } = useAuthStore();
+  
+  // Multi-step state
+  const [currentStep, setCurrentStep] = useState(1);
+  const totalSteps = 2;
+  
+  // Form data
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
@@ -57,17 +58,11 @@ export function Register() {
   const [idBackPreview, setIdBackPreview] = useState<string | null>(null);
   const [isUploadingImages, setIsUploadingImages] = useState(false);
   
-  // File input refs to reset inputs after file removal
+  // File input refs
   const frontFileInputRef = useRef<HTMLInputElement>(null);
   const backFileInputRef = useRef<HTMLInputElement>(null);
-  const [showCamera, setShowCamera] = useState<{ front: boolean; back: boolean }>({ front: false, back: false });
-  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
-  const [captureType, setCaptureType] = useState<'camera' | 'upload' | null>(null);
-  const [cameraError, setCameraError] = useState<string | null>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   
-  // Scroll tracking states
+  // Scroll tracking states for modals
   const [privacyScrollProgress, setPrivacyScrollProgress] = useState(0);
   const [termsScrollProgress, setTermsScrollProgress] = useState(0);
   const [privacyCompleted, setPrivacyCompleted] = useState(false);
@@ -78,6 +73,21 @@ export function Register() {
   // Real-time availability checks
   const usernameCheck = useAvailabilityCheck(username, 'username');
   const emailCheck = useAvailabilityCheck(email, 'email');
+
+  // Password strength calculation
+  const getPasswordStrength = (pwd: string) => {
+    let strength = 0;
+    if (pwd.length >= 6) strength++;
+    if (pwd.length >= 10) strength++;
+    if (/[a-z]/.test(pwd) && /[A-Z]/.test(pwd)) strength++;
+    if (/\d/.test(pwd)) strength++;
+    if (/[^a-zA-Z\d]/.test(pwd)) strength++;
+    return strength;
+  };
+
+  const passwordStrength = getPasswordStrength(password);
+  const passwordStrengthLabel = ['', 'Weak', 'Fair', 'Good', 'Strong', 'Very Strong'][passwordStrength];
+  const passwordStrengthColor = ['', 'bg-red-500', 'bg-orange-500', 'bg-yellow-500', 'bg-green-500', 'bg-green-600'][passwordStrength];
 
   // Smooth scroll to top on mount
   useEffect(() => {
@@ -103,7 +113,6 @@ export function Register() {
     const scrolled = (scrollTop / (scrollHeight - clientHeight)) * 100;
     setPrivacyScrollProgress(Math.min(scrolled, 100));
     
-    // Mark as completed when scrolled to bottom (with 5px threshold)
     if (scrollHeight - scrollTop - clientHeight < 5) {
       setPrivacyCompleted(true);
     }
@@ -121,7 +130,6 @@ export function Register() {
     const scrolled = (scrollTop / (scrollHeight - clientHeight)) * 100;
     setTermsScrollProgress(Math.min(scrolled, 100));
     
-    // Mark as completed when scrolled to bottom (with 5px threshold)
     if (scrollHeight - scrollTop - clientHeight < 5) {
       setTermsCompleted(true);
     }
@@ -141,19 +149,16 @@ export function Register() {
 
   // Handle ID image uploads
   const handleIdImageUpload = (file: File, type: 'front' | 'back') => {
-    // Validate file type
     if (!file.type.startsWith('image/')) {
       setError('Please upload a valid image file.');
       return;
     }
 
-    // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       setError('Image file size must be less than 5MB.');
       return;
     }
 
-    // Create preview URL
     const previewUrl = URL.createObjectURL(file);
 
     if (type === 'front') {
@@ -164,7 +169,7 @@ export function Register() {
       setIdBackPreview(previewUrl);
     }
 
-    setError(''); // Clear any previous errors
+    setError('');
   };
 
   // Remove ID image
@@ -173,7 +178,6 @@ export function Register() {
       if (idFrontPreview) URL.revokeObjectURL(idFrontPreview);
       setIdFrontImage(null);
       setIdFrontPreview(null);
-      // Reset file input to allow re-uploading the same file
       if (frontFileInputRef.current) {
         frontFileInputRef.current.value = '';
       }
@@ -181,148 +185,11 @@ export function Register() {
       if (idBackPreview) URL.revokeObjectURL(idBackPreview);
       setIdBackImage(null);
       setIdBackPreview(null);
-      // Reset file input to allow re-uploading the same file
       if (backFileInputRef.current) {
         backFileInputRef.current.value = '';
       }
     }
   };
-
-  // Camera capture functions
-  const startCamera = async (type: 'front' | 'back') => {
-    try {
-      setCameraError(null);
-      
-      // Stop any existing camera stream first and wait for it to fully stop
-      if (cameraStream) {
-        cameraStream.getTracks().forEach(track => {
-          track.stop();
-          console.log('Stopped track:', track.label);
-        });
-        setCameraStream(null);
-        
-        // Wait a bit longer to ensure the device is fully released
-        await new Promise(resolve => setTimeout(resolve, 500));
-      }
-
-      // Request camera with more specific constraints
-      const constraints = {
-        video: { 
-          facingMode: type === 'back' ? 'environment' : 'user',
-          width: { ideal: 1280, max: 1920 },
-          height: { ideal: 720, max: 1080 }
-        } 
-      };
-
-      console.log('Requesting camera with constraints:', constraints);
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      
-      // Verify the stream is active
-      if (!stream.active) {
-        throw new Error('Camera stream is not active');
-      }
-      
-      setCameraStream(stream);
-      setShowCamera(prev => ({ ...prev, [type]: true }));
-      setCaptureType('camera');
-      
-      // Wait for the modal to render, then set the video source
-      setTimeout(() => {
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.play().catch(error => {
-            console.error('Error playing video:', error);
-            setCameraError('Camera started but video failed to play. Please try again.');
-          });
-        }
-      }, 100);
-    } catch (error: any) {
-      console.error('Error accessing camera:', error);
-      setShowCamera({ front: false, back: false });
-      setCameraStream(null);
-      
-      let errorMessage = 'Camera access denied. Please use file upload instead.';
-      if (error.name === 'NotAllowedError') {
-        errorMessage = 'Camera permission denied. Please allow camera access and try again.';
-      } else if (error.name === 'NotFoundError') {
-        errorMessage = 'No camera found. Please use file upload instead.';
-      } else if (error.name === 'NotReadableError') {
-        errorMessage = 'Camera is being used by another application. Please close other apps and try again.';
-      } else if (error.name === 'OverconstrainedError') {
-        errorMessage = 'Camera constraints cannot be satisfied. Please try again.';
-      }
-      
-      setError(errorMessage);
-    }
-  };
-
-  const stopCamera = () => {
-    if (cameraStream) {
-      console.log('Stopping camera stream...');
-      cameraStream.getTracks().forEach(track => {
-        track.stop();
-        console.log('Stopped track:', track.label, 'readyState:', track.readyState);
-      });
-      setCameraStream(null);
-    }
-    setShowCamera({ front: false, back: false });
-    setCaptureType(null);
-    setCameraError(null);
-  };
-
-  const capturePhoto = (type: 'front' | 'back') => {
-    if (!videoRef.current || !canvasRef.current) return;
-
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    const context = canvas.getContext('2d');
-
-    if (!context) return;
-
-    // Set canvas dimensions to match video
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-
-    // Draw video frame to canvas
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    // Convert canvas to blob
-    canvas.toBlob((blob) => {
-      if (blob) {
-        const file = new File([blob], `${type}-id-${Date.now()}.jpg`, { type: 'image/jpeg' });
-        handleIdImageUpload(file, type);
-        stopCamera();
-      }
-    }, 'image/jpeg', 0.8);
-  };
-
-  // Handle video element when camera modal opens
-  useEffect(() => {
-    if ((showCamera.front || showCamera.back) && cameraStream && videoRef.current) {
-      console.log('Setting video source object:', cameraStream);
-      videoRef.current.srcObject = cameraStream;
-      videoRef.current.play().catch(error => {
-        console.error('Error playing video:', error);
-      });
-    }
-  }, [showCamera, cameraStream]);
-
-  // Debug camera stream
-  useEffect(() => {
-    if (cameraStream) {
-      console.log('Camera stream active:', cameraStream.active);
-      console.log('Video tracks:', cameraStream.getVideoTracks());
-    }
-  }, [cameraStream]);
-
-  // Cleanup camera on unmount
-  useEffect(() => {
-    return () => {
-      if (cameraStream) {
-        cameraStream.getTracks().forEach(track => track.stop());
-      }
-    };
-  }, [cameraStream]);
 
   // Upload ID images to storage
   const uploadIdImages = async (frontImage: File, backImage: File) => {
@@ -351,56 +218,63 @@ export function Register() {
     }
   };
 
-  // Handle checkbox click - open Privacy Policy if not completed
-  const handleCheckboxClick = (e: React.MouseEvent<HTMLInputElement>) => {
-    if (!privacyCompleted || !termsCompleted) {
-      e.preventDefault();
-      if (!privacyCompleted) {
-        setShowPrivacyModal(true);
-      } else if (!termsCompleted) {
-        setShowTermsModal(true);
-      }
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Validate Step 1
+  const validateStep1 = () => {
     setError('');
-    setSuccess('');
 
-    // Check if email is Gmail
+    if (!firstName.trim() || !lastName.trim()) {
+      setError('Please enter your first and last name.');
+      return false;
+    }
+
     if (!email.toLowerCase().endsWith('@gmail.com')) {
       setError('Only Gmail addresses (@gmail.com) are accepted for registration.');
       setIsGmailValid(false);
       setGmailError('Only Gmail addresses (@gmail.com) are accepted');
-      return;
+      return false;
     }
 
-    // Check availability before submitting
     if (usernameCheck.isAvailable === false) {
       setError('Username is already taken. Please choose another one.');
-      return;
+      return false;
     }
 
     if (emailCheck.isAvailable === false) {
       setError('Email is already registered. Please use a different email or sign in.');
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      setError('Passwords do not match');
-      return;
+      return false;
     }
 
     if (password.length < 6) {
       setError('Password must be at least 6 characters long');
-      return;
+      return false;
+    }
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return false;
     }
 
     if (!agreedToTerms) {
-      setError('You must agree to the Privacy Policy and Terms of Service to register.');
-      return;
+      setError('You must agree to the Privacy Policy and Terms of Service to continue.');
+      return false;
     }
+
+    return true;
+  };
+
+  // Handle Step 1 completion
+  const handleContinueToStep2 = () => {
+    if (validateStep1()) {
+      setCurrentStep(2);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  // Handle final submission
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
 
     // Check if ID images are uploaded
     if (!idFrontImage || !idBackImage) {
@@ -416,11 +290,10 @@ export function Register() {
       const { idFrontImageUrl, idBackImageUrl } = await uploadIdImages(idFrontImage!, idBackImage!);
       
       // Register with ID image URLs
-      const result = await signUp(email, password, username, firstName || '', lastName || '', phone || '', confirmPassword || '', idFrontImageUrl, idBackImageUrl);
+      const result = await signUp(email, password, username, firstName, lastName, phone, confirmPassword, idFrontImageUrl, idBackImageUrl);
       
       // Check if we need to redirect to email verification
       if (result.redirectUrl) {
-        // Store email for the verification page
         localStorage.setItem('registeredEmail', email);
         setSuccess('Registration successful! Please check your Gmail for the verification code.');
         setTimeout(() => {
@@ -448,993 +321,702 @@ export function Register() {
     }
   };
 
+  // Handle checkbox click - open Privacy Policy if not completed
+  const handleCheckboxClick = (e: React.MouseEvent<HTMLInputElement>) => {
+    if (!privacyCompleted || !termsCompleted) {
+      e.preventDefault();
+      if (!privacyCompleted) {
+        setShowPrivacyModal(true);
+      } else if (!termsCompleted) {
+        setShowTermsModal(true);
+      }
+    }
+  };
+
   return (
-    <div 
-      className="min-h-screen w-screen flex items-start justify-center px-500 py-500 sm:py-500 lg:py-500"
-      style={{ overflow: 'auto' }}
-    >
+    <div className="min-h-screen w-full flex items-center justify-center px-4 py-12">
       {/* Back to Home Link - Mobile */}
       <div className="fixed top-4 left-4 z-50 lg:hidden">
         <Link 
           to="/" 
-          className="inline-flex items-center gap-2 text-gray-700 hover:text-gray-900 bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 font-medium text-sm"
+          className="inline-flex items-center gap-2 text-gray-700 hover:text-gray-900 bg-white/90 backdrop-blur-sm px-3 py-2 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 font-medium text-sm"
         >
           <ArrowLeft className="h-4 w-4" />
           <span>Back</span>
         </Link>
       </div>
 
-      <div className="w-full max-w-4xl my-8">
+      {/* Desktop Back Link */}
+      <div className="hidden lg:block fixed top-6 left-6 z-50">
+        <Link 
+          to="/" 
+          className="inline-flex items-center gap-2 text-gray-700 hover:text-gray-900 bg-white/90 backdrop-blur-sm px-4 py-2.5 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 font-medium text-sm"
+        >
+          <ArrowLeft className="h-5 w-5" />
+          <span>Back to Home</span>
+        </Link>
+      </div>
+
+      <div className="w-full max-w-xl mx-auto">
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: "easeOut" }}
+          transition={{ duration: 0.5 }}
           className="bg-white rounded-2xl shadow-2xl overflow-hidden"
         >
-          <div className="grid lg:grid-cols-3 min-h-[600px]">
-            {/* Left Column - Hero Image & Branding */}
-            <div className="hidden lg:flex relative bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 overflow-hidden">
-              {/* Background Pattern */}
-              <div className="absolute inset-0 opacity-10">
-                <div className="absolute inset-0" style={{
-                  backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-                }}></div>
-              </div>
-
-              {/* Car Image Overlay */}
-              <div className="absolute inset-0 bg-gradient-to-br from-red-900/20 via-red-800/20 to-red-900/20 mix-blend-overlay"></div>
-              
-              {/* Hero Image */}
-              <div 
-                className="absolute inset-0 bg-cover bg-center opacity-30"
-                style={{
-                  backgroundImage: `url('/images/feature-tracking.jpg')`,
-                  filter: 'brightness(0.8) contrast(1.2)',
-                }}
-              ></div>
-
-              {/* Content */}
-              <div className="relative z-10 flex flex-col justify-between p-6 text-white w-full">
-                <div>
-                  {/* Back Link */}
-                  <Link 
-                    to="/" 
-                    className="inline-flex items-center gap-1.5 text-white/90 hover:text-white transition-colors duration-300 mb-6 group text-xs"
-                  >
-                    <ArrowLeft className="h-3.5 w-3.5 group-hover:-translate-x-1 transition-transform duration-300" />
-                    <span className="font-medium">Back to Home</span>
-                  </Link>
-                  
-                  {/* Logo and Title */}
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-10 h-10 bg-white/10 backdrop-blur-md rounded-lg p-2 border border-white/20 shadow-xl">
-                        <img 
-                          src="/images/logo.jpg" 
-                          alt="CARS-G Logo" 
-                          className="w-full h-full object-contain"
-                        />
-                      </div>
-                            <div>
-                              <h1 className="text-2xl font-bold tracking-tight text-white">CARS-G</h1>
-                              <p className="text-red-100 text-[10px] font-medium tracking-wide">Community Assistance and Reporting System - Gamified</p>
-                            </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <h2 className="text-xl font-bold leading-tight text-white">
-                        Join the Movement for<br />Safer Communities
-                      </h2>
-                      <p className="text-white/90 text-xs leading-relaxed">
-                        Empower yourself as an active citizen. Report traffic violations, track community issues, and make a real impact.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Bottom Stats/Features */}
-                <div className="space-y-2.5 mt-4">
-                          <div className="grid grid-cols-2 gap-2.5">
-                            <div className="bg-white/5 backdrop-blur-sm rounded-lg p-2.5 border border-white/10">
-                              <div className="flex items-center gap-2">
-                                <div className="w-7 h-7 bg-red-500/20 rounded flex items-center justify-center">
-                                  <MapPin className="h-3.5 w-3.5 text-red-300" />
-                        </div>
-                        <div>
-                          <p className="text-lg font-bold text-white">1000+</p>
-                          <p className="text-[9px] text-white/70">Reports Filed</p>
-                        </div>
-                      </div>
-                    </div>
-                            <div className="bg-white/5 backdrop-blur-sm rounded-lg p-2.5 border border-white/10">
-                              <div className="flex items-center gap-2">
-                                <div className="w-7 h-7 bg-red-500/20 rounded flex items-center justify-center">
-                                  <Shield className="h-3.5 w-3.5 text-red-300" />
-                        </div>
-                        <div>
-                          <p className="text-lg font-bold text-white">500+</p>
-                          <p className="text-[9px] text-white/70">Active Users</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="border-t border-white/10 pt-3">
-                    <p className="text-[10px] text-white/80">
-                      Trusted by citizens and local authorities nationwide.
-                    </p>
-                  </div>
-                </div>
+          {/* Header */}
+          <div className="bg-gradient-to-r from-red-900 to-red-800 px-6 py-8 text-white">
+            <div className="flex items-center gap-3 mb-4">
+              <img 
+                src="/images/logo.jpg" 
+                alt="CARS-G Logo" 
+                className="h-12 w-12 object-contain rounded-lg bg-white/10 p-1"
+              />
+              <div>
+                <h1 className="text-2xl font-bold">Create Your Account</h1>
+                <p className="text-red-100 text-sm">Join the CARS-G community</p>
               </div>
             </div>
 
-            {/* Middle Column - Registration Form */}
-            <div className="p-5 sm:p-6 lg:p-8 overflow-auto flex flex-col justify-center">
-              {/* Mobile Hero */}
-              <div className="lg:hidden mb-6 text-center pt-6">
-                <div className="inline-flex items-center gap-2 mb-3">
-                  <img 
-                    src="/images/logo.jpg" 
-                    alt="CARS-G Logo" 
-                    className="h-9 w-9 object-contain rounded-lg"
+            {/* Step Indicator */}
+            <div className="flex items-center justify-between mt-6">
+              <div className="flex items-center gap-2">
+                <div className={`flex items-center justify-center w-8 h-8 rounded-full font-semibold text-sm ${
+                  currentStep >= 1 ? 'bg-white text-red-900' : 'bg-red-800 text-white'
+                }`}>
+                  {currentStep > 1 ? <Check className="h-5 w-5" /> : '1'}
+                </div>
+                <div className="hidden sm:block">
+                  <div className="text-xs font-medium">Step 1</div>
+                  <div className="text-xs text-red-100">Account Info</div>
+                </div>
+              </div>
+
+              <div className="flex-1 mx-4">
+                <div className="h-1 bg-red-800 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-white transition-all duration-500"
+                    style={{ width: `${(currentStep / totalSteps) * 100}%` }}
                   />
-                  <h1 className="text-xl font-bold text-gray-900">CARS-G</h1>
                 </div>
-                <h2 className="text-lg font-bold text-gray-900 mb-1.5">Create Your Account</h2>
-                <p className="text-gray-600 text-sm">Join our community of active citizens</p>
               </div>
 
-              {/* Desktop Header */}
-              <div className="hidden lg:block mb-6">
-                <h2 className="text-2xl font-bold text-gray-900 mb-1.5 tracking-tight">Create Your Account</h2>
-                <p className="text-gray-600 text-sm">Get started with CARS-G in just a few steps</p>
+              <div className="flex items-center gap-2">
+                <div className={`flex items-center justify-center w-8 h-8 rounded-full font-semibold text-sm ${
+                  currentStep >= 2 ? 'bg-white text-red-900' : 'bg-red-800 text-white'
+                }`}>
+                  2
+                </div>
+                <div className="hidden sm:block">
+                  <div className="text-xs font-medium">Step 2</div>
+                  <div className="text-xs text-red-100">ID Verification</div>
+                </div>
               </div>
-              <form onSubmit={handleSubmit} className="space-y-3">
-                {/* Name Fields */}
-                <div className="grid sm:grid-cols-2 gap-3">
-                  <div className="group">
-                    <label htmlFor="firstName" className="block text-xs font-semibold text-gray-700 mb-1">
-                      First Name
-                    </label>
-                    <input
-                      type="text"
-                      id="firstName"
-                      value={firstName}
-                      onChange={(e) => setFirstName(e.target.value)}
-                      className="w-full px-3 py-2 bg-gray-50 border-2 border-gray-200 rounded-lg text-gray-900 text-sm placeholder-gray-400 focus:bg-white focus:border-red-800 focus:ring-4 focus:ring-red-800/10 transition-all duration-300 outline-none font-medium"
-                      placeholder="John"
-                    />
-                  </div>
-                  <div className="group">
-                    <label htmlFor="lastName" className="block text-xs font-semibold text-gray-700 mb-1">
-                      Last Name
-                    </label>
-                    <input
-                      type="text"
-                      id="lastName"
-                      value={lastName}
-                      onChange={(e) => setLastName(e.target.value)}
-                      className="w-full px-3 py-2 bg-gray-50 border-2 border-gray-200 rounded-lg text-gray-900 text-sm placeholder-gray-400 focus:bg-white focus:border-red-800 focus:ring-4 focus:ring-red-800/10 transition-all duration-300 outline-none font-medium"
-                      placeholder="Doe"
-                    />
-                  </div>
-                </div>
+            </div>
+          </div>
 
-                {/* Email */}
-                <div className="group">
-                  <label htmlFor="email" className="block text-xs font-semibold text-gray-700 mb-1">
-                    Email Address <span className="text-xs text-gray-500">(Gmail only)</span>
-                  </label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 group-focus-within:text-red-800 transition-colors duration-300" />
-                    <input
-                      type="email"
-                      id="email"
-                      value={email}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        setEmail(value);
-                        
-                        // Check if email ends with @gmail.com
-                        if (value.length > 0) {
-                          const isValid = value.toLowerCase().endsWith('@gmail.com');
-                          setIsGmailValid(isValid);
-                          if (!isValid && value.includes('@')) {
-                            setGmailError('Only Gmail addresses (@gmail.com) are accepted');
-                          } else {
-                            setGmailError('');
-                          }
-                        } else {
-                          setIsGmailValid(true);
-                          setGmailError('');
-                        }
-                      }}
-                      required
-                      className={`w-full pl-9 pr-10 py-2 bg-gray-50 border-2 rounded-lg text-gray-900 text-sm placeholder-gray-400 focus:bg-white focus:ring-4 transition-all duration-300 outline-none font-medium ${
-                        !isGmailValid
-                          ? 'border-red-300 focus:border-red-500 focus:ring-red-500/10'
-                          : emailCheck.isChecking
-                          ? 'border-gray-200 focus:border-gray-300 focus:ring-gray-200/10'
-                          : emailCheck.isAvailable === true
-                          ? 'border-green-300 focus:border-green-500 focus:ring-green-500/10'
-                          : emailCheck.isAvailable === false
-                          ? 'border-red-300 focus:border-red-500 focus:ring-red-500/10'
-                          : 'border-gray-200 focus:border-red-800 focus:ring-red-800/10'
-                      }`}
-                      placeholder="your.name@gmail.com"
-                    />
-                    {/* Status Icon */}
-                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                      {emailCheck.isChecking && (
-                        <Loader2 className="h-4 w-4 text-gray-400 animate-spin" />
-                      )}
-                      {!emailCheck.isChecking && isGmailValid && emailCheck.isAvailable === true && (
-                        <CheckCircle className="h-4 w-4 text-green-500" />
-                      )}
-                      {(!isGmailValid || (!emailCheck.isChecking && emailCheck.isAvailable === false)) && (
-                        <XCircle className="h-4 w-4 text-red-500" />
-                      )}
-                    </div>
-                  </div>
-                  {/* Gmail Validation Message */}
-                  {gmailError && (
-                    <motion.p
-                      initial={{ opacity: 0, y: -5 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="mt-1 text-xs font-medium text-red-600 flex items-center gap-1"
-                    >
-                      <AlertCircle className="h-3 w-3" />
-                      {gmailError}
-                    </motion.p>
-                  )}
-                  {/* Availability Message */}
-                  {!emailCheck.isChecking && emailCheck.message && email.length >= 3 && isGmailValid && (
-                    <motion.p
-                      initial={{ opacity: 0, y: -5 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className={`mt-1 text-xs font-medium ${
-                        emailCheck.isAvailable ? 'text-green-600' : 'text-red-600'
-                      }`}
-                    >
-                      {emailCheck.message}
-                    </motion.p>
-                  )}
-                </div>
-
-                {/* Username */}
-                <div className="group">
-                  <label htmlFor="username" className="block text-xs font-semibold text-gray-700 mb-1">
-                    Username
-                  </label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 group-focus-within:text-red-800 transition-colors duration-300" />
-                    <input
-                      type="text"
-                      id="username"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      required
-                      className={`w-full pl-9 pr-10 py-2 bg-gray-50 border-2 rounded-lg text-gray-900 text-sm placeholder-gray-400 focus:bg-white focus:ring-4 transition-all duration-300 outline-none font-medium ${
-                        usernameCheck.isChecking
-                          ? 'border-gray-200 focus:border-gray-300 focus:ring-gray-200/10'
-                          : usernameCheck.isAvailable === true
-                          ? 'border-green-300 focus:border-green-500 focus:ring-green-500/10'
-                          : usernameCheck.isAvailable === false
-                          ? 'border-red-300 focus:border-red-500 focus:ring-red-500/10'
-                          : 'border-gray-200 focus:border-red-800 focus:ring-red-800/10'
-                      }`}
-                      placeholder="johndoe"
-                    />
-                    {/* Status Icon */}
-                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                      {usernameCheck.isChecking && (
-                        <Loader2 className="h-4 w-4 text-gray-400 animate-spin" />
-                      )}
-                      {!usernameCheck.isChecking && usernameCheck.isAvailable === true && (
-                        <CheckCircle className="h-4 w-4 text-green-500" />
-                      )}
-                      {!usernameCheck.isChecking && usernameCheck.isAvailable === false && (
-                        <XCircle className="h-4 w-4 text-red-500" />
-                      )}
-                    </div>
-                  </div>
-                  {/* Validation Message */}
-                  {!usernameCheck.isChecking && usernameCheck.message && username.length >= 3 && (
-                    <motion.p
-                      initial={{ opacity: 0, y: -5 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className={`mt-1 text-xs font-medium ${
-                        usernameCheck.isAvailable ? 'text-green-600' : 'text-red-600'
-                      }`}
-                    >
-                      {usernameCheck.message}
-                    </motion.p>
-                  )}
-                </div>
-
-                {/* Phone */}
-                <div className="group">
-                  <label htmlFor="phone" className="block text-xs font-semibold text-gray-700 mb-1">
-                    Phone Number <span className="text-gray-400 font-normal">(Optional)</span>
-                  </label>
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 group-focus-within:text-red-800 transition-colors duration-300" />
-                    <input
-                      type="tel"
-                      id="phone"
-                      value={phone}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        
-                        // Always keep +63 prefix
-                        if (!value.startsWith('+63')) {
-                          setPhone('+63');
-                          return;
-                        }
-                        
-                        // Extract only the digits after +63
-                        const digits = value.slice(3).replace(/\D/g, '');
-                        
-                        // Limit to 10 digits (Philippine mobile numbers are 10 digits after +63)
-                        if (digits.length <= 10) {
-                          setPhone('+63' + digits);
-                        }
-                      }}
-                      onFocus={() => {
-                        // Ensure +63 is there when focused
-                        if (phone === '' || phone === '+') {
-                          setPhone('+63');
-                        }
-                      }}
-                      onKeyDown={(e) => {
-                        // Prevent deleting the +63 prefix
-                        const cursorPosition = e.currentTarget.selectionStart || 0;
-                        if ((e.key === 'Backspace' || e.key === 'Delete') && cursorPosition <= 3) {
-                          e.preventDefault();
-                        }
-                      }}
-                      className="w-full pl-9 pr-3 py-2 bg-gray-50 border-2 border-gray-200 rounded-lg text-gray-900 text-sm placeholder-gray-400 focus:bg-white focus:border-red-800 focus:ring-4 focus:ring-red-800/10 transition-all duration-300 outline-none font-medium"
-                      placeholder="+63 9XX XXX XXXX"
-                      maxLength={13}
-                    />
-                    {phone.length > 3 && phone.length === 13 && (
-                      <CheckCircle className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-green-500" />
-                    )}
-                    {phone.length > 3 && phone.length < 13 && (
-                      <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                        <span className="text-xs text-gray-500">{13 - phone.length} more</span>
-                      </div>
-                    )}
-                  </div>
-                  <p className="mt-1 text-xs text-gray-500">
-                    Philippine mobile format: +63 followed by 10 digits
-                  </p>
-                </div>
-
-                {/* Password */}
-                <div className="group">
-                  <label htmlFor="password" className="block text-xs font-semibold text-gray-700 mb-1">
-                    Password
-                  </label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 group-focus-within:text-red-800 transition-colors duration-300" />
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      id="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      required
-                      className="w-full pl-9 pr-9 py-2 bg-gray-50 border-2 border-gray-200 rounded-lg text-gray-900 text-sm placeholder-gray-400 focus:bg-white focus:border-red-800 focus:ring-4 focus:ring-red-800/10 transition-all duration-300 outline-none font-medium"
-                      placeholder="••••••••"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-2.5 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-700 transition-colors duration-200 p-1"
-                    >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Confirm Password */}
-                <div className="group">
-                  <label htmlFor="confirmPassword" className="block text-xs font-semibold text-gray-700 mb-1">
-                    Confirm Password
-                  </label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 group-focus-within:text-red-800 transition-colors duration-300" />
-                    <input
-                      type={showConfirmPassword ? 'text' : 'password'}
-                      id="confirmPassword"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      required
-                      className="w-full pl-9 pr-9 py-2 bg-gray-50 border-2 border-gray-200 rounded-lg text-gray-900 text-sm placeholder-gray-400 focus:bg-white focus:border-red-800 focus:ring-4 focus:ring-red-800/10 transition-all duration-300 outline-none font-medium"
-                      placeholder="••••••••"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute right-2.5 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-700 transition-colors duration-200 p-1"
-                    >
-                      {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Terms and Privacy Agreement */}
-                <div className="group">
-                  <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg border-2 border-gray-200 hover:border-red-200 transition-colors duration-300">
-                    <input
-                      type="checkbox"
-                      id="agreedToTerms"
-                      checked={agreedToTerms}
-                      onChange={(e) => setAgreedToTerms(e.target.checked)}
-                      onClick={handleCheckboxClick}
-                      className="mt-0.5 w-4 h-4 text-red-800 bg-white border-gray-300 rounded focus:ring-red-800 focus:ring-2 cursor-pointer"
-                      required
-                    />
-                    <label htmlFor="agreedToTerms" className="text-xs text-gray-700 leading-relaxed cursor-pointer">
-                      I agree to the{' '}
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setShowPrivacyModal(true);
-                        }}
-                        className="text-red-800 font-semibold hover:text-red-900 hover:underline transition-colors"
-                      >
-                        Privacy Policy
-                      </button>
-                      {' '}and{' '}
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setShowTermsModal(true);
-                        }}
-                        className="text-red-800 font-semibold hover:text-red-900 hover:underline transition-colors"
-                      >
-                        Terms of Service
-                      </button>
-                    </label>
-                  </div>
-                  {!agreedToTerms && error.includes('agree') && (
-                    <motion.p
-                      initial={{ opacity: 0, y: -5 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="mt-2 text-xs font-medium text-red-600 flex items-center gap-1"
-                    >
-                      <AlertCircle className="h-3 w-3" />
-                      You must agree to continue
-                    </motion.p>
-                  )}
-                  {/* Progress indicators */}
-                  {(privacyCompleted || termsCompleted) && (
-                    <div className="mt-3 space-y-2">
-                      <div className="flex items-center gap-2 text-xs">
-                        {privacyCompleted ? (
-                          <CheckCircle className="h-4 w-4 text-green-500" />
-                        ) : (
-                          <div className="h-4 w-4 rounded-full border-2 border-gray-300" />
-                        )}
-                        <span className={privacyCompleted ? 'text-green-600 font-medium' : 'text-gray-500'}>
-                          Privacy Policy read
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 text-xs">
-                        {termsCompleted ? (
-                          <CheckCircle className="h-4 w-4 text-green-500" />
-                        ) : (
-                          <div className="h-4 w-4 rounded-full border-2 border-gray-300" />
-                        )}
-                        <span className={termsCompleted ? 'text-green-600 font-medium' : 'text-gray-500'}>
-                          Terms of Service read
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Error Message */}
-                {error && (
-                  <motion.div 
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="flex items-start gap-2 text-red-700 bg-red-50 border-2 border-red-200 p-2.5 rounded-lg"
-                  >
-                    <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
-                    <span className="text-xs font-medium">{error}</span>
-                  </motion.div>
-                )}
-
-                {/* Success Message */}
-                {success && (
-                  <motion.div 
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="flex items-start gap-2 text-green-700 bg-green-50 border-2 border-green-200 p-2.5 rounded-lg"
-                  >
-                    <CheckCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
-                    <span className="text-xs font-medium">{success}</span>
-                  </motion.div>
-                )}
-
-                {/* Submit Button */}
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="w-full text-white py-2.5 px-4 rounded-lg font-bold text-sm shadow-lg hover:shadow-xl focus:ring-4 focus:ring-red-800/50 disabled:opacity-60 disabled:cursor-not-allowed disabled:shadow-none transition-all duration-300 transform hover:scale-[1.01] active:scale-[0.99] flex items-center justify-center gap-2 group"
-                  style={{backgroundColor: '#800000'}}
-                  onMouseEnter={(e) => !isLoading && ((e.currentTarget as HTMLElement).style.backgroundColor = '#660000')}
-                  onMouseLeave={(e) => !isLoading && ((e.currentTarget as HTMLElement).style.backgroundColor = '#800000')}
+          {/* Form Content */}
+          <div className="p-6 sm:p-8">
+            <AnimatePresence mode="wait">
+              {currentStep === 1 && (
+                <motion.div
+                  key="step1"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.3 }}
                 >
-                  {isLoading ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                      <span>
-                        {isUploadingImages ? 'Uploading ID images...' : 'Creating Account...'}
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <UserPlus className="h-4 w-4 group-hover:scale-110 transition-transform duration-300" />
-                      <span>Create Account</span>
-                    </>
-                  )}
-                </button>
-
-                {/* Divider */}
-                <div className="relative py-3">
-                  <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t-2 border-gray-200" />
-                  </div>
-                  <div className="relative flex justify-center">
-                    <span className="px-2.5 bg-white text-xs font-semibold text-gray-500">Or continue with</span>
-                  </div>
-                </div>
-
-                {/* Google Sign Up */}
-                <button
-                  type="button"
-                  onClick={handleGoogleSignUp}
-                  className="w-full flex items-center justify-center gap-2 bg-white border-2 border-gray-200 text-gray-700 py-2 px-4 rounded-lg text-sm font-semibold hover:bg-gray-50 hover:border-gray-300 focus:ring-4 focus:ring-gray-200 transition-all duration-300 shadow-sm hover:shadow-md group"
-                >
-                  <svg className="h-4 w-4 group-hover:scale-110 transition-transform duration-300" viewBox="0 0 24 24">
-                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-                  </svg>
-                  <span>Continue with Google</span>
-                </button>
-              </form>
-
-              {/* Login Link */}
-              <div className="mt-5 text-center pt-4 border-t-2 border-gray-100">
-                <p className="text-gray-600 text-xs">
-                  Already have an account?{' '}
-                  <Link 
-                    to="/login" 
-                    className="font-bold underline decoration-2 underline-offset-2 transition-all duration-300"
-                    style={{color: '#800000'}}
-                    onMouseEnter={(e) => (e.currentTarget as HTMLElement).style.color = '#660000'}
-                    onMouseLeave={(e) => (e.currentTarget as HTMLElement).style.color = '#800000'}
-                  >
-                    Sign in
-                  </Link>
-                </p>
-              </div>
-
-              {/* Mobile ID Verification Section */}
-              <div className="lg:hidden mt-6">
-                <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-lg p-4 border border-amber-200">
-                  {/* Header */}
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="h-8 w-8 bg-amber-500 rounded-lg flex items-center justify-center">
-                      <Shield className="h-4 w-4 text-white" />
+                  <form onSubmit={(e) => { e.preventDefault(); handleContinueToStep2(); }} className="space-y-5">
+                    {/* Name Fields */}
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <div>
+                        <label htmlFor="firstName" className="block text-sm font-semibold text-gray-700 mb-2">
+                          First Name <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          id="firstName"
+                          value={firstName}
+                          onChange={(e) => setFirstName(e.target.value)}
+                          required
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:bg-white focus:border-red-800 focus:ring-2 focus:ring-red-800/20 transition-all duration-200 outline-none"
+                          placeholder="John"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="lastName" className="block text-sm font-semibold text-gray-700 mb-2">
+                          Last Name <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          id="lastName"
+                          value={lastName}
+                          onChange={(e) => setLastName(e.target.value)}
+                          required
+                          className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:bg-white focus:border-red-800 focus:ring-2 focus:ring-red-800/20 transition-all duration-200 outline-none"
+                          placeholder="Doe"
+                        />
+                      </div>
                     </div>
+
+                    {/* Email */}
                     <div>
-                      <h3 className="text-base font-bold text-amber-900">ID Verification Required</h3>
-                      <p className="text-xs text-amber-700">Take photos of both sides of your ID</p>
-                    </div>
-                  </div>
-
-                  {/* Instructions */}
-                  <div className="bg-white/70 rounded-lg p-3 mb-4 border border-amber-200">
-                    <p className="text-xs text-amber-800 font-medium mb-2">📋 Instructions:</p>
-                    <ul className="text-xs text-amber-700 space-y-1">
-                      <li>• Take clear photos of both sides of your ID</li>
-                      <li>• Ensure all text is readable</li>
-                      <li>• Good lighting and no glare</li>
-                    </ul>
-                  </div>
-
-                  {/* Mobile ID Upload */}
-                  <div className="space-y-4">
-                    {/* Front ID */}
-                    <div className="space-y-2">
-                      <label className="block text-sm font-semibold text-amber-900">
-                        Front of ID <span className="text-red-500">*</span>
+                      <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-2">
+                        Email Address <span className="text-red-500">*</span>
+                        <span className="text-xs font-normal text-gray-500 ml-2">(Gmail only)</span>
                       </label>
-                      
-                      <div className="grid grid-cols-2 gap-2 mb-2">
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                        <input
+                          type="email"
+                          id="email"
+                          value={email}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setEmail(value);
+                            
+                            if (value.length > 0) {
+                              const isValid = value.toLowerCase().endsWith('@gmail.com');
+                              setIsGmailValid(isValid);
+                              if (!isValid && value.includes('@')) {
+                                setGmailError('Only Gmail addresses (@gmail.com) are accepted');
+                              } else {
+                                setGmailError('');
+                              }
+                            } else {
+                              setIsGmailValid(true);
+                              setGmailError('');
+                            }
+                          }}
+                          required
+                          className={`w-full pl-11 pr-11 py-3 bg-gray-50 border rounded-lg text-gray-900 placeholder-gray-400 focus:bg-white focus:ring-2 transition-all duration-200 outline-none ${
+                            !isGmailValid
+                              ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20'
+                              : emailCheck.isChecking
+                              ? 'border-gray-300 focus:border-gray-400'
+                              : emailCheck.isAvailable === true
+                              ? 'border-green-300 focus:border-green-500 focus:ring-green-500/20'
+                              : emailCheck.isAvailable === false
+                              ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20'
+                              : 'border-gray-300 focus:border-red-800 focus:ring-red-800/20'
+                          }`}
+                          placeholder="your.name@gmail.com"
+                        />
+                        <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                          {emailCheck.isChecking && (
+                            <Loader2 className="h-5 w-5 text-gray-400 animate-spin" />
+                          )}
+                          {!emailCheck.isChecking && isGmailValid && emailCheck.isAvailable === true && (
+                            <CheckCircle className="h-5 w-5 text-green-500" />
+                          )}
+                          {(!isGmailValid || (!emailCheck.isChecking && emailCheck.isAvailable === false)) && (
+                            <XCircle className="h-5 w-5 text-red-500" />
+                          )}
+                        </div>
+                      </div>
+                      {gmailError && (
+                        <p className="mt-2 text-xs text-red-600 flex items-center gap-1">
+                          <AlertCircle className="h-3 w-3" />
+                          {gmailError}
+                        </p>
+                      )}
+                      {!emailCheck.isChecking && emailCheck.message && email.length >= 3 && isGmailValid && (
+                        <p className={`mt-2 text-xs ${emailCheck.isAvailable ? 'text-green-600' : 'text-red-600'}`}>
+                          {emailCheck.message}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Username */}
+                    <div>
+                      <label htmlFor="username" className="block text-sm font-semibold text-gray-700 mb-2">
+                        Username <span className="text-red-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                        <input
+                          type="text"
+                          id="username"
+                          value={username}
+                          onChange={(e) => setUsername(e.target.value)}
+                          required
+                          className={`w-full pl-11 pr-11 py-3 bg-gray-50 border rounded-lg text-gray-900 placeholder-gray-400 focus:bg-white focus:ring-2 transition-all duration-200 outline-none ${
+                            usernameCheck.isChecking
+                              ? 'border-gray-300 focus:border-gray-400'
+                              : usernameCheck.isAvailable === true
+                              ? 'border-green-300 focus:border-green-500 focus:ring-green-500/20'
+                              : usernameCheck.isAvailable === false
+                              ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20'
+                              : 'border-gray-300 focus:border-red-800 focus:ring-red-800/20'
+                          }`}
+                          placeholder="johndoe"
+                        />
+                        <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                          {usernameCheck.isChecking && (
+                            <Loader2 className="h-5 w-5 text-gray-400 animate-spin" />
+                          )}
+                          {!usernameCheck.isChecking && usernameCheck.isAvailable === true && (
+                            <CheckCircle className="h-5 w-5 text-green-500" />
+                          )}
+                          {!usernameCheck.isChecking && usernameCheck.isAvailable === false && (
+                            <XCircle className="h-5 w-5 text-red-500" />
+                          )}
+                        </div>
+                      </div>
+                      {!usernameCheck.isChecking && usernameCheck.message && username.length >= 3 && (
+                        <p className={`mt-2 text-xs ${usernameCheck.isAvailable ? 'text-green-600' : 'text-red-600'}`}>
+                          {usernameCheck.message}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Phone */}
+                    <div>
+                      <label htmlFor="phone" className="block text-sm font-semibold text-gray-700 mb-2">
+                        Phone Number
+                        <span className="text-xs font-normal text-gray-500 ml-2">(Optional)</span>
+                      </label>
+                      <div className="relative">
+                        <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                        <input
+                          type="tel"
+                          id="phone"
+                          value={phone}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            
+                            if (!value.startsWith('+63')) {
+                              setPhone('+63');
+                              return;
+                            }
+                            
+                            const digits = value.slice(3).replace(/\D/g, '');
+                            
+                            if (digits.length <= 10) {
+                              setPhone('+63' + digits);
+                            }
+                          }}
+                          onFocus={() => {
+                            if (phone === '' || phone === '+') {
+                              setPhone('+63');
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            const cursorPosition = e.currentTarget.selectionStart || 0;
+                            if ((e.key === 'Backspace' || e.key === 'Delete') && cursorPosition <= 3) {
+                              e.preventDefault();
+                            }
+                          }}
+                          className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:bg-white focus:border-red-800 focus:ring-2 focus:ring-red-800/20 transition-all duration-200 outline-none"
+                          placeholder="+63 9XX XXX XXXX"
+                          maxLength={13}
+                        />
+                      </div>
+                      <p className="mt-2 text-xs text-gray-500">
+                        Philippine mobile format: +63 followed by 10 digits
+                      </p>
+                    </div>
+
+                    {/* Password */}
+                    <div>
+                      <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-2">
+                        Password <span className="text-red-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                        <input
+                          type={showPassword ? 'text' : 'password'}
+                          id="password"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          required
+                          className="w-full pl-11 pr-11 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:bg-white focus:border-red-800 focus:ring-2 focus:ring-red-800/20 transition-all duration-200 outline-none"
+                          placeholder="••••••••"
+                        />
                         <button
                           type="button"
-                          onClick={() => startCamera('front')}
-                          className="flex items-center justify-center gap-2 px-3 py-2 bg-amber-500 text-white rounded-lg text-xs font-medium hover:bg-amber-600 transition-colors"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors p-1 rounded focus:outline-none focus:ring-2 focus:ring-red-500"
+                          aria-label={showPassword ? 'Hide password' : 'Show password'}
                         >
-                          <CameraIcon className="h-4 w-4" />
-                          Take Photo
+                          {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                         </button>
-                        <label className="flex items-center justify-center gap-2 px-3 py-2 bg-white text-amber-700 border border-amber-300 rounded-lg text-xs font-medium hover:bg-amber-50 transition-colors cursor-pointer">
-                          <FileUp className="h-4 w-4" />
-                          Upload
-                          <input
-                            ref={frontFileInputRef}
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) handleIdImageUpload(file, 'front');
+                      </div>
+                      {password && (
+                        <div className="mt-2">
+                          <div className="flex items-center gap-2 mb-1">
+                            <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                              <div 
+                                className={`h-full transition-all duration-300 ${passwordStrengthColor}`}
+                                style={{ width: `${(passwordStrength / 5) * 100}%` }}
+                              />
+                            </div>
+                            <span className="text-xs font-medium text-gray-600">{passwordStrengthLabel}</span>
+                          </div>
+                          <p className="text-xs text-gray-500">Use 6+ characters with a mix of letters, numbers & symbols</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Confirm Password */}
+                    <div>
+                      <label htmlFor="confirmPassword" className="block text-sm font-semibold text-gray-700 mb-2">
+                        Confirm Password <span className="text-red-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                        <input
+                          type={showConfirmPassword ? 'text' : 'password'}
+                          id="confirmPassword"
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          required
+                          className="w-full pl-11 pr-11 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:bg-white focus:border-red-800 focus:ring-2 focus:ring-red-800/20 transition-all duration-200 outline-none"
+                          placeholder="••••••••"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors p-1 rounded focus:outline-none focus:ring-2 focus:ring-red-500"
+                          aria-label={showConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
+                        >
+                          {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                        </button>
+                      </div>
+                      {confirmPassword && password !== confirmPassword && (
+                        <p className="mt-2 text-xs text-red-600 flex items-center gap-1">
+                          <XCircle className="h-3 w-3" />
+                          Passwords do not match
+                        </p>
+                      )}
+                      {confirmPassword && password === confirmPassword && (
+                        <p className="mt-2 text-xs text-green-600 flex items-center gap-1">
+                          <CheckCircle className="h-3 w-3" />
+                          Passwords match
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Terms Agreement */}
+                    <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                      <div className="flex items-start gap-3">
+                        <input
+                          type="checkbox"
+                          id="agreedToTerms"
+                          checked={agreedToTerms}
+                          onChange={(e) => setAgreedToTerms(e.target.checked)}
+                          onClick={handleCheckboxClick}
+                          className="mt-0.5 w-4 h-4 text-red-800 bg-white border-gray-300 rounded focus:ring-red-800 focus:ring-2 cursor-pointer flex-shrink-0"
+                          required
+                        />
+                        <label htmlFor="agreedToTerms" className="text-sm text-gray-700 leading-relaxed cursor-pointer">
+                          I agree to the{' '}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setShowPrivacyModal(true);
                             }}
-                            className="hidden"
-                          />
+                            className="text-red-800 font-semibold hover:text-red-900 underline underline-offset-2 transition-colors"
+                          >
+                            Privacy Policy
+                          </button>
+                          {' '}and{' '}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setShowTermsModal(true);
+                            }}
+                            className="text-red-800 font-semibold hover:text-red-900 underline underline-offset-2 transition-colors"
+                          >
+                            Terms of Service
+                          </button>
                         </label>
                       </div>
-
-                      <div className="relative">
-                        {!idFrontPreview ? (
-                          <div className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-amber-300 rounded-lg bg-white/50">
-                            <Camera className="w-6 h-6 text-amber-400 mb-1" />
-                            <p className="text-xs text-amber-600 font-medium">No image</p>
+                      {(privacyCompleted || termsCompleted) && (
+                        <div className="mt-3 space-y-2 ml-7">
+                          <div className="flex items-center gap-2 text-xs">
+                            {privacyCompleted ? (
+                              <CheckCircle className="h-4 w-4 text-green-500" />
+                            ) : (
+                              <div className="h-4 w-4 rounded-full border-2 border-gray-300" />
+                            )}
+                            <span className={privacyCompleted ? 'text-green-600 font-medium' : 'text-gray-600'}>
+                              Privacy Policy read
+                            </span>
                           </div>
+                          <div className="flex items-center gap-2 text-xs">
+                            {termsCompleted ? (
+                              <CheckCircle className="h-4 w-4 text-green-500" />
+                            ) : (
+                              <div className="h-4 w-4 rounded-full border-2 border-gray-300" />
+                            )}
+                            <span className={termsCompleted ? 'text-green-600 font-medium' : 'text-gray-600'}>
+                              Terms of Service read
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Error Message */}
+                    {error && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="flex items-start gap-2 text-red-700 bg-red-50 border border-red-200 p-3 rounded-lg"
+                      >
+                        <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+                        <span className="text-sm">{error}</span>
+                      </motion.div>
+                    )}
+
+                    {/* Continue Button */}
+                    <button
+                      type="submit"
+                      className="w-full bg-red-900 hover:bg-red-800 text-white py-3.5 px-6 rounded-lg font-semibold text-base shadow-lg hover:shadow-xl focus:ring-4 focus:ring-red-800/50 transition-all duration-300 flex items-center justify-center gap-2"
+                    >
+                      Continue to ID Verification
+                      <ChevronRight className="h-5 w-5" />
+                    </button>
+
+                    {/* Divider */}
+                    <div className="relative py-4">
+                      <div className="absolute inset-0 flex items-center">
+                        <div className="w-full border-t border-gray-200" />
+                      </div>
+                      <div className="relative flex justify-center">
+                        <span className="px-3 bg-white text-sm text-gray-500">Or continue with</span>
+                      </div>
+                    </div>
+
+                    {/* Google Sign Up */}
+                    <button
+                      type="button"
+                      onClick={handleGoogleSignUp}
+                      className="w-full flex items-center justify-center gap-3 bg-white border-2 border-gray-300 text-gray-700 py-3 px-6 rounded-lg font-semibold hover:bg-gray-50 hover:border-gray-400 focus:ring-4 focus:ring-gray-200 transition-all duration-300 shadow-sm hover:shadow"
+                    >
+                      <svg className="h-5 w-5" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                      </svg>
+                      <span>Sign up with Google</span>
+                    </button>
+                  </form>
+                </motion.div>
+              )}
+
+              {currentStep === 2 && (
+                <motion.div
+                  key="step2"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <form onSubmit={handleSubmit} className="space-y-5">
+                    {/* Instructions */}
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                      <div className="flex items-start gap-3">
+                        <Shield className="h-6 w-6 text-amber-600 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <h3 className="text-sm font-semibold text-amber-900 mb-2">ID Verification Required</h3>
+                          <ul className="text-sm text-amber-800 space-y-1">
+                            <li className="flex items-start gap-2">
+                              <span className="text-amber-600 mt-0.5">•</span>
+                              <span>Upload clear photos of both sides of your government-issued ID</span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                              <span className="text-amber-600 mt-0.5">•</span>
+                              <span>Ensure all text is readable with good lighting and no glare</span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                              <span className="text-amber-600 mt-0.5">•</span>
+                              <span>Maximum file size: 5MB per image</span>
+                            </li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Front ID Upload */}
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                        Front of ID <span className="text-red-500">*</span>
+                      </label>
+                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-red-800 transition-colors">
+                        {!idFrontPreview ? (
+                          <label className="flex flex-col items-center justify-center cursor-pointer py-6">
+                            <Upload className="h-12 w-12 text-gray-400 mb-3" />
+                            <span className="text-sm font-medium text-gray-700 mb-1">Click to upload front of ID</span>
+                            <span className="text-xs text-gray-500">PNG, JPG up to 5MB</span>
+                            <input
+                              ref={frontFileInputRef}
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) handleIdImageUpload(file, 'front');
+                              }}
+                              className="hidden"
+                            />
+                          </label>
                         ) : (
                           <div className="relative">
                             <img
                               src={idFrontPreview}
                               alt="Front ID preview"
-                              className="w-full h-24 object-cover rounded-lg border-2 border-amber-200"
+                              className="w-full h-48 object-contain rounded-lg bg-gray-100"
                             />
                             <button
                               type="button"
                               onClick={() => removeIdImage('front')}
-                              className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                              className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-2 shadow-lg transition-colors"
                             >
-                              <X className="h-3 w-3" />
+                              <X className="h-4 w-4" />
                             </button>
+                            <div className="mt-2 flex items-center gap-2 text-sm text-green-600">
+                              <CheckCircle className="h-4 w-4" />
+                              <span>Front ID uploaded successfully</span>
+                            </div>
                           </div>
                         )}
                       </div>
                     </div>
 
-                    {/* Back ID */}
-                    <div className="space-y-2">
-                      <label className="block text-sm font-semibold text-amber-900">
+                    {/* Back ID Upload */}
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">
                         Back of ID <span className="text-red-500">*</span>
                       </label>
-                      
-                      <div className="grid grid-cols-2 gap-2 mb-2">
-                        <button
-                          type="button"
-                          onClick={() => startCamera('back')}
-                          className="flex items-center justify-center gap-2 px-3 py-2 bg-amber-500 text-white rounded-lg text-xs font-medium hover:bg-amber-600 transition-colors"
-                        >
-                          <CameraIcon className="h-4 w-4" />
-                          Take Photo
-                        </button>
-                        <label className="flex items-center justify-center gap-2 px-3 py-2 bg-white text-amber-700 border border-amber-300 rounded-lg text-xs font-medium hover:bg-amber-50 transition-colors cursor-pointer">
-                          <FileUp className="h-4 w-4" />
-                          Upload
-                          <input
-                            ref={backFileInputRef}
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) handleIdImageUpload(file, 'back');
-                            }}
-                            className="hidden"
-                          />
-                        </label>
-                      </div>
-
-                      <div className="relative">
+                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-red-800 transition-colors">
                         {!idBackPreview ? (
-                          <div className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-amber-300 rounded-lg bg-white/50">
-                            <Camera className="w-6 h-6 text-amber-400 mb-1" />
-                            <p className="text-xs text-amber-600 font-medium">No image</p>
-                          </div>
+                          <label className="flex flex-col items-center justify-center cursor-pointer py-6">
+                            <Upload className="h-12 w-12 text-gray-400 mb-3" />
+                            <span className="text-sm font-medium text-gray-700 mb-1">Click to upload back of ID</span>
+                            <span className="text-xs text-gray-500">PNG, JPG up to 5MB</span>
+                            <input
+                              ref={backFileInputRef}
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) handleIdImageUpload(file, 'back');
+                              }}
+                              className="hidden"
+                            />
+                          </label>
                         ) : (
                           <div className="relative">
                             <img
                               src={idBackPreview}
                               alt="Back ID preview"
-                              className="w-full h-24 object-cover rounded-lg border-2 border-amber-200"
+                              className="w-full h-48 object-contain rounded-lg bg-gray-100"
                             />
                             <button
                               type="button"
                               onClick={() => removeIdImage('back')}
-                              className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                              className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-2 shadow-lg transition-colors"
                             >
-                              <X className="h-3 w-3" />
+                              <X className="h-4 w-4" />
                             </button>
+                            <div className="mt-2 flex items-center gap-2 text-sm text-green-600">
+                              <CheckCircle className="h-4 w-4" />
+                              <span>Back ID uploaded successfully</span>
+                            </div>
                           </div>
                         )}
                       </div>
                     </div>
 
-                    {/* Upload Status */}
-                    {idFrontImage && idBackImage && (
-                      <div className="flex items-center gap-2 text-green-600 text-xs bg-green-50 p-2 rounded-lg border border-green-200">
-                        <CheckCircle className="h-3 w-3" />
-                        <span className="font-medium">Both ID images ready</span>
-                      </div>
+                    {/* Error Message */}
+                    {error && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="flex items-start gap-2 text-red-700 bg-red-50 border border-red-200 p-3 rounded-lg"
+                      >
+                        <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+                        <span className="text-sm">{error}</span>
+                      </motion.div>
                     )}
-                  </div>
-                </div>
-              </div>
-            </div>
 
-            {/* Right Column - ID Verification (Desktop Only) */}
-            <div className="hidden lg:flex flex-col bg-gradient-to-br from-amber-50 to-orange-50 border-l border-amber-200">
-              <div className="p-6 flex flex-col h-full">
-                {/* Header */}
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="h-10 w-10 bg-amber-500 rounded-lg flex items-center justify-center">
-                    <Shield className="h-5 w-5 text-white" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-amber-900">ID Verification</h3>
-                    <p className="text-sm text-amber-700">Required for account activation</p>
-                  </div>
-                </div>
+                    {/* Success Message */}
+                    {success && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="flex items-start gap-2 text-green-700 bg-green-50 border border-green-200 p-3 rounded-lg"
+                      >
+                        <CheckCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+                        <span className="text-sm">{success}</span>
+                      </motion.div>
+                    )}
 
-                {/* Instructions */}
-                <div className="bg-white/70 rounded-lg p-4 mb-6 border border-amber-200">
-                  <p className="text-sm text-amber-800 font-medium mb-2">📋 Instructions:</p>
-                  <ul className="text-xs text-amber-700 space-y-1">
-                    <li>• Take clear photos of both sides of your ID</li>
-                    <li>• Ensure all text is readable</li>
-                    <li>• Good lighting and no glare</li>
-                    <li>• Government-issued ID only</li>
-                  </ul>
-                </div>
-
-                {/* Capture Options */}
-                <div className="space-y-4 flex-1">
-                  {/* Front ID Section */}
-                  <div className="space-y-3">
-                    <label className="block text-sm font-semibold text-amber-900">
-                      Front of ID <span className="text-red-500">*</span>
-                    </label>
-                    
-                    {/* Capture Options */}
-                    <div className="grid grid-cols-2 gap-2 mb-3">
+                    {/* Navigation Buttons */}
+                    <div className="flex gap-3 pt-2">
                       <button
                         type="button"
-                        onClick={() => startCamera('front')}
-                        className="flex items-center justify-center gap-2 px-3 py-2 bg-amber-500 text-white rounded-lg text-xs font-medium hover:bg-amber-600 transition-colors"
+                        onClick={() => {
+                          setCurrentStep(1);
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }}
+                        className="flex-1 bg-white border-2 border-gray-300 text-gray-700 py-3.5 px-6 rounded-lg font-semibold hover:bg-gray-50 hover:border-gray-400 focus:ring-4 focus:ring-gray-200 transition-all duration-300 flex items-center justify-center gap-2"
                       >
-                        <CameraIcon className="h-4 w-4" />
-                        Take Photo
+                        <ChevronLeft className="h-5 w-5" />
+                        Back
                       </button>
-                      <label className="flex items-center justify-center gap-2 px-3 py-2 bg-white text-amber-700 border border-amber-300 rounded-lg text-xs font-medium hover:bg-amber-50 transition-colors cursor-pointer">
-                        <FileUp className="h-4 w-4" />
-                        Upload File
-                        <input
-                          ref={frontFileInputRef}
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) handleIdImageUpload(file, 'front');
-                          }}
-                          className="hidden"
-                        />
-                      </label>
-                    </div>
-
-                    {/* Front ID Preview */}
-                    <div className="relative">
-                      {!idFrontPreview ? (
-                        <div className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-amber-300 rounded-lg bg-white/50">
-                          <Camera className="w-8 h-8 text-amber-400 mb-2" />
-                          <p className="text-xs text-amber-600 font-medium">No image selected</p>
-                        </div>
-                      ) : (
-                        <div className="relative">
-                          <img
-                            src={idFrontPreview}
-                            alt="Front ID preview"
-                            className="w-full h-32 object-cover rounded-lg border-2 border-amber-200"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => removeIdImage('front')}
-                            className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                          <div className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
-                            Front of ID
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Back ID Section */}
-                  <div className="space-y-3">
-                    <label className="block text-sm font-semibold text-amber-900">
-                      Back of ID <span className="text-red-500">*</span>
-                    </label>
-                    
-                    {/* Capture Options */}
-                    <div className="grid grid-cols-2 gap-2 mb-3">
                       <button
-                        type="button"
-                        onClick={() => startCamera('back')}
-                        className="flex items-center justify-center gap-2 px-3 py-2 bg-amber-500 text-white rounded-lg text-xs font-medium hover:bg-amber-600 transition-colors"
+                        type="submit"
+                        disabled={isLoading || !idFrontImage || !idBackImage}
+                        className="flex-1 bg-red-900 hover:bg-red-800 text-white py-3.5 px-6 rounded-lg font-semibold shadow-lg hover:shadow-xl focus:ring-4 focus:ring-red-800/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 flex items-center justify-center gap-2"
                       >
-                        <CameraIcon className="h-4 w-4" />
-                        Take Photo
+                        {isLoading ? (
+                          <>
+                            <Loader2 className="h-5 w-5 animate-spin" />
+                            <span>{isUploadingImages ? 'Uploading...' : 'Creating Account...'}</span>
+                          </>
+                        ) : (
+                          <>
+                            <UserPlus className="h-5 w-5" />
+                            <span>Complete Registration</span>
+                          </>
+                        )}
                       </button>
-                      <label className="flex items-center justify-center gap-2 px-3 py-2 bg-white text-amber-700 border border-amber-300 rounded-lg text-xs font-medium hover:bg-amber-50 transition-colors cursor-pointer">
-                        <FileUp className="h-4 w-4" />
-                        Upload File
-                        <input
-                          ref={backFileInputRef}
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) handleIdImageUpload(file, 'back');
-                          }}
-                          className="hidden"
-                        />
-                      </label>
                     </div>
+                  </form>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
 
-                    {/* Back ID Preview */}
-                    <div className="relative">
-                      {!idBackPreview ? (
-                        <div className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-amber-300 rounded-lg bg-white/50">
-                          <Camera className="w-8 h-8 text-amber-400 mb-2" />
-                          <p className="text-xs text-amber-600 font-medium">No image selected</p>
-                        </div>
-                      ) : (
-                        <div className="relative">
-                          <img
-                            src={idBackPreview}
-                            alt="Back ID preview"
-                            className="w-full h-32 object-cover rounded-lg border-2 border-amber-200"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => removeIdImage('back')}
-                            className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                          <div className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
-                            Back of ID
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Upload Status */}
-                  {idFrontImage && idBackImage && (
-                    <div className="flex items-center gap-2 text-green-600 text-sm bg-green-50 p-3 rounded-lg border border-green-200">
-                      <CheckCircle className="h-4 w-4" />
-                      <span className="font-medium">Both ID images ready for verification</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
+          {/* Footer */}
+          <div className="bg-gray-50 border-t border-gray-200 px-6 sm:px-8 py-4 text-center">
+            <p className="text-sm text-gray-600">
+              Already have an account?{' '}
+              <Link 
+                to="/login" 
+                className="font-semibold text-red-800 hover:text-red-900 underline underline-offset-2 transition-colors"
+              >
+                Sign in
+              </Link>
+            </p>
           </div>
         </motion.div>
       </div>
 
-      {/* Camera Capture Modal */}
-      {(showCamera.front || showCamera.back) && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-[9999]">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-xl shadow-2xl w-full max-w-md"
-          >
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-gray-900">
-                  Capture {showCamera.front ? 'Front' : 'Back'} of ID
-                </h3>
-                <button
-                  onClick={stopCamera}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <X className="h-6 w-6" />
-                </button>
-              </div>
-              
-              <div className="space-y-4">
-                <div className="relative bg-gray-100 rounded-lg overflow-hidden">
-                  <video
-                    ref={videoRef}
-                    autoPlay
-                    playsInline
-                    muted
-                    className="w-full h-64 object-cover"
-                    style={{ transform: 'scaleX(-1)' }} // Mirror the video for better UX
-                  />
-                  {!cameraStream && !cameraError && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-gray-200">
-                      <div className="text-center">
-                        <Camera className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-                        <p className="text-sm text-gray-600">Starting camera...</p>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {cameraError && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-red-50">
-                      <div className="text-center p-4">
-                        <XCircle className="w-12 h-12 text-red-400 mx-auto mb-2" />
-                        <p className="text-sm text-red-600 mb-3">{cameraError}</p>
-                        <button
-                          onClick={() => startCamera(showCamera.front ? 'front' : 'back')}
-                          className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm hover:bg-red-600 transition-colors"
-                        >
-                          Try Again
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                  <div className="absolute inset-0 border-2 border-amber-400 border-dashed m-4 rounded-lg pointer-events-none">
-                    <div className="absolute top-2 left-2 bg-amber-500 text-white text-xs px-2 py-1 rounded">
-                      Position ID within frame
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => capturePhoto(showCamera.front ? 'front' : 'back')}
-                    className="flex-1 bg-amber-500 text-white py-3 px-4 rounded-lg font-medium hover:bg-amber-600 transition-colors flex items-center justify-center gap-2"
-                  >
-                    <Camera className="h-4 w-4" />
-                    Capture Photo
-                  </button>
-                  <button
-                    onClick={stopCamera}
-                    className="px-4 py-3 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        </div>
-      )}
-
-      {/* Hidden canvas for photo capture */}
-      <canvas ref={canvasRef} className="hidden" />
-
       {/* Privacy Policy Modal */}
       {showPrivacyModal && (
-        <div className="fixed inset-0 bg-gray-900 bg-opacity-50 backdrop-blur-sm flex items-center justify-center p-4 z-[9999]" onClick={() => setShowPrivacyModal(false)}>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-[9999]" onClick={() => setShowPrivacyModal(false)}>
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             className="bg-white rounded-xl shadow-2xl w-full max-w-4xl my-8 flex flex-col max-h-[85vh]"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Header with Progress Bar */}
             <div className="flex-shrink-0 bg-white border-b border-gray-200 rounded-t-xl">
               <div className="px-6 py-4 flex items-center justify-between">
                 <div className="flex-1">
@@ -1455,7 +1037,7 @@ export function Register() {
                 </div>
                 <button
                   onClick={() => setShowPrivacyModal(false)}
-                  className="ml-4 text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-lg hover:bg-gray-100"
+                  className="ml-4 text-gray-600 hover:text-gray-900 transition-colors p-1 rounded-lg hover:bg-gray-100"
                 >
                   <X className="h-6 w-6" />
                 </button>
@@ -1470,7 +1052,6 @@ export function Register() {
               )}
             </div>
 
-            {/* Scrollable Content */}
             <div 
               ref={privacyScrollRef}
               onScroll={handlePrivacyScroll}
@@ -1538,14 +1119,13 @@ export function Register() {
                 </section>
 
                 <section className="pt-4 border-t border-gray-200">
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-gray-700">
                     <strong>Last Updated:</strong> October 14, 2025
                   </p>
                 </section>
               </div>
             </div>
 
-            {/* Footer with Action Buttons */}
             <div className="flex-shrink-0 bg-gray-50 border-t border-gray-200 px-6 py-4 rounded-b-xl">
               <div className="flex gap-3">
                 {privacyCompleted ? (
@@ -1577,7 +1157,7 @@ export function Register() {
                     )}
                   </>
                 ) : (
-                  <div className="flex-1 bg-gray-300 text-gray-500 py-2.5 px-4 rounded-lg font-semibold flex items-center justify-center gap-2 cursor-not-allowed">
+                  <div className="flex-1 bg-gray-300 text-gray-700 py-2.5 px-4 rounded-lg font-semibold flex items-center justify-center gap-2 cursor-not-allowed">
                     <span>Scroll to continue</span>
                     <ChevronRight className="h-5 w-5" />
                   </div>
@@ -1596,14 +1176,13 @@ export function Register() {
 
       {/* Terms of Service Modal */}
       {showTermsModal && (
-        <div className="fixed inset-0 bg-gray-900 bg-opacity-50 backdrop-blur-sm flex items-center justify-center p-4 z-[9999]" onClick={() => setShowTermsModal(false)}>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-[9999]" onClick={() => setShowTermsModal(false)}>
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             className="bg-white rounded-xl shadow-2xl w-full max-w-4xl my-8 flex flex-col max-h-[85vh]"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Header with Progress Bar */}
             <div className="flex-shrink-0 bg-white border-b border-gray-200 rounded-t-xl">
               <div className="px-6 py-4 flex items-center justify-between">
                 <div className="flex-1">
@@ -1624,7 +1203,7 @@ export function Register() {
                 </div>
                 <button
                   onClick={() => setShowTermsModal(false)}
-                  className="ml-4 text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-lg hover:bg-gray-100"
+                  className="ml-4 text-gray-600 hover:text-gray-900 transition-colors p-1 rounded-lg hover:bg-gray-100"
                 >
                   <X className="h-6 w-6" />
                 </button>
@@ -1639,7 +1218,6 @@ export function Register() {
               )}
             </div>
 
-            {/* Scrollable Content */}
             <div 
               ref={termsScrollRef}
               onScroll={handleTermsScroll}
@@ -1731,14 +1309,13 @@ export function Register() {
                 </section>
 
                 <section className="pt-4 border-t border-gray-200">
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-gray-700">
                     <strong>Last Updated:</strong> October 14, 2025
                   </p>
                 </section>
               </div>
             </div>
 
-            {/* Footer with Action Buttons */}
             <div className="flex-shrink-0 bg-gray-50 border-t border-gray-200 px-6 py-4 rounded-b-xl">
               <div className="flex gap-3">
                 {termsCompleted ? (
@@ -1770,7 +1347,7 @@ export function Register() {
                     )}
                   </>
                 ) : (
-                  <div className="flex-1 bg-gray-300 text-gray-500 py-2.5 px-4 rounded-lg font-semibold flex items-center justify-center gap-2 cursor-not-allowed">
+                  <div className="flex-1 bg-gray-300 text-gray-700 py-2.5 px-4 rounded-lg font-semibold flex items-center justify-center gap-2 cursor-not-allowed">
                     <span>Scroll to continue</span>
                     <ChevronRight className="h-5 w-5" />
                   </div>
@@ -1789,3 +1366,4 @@ export function Register() {
     </div>
   );
 }
+

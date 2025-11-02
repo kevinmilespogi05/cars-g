@@ -10,7 +10,7 @@ import { awardPoints, awardCustomPoints } from '../lib/points';
 import { caseService } from '../services/caseService';
 import { CommentsService } from '../services/commentsService';
 
-type StatusFilter = 'All' | 'verifying' | 'pending' | 'in_progress' | 'resolved' | 'rejected';
+type StatusFilter = 'All' | 'verifying' | 'pending' | 'in_progress' | 'resolved' | 'declined';
 
 export function AdminReports() {
   const [reports, setReports] = useState<Report[]>([]);
@@ -272,7 +272,7 @@ export function AdminReports() {
             <option value="pending">Pending</option>
             <option value="in_progress">In Progress</option>
             <option value="resolved">Resolved</option>
-            <option value="rejected">Rejected</option>
+            <option value="declined">Declined</option>
           </select>
         </div>
         <div className="flex gap-2">
@@ -477,15 +477,15 @@ export function AdminReports() {
 
               {/* Actions row */}
               <div className="mt-3 flex items-center gap-1.5 sm:gap-2 flex-wrap">
-                {(['pending','in_progress','resolved','rejected'] as const)
+                {(['pending','in_progress','resolved','declined'] as const)
                   .filter(target => target !== r.status)
                   .sort((a, b) => {
                     // Preferred order depending on current status
                     const orderMap: Record<string, Record<string, number>> = {
-                      pending: { in_progress: 0, resolved: 1, rejected: 2, pending: 99 },
-                      in_progress: { resolved: 0, rejected: 1, pending: 2, in_progress: 99 },
-                      resolved: { in_progress: 0, pending: 1, rejected: 2, resolved: 99 },
-                      rejected: { pending: 0, in_progress: 1, resolved: 2, rejected: 99 },
+                      pending: { in_progress: 0, resolved: 1, declined: 2, pending: 99 },
+                      in_progress: { resolved: 0, declined: 1, pending: 2, in_progress: 99 },
+                      resolved: { in_progress: 0, pending: 1, declined: 2, resolved: 99 },
+                      declined: { pending: 0, in_progress: 1, resolved: 2, declined: 99 },
                     };
                     
                     // Default to pending order if status is undefined or unknown
@@ -514,12 +514,12 @@ export function AdminReports() {
                           ? 'Mark In Progress'
                           : target === 'resolved'
                           ? 'Mark Resolved'
-                          : 'Reject'
+                          : 'Decline'
                       }
                     >
                       {target === 'resolved' ? (
                         <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                      ) : target === 'rejected' ? (
+                      ) : target === 'declined' ? (
                         <XCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                       ) : (
                         <Wrench className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
@@ -531,7 +531,7 @@ export function AdminReports() {
                           ? 'Mark In Progress'
                           : target === 'resolved'
                           ? 'Mark Resolved'
-                          : 'Mark Rejected'}
+                          : 'Mark Declined'}
                       </span>
                       <span className="sm:hidden">
                         {target === 'pending'
@@ -540,7 +540,7 @@ export function AdminReports() {
                           ? 'Progress'
                           : target === 'resolved'
                           ? 'Resolved'
-                          : 'Rejected'}
+                          : 'Declined'}
                       </span>
                     </button>
                   ))}

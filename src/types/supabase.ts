@@ -89,7 +89,7 @@ export interface Database {
           location: string | null
           latitude: number | null
           longitude: number | null
-          status: 'pending' | 'in_progress' | 'resolved' | 'rejected'
+          status: 'pending' | 'in_progress' | 'resolved' | 'declined'
           image_url: string | null
           video_url: string | null
           created_at: string
@@ -104,7 +104,7 @@ export interface Database {
           location?: string | null
           latitude?: number | null
           longitude?: number | null
-          status?: 'pending' | 'in_progress' | 'resolved' | 'rejected'
+          status?: 'pending' | 'in_progress' | 'resolved' | 'declined'
           image_url?: string | null
           video_url?: string | null
           created_at?: string
@@ -119,7 +119,7 @@ export interface Database {
           location?: string | null
           latitude?: number | null
           longitude?: number | null
-          status?: 'pending' | 'in_progress' | 'resolved' | 'rejected'
+          status?: 'pending' | 'in_progress' | 'resolved' | 'declined'
           image_url?: string | null
           video_url?: string | null
           created_at?: string

@@ -95,10 +95,10 @@ export function AdminCaseRequests() {
       if (error) throw error;
 
       setReports(prev => prev.filter(r => r.id !== reportId));
-      showToast('Rejected: proof removed, status set to pending', 'success');
+      showToast('Declined: proof removed, status set to pending', 'success');
     } catch (e) {
       await load();
-      showToast('Failed to reject and revert report', 'error');
+      showToast('Failed to decline and revert report', 'error');
     }
   };
 
@@ -226,10 +226,10 @@ export function AdminCaseRequests() {
                   <button
                     onClick={() => setConfirm({ open: true, action: 'reject', reportId: r.id })}
                     className="inline-flex items-center gap-1 px-2 sm:px-3 py-1 sm:py-1.5 text-red-700 bg-red-50 hover:bg-red-100 rounded border border-red-200 text-xs sm:text-sm"
-                    title="Reject"
+                    title="Decline"
                   >
                     <XCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                    Reject
+                    Decline
                   </button>
                 </div>
               </div>
@@ -256,11 +256,11 @@ export function AdminCaseRequests() {
             setConfirm(prev => ({ ...prev, open: false }));
           }
         }}
-        title={confirm.action === 'accept' ? 'Accept Request?' : 'Reject Request?'}
+        title={confirm.action === 'accept' ? 'Accept Request?' : 'Decline Request?'}
         message={confirm.action === 'accept'
           ? 'Are you sure you want to accept this new case request?'
-          : 'Are you sure you want to reject this new case request? This cannot be undone.'}
-        confirmText={confirm.action === 'accept' ? 'Yes, accept' : 'Yes, reject'}
+          : 'Are you sure you want to decline this new case request? This cannot be undone.'}
+        confirmText={confirm.action === 'accept' ? 'Yes, accept' : 'Yes, decline'}
         type={confirm.action === 'accept' ? 'success' : 'danger'}
         isLoading={confirmLoading}
       />

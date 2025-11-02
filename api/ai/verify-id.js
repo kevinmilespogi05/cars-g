@@ -284,7 +284,7 @@ export default async function handler(req, res) {
                       aiAnalysis.locationVerified && 
                       aiAnalysis.confidence >= 70;
 
-    const verificationStatus = isVerified ? 'ai_verified' : 'rejected';
+    const verificationStatus = isVerified ? 'ai_verified' : 'declined';
     const verificationNotes = isVerified 
       ? 'Automatically verified by AI system' 
       : `AI verification failed: ${aiAnalysis.issues.join(', ')}`;
@@ -313,7 +313,7 @@ export default async function handler(req, res) {
     const { error: requestUpdateError } = await supabase
       .from('user_verification_requests')
       .update({
-        status: isVerified ? 'approved' : 'rejected',
+        status: isVerified ? 'approved' : 'declined',
         ai_analysis: aiAnalysis,
         ai_confidence: aiAnalysis.confidence,
         processed_at: new Date().toISOString()

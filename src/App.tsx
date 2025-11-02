@@ -16,6 +16,7 @@ import { WelcomeGuide } from './components/WelcomeGuide';
 import { usePushNotifications } from './hooks/usePushNotifications';
 import { useAchievementNotifications, AchievementNotification } from './components/AchievementNotification';
 import { Footer } from './components/Footer';
+import { useReducedMotion } from './hooks/useReducedMotion';
 
 // Configure future flags for React Router v7
 const routerConfig = {
@@ -25,16 +26,20 @@ const routerConfig = {
   }
 };
 
-const PageTransition = ({ children }: { children: React.ReactNode }) => (
-  <motion.div
-    initial={{ opacity: 0, y: 20 }}
-    animate={{ opacity: 1, y: 0 }}
-    exit={{ opacity: 0, y: -20 }}
-    transition={{ duration: 0.3 }}
-  >
-    {children}
-  </motion.div>
-);
+const PageTransition = ({ children }: { children: React.ReactNode }) => {
+  const shouldReduceMotion = useReducedMotion();
+  
+  return (
+    <motion.div
+      initial={shouldReduceMotion ? {} : { opacity: 0, y: 20 }}
+      animate={shouldReduceMotion ? {} : { opacity: 1, y: 0 }}
+      exit={shouldReduceMotion ? {} : { opacity: 0, y: -20 }}
+      transition={shouldReduceMotion ? { duration: 0 } : { duration: 0.3 }}
+    >
+      {children}
+    </motion.div>
+  );
+};
 
 const LoadingSpinner = () => (
   <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -51,7 +56,7 @@ const ErrorFallback = ({ error, resetErrorBoundary }: { error: Error; resetError
       <div className="text-red-500 text-6xl mb-4">⚠️</div>
       <h2 className="text-2xl font-bold text-red-600 mb-4">Something went wrong</h2>
       <p className="text-sm text-gray-600 mb-6">We encountered an error while loading the app.</p>
-      <pre className="text-xs text-gray-500 mb-6 bg-gray-100 p-3 rounded overflow-auto max-h-32">
+      <pre className="text-xs text-gray-700 mb-6 bg-gray-100 p-3 rounded overflow-auto max-h-32">
         {error.message}
       </pre>
       <div className="space-y-3">
@@ -85,17 +90,14 @@ function AppContent() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [location.pathname]);
 
-  // Check if we're on the landing page
-  const isLandingPage = location.pathname === '/' && !isAuthenticated;
+  // Check if we're on the landing page (either / or /landing)
+  const isLandingPage = location.pathname === '/' || location.pathname === '/landing';
   
   // Check if we're on login or register page
   const isAuthPage = location.pathname === '/login' || location.pathname === '/register';
   
-  // Check if we're on admin map page
-  const isAdminMapPage = location.pathname === '/admin/map';
-  
-  // Check if we're on admin chat page
-  const isAdminChatPage = location.pathname === '/admin/chat';
+  // Check if we're on any admin page
+  const isAdminPage = location.pathname.startsWith('/admin');
 
   // Show welcome guide for new users
   useEffect(() => {
@@ -195,27 +197,28 @@ function AppContent() {
             </>
           )}
           
-          {/* Only show SidebarNavigation on non-landing pages */}
-          {!isLandingPage && <SidebarNavigation />}
+          {/* Only show SidebarNavigation on non-landing and non-auth pages */}
+          {!isLandingPage && !isAuthPage && <SidebarNavigation />}
           
           {/* Mobile Menu Button - only show on mobile when sidebar is collapsed */}
-          {!isLandingPage && (
+          {!isLandingPage && !isAuthPage && (
             <button
               onClick={() => {
                 // This will be handled by the SidebarNavigation component
                 const event = new CustomEvent('toggleSidebar');
                 window.dispatchEvent(event);
               }}
-              className="fixed top-4 left-4 z-[2001] lg:hidden p-2 rounded-lg bg-white/90 backdrop-blur-sm shadow-lg border border-gray-200 hover:bg-white transition-colors"
-              aria-label="Open menu"
+              className="fixed top-4 left-4 z-menuButton lg:hidden p-2 rounded-lg bg-white/90 backdrop-blur-sm shadow-lg border border-gray-200 hover:bg-white transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+              aria-label="Open navigation menu"
+              aria-expanded="false"
             >
-              <svg className="h-6 w-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="h-6 w-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
           )}
           
-          <main className={isLandingPage ? 'pt-0' : 'pl-0 lg:pl-72 relative min-h-screen'}>
+          <main className={isLandingPage ? 'pt-0' : isAuthPage ? 'relative min-h-screen' : 'pl-0 lg:pl-72 relative min-h-screen'}>
             <Suspense fallback={<LoadingSpinner />}>
               <Routes>
                 {publicRoutes.map((route) => (
@@ -243,8 +246,8 @@ function AppContent() {
             </Suspense>
           </main>
           
-          {/* Footer - only show on non-landing pages and non-auth pages and non-admin-map pages and non-admin-chat pages and when image viewer is not open */}
-          {!isLandingPage && !isAuthPage && !isAdminMapPage && !isAdminChatPage && !isImageViewerOpen && <Footer />}
+          {/* Footer - only show on non-landing pages and non-auth pages and non-admin pages and when image viewer is not open */}
+          {!isLandingPage && !isAuthPage && !isAdminPage && !isImageViewerOpen && <Footer />}
           
           {/* Network Status Indicator */}
           {!isOnline && (

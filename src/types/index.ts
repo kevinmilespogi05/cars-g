@@ -17,7 +17,7 @@ export interface Report {
   description: string;
   category: string;
   priority: 'low' | 'medium' | 'high';
-  status: 'verifying' | 'pending' | 'in_progress' | 'awaiting_verification' | 'resolved' | 'rejected' | 'cancelled';
+  status: 'verifying' | 'pending' | 'in_progress' | 'awaiting_verification' | 'resolved' | 'declined' | 'cancelled';
   location_lat: number;
   location_lng: number;
   location_address: string;

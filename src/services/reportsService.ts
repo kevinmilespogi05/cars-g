@@ -1293,9 +1293,9 @@ export const reportsService = {
           .replace(/\s+/g, '_');
         query = query.eq('status', normalizedStatus);
       } else {
-        // Exclude verifying and rejected reports when no specific status filter is applied
+        // Exclude verifying and declined reports when no specific status filter is applied
         // Note: cancelled reports are now included in verification reports page
-        query = query.neq('status', 'verifying').neq('status', 'rejected');
+        query = query.neq('status', 'verifying').neq('status', 'declined');
       }
       if (filters?.priority && filters.priority !== 'All') {
         query = (query as any).ilike('priority', filters.priority.toLowerCase());
@@ -1497,7 +1497,7 @@ export const reportsService = {
     const user = getCurrentUser();
 
     // Validate status
-    const validStatuses = ['verifying', 'pending', 'in_progress', 'resolved', 'rejected', 'cancelled'] as const;
+    const validStatuses = ['verifying', 'pending', 'in_progress', 'resolved', 'declined', 'cancelled'] as const;
     if (!validStatuses.includes(newStatus as any)) {
       throw new ReportsServiceError(`Invalid status value: ${newStatus}`);
     }
@@ -1530,7 +1530,7 @@ export const reportsService = {
             user_id: reportOwner.user_id,
             title: 'Case Updated',
             message: `Your case "${reportOwner.title}" is now ${newStatus.replace('_', ' ')}.`,
-            type: newStatus === 'resolved' ? 'success' : (newStatus === 'rejected' ? 'warning' : 'info'),
+            type: newStatus === 'resolved' ? 'success' : (newStatus === 'declined' ? 'warning' : 'info'),
             link: `/reports/${reportId}`,
             read: false,
           } as any);

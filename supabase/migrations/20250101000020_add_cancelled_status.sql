@@ -8,10 +8,10 @@ DROP CONSTRAINT IF EXISTS reports_status_check;
 -- Add the updated constraint with all valid status values
 ALTER TABLE public.reports 
 ADD CONSTRAINT reports_status_check 
-CHECK (status IN ('pending', 'in_progress', 'resolved', 'rejected', 'cancelled', 'verifying', 'awaiting_verification'));
+CHECK (status IN ('pending', 'in_progress', 'resolved', 'declined', 'cancelled', 'verifying', 'awaiting_verification'));
 
 -- Update the comment to document the new valid status values
-COMMENT ON COLUMN public.reports.status IS 'Valid values: pending, in_progress, resolved, rejected, cancelled, verifying, awaiting_verification';
+COMMENT ON COLUMN public.reports.status IS 'Valid values: pending, in_progress, resolved, declined, cancelled, verifying, awaiting_verification';
 
 -- Verify the constraint is working by checking existing data
 DO $$
@@ -22,7 +22,7 @@ BEGIN
     SELECT array_agg(DISTINCT status)
     INTO invalid_statuses
     FROM public.reports
-    WHERE status NOT IN ('pending', 'in_progress', 'resolved', 'rejected', 'cancelled', 'verifying', 'awaiting_verification');
+    WHERE status NOT IN ('pending', 'in_progress', 'resolved', 'declined', 'cancelled', 'verifying', 'awaiting_verification');
     
     IF array_length(invalid_statuses, 1) > 0 THEN
         RAISE EXCEPTION 'Found invalid statuses that violate the new constraint: %', invalid_statuses;

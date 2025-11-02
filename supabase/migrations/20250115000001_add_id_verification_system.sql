@@ -3,7 +3,7 @@
 
 -- Add verification status columns to profiles table
 ALTER TABLE public.profiles 
-ADD COLUMN IF NOT EXISTS verification_status VARCHAR(20) DEFAULT 'pending' CHECK (verification_status IN ('pending', 'verified', 'rejected', 'ai_verified')),
+ADD COLUMN IF NOT EXISTS verification_status VARCHAR(20) DEFAULT 'pending' CHECK (verification_status IN ('pending', 'verified', 'declined', 'ai_verified')),
 ADD COLUMN IF NOT EXISTS id_front_image_url TEXT,
 ADD COLUMN IF NOT EXISTS id_back_image_url TEXT,
 ADD COLUMN IF NOT EXISTS verification_notes TEXT,
@@ -17,7 +17,7 @@ CREATE INDEX IF NOT EXISTS idx_profiles_verification_status ON public.profiles(v
 CREATE INDEX IF NOT EXISTS idx_profiles_verified_by ON public.profiles(verified_by);
 
 -- Add comments for documentation
-COMMENT ON COLUMN public.profiles.verification_status IS 'User verification status: pending, verified, rejected, ai_verified';
+COMMENT ON COLUMN public.profiles.verification_status IS 'User verification status: pending, verified, declined, ai_verified';
 COMMENT ON COLUMN public.profiles.id_front_image_url IS 'URL to the front of user ID image';
 COMMENT ON COLUMN public.profiles.id_back_image_url IS 'URL to the back of user ID image';
 COMMENT ON COLUMN public.profiles.verification_notes IS 'Admin notes about verification decision';
@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS public.user_verification_requests (
     user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
     id_front_image_url TEXT NOT NULL,
     id_back_image_url TEXT NOT NULL,
-    status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'ai_processing')),
+    status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'declined', 'ai_processing')),
     admin_notes TEXT,
     ai_analysis JSONB,
     ai_confidence DECIMAL(5,2),

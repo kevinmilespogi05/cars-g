@@ -55,7 +55,7 @@ export function DrillDownModal({ data, isOpen, onClose, onExport }: DrillDownMod
           <span className={`px-2 py-1 text-xs font-medium rounded-full ${
             value === 'resolved' || value === 'active' ? 'bg-green-100 text-green-700' :
             value === 'pending' || value === 'warning' ? 'bg-yellow-100 text-yellow-700' :
-            value === 'rejected' || value === 'breached' ? 'bg-red-100 text-red-700' :
+            value === 'declined' || value === 'breached' ? 'bg-red-100 text-red-700' :
             'bg-gray-100 text-gray-700'
           }`}>
             {value.toString().replace('_', ' ')}

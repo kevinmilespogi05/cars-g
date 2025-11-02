@@ -167,7 +167,7 @@ export async function notifyReportStatusChange(
   userId: string,
   reportId: string,
   reportTitle: string,
-  newStatus: 'pending' | 'in_progress' | 'resolved' | 'rejected'
+  newStatus: 'pending' | 'in_progress' | 'resolved' | 'declined'
 ) {
   let title = '';
   let message = '';
@@ -184,8 +184,8 @@ export async function notifyReportStatusChange(
       message = `Your report "${reportTitle}" has been resolved. Thank you for helping improve our community!`;
       type = 'success';
       break;
-    case 'rejected':
-      title = 'Report Rejected';
+    case 'declined':
+      title = 'Report Declined';
       message = `Your report "${reportTitle}" could not be processed at this time.`;
       type = 'warning';
       break;

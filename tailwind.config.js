@@ -6,6 +6,18 @@ export default {
       fontFamily: {
         'sans': ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'Noto Sans', 'sans-serif'],
       },
+      zIndex: {
+        'dropdown': '100',
+        'sticky': '900',
+        'modal': '1000',
+        'overlay': '1999',
+        'sidebar': '2000',
+        'menuButton': '2001',
+        'popup': '3000',
+        'chat': '3000',
+        'toast': '4000',
+        'imageViewer': '5000',
+      },
       colors: {
         // Professional Cars-G Color Palette
         primary: {

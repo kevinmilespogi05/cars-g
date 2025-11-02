@@ -1,0 +1,18 @@
+{
+  "status": "commited",
+  "type": "frontend",
+  "scope": "codebase",
+  "localEndpoint": "http://localhost:5173",
+  "loginUser": "kevin123@gmail.com",
+  "loginPassword": "123456",
+  "executionArgs": {
+    "projectName": "cars-g",
+    "projectPath": "C:\\Users\\kevin\\Desktop\\cars-g",
+    "testIds": [],
+    "additionalInstruction": "",
+    "envs": {
+      "API_KEY": "sk-user-LBFLg9GvNH12bm5kRXtQFXQEgRRNXwTza8tVsBln1KrTJe-ikSf1C66RDWCgPLbp5Vr8d5h8rue4aKFKwtpWFRRtEe31emKZGtcxrWOlB63NtXPG7INl5Qhod4eUAgx17g4"
+    }
+  },
+  "proxy": "http://97006715-ad46-4dcc-b9a9-8a3fe8dd8750:KtDG2nz5j5fq6zaAzrthj2BJr9Dku9hq@tun.testsprite.com:8080"
+}

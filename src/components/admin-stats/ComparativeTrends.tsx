@@ -69,7 +69,7 @@ export function ComparativeTrends({ trends, periodLabel = 'vs previous period' }
             const trendData = calculateTrend(trend.current, trend.previous);
             // Determine if upward trend is positive (e.g., for resolved reports yes, for pending no)
             const isPositiveTrend = !trend.label.toLowerCase().includes('pending') && 
-                                   !trend.label.toLowerCase().includes('rejected') &&
+                                   !trend.label.toLowerCase().includes('declined') &&
                                    !trend.label.toLowerCase().includes('banned');
 
             return (
