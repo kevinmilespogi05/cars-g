@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Eye, EyeOff, AlertCircle, Info, AlertTriangle, CheckCircle, Save, X, Upload } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye, EyeOff, AlertCircle, Info, AlertTriangle, CheckCircle, Save, X, Upload, Megaphone } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { getAccessToken } from '../lib/jwt';
 import { getApiUrl } from '../lib/config';
@@ -542,10 +542,19 @@ export function AnnouncementManagement() {
       {/* Announcements List */}
       <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
         {announcements.length === 0 ? (
-          <div className="text-center py-8">
-            <Info className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No announcements</h3>
-            <p className="text-gray-600">Create your first announcement to get started.</p>
+          <div className="bg-white border border-gray-200 rounded-lg p-12 text-center">
+            <Megaphone className="h-12 w-12 mx-auto mb-3 text-gray-400" />
+            <div className="text-gray-500 font-medium">No announcements found</div>
+            <div className="text-sm text-gray-400 mt-1">
+              Create your first announcement to broadcast updates to users and patrols.
+            </div>
+            <button
+              onClick={() => setShowForm(true)}
+              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <Plus className="w-4 h-4 inline mr-2" />
+              Create First Announcement
+            </button>
           </div>
         ) : (
           <div className="divide-y divide-gray-200">

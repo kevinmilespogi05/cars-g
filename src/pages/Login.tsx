@@ -13,11 +13,13 @@ import {
   CheckCircle,
   Loader2
 } from 'lucide-react';
+import { useToastContext } from '../contexts/ToastContext';
 
 export function Login() {
   const navigate = useNavigate();
   const location = useLocation();
   const { signInWithEmailOrUsername, signInWithGoogle, user, isAuthenticated } = useAuthStore();
+  const { error: showToastError, success: showToastSuccess } = useToastContext();
   const [emailOrUsername, setEmailOrUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -54,8 +56,12 @@ export function Login() {
 
     try {
       await signInWithEmailOrUsername(emailOrUsername, password);
+      // Success handled by navigation
+      showToastSuccess('Successfully signed in!', 2000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to sign in');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to sign in';
+      setError(errorMessage);
+      showToastError(errorMessage, 5000);
     } finally {
       setIsLoading(false);
     }

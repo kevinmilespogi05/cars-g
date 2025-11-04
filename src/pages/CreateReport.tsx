@@ -6,6 +6,7 @@ import { MapPicker } from '../components/MapPicker';
 import { useAuthStore } from '../store/authStore';
 import { uploadMultipleImages } from '../lib/cloudinaryStorage';
 import { awardPoints } from '../lib/points';
+import { useToastContext } from '../contexts/ToastContext';
 
 // Points awarded when a report is verified by admin
 const POINTS_FOR_REPORT = 25;
@@ -64,7 +65,9 @@ const MAX_IMAGES = 5;
 export function CreateReport() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
+  const { success: showToastSuccess, error: showToastError } = useToastContext();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
   
   // Detect mobile/PWA environment
   const [isMobileOrPWA, setIsMobileOrPWA] = useState(false);
@@ -149,6 +152,8 @@ export function CreateReport() {
         localStorage.removeItem('aiGeneratedReport');
       }
     }
+    // Mark as initialized to prevent loading flash
+    setIsInitialized(true);
   }, []);
 
   // Load draft if available
@@ -349,6 +354,7 @@ export function CreateReport() {
       setIsDirty(false);
       localStorage.removeItem('createReportDraft');
       safeTrack('report_submit_succeeded', { reportId: createdReport.id });
+      showToastSuccess(`Report submitted successfully! Case #${createdReport.case_number || createdReport.id.slice(0, 8)}`, 4000);
       setTimeout(() => {
         navigate('/reports');
       }, 1500);
@@ -358,6 +364,7 @@ export function CreateReport() {
       const friendly = mapFriendlyError(error);
       setUploadError(friendly);
       setSubmitError(friendly);
+      showToastError(friendly, 5000);
       safeTrack('report_submit_failed', { message: friendly });
       if (!navigator.onLine) {
         enqueueReport({

@@ -3,11 +3,13 @@ import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { LogIn, Mail, Lock, AlertCircle, Shield, UserCheck } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
+import { useToastContext } from '../contexts/ToastContext';
 
 export function AdminLogin() {
   const navigate = useNavigate();
   const location = useLocation();
   const { signInWithEmailOrUsername, signOut, user, isAuthenticated } = useAuthStore();
+  const { error: showToastError, success: showToastSuccess } = useToastContext();
   const [emailOrUsername, setEmailOrUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -32,14 +34,19 @@ export function AdminLogin() {
       
       // Re-check role after sign-in
       if (useAuthStore.getState().user?.role === 'admin') {
+        showToastSuccess('Successfully signed in as admin!', 2000);
         navigate(from, { replace: true });
       } else {
         // Not an admin - log out and show error
         await signOut();
-        setError('This portal is for admins only. Please use the User Login.');
+        const errorMsg = 'This portal is for admins only. Please use the User Login.';
+        setError(errorMsg);
+        showToastError(errorMsg, 5000);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to sign in');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to sign in';
+      setError(errorMessage);
+      showToastError(errorMessage, 5000);
     } finally {
       setIsLoading(false);
     }

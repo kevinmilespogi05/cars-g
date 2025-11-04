@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { authenticatedRequest } from '../lib/jwt';
 import { getApiUrl } from '../lib/config';
-import { Loader2, UserPlus, UserMinus, Shield, Ban, RefreshCw, ShieldCheck } from 'lucide-react';
+import { Loader2, UserPlus, UserMinus, Shield, Ban, RefreshCw, ShieldCheck, User } from 'lucide-react';
 import { ConfirmationDialog } from './ConfirmationDialog';
 import { Notification } from './Notification';
 import { useAuthStore } from '../store/authStore';
@@ -231,8 +231,28 @@ export function UserManagement() {
       </div>
 
       {loading ? (
-        <div className="flex justify-center items-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+        <div className="flex flex-col justify-center items-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-blue-500 mb-3" />
+          <div className="text-sm text-gray-500">Loading users...</div>
+        </div>
+      ) : filteredUsers.length === 0 ? (
+        <div className="bg-white shadow overflow-hidden sm:rounded-md p-12 text-center">
+          <User className="h-12 w-12 mx-auto mb-3 text-gray-400" />
+          <div className="text-gray-500 font-medium">No users found</div>
+          <div className="text-sm text-gray-400 mt-1">
+            {searchTerm 
+              ? `No users match "${searchTerm}". Try adjusting your search terms.`
+              : 'No users available. Users will appear here once they register.'
+            }
+          </div>
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="mt-4 px-4 py-2 text-sm text-blue-600 hover:text-blue-700 underline"
+            >
+              Clear search
+            </button>
+          )}
         </div>
       ) : (
         <div className="bg-white shadow overflow-hidden sm:rounded-md">

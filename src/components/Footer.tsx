@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   Mail, 
@@ -9,6 +9,7 @@ import {
   Phone,
   Building2
 } from 'lucide-react';
+import { useSidebarContext } from '../contexts/SidebarContext';
 
 // LGU Footer details – update these to your LGU specifics
 const LGU_NAME = 'Castillejos Local Government Unit';
@@ -20,6 +21,18 @@ const LGU_OFFICE_HOURS = 'Monday–Friday, 8:00 AM – 5:00 PM';
 const LGU_PHONE = '+63 (047) 123-4567';
 
 export function Footer() {
+  const { isCollapsed, sidebarWidth, collapsedWidth } = useSidebarContext();
+  const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
+  
+  // Update desktop state on resize
+  useEffect(() => {
+    const handleResize = () => {
+      setIsDesktop(window.innerWidth >= 1024);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   // Handler for telephone links to prevent errors on desktop
   const handlePhoneClick = (e: React.MouseEvent<HTMLAnchorElement>, phoneNumber: string) => {
     // Check if device has phone calling capabilities
@@ -41,8 +54,19 @@ export function Footer() {
     // On mobile, let the default tel: behavior work
   };
 
+  // Calculate dynamic margin-left based on sidebar state
+  const footerMarginLeft = isDesktop 
+    ? (isCollapsed ? `${collapsedWidth}px` : `${sidebarWidth}px`)
+    : '0';
+
   return (
-    <footer className="bg-gray-900 text-white relative z-[5] lg:ml-72">
+    <footer 
+      className="bg-gray-900 text-white relative z-[5]"
+      style={{
+        marginLeft: footerMarginLeft,
+        transition: 'margin-left 250ms cubic-bezier(0.4, 0, 0.2, 1)',
+      }}
+    >
       <div className="w-full px-2 sm:px-6 lg:px-8 py-1">
         <div className="max-w-7xl mx-auto pt-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">

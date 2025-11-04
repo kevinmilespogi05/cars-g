@@ -295,7 +295,24 @@ export function AdminVerificationDashboard() {
         ) : filteredRequests.length === 0 ? (
           <div className="text-center py-12">
             <Shield className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-600">No verification requests found</p>
+            <p className="text-gray-600 font-medium">No verification requests found</p>
+            <p className="text-sm text-gray-400 mt-1">
+              {searchTerm || filter !== 'all'
+                ? `No requests match your ${searchTerm ? 'search' : 'filter'} criteria. Try adjusting your filters.`
+                : 'No verification requests available. Users will appear here once they submit their ID documents.'
+              }
+            </p>
+            {(searchTerm || filter !== 'all') && (
+              <button
+                onClick={() => {
+                  setSearchTerm('');
+                  setFilter('all');
+                }}
+                className="mt-4 px-4 py-2 text-sm text-red-600 hover:text-red-700 underline"
+              >
+                Clear filters
+              </button>
+            )}
           </div>
         ) : (
           <div className="overflow-x-auto">

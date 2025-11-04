@@ -186,11 +186,25 @@ export default async function handler(req, res) {
       });
     }
 
-    // Validate password strength
-    if (password.length < 8) {
+    // Validate password strength - require strong passwords
+    const passwordMinLength = 12;
+    const hasUpperCase = /[A-Z]/.test(password);
+    const hasLowerCase = /[a-z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    const hasSpecialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
+    
+    if (password.length < passwordMinLength) {
       return res.status(400).json({ 
         success: false, 
-        error: 'Password must be at least 8 characters long', 
+        error: `Password must be at least ${passwordMinLength} characters long`, 
+        code: 'WEAK_PASSWORD' 
+      });
+    }
+    
+    if (!hasUpperCase || !hasLowerCase || !hasNumber || !hasSpecialChar) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character', 
         code: 'WEAK_PASSWORD' 
       });
     }

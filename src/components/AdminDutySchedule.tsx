@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Users } from 'lucide-react';
+import { Users, Info, Clock, UserCheck } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 export function AdminDutySchedule() {
@@ -32,9 +32,30 @@ export function AdminDutySchedule() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <Users className="w-5 h-5 text-blue-600" />
-        <h3 className="text-lg font-semibold text-gray-900">Patrol Officers</h3>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Users className="w-5 h-5 text-blue-600" />
+          <h3 className="text-lg font-semibold text-gray-900">Duty Schedule Management</h3>
+        </div>
+      </div>
+
+      {/* Info Section */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="flex items-start gap-3">
+          <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+          <div className="text-sm text-blue-800">
+            <p className="font-medium mb-1">How to manage duty schedules:</p>
+            <ol className="list-decimal pl-5 space-y-1 text-xs">
+              <li>View all patrol officers available for duty assignments below.</li>
+              <li>Assign officers to AM (morning) or PM (afternoon/evening) shifts.</li>
+              <li>Designate dispatcher (assigns reports) and receiver (handles completed reports) per shift.</li>
+              <li>Ensure all shifts have proper coverage throughout the day.</li>
+            </ol>
+            <p className="text-xs mt-2 text-blue-700">
+              <strong>Note:</strong> Duty schedules help organize patrol coverage and ensure proper report handling.
+            </p>
+          </div>
+        </div>
       </div>
 
       {error && (
@@ -50,8 +71,12 @@ export function AdminDutySchedule() {
       ) : (
         <div className="bg-white border rounded-lg">
           {patrolUsers.length === 0 ? (
-            <div className="p-6 text-center text-gray-500">
-              No patrol users found
+            <div className="p-12 text-center">
+              <Users className="h-12 w-12 mx-auto mb-3 text-gray-400" />
+              <div className="text-gray-500 font-medium">No patrol officers found</div>
+              <div className="text-sm text-gray-400 mt-1">
+                No patrol officers are registered yet. Patrol officers need to be assigned the "patrol" role in User Management.
+              </div>
             </div>
           ) : (
             <div className="divide-y divide-gray-200">

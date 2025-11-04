@@ -272,6 +272,20 @@ const globalLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// Login rate limiter - stricter protection against brute force attacks
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // 5 attempts per 15 minutes per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    error: 'Too many login attempts. Please try again after 15 minutes.',
+    code: 'RATE_LIMIT_EXCEEDED'
+  },
+  skipSuccessfulRequests: true, // Don't count successful logins
+  skipFailedRequests: false, // Count failed attempts
+});
 
 app.use(globalLimiter);
 
@@ -1090,7 +1104,7 @@ app.post('/api/auth/oauth-callback', async (req, res) => {
 });
 
 // Login endpoint - authenticate user and generate JWT tokens
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', loginLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -1109,9 +1123,10 @@ app.post('/api/auth/login', async (req, res) => {
     });
 
     if (authError || !authData.user) {
+      // Generic error message to prevent account enumeration
       return res.status(401).json({
         success: false,
-        error: 'Invalid email or password',
+        error: 'Invalid credentials. Please check your email and password.',
         code: 'INVALID_CREDENTIALS'
       });
     }

@@ -8,11 +8,13 @@ import { reportsService } from '../services/reportsService';
 import { cloudinary } from '../lib/cloudinary';
 import { AnnouncementCarousel } from '../components/AnnouncementCarousel';
 import { CommentsService } from '../services/commentsService';
+import { useToastContext } from '../contexts/ToastContext';
 
 
 export function PatrolDashboard() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
+  const { success: showToastSuccess, error: showToastError, info: showToastInfo } = useToastContext();
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -234,12 +236,29 @@ export function PatrolDashboard() {
         images: nextImages
       } as Report) : r));
 
+      const timestamp = new Date().toLocaleString('en-US', { 
+        month: 'short', 
+        day: 'numeric', 
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      
+      // Log resolution with timestamp
+      try {
+        await CommentsService.addComment(reportId, `Marked as resolved and submitted for verification at ${timestamp}`, 'status_update');
+      } catch (logErr) {
+        console.warn('Failed to log resolution comment:', logErr);
+      }
+      
+      showToastSuccess(`Report marked as resolved and submitted for verification at ${timestamp}`, 4000);
       await loadReports();
       await loadAllReportsStats();
       setSelectedReport(null);
       setProofFile(null);
     } catch (e) {
       console.error('Failed to submit for verification', e);
+      showToastError('Failed to submit for verification. Please try again.', 4000);
     } finally {
       setProofUploading(false);
     }
@@ -361,12 +380,20 @@ export function PatrolDashboard() {
       if (error) throw error;
 
       // Log acceptance in comments (service handles auth fallback)
+      const timestamp = new Date().toLocaleString('en-US', { 
+        month: 'short', 
+        day: 'numeric', 
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
       try {
-        await CommentsService.addComment(reportId, `Job accepted by ${patrollerName}`, 'assignment');
+        await CommentsService.addComment(reportId, `Job accepted by ${patrollerName} at ${timestamp}`, 'assignment');
       } catch (logErr) {
         console.warn('Failed to log acceptance comment:', logErr);
       }
       
+      showToastSuccess(`Job accepted successfully at ${timestamp}`, 3000);
       await loadReports();
       await loadAllReportsStats();
       setSelectedReport(null);
@@ -426,7 +453,24 @@ export function PatrolDashboard() {
 
   const capitalize = (s: string) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
 
-  const openWaypointNavigation = (destination: string) => {
+  const openWaypointNavigation = (report: Report) => {
+    // Use coordinates if available (more accurate), fallback to address
+    let destination: string;
+    let destinationType: 'coords' | 'address';
+    
+    if (report.location_lat && report.location_lng) {
+      // Use coordinates for precise location
+      destination = `${report.location_lat},${report.location_lng}`;
+      destinationType = 'coords';
+    } else if (report.location_address) {
+      // Fallback to address
+      destination = report.location_address;
+      destinationType = 'address';
+    } else {
+      showToastError('Location information not available for this report', 3000);
+      return;
+    }
+    
     // Detect platform and use appropriate navigation method
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
@@ -435,15 +479,24 @@ export function PatrolDashboard() {
     // Create navigation URLs for different platforms
     let navigationUrl = '';
     
-    if (isIOS) {
-      // iOS: Use Apple Maps or Google Maps app
-      navigationUrl = `https://maps.apple.com/?daddr=${encodeURIComponent(destination)}&dirflg=d`;
-    } else if (isAndroid) {
-      // Android: Try Google Maps app with intent
-      navigationUrl = `intent://maps.google.com/maps?daddr=${encodeURIComponent(destination)}&dirflg=d#Intent;scheme=https;package=com.google.android.apps.maps;end`;
+    if (destinationType === 'coords') {
+      // Use coordinates for more accurate navigation
+      if (isIOS) {
+        navigationUrl = `https://maps.apple.com/?daddr=${destination}&dirflg=d`;
+      } else if (isAndroid) {
+        navigationUrl = `intent://maps.google.com/maps?daddr=${destination}&dirflg=d#Intent;scheme=https;package=com.google.android.apps.maps;end`;
+      } else {
+        navigationUrl = `https://www.google.com/maps/dir/?api=1&destination=${destination}&travelmode=driving&dir_action=navigate&nav=1`;
+      }
     } else {
-      // Desktop/Web: Use Google Maps web with navigation mode
-      navigationUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}&travelmode=driving&dir_action=navigate&nav=1`;
+      // Use address
+      if (isIOS) {
+        navigationUrl = `https://maps.apple.com/?daddr=${encodeURIComponent(destination)}&dirflg=d`;
+      } else if (isAndroid) {
+        navigationUrl = `intent://maps.google.com/maps?daddr=${encodeURIComponent(destination)}&dirflg=d#Intent;scheme=https;package=com.google.android.apps.maps;end`;
+      } else {
+        navigationUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}&travelmode=driving&dir_action=navigate&nav=1`;
+      }
     }
     
     // Open the appropriate navigation URL
@@ -453,15 +506,23 @@ export function PatrolDashboard() {
         window.location.href = navigationUrl;
         // Fallback to web version
         setTimeout(() => {
-          window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}&travelmode=driving&dir_action=navigate&nav=1`, '_blank');
+          const fallbackUrl = destinationType === 'coords'
+            ? `https://www.google.com/maps/dir/?api=1&destination=${destination}&travelmode=driving&dir_action=navigate&nav=1`
+            : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}&travelmode=driving&dir_action=navigate&nav=1`;
+          window.open(fallbackUrl, '_blank');
         }, 2000);
       } catch (error) {
-        window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}&travelmode=driving&dir_action=navigate&nav=1`, '_blank');
+        const fallbackUrl = destinationType === 'coords'
+          ? `https://www.google.com/maps/dir/?api=1&destination=${destination}&travelmode=driving&dir_action=navigate&nav=1`
+          : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(destination)}&travelmode=driving&dir_action=navigate&nav=1`;
+        window.open(fallbackUrl, '_blank');
       }
     } else {
       // For iOS and desktop, open directly
       window.open(navigationUrl, '_blank');
     }
+    
+    showToastInfo(`Opening navigation to: ${report.location_address || destination}`, 2000);
   };
 
   const handleOpenCaseInfo = (report: Report) => {
@@ -505,13 +566,22 @@ export function PatrolDashboard() {
         .eq('id', reportId);
       if (error) throw error;
 
+      const timestamp = new Date().toLocaleString('en-US', { 
+        month: 'short', 
+        day: 'numeric', 
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      
       // Log cancellation/unaccept in comments (service handles auth fallback)
       try {
-        await CommentsService.addComment(reportId, 'Job acceptance cancelled', 'status_update');
+        await CommentsService.addComment(reportId, `Job acceptance cancelled at ${timestamp}`, 'status_update');
       } catch (logErr) {
         console.warn('Failed to log unaccept comment:', logErr);
       }
 
+      showToastSuccess(`Job acceptance cancelled at ${timestamp}`, 3000);
       await loadReports();
       await loadAllReportsStats();
       setSelectedReport(null);
@@ -540,11 +610,20 @@ export function PatrolDashboard() {
       });
       handleUpdateReport(updatedReport);
       
-      // Add a comment about the priority change (service handles auth fallback)
-      await CommentsService.addComment(reportId, `Priority level set to ${priorityLevel}`, 'status_update');
+      const timestamp = new Date().toLocaleString('en-US', { 
+        month: 'short', 
+        day: 'numeric', 
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      
+      // Add a comment about the priority change with timestamp (service handles auth fallback)
+      await CommentsService.addComment(reportId, `Priority level set to ${priorityLevel} at ${timestamp}`, 'status_update');
+      showToastSuccess(`Priority level updated to ${priorityLevel} at ${timestamp}`, 3000);
     } catch (error) {
       console.error('Error setting priority:', error);
-      alert('Failed to set priority. Please try again.');
+      showToastError('Failed to set priority. Please try again.', 4000);
       // Re-sync from server on failure
       await loadReports();
     } finally {
@@ -558,12 +637,29 @@ export function PatrolDashboard() {
 
     try {
       setActionLoading(true);
+      const timestamp = new Date().toLocaleString('en-US', { 
+        month: 'short', 
+        day: 'numeric', 
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      
       const updatedReport = await reportsService.cancelReport(reportId, reason);
       handleUpdateReport(updatedReport);
+      
+      // Log cancellation with timestamp
+      try {
+        await CommentsService.addComment(reportId, `Ticket cancelled at ${timestamp}. Reason: ${reason}`, 'status_update');
+      } catch (logErr) {
+        console.warn('Failed to log cancellation comment:', logErr);
+      }
+      
+      showToastSuccess(`Ticket cancelled at ${timestamp}`, 3000);
       setShowCaseInfo(false);
     } catch (error) {
       console.error('Error cancelling ticket:', error);
-      alert('Failed to cancel ticket. Please try again.');
+      showToastError('Failed to cancel ticket. Please try again.', 4000);
     } finally {
       setActionLoading(false);
     }
@@ -857,7 +953,7 @@ export function PatrolDashboard() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          openWaypointNavigation(report.location_address || '');
+                          openWaypointNavigation(report);
                         }}
                         className="p-2 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
                         title="Navigate to Location"
@@ -1154,7 +1250,7 @@ export function PatrolDashboard() {
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <button
-                        onClick={() => openWaypointNavigation(selectedReport.location_address || '')}
+                        onClick={() => openWaypointNavigation(selectedReport)}
                         className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-lg text-white bg-emerald-600 hover:bg-emerald-700 transition-colors"
                       >
                         <Navigation className="h-4 w-4 mr-2" />

@@ -2,6 +2,8 @@ import { ErrorBoundary } from 'react-error-boundary';
 import { Suspense, useCallback, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import React from 'react';
+import { ToastProvider } from '../contexts/ToastContext';
+import { SidebarProvider } from '../contexts/SidebarContext';
 
 function ErrorFallback({ error, resetErrorBoundary }: { error: Error; resetErrorBoundary: () => void }) {
   const [isResetting, setIsResetting] = useState(false);
@@ -85,20 +87,24 @@ export function Providers({ children }: { children: React.ReactNode }) {
         // Reset the state of your app here
       }}
     >
-      <Suspense fallback={<LoadingFallback />}>
-        <AnimatePresence mode="sync" initial={false}>
-          {React.Children.map(children, (child, index) => (
-            <motion.div
-              key={`provider-child-${index}`}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-            >
-              {child}
-            </motion.div>
-          ))}
-        </AnimatePresence>
-      </Suspense>
+      <SidebarProvider>
+        <ToastProvider>
+          <Suspense fallback={<LoadingFallback />}>
+            <AnimatePresence mode="sync" initial={false}>
+              {React.Children.map(children, (child, index) => (
+                <motion.div
+                  key={`provider-child-${index}`}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                >
+                  {child}
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </Suspense>
+        </ToastProvider>
+      </SidebarProvider>
     </ErrorBoundary>
   );
 } 

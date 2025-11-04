@@ -6,15 +6,18 @@ import { supabase } from '../lib/supabase';
 import { ChatButton } from './ChatButton';
 import { PhilippinesDateTime } from './PhilippinesDateTime';
 import { QuickActions } from './QuickActions';
+import { useSidebarContext } from '../contexts/SidebarContext';
 
 export function SidebarNavigation() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut } = useAuthStore();
+  const { isCollapsed, setIsCollapsed, toggleSidebar } = useSidebarContext();
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState(window.innerWidth < 1024);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
   const profileMenuRef = useRef<HTMLDivElement>(null);
+  const dashboardDropdownRef = useRef<HTMLDivElement>(null);
+  const manualToggleRef = useRef(false);
   
   // Dashboard dropdown state - persist in localStorage
   const [isDashboardOpen, setIsDashboardOpen] = useState(() => {
@@ -27,23 +30,28 @@ export function SidebarNavigation() {
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      // Close profile menu when clicking outside
       if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
         setIsProfileMenuOpen(false);
+      }
+      
+      // Close dashboard dropdown when clicking outside
+      if (dashboardDropdownRef.current && !dashboardDropdownRef.current.contains(event.target as Node)) {
+        if (isDashboardOpen && location.pathname !== '/admin') {
+          setIsDashboardOpen(false);
+          localStorage.setItem('adminDashboardDropdownOpen', 'false');
+        }
       }
     };
 
     const handleResize = () => {
       const mobile = window.innerWidth < 1024;
       setIsMobile(mobile);
-      if (mobile) {
-        setIsCollapsed(true);
-      } else {
-        setIsCollapsed(false);
-      }
+      // Note: Collapsed state is managed by SidebarContext which handles mobile automatically
     };
 
     const handleToggleSidebar = () => {
-      setIsCollapsed(!isCollapsed);
+      toggleSidebar();
     };
 
     document.addEventListener('mousedown', handleClickOutside);
@@ -55,14 +63,34 @@ export function SidebarNavigation() {
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('toggleSidebar', handleToggleSidebar);
     };
-  }, [isCollapsed]);
+  }, [isCollapsed, isDashboardOpen, location.pathname]);
 
   // Auto-open dashboard dropdown when on admin page and not collapsed
+  // Close dropdown when navigating away from admin page
   useEffect(() => {
-    if (user?.role === 'admin' && location.pathname === '/admin' && !isCollapsed && !isDashboardOpen) {
-      setIsDashboardOpen(true);
-      localStorage.setItem('adminDashboardDropdownOpen', 'true');
+    let timer: NodeJS.Timeout | null = null;
+    
+    if (user?.role === 'admin' && !manualToggleRef.current) {
+      if (location.pathname === '/admin' && !isCollapsed && !isDashboardOpen) {
+        setIsDashboardOpen(true);
+        localStorage.setItem('adminDashboardDropdownOpen', 'true');
+      } else if (location.pathname !== '/admin' && isDashboardOpen) {
+        // Close dropdown when navigating away from admin page
+        setIsDashboardOpen(false);
+        localStorage.setItem('adminDashboardDropdownOpen', 'false');
+      }
     }
+    
+    // Reset manual toggle flag after a short delay
+    if (manualToggleRef.current) {
+      timer = setTimeout(() => {
+        manualToggleRef.current = false;
+      }, 100);
+    }
+    
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
   }, [location.pathname, isCollapsed, user?.role, isDashboardOpen]);
 
   // Dashboard submenu items for admin
@@ -77,7 +105,13 @@ export function SidebarNavigation() {
   ];
 
   // Handle dashboard dropdown toggle
-  const toggleDashboardDropdown = () => {
+  const toggleDashboardDropdown = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Mark as manual toggle to prevent auto-open/close interference
+    manualToggleRef.current = true;
+    
     const newState = !isDashboardOpen;
     setIsDashboardOpen(newState);
     localStorage.setItem('adminDashboardDropdownOpen', String(newState));
@@ -122,6 +156,7 @@ export function SidebarNavigation() {
   // Navigate to dashboard section
   const navigateToDashboardSection = (section: string) => {
     navigate(`/admin?section=${section}`);
+    // Keep dropdown open when navigating within dashboard
     // Close sidebar on mobile after navigation
     if (isMobile) {
       setIsCollapsed(true);
@@ -190,24 +225,38 @@ export function SidebarNavigation() {
                 </Link>
                 {!isMobile && (
                   <button
-                    onClick={() => setIsCollapsed(!isCollapsed)}
-                    className="p-2 rounded-lg text-white hover:bg-white/15 transition-all duration-200 min-h-[44px] min-w-[44px] flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-white/50 focus:ring-offset-2 focus:ring-offset-[#800000]"
+                    onClick={toggleSidebar}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        toggleSidebar();
+                      }
+                    }}
+                    className="p-2 rounded-lg text-white hover:bg-white/15 transition-all duration-200 min-h-[44px] min-w-[44px] flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-white/50 focus:ring-offset-2 focus:ring-offset-[#800000] group"
                     aria-label="Expand navigation sidebar"
                     aria-expanded={false}
+                    title="Expand sidebar"
                   >
-                    <ChevronRight className="h-5 w-5" aria-hidden="true" />
+                    <ChevronRight className="h-5 w-5 transition-transform duration-200 group-hover:scale-110" aria-hidden="true" />
                   </button>
                 )}
               </>
             )}
             {!isMobile && !isCollapsed && (
               <button
-                onClick={() => setIsCollapsed(!isCollapsed)}
-                className="p-2 rounded-lg text-white hover:bg-white/15 transition-all duration-200 min-h-[44px] min-w-[44px] flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-white/50 focus:ring-offset-2 focus:ring-offset-[#800000]"
+                onClick={toggleSidebar}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    toggleSidebar();
+                  }
+                }}
+                className="p-2 rounded-lg text-white hover:bg-white/15 transition-all duration-200 min-h-[44px] min-w-[44px] flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-white/50 focus:ring-offset-2 focus:ring-offset-[#800000] group"
                 aria-label="Collapse navigation sidebar"
                 aria-expanded={true}
+                title="Collapse sidebar"
               >
-                <ChevronLeft className="h-5 w-5" aria-hidden="true" />
+                <ChevronLeft className="h-5 w-5 transition-transform duration-200 group-hover:scale-110" aria-hidden="true" />
               </button>
             )}
           </div>
@@ -226,7 +275,7 @@ export function SidebarNavigation() {
             } space-y-1`}>
               {/* Dashboard Dropdown for Admin */}
               {user?.role === 'admin' && (
-                <div className="mb-1">
+                <div className="mb-1" ref={dashboardDropdownRef}>
                   <div className="relative">
                     {/* Dashboard Main Container */}
                     <div
@@ -257,7 +306,8 @@ export function SidebarNavigation() {
                         to="/admin"
                         className={`flex items-center flex-1 ${isCollapsed ? 'justify-center' : ''}`}
                         title={isCollapsed ? 'Dashboard' : undefined}
-                        onClick={() => {
+                        onClick={(e) => {
+                          // Prevent link navigation if clicking on the container with dropdown
                           if (isMobile) {
                             setIsCollapsed(true);
                           }
@@ -271,17 +321,14 @@ export function SidebarNavigation() {
                       {!isCollapsed && (
                         <>
                           <button
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              toggleDashboardDropdown();
-                            }}
-                            className="ml-2 p-1.5 rounded-lg hover:bg-white/20 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white/50"
+                            type="button"
+                            onClick={toggleDashboardDropdown}
+                            className="ml-2 p-1.5 rounded-lg hover:bg-white/20 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white/50 z-10 relative"
                             aria-label={isDashboardOpen ? 'Collapse dashboard menu' : 'Expand dashboard menu'}
                             aria-expanded={isDashboardOpen}
                             title={isDashboardOpen ? 'Collapse menu' : 'Expand menu'}
                           >
-                            <ChevronDown className={`h-4 w-4 flex-shrink-0 text-white/90 hover:text-white transition-transform duration-300 ${
+                            <ChevronDown className={`h-4 w-4 flex-shrink-0 text-white/90 hover:text-white transition-transform duration-300 ease-in-out ${
                               isDashboardOpen ? 'rotate-180' : 'rotate-0'
                             }`} />
                           </button>
@@ -299,12 +346,14 @@ export function SidebarNavigation() {
                     {!isCollapsed && (
                       <div 
                         className={`overflow-hidden transition-all duration-300 ease-in-out ${
-                          isDashboardOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
+                          isDashboardOpen ? 'max-h-[500px] opacity-100 visible' : 'max-h-0 opacity-0 invisible'
                         }`}
                         style={{
-                          transitionProperty: 'max-height, opacity',
-                          transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)'
+                          transitionProperty: 'max-height, opacity, visibility',
+                          transitionTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)',
+                          pointerEvents: isDashboardOpen ? 'auto' : 'none'
                         }}
+                        aria-hidden={!isDashboardOpen}
                       >
                         <div className="ml-4 mt-1 mb-1 space-y-1 border-l-2 border-white/20 pl-3">
                           {dashboardSubmenuItems.map(({ section, icon: Icon, label }) => {
@@ -349,6 +398,17 @@ export function SidebarNavigation() {
                   <Link
                     key={path}
                     to={path}
+                    onClick={() => {
+                      // Close dashboard dropdown when clicking other nav items
+                      if (isDashboardOpen && path !== '/admin') {
+                        setIsDashboardOpen(false);
+                        localStorage.setItem('adminDashboardDropdownOpen', 'false');
+                      }
+                      // Close sidebar on mobile after navigation
+                      if (isMobile) {
+                        setIsCollapsed(true);
+                      }
+                    }}
                     className={`
                       flex items-center relative group transition-all duration-200 ease-in-out
                       ${isCollapsed 

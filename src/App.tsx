@@ -17,6 +17,8 @@ import { usePushNotifications } from './hooks/usePushNotifications';
 import { useAchievementNotifications, AchievementNotification } from './components/AchievementNotification';
 import { Footer } from './components/Footer';
 import { useReducedMotion } from './hooks/useReducedMotion';
+import { ToastContainer } from './components/ToastContainer';
+import { useSidebarContext } from './contexts/SidebarContext';
 
 // Configure future flags for React Router v7
 const routerConfig = {
@@ -77,13 +79,56 @@ const ErrorFallback = ({ error, resetErrorBoundary }: { error: Error; resetError
   </div>
 );
 
-function AppContent() {
+// Mobile menu button component
+function MobileMenuButton() {
+  const { toggleSidebar } = useSidebarContext();
+  
+  return (
+    <button
+      onClick={toggleSidebar}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          toggleSidebar();
+        }
+      }}
+      className="fixed top-4 left-4 z-menuButton lg:hidden p-2 rounded-lg bg-white/90 backdrop-blur-sm shadow-lg border border-gray-200 hover:bg-white transition-all duration-200 min-h-[44px] min-w-[44px] flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 group"
+      aria-label="Toggle navigation menu"
+      aria-expanded="false"
+      title="Toggle menu"
+    >
+      <svg 
+        className="h-6 w-6 text-gray-700 transition-transform duration-200 group-hover:scale-110" 
+        fill="none" 
+        viewBox="0 0 24 24" 
+        stroke="currentColor" 
+        aria-hidden="true"
+      >
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+      </svg>
+    </button>
+  );
+}
+
+// Inner content component that uses sidebar context
+function AppContentInner() {
   const { isAuthenticated, user } = useAuthStore();
   const { isImageViewerOpen } = useImageViewerStore();
   const location = useLocation();
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const { notifications, removeNotification } = useAchievementNotifications();
   const [showWelcomeGuide, setShowWelcomeGuide] = useState(false);
+  const { isCollapsed, sidebarWidth, collapsedWidth } = useSidebarContext();
+  const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
+  
+  // Update desktop state on resize
+  useEffect(() => {
+    const handleResize = () => {
+      setIsDesktop(window.innerWidth >= 1024);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Scroll to top on route change
   useEffect(() => {
@@ -171,9 +216,7 @@ function AppContent() {
   }, []);
 
   return (
-    <ErrorBoundary>
-      <Providers>
-        <div className="min-h-screen bg-gray-50 relative">
+    <div className="min-h-screen bg-gray-50 relative">
           {/* Blurred Background Wallpaper - Show on all pages except landing */}
           {!isLandingPage && (
             <>
@@ -202,23 +245,18 @@ function AppContent() {
           
           {/* Mobile Menu Button - only show on mobile when sidebar is collapsed */}
           {!isLandingPage && !isAuthPage && (
-            <button
-              onClick={() => {
-                // This will be handled by the SidebarNavigation component
-                const event = new CustomEvent('toggleSidebar');
-                window.dispatchEvent(event);
-              }}
-              className="fixed top-4 left-4 z-menuButton lg:hidden p-2 rounded-lg bg-white/90 backdrop-blur-sm shadow-lg border border-gray-200 hover:bg-white transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
-              aria-label="Open navigation menu"
-              aria-expanded="false"
-            >
-              <svg className="h-6 w-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
+            <MobileMenuButton />
           )}
           
-          <main className={isLandingPage ? 'pt-0' : isAuthPage ? 'relative min-h-screen' : 'pl-0 lg:pl-72 relative min-h-screen'}>
+          <main 
+            className={isLandingPage ? 'pt-0' : isAuthPage ? 'relative min-h-screen' : 'relative min-h-screen'}
+            style={!isLandingPage && !isAuthPage ? {
+              marginLeft: isDesktop 
+                ? (isCollapsed ? `${collapsedWidth}px` : `${sidebarWidth}px`)
+                : '0',
+              transition: 'margin-left 250ms cubic-bezier(0.4, 0, 0.2, 1)',
+            } : undefined}
+          >
             <Suspense fallback={<LoadingSpinner />}>
               <Routes>
                 {publicRoutes.map((route) => (
@@ -275,8 +313,22 @@ function AppContent() {
             onClose={() => setShowWelcomeGuide(false)}
             userRole={user?.role}
           />
-          </div>
+
+          {/* Toast Notifications */}
+          <ToastContainer />
+          
+          {/* Analytics */}
           <Analytics />
+        </div>
+      );
+    }
+
+// Outer wrapper that provides context
+function AppContent() {
+  return (
+    <ErrorBoundary>
+      <Providers>
+        <AppContentInner />
       </Providers>
     </ErrorBoundary>
   );

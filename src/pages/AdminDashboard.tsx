@@ -2,17 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { 
-  Users, 
   BarChart3, 
   LayoutDashboard,
-  FileText,
   Megaphone,
   Check,
   Clock,
-  Info,
-  ClipboardList,
-  Shield,
-  ShieldCheck
+  Info
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { UserManagement } from '../components/UserManagement';
@@ -33,57 +28,10 @@ export function AdminDashboard() {
   const activeSection = (searchParams.get('section') || 'reports') as 'reports' | 'requests' | 'duty' | 'users' | 'stats' | 'settings' | 'announcements' | 'verification';
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [showInfo, setShowInfo] = useState<boolean>(false);
-  const [totalReports, setTotalReports] = useState<number>(0);
-  const [requestReports, setRequestReports] = useState<number>(0);
-  const [totalUsers, setTotalUsers] = useState<number>(0);
-  const [activePatrols, setActivePatrols] = useState<number>(0);
-  const [pendingVerifications, setPendingVerifications] = useState<number>(0);
 
   useEffect(() => {
     // Optional: protect route
   }, [user, navigate]);
-
-  // Function to count active patrols based on current time
-  const countActivePatrols = (dutySchedules: any[]) => {
-    const now = new Date();
-    const currentDate = now.toISOString().slice(0, 10); // YYYY-MM-DD
-    const currentHour = now.getHours();
-    
-    // Determine current shift: AM (6-17) or PM (18-5)
-    const currentShift = currentHour >= 6 && currentHour < 18 ? 'AM' : 'PM';
-    
-    // Count patrols for today's current shift
-    const todayPatrols = dutySchedules.filter(schedule => 
-      schedule.duty_date === currentDate && 
-      schedule.shift === currentShift &&
-      (schedule.dispatcher_user_id || schedule.receiver_user_id)
-    );
-    
-    return todayPatrols.length;
-  };
-
-  useEffect(() => {
-    const fetchCounts = async () => {
-      try {
-        const [reportsAll, reportsVerifying, usersAll, dutySchedules, verificationRequests] = await Promise.all([
-          supabase.from('reports').select('*', { count: 'exact', head: true }),
-          supabase.from('reports').select('*', { count: 'exact', head: true }).eq('status', 'verifying'),
-          supabase.from('profiles').select('*', { count: 'exact', head: true }),
-          supabase.from('duty_schedules').select('*').gte('duty_date', new Date().toISOString().slice(0, 10)),
-          supabase.from('user_verification_requests').select('*', { count: 'exact', head: true }).eq('status', 'pending')
-        ]);
-
-        setTotalReports(reportsAll.count || 0);
-        setRequestReports(reportsVerifying.count || 0);
-        setTotalUsers(usersAll.count || 0);
-        setActivePatrols(countActivePatrols(dutySchedules.data || []));
-        setPendingVerifications(verificationRequests.count || 0);
-      } catch (e) {
-        console.error('Failed to fetch admin dashboard counts', e);
-      }
-    };
-    fetchCounts();
-  }, []);
 
 
   return (
@@ -105,7 +53,7 @@ export function AdminDashboard() {
                   </ol>
                 </nav>
                 <h1 className="text-lg sm:text-xl font-bold text-gray-900">Admin • Dashboard</h1>
-                <p className="text-sm text-gray-600">Manage reports, users, stats, announcements, and settings</p>
+                <p className="text-sm text-gray-600">Manage reports, users, stats, and announcements</p>
               </div>
             </div>
             <div className="hidden sm:flex items-center gap-2">
@@ -118,68 +66,6 @@ export function AdminDashboard() {
                 <Info className="w-4 h-4" />
                 Info
               </button>
-            </div>
-          </div>
-
-          {/* Quick stat tiles */}
-          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-            <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
-              <div className="flex items-center">
-                <div className="h-10 w-10 rounded-lg bg-blue-600/10 text-blue-700 flex items-center justify-center">
-                  <FileText className="w-5 h-5" />
-                </div>
-                <div className="ml-3">
-                  <p className="text-xs text-gray-600">Total Reports</p>
-                  <p className="text-xl font-semibold text-gray-900">{totalReports}</p>
-                </div>
-              </div>
-            </div>
-            <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
-              <div className="flex items-center">
-                <div className="h-10 w-10 rounded-lg bg-orange-500/10 text-orange-600 flex items-center justify-center">
-                  <ClipboardList className="w-5 h-5" />
-                </div>
-                <div className="ml-3">
-                  <p className="text-xs text-gray-600">Requests</p>
-                  <p className="text-xl font-semibold text-gray-900">{requestReports}</p>
-                </div>
-              </div>
-            </div>
-            <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
-              <div className="flex items-center">
-                <div className="h-10 w-10 rounded-lg bg-green-600/10 text-green-600 flex items-center justify-center">
-                  <Shield className="w-5 h-5" />
-                </div>
-                <div className="ml-3">
-                  <p className="text-xs text-gray-600">On Duty</p>
-                  <p className="text-xl font-semibold text-gray-900">{activePatrols}</p>
-                </div>
-              </div>
-            </div>
-            <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
-              <div className="flex items-center">
-                <div className="h-10 w-10 rounded-lg bg-purple-600/10 text-purple-600 flex items-center justify-center">
-                  <Users className="w-5 h-5" />
-                </div>
-                <div className="ml-3">
-                  <p className="text-xs text-gray-600">Total Users</p>
-                  <p className="text-xl font-semibold text-gray-900">{totalUsers}</p>
-                </div>
-              </div>
-            </div>
-            <div 
-              className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-              onClick={() => navigate('/admin?section=verification')}
-            >
-              <div className="flex items-center">
-                <div className="h-10 w-10 rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center">
-                  <ShieldCheck className="w-5 h-5" />
-                </div>
-                <div className="ml-3">
-                  <p className="text-xs text-gray-600">Pending Verification</p>
-                  <p className="text-xl font-semibold text-gray-900">{pendingVerifications}</p>
-                </div>
-              </div>
             </div>
           </div>
 
@@ -256,11 +142,17 @@ export function AdminDashboard() {
           )}
           {activeSection === 'duty' && (
             <div>
-              <p className="text-sm text-gray-700 mb-2">Manage daily AM/PM duty schedules.</p>
-              <ul className="list-disc pl-5 text-sm text-gray-600 space-y-1">
-                <li>Set dispatcher and receiver per shift.</li>
-                <li>Track notes and coverage across dates.</li>
-              </ul>
+              <p className="text-sm text-gray-700 mb-2 font-semibold">Duty Schedule Management:</p>
+              <ol className="list-decimal pl-5 text-sm text-gray-600 space-y-2 mb-3">
+                <li>View all patrol officers available for duty assignments.</li>
+                <li>Assign officers to AM (morning) or PM (afternoon/evening) shifts.</li>
+                <li>Set dispatcher (responsible for report assignments) and receiver (handles completed reports) per shift.</li>
+                <li>Track coverage: Ensure all shifts have assigned officers.</li>
+                <li>Add notes: Document special instructions, coverage gaps, or shift changes.</li>
+              </ol>
+              <p className="text-xs text-gray-500 mt-2">
+                <strong>Note:</strong> Duty schedules help organize patrol coverage and ensure proper report handling throughout the day.
+              </p>
             </div>
           )}
           {activeSection === 'users' && (
@@ -275,13 +167,17 @@ export function AdminDashboard() {
           )}
           {activeSection === 'verification' && (
             <div>
-              <p className="text-sm text-gray-700 mb-2">Review and verify user ID submissions.</p>
-              <ul className="list-disc pl-5 text-sm text-gray-600 space-y-1">
-                <li>View pending ID verification requests.</li>
-                <li>Review AI analysis and confidence scores.</li>
-                <li>Approve or reject verification requests.</li>
-                <li>Override AI decisions when necessary.</li>
-              </ul>
+              <p className="text-sm text-gray-700 mb-2 font-semibold">ID Verification Process:</p>
+              <ol className="list-decimal pl-5 text-sm text-gray-600 space-y-2 mb-3">
+                <li>Users submit ID documents (front and back) for verification.</li>
+                <li>AI automatically analyzes submissions and provides confidence scores.</li>
+                <li>Review pending requests: Check ID images, AI analysis, and user details.</li>
+                <li>Make decision: Approve (user gains full access) or Decline (request rejected).</li>
+                <li>Add admin notes (optional) to document your decision reasoning.</li>
+              </ol>
+              <p className="text-xs text-gray-500 mt-2">
+                <strong>Tip:</strong> High AI confidence (80%+) usually indicates valid IDs. Lower scores may need manual review.
+              </p>
             </div>
           )}
           {activeSection === 'stats' && (

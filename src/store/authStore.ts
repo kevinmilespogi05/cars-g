@@ -443,7 +443,8 @@ export const useAuthStore = create<AuthState>((set) => ({
       
       // Handle specific Supabase errors
       if (error.message?.includes('Invalid login credentials')) {
-        throw new Error('Invalid username or password. Please try again.');
+        // Generic error message to prevent account enumeration
+        throw new Error('Invalid credentials. Please check your username/email and password.');
       }
       
       
@@ -489,7 +490,8 @@ export const useAuthStore = create<AuthState>((set) => ({
           .maybeSingle();
 
         if (profileError || !profile) {
-          throw new Error('Invalid username or email. Please try again.');
+          // Generic error message to prevent account enumeration
+          throw new Error('Invalid credentials. Please check your username/email and password.');
         }
         
         email = profile.email;
@@ -543,7 +545,8 @@ export const useAuthStore = create<AuthState>((set) => ({
       
       // Handle specific Supabase errors
       if (error.message?.includes('Invalid login credentials')) {
-        throw new Error('Invalid username or email. Please try again.');
+        // Generic error message to prevent account enumeration
+        throw new Error('Invalid credentials. Please check your username/email and password.');
       }
       
       
