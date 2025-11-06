@@ -566,6 +566,14 @@ app.post('/api/reports', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
+    // Validate coordinates are valid (not zero, finite numbers, within valid ranges)
+    if (!Number.isFinite(location_lat) || !Number.isFinite(location_lng) ||
+        location_lat === 0 && location_lng === 0 ||
+        location_lat < -90 || location_lat > 90 ||
+        location_lng < -180 || location_lng > 180) {
+      return res.status(400).json({ error: 'Invalid location coordinates' });
+    }
+
     const payload = {
       user_id: userId,
       title: String(title).trim(),
@@ -1155,11 +1163,11 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
       });
     }
     
-    if (profile.verification_status === 'rejected') {
+    if (profile.verification_status === 'declined') {
       return res.status(403).json({
         success: false,
-        error: 'Your account verification was rejected. Please contact support for assistance.',
-        code: 'VERIFICATION_REJECTED'
+        error: 'Your account verification was declined. Please contact support for assistance.',
+        code: 'VERIFICATION_DECLINED'
       });
     }
 
@@ -1930,8 +1938,8 @@ app.post('/api/admin/verify-user', authenticateToken, requireRole('admin'), asyn
       return res.status(400).json({ success: false, error: 'Request ID and decision are required' });
     }
 
-    if (!['approved', 'rejected'].includes(decision)) {
-      return res.status(400).json({ success: false, error: 'Decision must be approved or rejected' });
+    if (!['approved', 'declined'].includes(decision)) {
+      return res.status(400).json({ success: false, error: 'Decision must be approved or declined' });
     }
 
     // Get the verification request
@@ -1968,7 +1976,7 @@ app.post('/api/admin/verify-user', authenticateToken, requireRole('admin'), asyn
     const { error: updateProfileError } = await supabaseAdmin
       .from('profiles')
       .update({
-        verification_status: isApproved ? 'verified' : 'rejected',
+        verification_status: isApproved ? 'verified' : 'declined',
         verification_notes: notes || null,
         verified_by: req.user.id,
         verified_at: new Date().toISOString()
@@ -1982,7 +1990,7 @@ app.post('/api/admin/verify-user', authenticateToken, requireRole('admin'), asyn
 
     return res.json({
       success: true,
-      message: `User ${isApproved ? 'approved' : 'rejected'} successfully`,
+      message: `User ${isApproved ? 'approved' : 'declined'} successfully`,
       decision,
       requestId
     });

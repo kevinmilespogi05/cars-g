@@ -172,7 +172,7 @@ export function AdminDashboard() {
                 <li>Users submit ID documents (front and back) for verification.</li>
                 <li>AI automatically analyzes submissions and provides confidence scores.</li>
                 <li>Review pending requests: Check ID images, AI analysis, and user details.</li>
-                <li>Make decision: Approve (user gains full access) or Decline (request rejected).</li>
+                <li>Make decision: Approve (user gains full access) or Decline (request declined).</li>
                 <li>Add admin notes (optional) to document your decision reasoning.</li>
               </ol>
               <p className="text-xs text-gray-500 mt-2">

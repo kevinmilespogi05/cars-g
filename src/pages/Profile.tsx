@@ -77,7 +77,8 @@ export function Profile() {
   const [priorityFilter, setPriorityFilter] = useState('');
 
   const getStatusColor = useCallback((status: string) => {
-    switch (status) {
+    const normalizedStatus = status?.toLowerCase();
+    switch (normalizedStatus) {
       case 'pending':
         return 'bg-yellow-100 text-yellow-800';
       case 'in_progress':
@@ -85,6 +86,7 @@ export function Profile() {
       case 'resolved':
         return 'bg-green-100 text-green-800';
       case 'declined':
+      case 'rejected': // Backward compatibility
         return 'bg-red-100 text-red-800';
       case 'verifying':
         return 'bg-purple-100 text-purple-800';
@@ -123,7 +125,14 @@ export function Profile() {
 
     // Apply status filter
     if (statusFilter) {
-      filtered = filtered.filter(report => report.status === statusFilter);
+      // Handle "Declined" filter - match both "declined" and "rejected" for backward compatibility
+      if (statusFilter.toLowerCase() === 'declined') {
+        filtered = filtered.filter(report => 
+          report.status?.toLowerCase() === 'declined' || report.status?.toLowerCase() === 'rejected'
+        );
+      } else {
+        filtered = filtered.filter(report => report.status === statusFilter);
+      }
     }
 
     // Apply priority filter

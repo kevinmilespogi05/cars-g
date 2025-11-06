@@ -21,6 +21,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { Report } from '../types';
+import { formatStatusForDisplay } from '../lib/badges';
 
 /**
  * ReportsList Component
@@ -149,8 +150,9 @@ export function ReportsList({
 
   // Filter reports based on search term and filters
   const filteredReports = reports.filter(report => {
-    // Always exclude verifying, awaiting_verification, and declined reports from the main reports view
-    if (report.status === 'verifying' || report.status === 'awaiting_verification' || report.status === 'declined') {
+    // Always exclude verifying, awaiting_verification, declined, and rejected reports from the main reports view
+    const status = report.status?.toLowerCase();
+    if (status === 'verifying' || status === 'awaiting_verification' || status === 'declined' || status === 'rejected') {
       return false;
     }
     
@@ -158,9 +160,11 @@ export function ReportsList({
     const categoryMatch = filters.category === 'All' || 
       (report.category || '').toLowerCase().includes(filters.category.toLowerCase().replace(/_/g, ' '));
     
-    // Status filter
+    // Status filter - handle "Declined" filter to match both "declined" and "rejected"
     const statusMatch = filters.status === 'All' || 
-      (report.status || '').toLowerCase() === filters.status.toLowerCase().replace(/\s+/g, '_');
+      (filters.status.toLowerCase() === 'declined' 
+        ? (report.status?.toLowerCase() === 'declined' || report.status?.toLowerCase() === 'rejected')
+        : (report.status || '').toLowerCase() === filters.status.toLowerCase().replace(/\s+/g, '_'));
     
     // Priority filter
     const priorityMatch = filters.priority === 'All' || 
@@ -532,7 +536,7 @@ export function ReportsList({
                 <div className="flex items-center gap-2 mb-4">
                   <span className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold ${getStatusColor(report.status)}`}>
                     {getStatusIcon(report.status)}
-                    <span className="ml-1.5">{report.status.replace('_', ' ')}</span>
+                    <span className="ml-1.5">{formatStatusForDisplay(report.status)}</span>
                   </span>
                   <span className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold ${getPriorityColor(report.priority)}`}>
                     {report.priority}

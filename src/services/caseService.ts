@@ -35,7 +35,12 @@ export const caseService = {
     
     // Only filter by status if specified, otherwise get all reports
     if (status && status !== 'All') {
-      query = query.eq('status', status);
+      // Handle "declined" filter - match both "declined" and "rejected" for backward compatibility
+      if (status.toLowerCase() === 'declined') {
+        query = query.in('status', ['declined', 'rejected']);
+      } else {
+        query = query.eq('status', status);
+      }
     }
     
     const { data, error } = await query.order('created_at', { ascending: true });
@@ -85,7 +90,12 @@ export const caseService = {
     
     // Only filter by status if specified, otherwise get all reports
     if (status && status !== 'All') {
-      query = query.eq('status', status);
+      // Handle "declined" filter - match both "declined" and "rejected" for backward compatibility
+      if (status.toLowerCase() === 'declined') {
+        query = query.in('status', ['declined', 'rejected']);
+      } else {
+        query = query.eq('status', status);
+      }
     }
     
     const { data, error } = await query.order('created_at', { ascending: true });

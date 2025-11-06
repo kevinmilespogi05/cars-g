@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { CheckCircle2, XCircle, Eye, RefreshCw, Hash, User2, Calendar, MapPin } from 'lucide-react';
-import { getStatusColor as badgeStatusColor } from '../lib/badges';
+import { getStatusColor as badgeStatusColor, formatStatusForDisplay } from '../lib/badges';
 import type { Report } from '../types';
 import { reportsService } from '../services/reportsService';
 import { supabase } from '../lib/supabase';
@@ -176,7 +176,7 @@ export function AdminCaseRequests() {
                         {r.title}
                       </Link>
                     </h3>
-                    <span className={`text-xs px-1.5 py-0.5 rounded-full ${badgeStatusColor(r.status)}`}>{r.status.replace('_', ' ')}</span>
+                    <span className={`text-xs px-1.5 py-0.5 rounded-full ${badgeStatusColor(r.status)}`}>{formatStatusForDisplay(r.status)}</span>
                     {r.case_number && (
                       <span className="inline-flex items-center text-xs px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-800">
                         <Hash className="h-3 w-3 mr-1" />

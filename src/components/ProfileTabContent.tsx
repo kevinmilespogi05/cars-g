@@ -966,7 +966,7 @@ export function ProfileTabContent({
                     <span className={`inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-semibold shadow-sm ${
                       isPatrolUser ? 'bg-emerald-100 text-emerald-800' : getStatusColor(report.status)
                     }`}>
-                      {isPatrolUser ? '✓ Resolved' : report.status.replace('_', ' ')}
+                      {isPatrolUser ? '✓ Resolved' : ((report.status === 'declined' || report.status === 'rejected') ? 'Declined' : report.status.replace('_', ' '))}
                     </span>
                     {report.priority && (
                       <span className={`inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-semibold shadow-sm ${getPriorityColor(report.priority)}`}>

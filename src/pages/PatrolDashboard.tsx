@@ -960,16 +960,24 @@ export function PatrolDashboard() {
                       >
                         <Navigation className="h-5 w-5" />
                       </button>
-                      <a
-                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(report.location_address || '')}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        onClick={(e) => e.stopPropagation()}
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          const { getReportCoordinates } = await import('../lib/geocoding');
+                          const coords = await getReportCoordinates(report as any);
+                          let url: string;
+                          if (coords) {
+                            url = `https://www.google.com/maps/search/?api=1&query=${coords.lat},${coords.lng}`;
+                          } else {
+                            url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(report.location_address || '')}`;
+                          }
+                          window.open(url, '_blank', 'noopener,noreferrer');
+                        }}
                         className="p-2 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
                         title="Open in Maps"
                       >
                         <MapPin className="h-5 w-5" />
-                      </a>
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -1256,15 +1264,23 @@ export function PatrolDashboard() {
                         <Navigation className="h-4 w-4 mr-2" />
                         Navigate
                       </button>
-                      <a
-                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedReport.location_address || '')}`}
-                        target="_blank"
-                        rel="noreferrer"
+                      <button
+                        onClick={async () => {
+                          const { getReportCoordinates } = await import('../lib/geocoding');
+                          const coords = await getReportCoordinates(selectedReport as any);
+                          let url: string;
+                          if (coords) {
+                            url = `https://www.google.com/maps/search/?api=1&query=${coords.lat},${coords.lng}`;
+                          } else {
+                            url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedReport.location_address || '')}`;
+                          }
+                          window.open(url, '_blank', 'noopener,noreferrer');
+                        }}
                         className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors"
                       >
                         <MapPin className="h-4 w-4 mr-2" />
                         Open in Maps
-                      </a>
+                      </button>
                     </div>
                   </div>
                 )}

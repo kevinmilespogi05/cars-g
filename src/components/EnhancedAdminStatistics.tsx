@@ -128,7 +128,10 @@ export function EnhancedAdminStatistics() {
       const pendingReports = reports.filter(r => r.status === 'pending').length;
       const inProgressReports = reports.filter(r => r.status === 'in_progress').length;
       const resolvedReports = reports.filter(r => r.status === 'resolved').length;
-      const declinedReports = reports.filter(r => r.status === 'declined').length;
+      const declinedReports = reports.filter(r => {
+        const status = r.status?.toLowerCase();
+        return status === 'declined' || status === 'rejected';
+      }).length;
       const verifyingReports = reports.filter(r => r.status === 'verifying').length;
       const awaitingVerificationReports = reports.filter(r => r.status === 'awaiting_verification').length;
       const cancelledReports = reports.filter(r => r.status === 'cancelled').length;

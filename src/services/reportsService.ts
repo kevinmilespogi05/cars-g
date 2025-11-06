@@ -5,6 +5,7 @@ import { authenticatedRequest } from '../lib/jwt';
 import { getApiUrl } from '../lib/config';
 import { checkAchievements } from '../lib/achievements';
 import { CommentsService } from './commentsService';
+import { formatStatusForDisplay } from '../lib/badges';
 
 export class ReportsServiceError extends Error {
   constructor(message: string) {
@@ -61,6 +62,27 @@ function _getCachedProfile(userId: string) {
 function _cacheProfile(userId: string, profile: { username: string; avatar_url: string | null }) {
   _profileCache.set(userId, { ...profile, lastUpdated: Date.now() });
   _cacheExpiry.set(userId, Date.now() + CACHE_TTL);
+}
+
+// Helper function to transform location JSON object to location_lat/location_lng
+// Database stores location as {lat, lng} JSON, but TypeScript interface expects location_lat/location_lng
+function _transformLocationData(report: any): any {
+  // If location_lat and location_lng already exist, use them
+  if (report.location_lat !== undefined && report.location_lng !== undefined) {
+    return report;
+  }
+  
+  // Otherwise, extract from location JSON object
+  if (report.location && typeof report.location === 'object') {
+    return {
+      ...report,
+      location_lat: report.location.lat ?? null,
+      location_lng: report.location.lng ?? null,
+    };
+  }
+  
+  // If no location data at all, return as-is (will be null/undefined)
+  return report;
 }
 
 // Optimized batch processing
@@ -1045,7 +1067,13 @@ export const reportsService = {
           .trim()
           .toLowerCase()
           .replace(/\s+/g, '_');
-        query = query.eq('status', normalizedStatus);
+        
+        // Handle "declined" filter - match both "declined" and "rejected" for backward compatibility
+        if (normalizedStatus === 'declined') {
+          query = query.in('status', ['declined', 'rejected']);
+        } else {
+          query = query.eq('status', normalizedStatus);
+        }
       }
       if (filters?.priority && filters.priority !== 'All') {
         query = (query as any).ilike('priority', filters.priority.toLowerCase());
@@ -1212,20 +1240,23 @@ export const reportsService = {
       }
 
       // Combine data efficiently
-      const result = reportsData.map(report => ({
-        ...report,
-        user_profile: profilesMap.get(report.user_id),
-        is_liked: likedReportIds.has(report.id),
-        likes: { count: likesCountMap.get(report.id) || 0 },
-        // Normalize comment count: sum legacy `comments`, new `report_comments`, and replies
-        comments: { 
-          count: (commentsCountMap.get(report.id) || 0) + 
-                 (reportCommentsCountMap.get(report.id) || 0) + 
-                 (replyCountMap.get(report.id) || 0) 
-        },
-        rating_avg: ratingsMap.get(report.id)?.avg,
-        rating_count: ratingsMap.get(report.id)?.count || 0
-      }));
+      const result = reportsData.map(report => {
+        const transformed = _transformLocationData(report);
+        return {
+          ...transformed,
+          user_profile: profilesMap.get(report.user_id),
+          is_liked: likedReportIds.has(report.id),
+          likes: { count: likesCountMap.get(report.id) || 0 },
+          // Normalize comment count: sum legacy `comments`, new `report_comments`, and replies
+          comments: { 
+            count: (commentsCountMap.get(report.id) || 0) + 
+                   (reportCommentsCountMap.get(report.id) || 0) + 
+                   (replyCountMap.get(report.id) || 0) 
+          },
+          rating_avg: ratingsMap.get(report.id)?.avg,
+          rating_count: ratingsMap.get(report.id)?.count || 0
+        };
+      });
 
       // Cache the result
       sessionStorage.setItem(`admin_reports_${cacheKeyHash}`, JSON.stringify({
@@ -1291,11 +1322,18 @@ export const reportsService = {
           .trim()
           .toLowerCase()
           .replace(/\s+/g, '_');
-        query = query.eq('status', normalizedStatus);
+        
+        // Handle "Declined" filter - match both "declined" and "rejected" for backward compatibility
+        if (normalizedStatus === 'declined') {
+          query = query.in('status', ['declined', 'rejected']);
+        } else {
+          query = query.eq('status', normalizedStatus);
+        }
       } else {
         // Exclude verifying and declined reports when no specific status filter is applied
         // Note: cancelled reports are now included in verification reports page
-        query = query.neq('status', 'verifying').neq('status', 'declined');
+        // Also exclude "rejected" for backward compatibility
+        query = query.neq('status', 'verifying').neq('status', 'declined').neq('status', 'rejected');
       }
       if (filters?.priority && filters.priority !== 'All') {
         query = (query as any).ilike('priority', filters.priority.toLowerCase());
@@ -1465,20 +1503,23 @@ export const reportsService = {
       }
 
       // Combine data efficiently
-      const result = reportsData.map(report => ({
-        ...report,
-        user_profile: profilesMap.get(report.user_id),
-        is_liked: likedReportIds.has(report.id),
-        likes: { count: likesCountMap.get(report.id) || 0 },
-        // Normalize comment count: sum legacy `comments`, new `report_comments`, and replies
-        comments: { 
-          count: (commentsCountMap.get(report.id) || 0) + 
-                 (reportCommentsCountMap.get(report.id) || 0) + 
-                 (replyCountMap.get(report.id) || 0) 
-        },
-        rating_avg: ratingsMap.get(report.id)?.avg,
-        rating_count: ratingsMap.get(report.id)?.count || 0
-      }));
+      const result = reportsData.map(report => {
+        const transformed = _transformLocationData(report);
+        return {
+          ...transformed,
+          user_profile: profilesMap.get(report.user_id),
+          is_liked: likedReportIds.has(report.id),
+          likes: { count: likesCountMap.get(report.id) || 0 },
+          // Normalize comment count: sum legacy `comments`, new `report_comments`, and replies
+          comments: { 
+            count: (commentsCountMap.get(report.id) || 0) + 
+                   (reportCommentsCountMap.get(report.id) || 0) + 
+                   (replyCountMap.get(report.id) || 0) 
+          },
+          rating_avg: ratingsMap.get(report.id)?.avg,
+          rating_count: ratingsMap.get(report.id)?.count || 0
+        };
+      });
 
       // Cache the result with the new namespace to prevent key collisions across pages
       sessionStorage.setItem(`reports_cache_${cacheKeyHash}`, JSON.stringify({
@@ -1529,8 +1570,8 @@ export const reportsService = {
           await supabase.from('notifications').insert({
             user_id: reportOwner.user_id,
             title: 'Case Updated',
-            message: `Your case "${reportOwner.title}" is now ${newStatus.replace('_', ' ')}.`,
-            type: newStatus === 'resolved' ? 'success' : (newStatus === 'declined' ? 'warning' : 'info'),
+            message: `Your case "${reportOwner.title}" is now ${formatStatusForDisplay(newStatus)}.`,
+            type: newStatus === 'resolved' ? 'success' : ((newStatus === 'declined' || newStatus === 'rejected') ? 'warning' : 'info'),
             link: `/reports/${reportId}`,
             read: false,
           } as any);

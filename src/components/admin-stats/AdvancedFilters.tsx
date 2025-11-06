@@ -220,7 +220,7 @@ export function AdvancedFilters({
                         onChange={() => toggleFilter('statuses', status)}
                         className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                       />
-                      <span className="text-sm text-gray-700 capitalize">{status.replace('_', ' ')}</span>
+                      <span className="text-sm text-gray-700 capitalize">{(status === 'declined' || status === 'rejected') ? 'Declined' : status.replace('_', ' ')}</span>
                     </label>
                   ))}
                 </div>

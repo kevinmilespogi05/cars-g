@@ -259,6 +259,14 @@ export function CreateReport() {
       return;
     }
 
+    // Validate coordinates are valid numbers
+    if (typeof location.lat !== 'number' || typeof location.lng !== 'number' || 
+        !Number.isFinite(location.lat) || !Number.isFinite(location.lng) ||
+        location.lat === 0 && location.lng === 0) {
+      alert('Invalid location coordinates. Please select a valid location on the map.');
+      return;
+    }
+
     if (!formData.title.trim()) {
       alert('Please enter a title for the report');
       return;
@@ -583,12 +591,9 @@ export function CreateReport() {
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-4 lg:space-y-5">
-              {/* Two-Column Grid Layout */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5">
-                
-                {/* LEFT COLUMN - Form Fields */}
-                <div className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4 lg:space-y-6">
+              {/* Report Details Section - Full Width */}
+              <div className="space-y-4">
                   
                   {/* Report Details Header */}
                   <div className="flex items-center space-x-2.5">
@@ -767,33 +772,29 @@ export function CreateReport() {
                     </p>
                   </div>
                 </div>
-                
               </div>
               
-              {/* RIGHT COLUMN - Location & Photos */}
-              <div className="space-y-4 lg:sticky lg:top-4 lg:self-start">
-                
-                {/* Location Section */}
-                <div className="space-y-3">
-                  <div className="flex items-center space-x-2.5">
-                    <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center text-purple-600 font-bold text-sm">2</div>
-                    <div>
-                      <h2 className="text-lg sm:text-xl font-bold text-gray-900">Location</h2>
-                      <p className="text-xs text-gray-600">Pin the issue on map</p>
-                    </div>
+              {/* Location Section - Full Width */}
+              <div className="space-y-4">
+                <div className="flex items-center space-x-2.5">
+                  <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center text-purple-600 font-bold text-sm">2</div>
+                  <div>
+                    <h2 className="text-lg sm:text-xl font-bold text-gray-900">Location</h2>
+                    <p className="text-xs text-gray-600">Pin the issue on map</p>
                   </div>
-                  
-                  <div className="bg-gradient-to-br from-primary-50/30 to-white rounded-2xl p-5 sm:p-6 border-2 border-gray-100 shadow-lg hover:shadow-xl transition-all duration-300 space-y-4">
-                    <label className="block text-sm font-semibold text-text-primary">
-                      Select Location <span className="text-red-500">*</span>
-                    </label>
-                    <div className="rounded-lg overflow-hidden border border-gray-300 shadow-sm">
-                      <MapPicker 
-                        onLocationSelect={setLocation} 
-                        initialLocation={location || undefined}
-                      />
-                    </div>
-                    {location && (
+                </div>
+                
+                <div className="bg-gradient-to-br from-primary-50/30 to-white rounded-2xl p-5 sm:p-6 border-2 border-gray-100 shadow-lg hover:shadow-xl transition-all duration-300 space-y-4">
+                  <label className="block text-sm font-semibold text-text-primary">
+                    Select Location <span className="text-red-500">*</span>
+                  </label>
+                  <div className="rounded-lg overflow-hidden border border-gray-300 shadow-sm">
+                    <MapPicker 
+                      onLocationSelect={setLocation} 
+                      initialLocation={location || undefined}
+                    />
+                  </div>
+                  {location && (
                       <div className="p-3 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-300 rounded-lg shadow-sm">
                         <div className="flex items-start space-x-2">
                           <MapPin className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
@@ -809,28 +810,24 @@ export function CreateReport() {
                         </div>
                       </div>
                     )}
-                  </div>
                 </div>
-                
-                {/* Photos Section */}
-                <div className="space-y-3">
-                  <div className="flex items-center space-x-2.5">
-                    <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center text-green-600 font-bold text-sm">3</div>
-                    <div>
-                      <h2 className="text-lg sm:text-xl font-bold text-gray-900">Photos</h2>
-                      <p className="text-xs text-gray-600">Add up to 5 images</p>
-                    </div>
-                  </div>
-                  
-                  <div className="bg-gradient-to-br from-primary-50/30 to-white rounded-2xl p-5 sm:p-6 border-2 border-gray-100 shadow-lg hover:shadow-xl transition-all duration-300">
-                    {renderImageUploadSection()}
-                  </div>
-                </div>
-                
               </div>
               
-            </div>
-            
+              {/* Photos Section - Full Width */}
+              <div className="space-y-4">
+                <div className="flex items-center space-x-2.5">
+                  <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center text-green-600 font-bold text-sm">3</div>
+                  <div>
+                    <h2 className="text-lg sm:text-xl font-bold text-gray-900">Photos</h2>
+                    <p className="text-xs text-gray-600">Add up to 5 images</p>
+                  </div>
+                </div>
+                
+                <div className="bg-gradient-to-br from-primary-50/30 to-white rounded-2xl p-5 sm:p-6 border-2 border-gray-100 shadow-lg hover:shadow-xl transition-all duration-300">
+                  {renderImageUploadSection()}
+                </div>
+              </div>
+              
             {/* Anonymous Reporting Toggle */}
             <div className="mt-6 sm:mt-8 mb-5">
               <div className="max-w-4xl mx-auto">

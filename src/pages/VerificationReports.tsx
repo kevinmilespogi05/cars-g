@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Filter, MapPin, Calendar, User, Heart, MessageCircle, Eye, Clock, CheckCircle, XCircle, AlertTriangle, Loader2, X, Shield, Trash2 } from 'lucide-react';
-import { getPriorityColor as badgePriorityColor, getStatusColor as badgeStatusColor } from '../lib/badges';
+import { getPriorityColor as badgePriorityColor, getStatusColor as badgeStatusColor, formatStatusForDisplay } from '../lib/badges';
 import { useAuthStore } from '../store/authStore';
 import { Report } from '../types';
 import { reportsService } from '../services/reportsService';
@@ -589,7 +589,7 @@ export function VerificationReports() {
                       {report.status === 'verifying' ? 'Verifying' : 
                        report.status === 'awaiting_verification' ? 'Awaiting Verification' :
                        report.status === 'cancelled' ? 'Cancelled' :
-                       report.status.replace('_', ' ')}
+                       formatStatusForDisplay(report.status)}
                     </span>
                   </div>
 

@@ -23,6 +23,7 @@ import { reportsService } from '../services/reportsService';
 import type { Report, ReportComment } from '../types';
 import { LikeDetailsModal } from '../components/LikeDetailsModal';
 import { useAuthStore } from '../store/authStore';
+import { formatStatusForDisplay } from '../lib/badges';
 
 export function CaseDetailsPage() {
   const { caseId } = useParams<{ caseId: string }>();
@@ -264,7 +265,7 @@ export function CaseDetailsPage() {
                 report.status === 'resolved' ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' :
                 'bg-red-100 text-red-800 border border-red-200'
               }`}>
-                {report.status.replace('_', ' ')}
+                {formatStatusForDisplay(report.status)}
               </span>
               <span className={`inline-flex items-center px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold ${
                 report.priority === 'high' ? 'bg-red-100 text-red-800 border border-red-200' :
@@ -345,9 +346,9 @@ export function CaseDetailsPage() {
                       {report.status === 'pending' && <Clock className="h-5 w-5 text-yellow-500" />}
                       {report.status === 'in_progress' && <AlertCircle className="h-5 w-5 text-blue-500" />}
                       {report.status === 'resolved' && <CheckCircle className="h-5 w-5 text-green-500" />}
-                      {report.status === 'declined' && <XCircle className="h-5 w-5 text-red-500" />}
+                      {(report.status === 'declined' || report.status === 'rejected') && <XCircle className="h-5 w-5 text-red-500" />}
                       <span className="text-sm text-gray-900 font-medium capitalize">
-                        {report.status.replace('_', ' ')}
+                        {formatStatusForDisplay(report.status)}
                       </span>
                     </div>
                   </div>

@@ -74,10 +74,18 @@ export function Reports() {
     const matchesFilters = (r: any) => {
       // Always exclude verifying, awaiting_verification, and declined reports from the main reports view
       // These should be handled on the verification page or user profile
-      if (r.status === 'verifying' || r.status === 'awaiting_verification' || r.status === 'declined') return false;
+      // Exclude verifying, awaiting_verification, declined, and rejected reports
+      const status = r.status?.toLowerCase();
+      if (status === 'verifying' || status === 'awaiting_verification' || status === 'declined' || status === 'rejected') return false;
       
       const categoryOk = filters.category === 'All' || (r.category || '').toLowerCase().includes(filters.category.toLowerCase().replace(/_/g, ' '));
-      const statusOk = filters.status === 'All' || (r.status || '').toLowerCase() === filters.status.toLowerCase().replace(/\s+/g, '_');
+      // Status filter - handle "Declined" filter to match both "declined" and "rejected"
+      const normalizedFilterStatus = filters.status?.toLowerCase().replace(/\s+/g, '_');
+      const reportStatus = (r.status || '').toLowerCase();
+      const statusOk = filters.status === 'All' || 
+        (normalizedFilterStatus === 'declined' 
+          ? (reportStatus === 'declined' || reportStatus === 'rejected')
+          : reportStatus === normalizedFilterStatus);
       const priorityOk = filters.priority === 'All' || (r.priority || '').toLowerCase() === filters.priority.toLowerCase();
       const searchOk = !searchTerm || ((r.title || '').toLowerCase().includes(searchTerm.toLowerCase()) || (r.description || '').toLowerCase().includes(searchTerm.toLowerCase()));
       return categoryOk && statusOk && priorityOk && searchOk;
@@ -97,7 +105,9 @@ export function Reports() {
         const exists = prev.some(r => r.id === reportId);
         
         // If status changes to verifying, awaiting_verification, or declined, remove it from main reports view
-        if (newStatus === 'verifying' || newStatus === 'awaiting_verification' || newStatus === 'declined') {
+        // Block transitioning to verifying, awaiting_verification, declined, or rejected
+        const normalizedStatus = newStatus?.toLowerCase();
+        if (normalizedStatus === 'verifying' || normalizedStatus === 'awaiting_verification' || normalizedStatus === 'declined' || normalizedStatus === 'rejected') {
           return prev.filter(r => r.id !== reportId);
         }
         
@@ -173,12 +183,14 @@ export function Reports() {
 
       // Filter out verifying, awaiting_verification, declined, and cancelled reports from the main reports view
       // These should be handled on the verification page or user profile
-      const filteredReportsData = reportsData.filter(report => 
-        report.status !== 'verifying' && 
-        report.status !== 'awaiting_verification' && 
-        report.status !== 'declined' &&
-        report.status !== 'cancelled'
-      );
+      const filteredReportsData = reportsData.filter(report => {
+        const status = report.status?.toLowerCase();
+        return status !== 'verifying' && 
+               status !== 'awaiting_verification' && 
+               status !== 'declined' &&
+               status !== 'rejected' &&
+               status !== 'cancelled';
+      });
 
       setReports(filteredReportsData);
     } catch (error) {

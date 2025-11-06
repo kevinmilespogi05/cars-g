@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents, Circle } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { MapPin, Loader2, Target, Crosshair } from 'lucide-react';
+import { MapPin, Loader2, Target, Crosshair, Navigation, ChevronDown, ChevronUp, CheckCircle2, AlertCircle } from 'lucide-react';
 import { 
   getEnhancedLocation, 
   getFastLocation,
@@ -53,6 +53,8 @@ export function MapPicker({ onLocationSelect, initialLocation }: MapPickerProps)
   const [showManual, setShowManual] = useState(false);
   const [manualLat, setManualLat] = useState('');
   const [manualLng, setManualLng] = useState('');
+  const [coordsExpanded, setCoordsExpanded] = useState(true);
+  const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
   const mapRef = useRef<L.Map>(null);
   const monitoringCleanupRef = useRef<(() => void) | null>(null);
   const bestAccuracyRef = useRef<number | null>(null);
@@ -179,6 +181,10 @@ export function MapPicker({ onLocationSelect, initialLocation }: MapPickerProps)
     setPosition(newPos);
     setAccuracy(newAccuracy);
     reverseGeocode(newPos);
+    
+    // Show success animation
+    setShowSuccessAnimation(true);
+    setTimeout(() => setShowSuccessAnimation(false), 2000);
   };
 
   // Enhanced error handling
@@ -252,17 +258,22 @@ export function MapPicker({ onLocationSelect, initialLocation }: MapPickerProps)
   };
 
   return (
-    <div className="w-full h-72 sm:h-80 rounded-lg overflow-hidden border border-gray-300 relative z-0">
+    <div className="w-full h-[500px] sm:h-[550px] rounded-lg overflow-hidden border border-gray-300 relative z-0">
+      {/* Error Banner - Top */}
       {error && (
-        <div className="absolute top-0 left-0 right-0 bg-yellow-100 text-yellow-800 p-2 text-sm flex items-center justify-between z-10">
-          <span>{error}</span>
+        <div className="absolute top-0 left-0 right-0 bg-yellow-50/95 backdrop-blur-sm border-b border-yellow-200 text-yellow-800 px-4 py-2.5 text-sm flex items-center justify-between z-[1001] shadow-sm">
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <AlertCircle className="h-4 w-4 flex-shrink-0" />
+            <span className="truncate">{error}</span>
+          </div>
           {!showLocationButton && (
             <button
               onClick={() => {
                 setShowLocationButton(true);
                 setError('');
               }}
-              className="ml-2 text-yellow-800 hover:text-yellow-900 underline"
+              className="ml-3 text-yellow-800 hover:text-yellow-900 underline text-sm font-medium flex-shrink-0"
+              aria-label="Try again to get location"
             >
               Try Again
             </button>
@@ -270,24 +281,24 @@ export function MapPicker({ onLocationSelect, initialLocation }: MapPickerProps)
         </div>
       )}
       
-      {/* Location Status Bar */}
-      {(locationMethod || accuracy) && (
-        <div className="absolute top-0 left-0 right-0 bg-blue-50 text-blue-800 p-2 text-xs flex items-center justify-between z-10">
-          <div className="flex items-center space-x-2">
+      {/* Location Status Banner - Below error or top */}
+      {(locationMethod || accuracy) && !error && (
+        <div className="absolute top-0 left-0 right-0 bg-blue-50/95 backdrop-blur-sm border-b border-blue-200 text-blue-800 px-4 py-2 text-xs flex items-center justify-between z-[1001] shadow-sm">
+          <div className="flex items-center gap-2">
             {isHighAccuracyMode ? (
-              <Target className="h-3 w-3" />
+              <Target className="h-3.5 w-3.5" />
             ) : (
-              <Crosshair className="h-3 w-3" />
+              <Crosshair className="h-3.5 w-3.5" />
             )}
             <span className="font-medium">{locationMethod}</span>
             {accuracy && (
-              <span>• Accuracy: ±{Math.round(accuracy)}m</span>
+              <span className="text-blue-700">• Accuracy: ±{Math.round(accuracy)}m</span>
             )}
           </div>
           {isHighAccuracyMode && (
-            <div className="flex items-center space-x-1">
+            <div className="flex items-center gap-1.5">
               <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-              <span>Live</span>
+              <span className="font-medium">Live</span>
             </div>
           )}
         </div>
@@ -305,83 +316,124 @@ export function MapPicker({ onLocationSelect, initialLocation }: MapPickerProps)
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        {/* Manual coordinate entry */}
-        <div className="absolute top-12 left-2 z-10 bg-white rounded-md shadow p-2 space-y-2 w-60">
-          <button
-            type="button"
-            onClick={() => setShowManual(v => !v)}
-            className="text-xs px-2 py-1 rounded bg-gray-100 hover:bg-gray-200"
-            title="Enter coordinates manually"
-          >
-            {showManual ? 'Hide coordinates' : 'Enter coordinates'}
-          </button>
-          {showManual && (
-            <div className="space-y-1">
-              <input
-                type="number"
-                step="any"
-                placeholder="Latitude"
-                value={manualLat}
-                onChange={(e) => setManualLat(e.target.value)}
-                className="w-full border border-gray-300 rounded px-2 py-1 text-xs"
-              />
-              <input
-                type="number"
-                step="any"
-                placeholder="Longitude"
-                value={manualLng}
-                onChange={(e) => setManualLng(e.target.value)}
-                className="w-full border border-gray-300 rounded px-2 py-1 text-xs"
-              />
+        
+        {/* Top-Right: Action Buttons Group - Vertical Stack */}
+        <div className="absolute top-14 right-3 z-[1000] flex flex-col gap-2">
+          {/* Manual Coordinate Entry Button */}
+          <div className="bg-white/95 backdrop-blur-md rounded-lg shadow-lg border border-gray-200/50 overflow-visible">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setShowManual(v => !v);
+              }}
+              disabled={isLoading}
+              className="w-full min-h-[44px] px-4 py-2.5 bg-gray-50 hover:bg-gray-100 active:bg-gray-200 disabled:opacity-50 transition-all duration-200 text-sm font-medium flex items-center justify-center gap-2 whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+              title="Enter coordinates manually"
+              aria-label={showManual ? "Hide coordinate input" : "Enter coordinates manually"}
+              aria-expanded={showManual}
+            >
+              <Navigation className="h-4 w-4 text-gray-700 flex-shrink-0" />
+              <span className="text-gray-900">{showManual ? 'Hide' : 'Enter Coords'}</span>
+            </button>
+            {showManual && (
+              <div className="p-3 space-y-2 border-t border-gray-200 bg-white">
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-semibold text-gray-700">Latitude</label>
+                  <input
+                    type="number"
+                    step="any"
+                    placeholder="e.g., 14.8257"
+                    value={manualLat}
+                    onChange={(e) => setManualLat(e.target.value)}
+                    className="w-full border border-gray-300 rounded-md px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    aria-label="Enter latitude coordinate"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-semibold text-gray-700">Longitude</label>
+                  <input
+                    type="number"
+                    step="any"
+                    placeholder="e.g., 120.2815"
+                    value={manualLng}
+                    onChange={(e) => setManualLng(e.target.value)}
+                    className="w-full border border-gray-300 rounded-md px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    aria-label="Enter longitude coordinate"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const lat = parseFloat(manualLat);
+                    const lng = parseFloat(manualLng);
+                    if (isFinite(lat) && isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+                      const coords = { lat, lng };
+                      setPosition(coords);
+                      reverseGeocode(coords);
+                      setShowManual(false);
+                      setManualLat('');
+                      setManualLng('');
+                    } else {
+                      setError('Invalid coordinates. Latitude must be between -90 and 90, Longitude between -180 and 180.');
+                    }
+                  }}
+                  className="w-full min-h-[44px] px-3 py-2.5 bg-primary-600 text-white rounded-md hover:bg-primary-700 active:bg-primary-800 transition-all duration-200 text-sm font-medium flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+                  aria-label="Set location from entered coordinates"
+                >
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span>Set Location</span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Location Buttons - Only show if location button is enabled */}
+          {showLocationButton && (
+            <div className="bg-white/95 backdrop-blur-md rounded-lg shadow-lg border border-gray-200/50 overflow-visible">
               <button
                 type="button"
-                onClick={() => {
-                  const lat = parseFloat(manualLat);
-                  const lng = parseFloat(manualLng);
-                  if (isFinite(lat) && isFinite(lng)) {
-                    const coords = { lat, lng };
-                    setPosition(coords);
-                    reverseGeocode(coords);
-                    setShowManual(false);
-                  }
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  getLocation();
                 }}
-                className="w-full text-xs px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-700"
+                disabled={isLoading}
+                className="w-full min-h-[44px] px-4 py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 text-sm font-medium text-white flex items-center justify-center gap-2 whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                title="Get my location quickly (fastest option)"
+                aria-label="Get my location quickly"
               >
-                Set location
+                {isLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
+                ) : (
+                  <MapPin className="h-4 w-4 flex-shrink-0" />
+                )}
+                <span>Fast Location</span>
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  getAccurateLocation();
+                }}
+                disabled={isLoading}
+                className="w-full min-h-[44px] px-4 py-2.5 bg-green-600 hover:bg-green-700 active:bg-green-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 text-sm font-medium text-white flex items-center justify-center gap-2 border-t border-green-500/30 whitespace-nowrap focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                title="Get my location with maximum accuracy (slower but more precise)"
+                aria-label="Get my location with maximum accuracy"
+              >
+                {isLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
+                ) : (
+                  <Target className="h-4 w-4 flex-shrink-0" />
+                )}
+                <span>Accurate Location</span>
               </button>
             </div>
           )}
         </div>
-        {showLocationButton && (
-          <div className="absolute top-12 right-2 z-10 bg-white rounded-lg shadow-md p-2 space-y-2">
-            <button
-              onClick={getLocation}
-              disabled={isLoading}
-              className="w-full bg-blue-600 text-white px-3 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 transition-all duration-200 text-sm font-medium flex items-center justify-center space-x-2"
-              title="Get my location quickly (fastest option)"
-            >
-              {isLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <MapPin className="h-4 w-4" />
-              )}
-              <span>Fast Location</span>
-            </button>
-            <button
-              onClick={getAccurateLocation}
-              disabled={isLoading}
-              className="w-full bg-green-600 text-white px-3 py-2 rounded-md hover:bg-green-700 disabled:opacity-50 transition-all duration-200 text-sm font-medium flex items-center justify-center space-x-2"
-              title="Get my location with maximum accuracy (slower but more precise)"
-            >
-              {isLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Target className="h-4 w-4" />
-              )}
-              <span>Accurate Location</span>
-            </button>
-          </div>
-        )}
+
         {/* Show accuracy circle when available */}
         {accuracy && accuracy > 0 && (
           <Circle
@@ -418,16 +470,79 @@ export function MapPicker({ onLocationSelect, initialLocation }: MapPickerProps)
           setPosition(loc);
           reverseGeocode(loc);
         }} />
-        {/* Coordinate readout */}
-        <div className="absolute bottom-2 left-2 z-10 bg-white/95 backdrop-blur rounded-md shadow px-3 py-2 text-xs text-gray-800">
-          <div className="flex items-center gap-2">
-            <span className="font-medium">Lat:</span>
-            <span>{Number.isFinite(position.lat) ? position.lat.toFixed(6) : position.lat}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="font-medium">Lng:</span>
-            <span>{Number.isFinite(position.lng) ? position.lng.toFixed(6) : position.lng}</span>
-          </div>
+        
+        {/* Bottom-Left: Coordinate Display Box - Collapsible */}
+        <div className={`absolute bottom-3 left-3 z-[1000] bg-white/98 backdrop-blur-md rounded-lg shadow-xl border-2 border-primary-500/30 transition-all duration-300 ${
+          coordsExpanded ? 'min-w-[280px]' : 'min-w-[200px]'
+        }`}>
+          {/* Header with collapse toggle */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setCoordsExpanded(!coordsExpanded);
+            }}
+            className="w-full px-4 py-2.5 flex items-center justify-between hover:bg-gray-50/50 transition-colors rounded-t-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-inset"
+            aria-label={coordsExpanded ? "Collapse coordinates" : "Expand coordinates"}
+            aria-expanded={coordsExpanded}
+          >
+            <div className="flex items-center gap-2">
+              <MapPin className="h-4 w-4 text-primary-600 flex-shrink-0" />
+              <span className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Selected Coordinates</span>
+              {showSuccessAnimation && (
+                <CheckCircle2 className="h-4 w-4 text-green-500 animate-pulse" />
+              )}
+            </div>
+            {coordsExpanded ? (
+              <ChevronDown className="h-4 w-4 text-gray-500" />
+            ) : (
+              <ChevronUp className="h-4 w-4 text-gray-500" />
+            )}
+          </button>
+          
+          {coordsExpanded && (
+            <div className="px-4 pb-3 space-y-2">
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-gray-700 min-w-[45px]">Lat:</span>
+                  <span className="text-sm font-mono font-semibold text-gray-900 bg-gray-50 px-2.5 py-1.5 rounded-md border border-gray-200 flex-1">
+                    {Number.isFinite(position.lat) ? position.lat.toFixed(6) : position.lat}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-gray-700 min-w-[45px]">Lng:</span>
+                  <span className="text-sm font-mono font-semibold text-gray-900 bg-gray-50 px-2.5 py-1.5 rounded-md border border-gray-200 flex-1">
+                    {Number.isFinite(position.lng) ? position.lng.toFixed(6) : position.lng}
+                  </span>
+                </div>
+              </div>
+              {address && (
+                <div className="pt-2 border-t border-gray-200">
+                  <p className="text-xs text-gray-600 line-clamp-2" title={address}>
+                    {address}
+                  </p>
+                </div>
+              )}
+              {accuracy && (
+                <div className="pt-2 border-t border-gray-200">
+                  <div className="flex items-center gap-1.5 text-xs text-gray-600">
+                    <Target className="h-3 w-3" />
+                    <span>Accuracy: ±{Math.round(accuracy)}m</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          
+          {/* Collapsed view - show just coordinates */}
+          {!coordsExpanded && (
+            <div className="px-4 pb-2.5">
+              <div className="text-xs font-mono text-gray-700">
+                {Number.isFinite(position.lat) ? position.lat.toFixed(4) : position.lat}, {Number.isFinite(position.lng) ? position.lng.toFixed(4) : position.lng}
+              </div>
+            </div>
+          )}
         </div>
       </MapContainer>
     </div>

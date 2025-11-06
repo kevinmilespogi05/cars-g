@@ -78,7 +78,7 @@ export function ToastContainer() {
 
   return (
     <div className="fixed bottom-6 left-0 right-0 z-[9999] px-4 flex flex-col items-center gap-3 pointer-events-none">
-      <AnimatePresence mode="popLayout">
+      <AnimatePresence>
         {toasts.map((toast) => (
           <ToastItem key={toast.id} toast={toast} onRemove={removeToast} />
         ))}

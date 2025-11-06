@@ -199,7 +199,10 @@ export function AdminStatistics() {
       const pendingReports = reports?.filter(r => r.status === 'pending').length || 0;
       const inProgressReports = reports?.filter(r => r.status === 'in_progress').length || 0;
       const resolvedReports = reports?.filter(r => r.status === 'resolved').length || 0;
-      const declinedReports = reports?.filter(r => r.status === 'declined').length || 0;
+      const declinedReports = reports?.filter(r => {
+        const status = r.status?.toLowerCase();
+        return status === 'declined' || status === 'rejected';
+      }).length || 0;
       const verifyingReports = reports?.filter(r => r.status === 'verifying').length || 0;
       const awaitingVerificationReports = reports?.filter(r => r.status === 'awaiting_verification').length || 0;
       const cancelledReports = reports?.filter(r => r.status === 'cancelled').length || 0;

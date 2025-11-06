@@ -34,7 +34,7 @@ interface Report {
   title: string;
   description: string;
   category: string;
-  status: 'verifying' | 'pending' | 'in_progress' | 'resolved' | 'rejected';
+  status: 'verifying' | 'pending' | 'in_progress' | 'resolved' | 'declined';
   priority: 'low' | 'medium' | 'high';
   location: {
     lat: number;
@@ -729,7 +729,7 @@ export function AdminMapDashboard() {
         return report;
       });
       
-      // Store all reports (including rejected) for the rejected button
+      // Store all reports (including declined) for the declined button
       setReports(updatedReports);
       
       // Cache for next visit for instant paint
@@ -1009,8 +1009,8 @@ export function AdminMapDashboard() {
 
       // Filter reports based on current filter and search
       const filteredReports = reports.filter(report => {
-        // Always exclude resolved and rejected reports from the map
-        if (report.status === 'resolved' || report.status === 'rejected') return false;
+        // Always exclude resolved and declined reports from the map
+        if (report.status === 'resolved' || report.status === 'declined') return false;
         const matchesFilter = filter === 'all' || report.status === filter;
         const matchesSearch = searchTerm === '' || 
           report.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -1189,7 +1189,7 @@ export function AdminMapDashboard() {
     if (status === 'in_progress') return 'bg-blue-500';
     if (status === 'awaiting_verification') return 'bg-orange-500';
     if (status === 'resolved') return 'bg-green-500';
-    if (status === 'rejected') return 'bg-red-500';
+    if (status === 'declined') return 'bg-red-500';
     
     // Fallback based on priority
     if (priority === 'high') return 'bg-red-500';
@@ -1204,7 +1204,7 @@ export function AdminMapDashboard() {
     if (status === 'in_progress') return '🔧';
     if (status === 'awaiting_verification') return '📋';
     if (status === 'resolved') return '✅';
-    if (status === 'rejected') return '❌';
+    if (status === 'declined') return '❌';
     
     // Fallback based on priority
     if (priority === 'high') return '🚨';
@@ -1236,7 +1236,7 @@ export function AdminMapDashboard() {
           <div class="flex flex-wrap gap-1">
             ${Object.entries(statusCounts).map(([status, count]) => `
               <span class="px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(status)}">
-                ${status.replace('_', ' ')}: ${count}
+                ${status === 'declined' ? 'Declined' : status.replace('_', ' ')}: ${count}
               </span>
             `).join('')}
           </div>
@@ -1267,7 +1267,7 @@ export function AdminMapDashboard() {
         </div>
         <div class="text-sm text-gray-600 mb-3 leading-relaxed">${report.description.substring(0, 120)}${report.description.length > 120 ? '...' : ''}</div>
         <div class="flex items-center justify-between text-xs mb-2">
-          <span class="px-2 py-1 rounded-full ${getStatusColor(report.status)} font-medium">${report.status.replace('_', ' ')}</span>
+          <span class="px-2 py-1 rounded-full ${getStatusColor(report.status)} font-medium">${report.status === 'declined' ? 'Declined' : report.status.replace('_', ' ')}</span>
           <span class="px-2 py-1 rounded-full ${getPriorityColor(report.priority)} font-medium">${(report.priority || '').charAt(0).toUpperCase() + (report.priority || '').slice(1)}</span>
         </div>
         ${(() => { const lvl = getEffectiveLevel(report as any); return typeof lvl === 'number' ? `
@@ -1297,7 +1297,7 @@ export function AdminMapDashboard() {
       case 'in_progress': return 'bg-blue-100 text-blue-800';
       case 'awaiting_verification': return 'bg-orange-100 text-orange-800';
       case 'resolved': return 'bg-green-100 text-green-800';
-      case 'rejected': return 'bg-red-100 text-red-800';
+      case 'declined': return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -1474,7 +1474,7 @@ export function AdminMapDashboard() {
 
       const actionText = newStatus === 'in_progress' ? 'approved' : 
                         newStatus === 'resolved' ? (isCompletingReport ? 'completed and resolved' : 'resolved') : 
-                        newStatus === 'rejected' ? 'rejected' : 
+                        newStatus === 'declined' ? 'declined' : 
                         'updated';
       
       showNotification(`Report ${actionText} successfully`, 'success');
@@ -1506,8 +1506,8 @@ export function AdminMapDashboard() {
   };
 
   const filteredReports = reports.filter(report => {
-    // Exclude resolved and rejected reports from the main view - they go to history
-    if (report.status === 'resolved' || report.status === 'rejected') return false;
+    // Exclude resolved and declined reports from the main view - they go to history
+    if (report.status === 'resolved' || report.status === 'declined') return false;
     
     // Exclude patrol reports (in_progress and awaiting_verification) from the main view
     // They should only appear in the Patrol Reports section
@@ -1636,8 +1636,8 @@ export function AdminMapDashboard() {
                 { key: 'in_progress', label: 'In Progress' },
                 { key: 'awaiting_verification', label: 'Awaiting Verification' }
               ] as Array<{ key: 'all' | Report['status']; label: string }>).map(({ key, label }) => {
-                const nonResolvedRejected = reports.filter(r => r.status !== 'resolved' && r.status !== 'rejected');
-                const count = key === 'all' ? nonResolvedRejected.length : nonResolvedRejected.filter(r => r.status === key).length;
+                const nonResolvedDeclined = reports.filter(r => r.status !== 'resolved' && r.status !== 'declined');
+                const count = key === 'all' ? nonResolvedDeclined.length : nonResolvedDeclined.filter(r => r.status === key).length;
                 const isActive = filter === key;
                 return (
                   <button
@@ -1686,7 +1686,7 @@ export function AdminMapDashboard() {
                     <option value="pending">Pending</option>
                     <option value="in_progress">In Progress</option>
                     <option value="awaiting_verification">Awaiting Verification</option>
-                    <option value="rejected">Rejected</option>
+                    <option value="declined">Declined</option>
                   </select>
                 </div>
                 <div>
@@ -1782,10 +1782,10 @@ export function AdminMapDashboard() {
                             report.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
                             report.status === 'awaiting_verification' ? 'bg-orange-100 text-orange-800' :
                             report.status === 'resolved' ? 'bg-green-100 text-green-800' :
-                            report.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                            report.status === 'declined' ? 'bg-red-100 text-red-800' :
                             'bg-gray-100 text-gray-800'
                           }`}>
-                            {report.status === 'awaiting_verification' ? 'Awaiting Verification' : report.status.replace('_', ' ')}
+                            {report.status === 'awaiting_verification' ? 'Awaiting Verification' : report.status === 'declined' ? 'Declined' : report.status.replace('_', ' ')}
                           </span>
                         </div>
                         {report.case_number && (
@@ -1827,7 +1827,7 @@ export function AdminMapDashboard() {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleReportAction(report.id, 'rejected');
+                              handleReportAction(report.id, 'declined');
                             }}
                             className="inline-flex items-center px-3 py-2 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
                             title="Reject"
@@ -1911,7 +1911,7 @@ export function AdminMapDashboard() {
                           {report.title}
                         </h4>
                         <span className={`ml-3 px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(report.status)}`}>
-                          {report.status.replace('_', ' ')}
+                          {report.status === 'declined' ? 'Declined' : report.status.replace('_', ' ')}
                         </span>
                       </div>
                       {report.case_number && (
@@ -1935,16 +1935,16 @@ export function AdminMapDashboard() {
                           const getNextActions = (currentStatus: typeof report.status) => {
                             switch (currentStatus) {
                               case 'pending':
-                                return ['in_progress', 'rejected']; // Start work or reject
+                                return ['in_progress', 'declined']; // Start work or decline
                               case 'in_progress':
                                 return ['awaiting_verification', 'resolved']; // Submit for verification or mark resolved
                               case 'awaiting_verification':
-                                return ['resolved', 'rejected']; // Approve or reject
+                                return ['resolved', 'declined']; // Approve or decline
                               case 'verifying':
                                 return ['pending', 'in_progress']; // Move to pending or start work
                               case 'resolved':
                                 return ['in_progress']; // Reopen if needed
-                              case 'rejected':
+                              case 'declined':
                                 return ['pending']; // Reopen if needed
                               default:
                                 return ['pending', 'in_progress'];
@@ -1982,7 +1982,7 @@ export function AdminMapDashboard() {
                             >
                               {target === 'resolved' ? (
                                 <Check className="w-4 h-4" />
-                              ) : target === 'rejected' ? (
+                              ) : target === 'declined' ? (
                                 <X className="w-4 h-4" />
                               ) : target === 'awaiting_verification' ? (
                                 <Eye className="w-4 h-4" />
@@ -2232,7 +2232,7 @@ export function AdminMapDashboard() {
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="w-4 h-4 rounded-full border border-white bg-red-500"></div>
-                    <span>Rejected</span>
+                    <span>Declined</span>
                   </div>
                   <div className="text-xs text-gray-500 mt-2 pt-2 border-t border-gray-200">
                     <span>Patrol reports are highlighted in the sidebar</span>
@@ -2339,7 +2339,7 @@ export function AdminMapDashboard() {
                               report.status === 'awaiting_verification' ? 'bg-orange-100 text-orange-800' :
                               'bg-gray-100 text-gray-800'
                             }`}>
-                              {report.status === 'awaiting_verification' ? 'Verify' : report.status.replace('_', ' ')}
+                              {report.status === 'awaiting_verification' ? 'Verify' : report.status === 'declined' ? 'Declined' : report.status.replace('_', ' ')}
                             </span>
                           </div>
                           {report.case_number && (
@@ -2371,7 +2371,7 @@ export function AdminMapDashboard() {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleReportAction(report.id, 'rejected');
+                                handleReportAction(report.id, 'declined');
                               }}
                               className="inline-flex items-center gap-1 px-1 py-0.5 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 rounded border border-red-200"
                             >
@@ -2426,7 +2426,7 @@ export function AdminMapDashboard() {
                   <option value="pending">Pending</option>
                   <option value="in_progress">In Progress</option>
                   <option value="awaiting_verification">Awaiting Verification</option>
-                  <option value="rejected">Rejected</option>
+                  <option value="declined">Declined</option>
                 </select>
               </div>
             </div>
@@ -2479,16 +2479,16 @@ export function AdminMapDashboard() {
                             const getNextActions = (currentStatus: typeof report.status) => {
                               switch (currentStatus) {
                                 case 'pending':
-                                  return ['in_progress', 'rejected']; // Start work or reject
+                                  return ['in_progress', 'declined']; // Start work or decline
                                 case 'in_progress':
                                   return ['awaiting_verification', 'resolved']; // Submit for verification or mark resolved
                                 case 'awaiting_verification':
-                                  return ['resolved', 'rejected']; // Approve or reject
+                                  return ['resolved', 'declined']; // Approve or decline
                                 case 'verifying':
                                   return ['pending', 'in_progress']; // Move to pending or start work
                                 case 'resolved':
                                   return ['in_progress']; // Reopen if needed
-                                case 'rejected':
+                                case 'declined':
                                   return ['pending']; // Reopen if needed
                                 default:
                                   return ['pending', 'in_progress'];
@@ -2526,7 +2526,7 @@ export function AdminMapDashboard() {
                               >
                                 {target === 'resolved' ? (
                                   <Check className="w-3 h-3" />
-                                ) : target === 'rejected' ? (
+                                ) : target === 'declined' ? (
                                   <X className="w-3 h-3" />
                                 ) : target === 'awaiting_verification' ? (
                                   <Eye className="w-3 h-3" />
@@ -2803,7 +2803,7 @@ export function AdminMapDashboard() {
                       </div>
                       <div className="flex flex-col items-end gap-2 ml-4">
                         <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(report.status)}`}>
-                          {report.status.replace('_', ' ')}
+                          {report.status === 'declined' ? 'Declined' : report.status.replace('_', ' ')}
                         </span>
                         <span className={`px-3 py-1 rounded-full text-sm font-medium ${getPriorityColor(report.priority)}`}>
                           {capitalize(report.priority)}
@@ -2848,16 +2848,16 @@ export function AdminMapDashboard() {
 
                     {/* Status Management Buttons */}
                     <div className="flex items-center gap-2 flex-wrap">
-                      {(['verifying','pending','in_progress','awaiting_verification','resolved','rejected'] as const)
+                      {(['verifying','pending','in_progress','awaiting_verification','resolved','declined'] as const)
                         .filter(target => target !== report.status)
                         .sort((a, b) => {
                           const orderMap: Record<Report['status'], Record<string, number>> = {
-                            verifying: { pending: 0, in_progress: 1, awaiting_verification: 2, resolved: 3, rejected: 4, verifying: 99 },
-                            pending: { in_progress: 0, awaiting_verification: 1, resolved: 2, rejected: 3, pending: 99 },
-                            in_progress: { awaiting_verification: 0, resolved: 1, rejected: 2, pending: 3, in_progress: 99 },
-                            awaiting_verification: { resolved: 0, rejected: 1, pending: 2, in_progress: 3, awaiting_verification: 99 },
-                            resolved: { in_progress: 0, pending: 1, rejected: 2, resolved: 99 },
-                            rejected: { pending: 0, in_progress: 1, resolved: 2, rejected: 99 },
+                            verifying: { pending: 0, in_progress: 1, awaiting_verification: 2, resolved: 3, declined: 4, verifying: 99 },
+                            pending: { in_progress: 0, awaiting_verification: 1, resolved: 2, declined: 3, pending: 99 },
+                            in_progress: { awaiting_verification: 0, resolved: 1, declined: 2, pending: 3, in_progress: 99 },
+                            awaiting_verification: { resolved: 0, declined: 1, pending: 2, in_progress: 3, awaiting_verification: 99 },
+                            resolved: { in_progress: 0, pending: 1, declined: 2, resolved: 99 },
+                            declined: { pending: 0, in_progress: 1, resolved: 2, declined: 99 },
                           } as any;
                           return (orderMap[report.status] as any)[a] - (orderMap[report.status] as any)[b];
                         })
@@ -2890,7 +2890,7 @@ export function AdminMapDashboard() {
                           >
                             {target === 'resolved' ? (
                               <Check className="w-4 h-4" />
-                            ) : target === 'rejected' ? (
+                            ) : target === 'declined' ? (
                               <X className="w-4 h-4" />
                             ) : target === 'awaiting_verification' ? (
                               <Eye className="w-4 h-4" />

@@ -81,20 +81,8 @@ class StandaloneWarmup {
     console.log('\n🔥 Warming up backend services...');
     
     const endpoints = [
-      { url: `${CONFIG.backend}/health`, name: 'Health Check' },
-      { 
-        url: `${CONFIG.backend}/api/email/test`, 
-        name: 'Email Service',
-        options: {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            to: 'warmup@example.com',
-            subject: 'Warmup Test',
-            text: 'Standalone warmup test'
-          })
-        }
-      }
+      { url: `${CONFIG.backend}/health`, name: 'Health Check' }
+      // Email test endpoint removed to prevent email flooding
     ];
 
     const results = [];

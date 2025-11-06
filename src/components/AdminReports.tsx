@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Search, Filter, CheckCircle2, XCircle, Wrench, RefreshCw, Eye, Trash2, User2, Calendar, MapPin, X, Navigation, Hash, CalendarDays, FileText, Download, HelpCircle, Edit2 } from 'lucide-react';
-import { getStatusColor as badgeStatusColor } from '../lib/badges';
+import { getStatusColor as badgeStatusColor, formatStatusForDisplay } from '../lib/badges';
 import { reportsService } from '../services/reportsService';
 import type { Report } from '../types';
 import { supabase } from '../lib/supabase';
@@ -12,16 +12,18 @@ import { CommentsService } from '../services/commentsService';
 import { ConfirmationModal } from './ConfirmationModal';
 import { Notification } from './Notification';
 import { useToastContext } from '../contexts/ToastContext';
+import { getReportCoordinates, isValidCoordinates } from '../lib/geocoding';
 
 type StatusFilter = 'All' | 'verifying' | 'pending' | 'in_progress' | 'resolved' | 'declined';
 
 export function AdminReports() {
+  const navigate = useNavigate();
   const { success: showToastSuccess, error: showToastError, info: showToastInfo } = useToastContext();
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const [status, setStatus] = useState<StatusFilter>('resolved');
+  const [status, setStatus] = useState<StatusFilter>('All');
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
   const loadingRef = React.useRef(false);
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' | 'warning' } | null>(null);
@@ -297,7 +299,7 @@ export function AdminReports() {
       const allowedTransitions = validTransitions[currentReport.status] || [];
       if (!allowedTransitions.includes(newStatus)) {
         showNotification(
-          `Cannot transition from "${currentReport.status.replace('_', ' ')}" to "${newStatus.replace('_', ' ')}". Valid transitions: ${allowedTransitions.join(', ')}.`,
+          `Cannot transition from "${formatStatusForDisplay(currentReport.status)}" to "${formatStatusForDisplay(newStatus)}". Valid transitions: ${allowedTransitions.join(', ')}.`,
           'error'
         );
         setStatusUpdateLoading(prev => ({ ...prev, [reportId]: false }));
@@ -332,7 +334,7 @@ export function AdminReports() {
       
       // Show success notification
       showNotification(
-        `Report status updated from "${currentReport.status.replace('_', ' ')}" to "${newStatus.replace('_', ' ')}" successfully.`,
+        `Report status updated from "${formatStatusForDisplay(currentReport.status)}" to "${formatStatusForDisplay(newStatus)}" successfully.`,
         'success'
       );
       
@@ -856,7 +858,7 @@ export function AdminReports() {
                       <div className="flex items-center gap-2 flex-wrap">
                         {/* Status Badge */}
                         <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${badgeStatusColor(r.status)}`}>
-                          {r.status.replace('_', ' ')}
+                          {formatStatusForDisplay(r.status)}
                         </span>
                         {/* Priority Badge */}
                         {r.priority && (
@@ -1264,7 +1266,7 @@ export function AdminReports() {
                   <div>
                     <div className="text-xs uppercase tracking-wide text-gray-500">Status</div>
                     <div className="mt-1">
-                      <span className={`${selectedReport.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : selectedReport.status === 'in_progress' ? 'bg-blue-100 text-blue-800' : selectedReport.status === 'resolved' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'} text-xs px-2 py-0.5 rounded-full`}>{selectedReport.status.replace('_', ' ')}</span>
+                      <span className={`${selectedReport.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : selectedReport.status === 'in_progress' ? 'bg-blue-100 text-blue-800' : selectedReport.status === 'resolved' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'} text-xs px-2 py-0.5 rounded-full`}>{formatStatusForDisplay(selectedReport.status)}</span>
                     </div>
                   </div>
                   {selectedReport.case_number && (
@@ -1350,15 +1352,32 @@ export function AdminReports() {
                         <Navigation className="w-3 h-3" />
                         Navigate to Location
                       </button>
-                      <a
-                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedReport.location_address || '')}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-600 text-white text-xs rounded-lg hover:bg-gray-700"
+                      <button
+                        onClick={async () => {
+                          // Try to get coordinates (with geocoding fallback if needed)
+                          const coords = await getReportCoordinates(selectedReport);
+                          
+                          if (coords) {
+                            const params = new URLSearchParams({
+                              lat: coords.lat.toString(),
+                              lng: coords.lng.toString(),
+                              reportId: selectedReport.id,
+                              zoom: '16'
+                            });
+                            navigate(`/admin/map?${params.toString()}`);
+                          } else {
+                            // If geocoding also failed, show error message
+                            showToastError('Unable to determine location coordinates. Please ensure the report has a valid address or coordinates.', 5000);
+                          }
+                        }}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-600 text-white text-xs rounded-lg hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        title={!isValidCoordinates(selectedReport.location_lat, selectedReport.location_lng) && !selectedReport.location_address 
+                          ? 'Location coordinates are missing. Geocoding will be attempted from address.' 
+                          : 'Open this report location in the map view'}
                       >
                         <MapPin className="w-3 h-3" />
                         Open in Maps
-                      </a>
+                      </button>
                     </div>
                   </div>
                 )}

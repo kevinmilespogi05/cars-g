@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
 import { awardPoints } from '../lib/points';
@@ -57,6 +57,7 @@ interface MapMarker {
 
 export function AdminMapDashboard() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user } = useAuthStore();
   const [reports, setReports] = useState<Report[]>([]);
   const [mapMarkers, setMapMarkers] = useState<MapMarker[]>([]);
@@ -67,8 +68,21 @@ export function AdminMapDashboard() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [realTimeEnabled, setRealTimeEnabled] = useState(true);
-  const [mapCenter, setMapCenter] = useState<[number, number]>([14.8386, 120.1881]); // Default to Castillejos, Zambales, Philippines
-  const [zoom, setZoom] = useState(14);
+  
+  // Read URL parameters for initial map center/zoom
+  const urlLat = searchParams.get('lat');
+  const urlLng = searchParams.get('lng');
+  const urlZoom = searchParams.get('zoom');
+  const urlReportId = searchParams.get('reportId');
+  
+  // Initialize map center and zoom from URL params or defaults
+  const initialCenter: [number, number] = urlLat && urlLng 
+    ? [parseFloat(urlLat), parseFloat(urlLng)]
+    : [14.8386, 120.1881]; // Default to Castillejos, Zambales, Philippines
+  const initialZoom = urlZoom ? parseInt(urlZoom, 10) : 14;
+  
+  const [mapCenter, setMapCenter] = useState<[number, number]>(initialCenter);
+  const [zoom, setZoom] = useState(initialZoom);
   const [mapInitialized, setMapInitialized] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
   
@@ -274,12 +288,48 @@ export function AdminMapDashboard() {
     }
   }, []); // Only run once on mount
 
+  // Update map center/zoom if URL parameters are present and map is already initialized
+  useEffect(() => {
+    if (urlLat && urlLng && mapInitialized && mapInstance.current) {
+      const lat = parseFloat(urlLat);
+      const lng = parseFloat(urlLng);
+      const zoomLevel = urlZoom ? parseInt(urlZoom, 10) : 16;
+      
+      if (!isNaN(lat) && !isNaN(lng)) {
+        mapInstance.current.setView([lat, lng], zoomLevel, {
+          animate: true,
+          duration: 0.8
+        });
+      }
+    }
+  }, [urlLat, urlLng, urlZoom, mapInitialized]);
+
   useEffect(() => {
     if (updateTimerRef.current) clearTimeout(updateTimerRef.current);
     updateTimerRef.current = setTimeout(() => {
       updateMapMarkers();
     }, 100);
   }, [reports, filter, searchTerm]);
+
+  // Focus on report from URL parameters after map and markers are ready
+  useEffect(() => {
+    if (!urlReportId || !mapInitialized || !mapInstance.current || reports.length === 0) return;
+    
+    // Wait a bit for markers to be rendered
+    const timer = setTimeout(() => {
+      const targetReport = reports.find(r => r.id === urlReportId);
+      if (targetReport) {
+        focusReportOnMap(targetReport);
+        // Optionally open the marker popup
+        const marker = markerRefs.current.get(targetReport.id);
+        if (marker && marker.openPopup) {
+          marker.openPopup();
+        }
+      }
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  }, [urlReportId, mapInitialized, reports, mapInstance.current]);
 
   // Cleanup map on unmount
   useEffect(() => {
@@ -1122,7 +1172,8 @@ export function AdminMapDashboard() {
     if (status === 'in_progress') return 'bg-blue-500';
     if (status === 'awaiting_verification') return 'bg-orange-500';
     if (status === 'resolved') return 'bg-green-500';
-    if (status === 'declined') return 'bg-red-500';
+    const statusLower = status?.toLowerCase();
+    if (statusLower === 'declined' || statusLower === 'rejected') return 'bg-red-500';
     
     // Fallback based on priority
     if (priority === 'high') return 'bg-red-500';
@@ -1137,7 +1188,7 @@ export function AdminMapDashboard() {
     if (status === 'in_progress') return '🔧';
     if (status === 'awaiting_verification') return '📋';
     if (status === 'resolved') return '✅';
-    if (status === 'declined') return '❌';
+    if (status === 'declined' || status === 'rejected') return '❌';
     
     // Fallback based on priority
     if (priority === 'high') return '🚨';
@@ -1169,7 +1220,7 @@ export function AdminMapDashboard() {
           <div class="flex flex-wrap gap-1">
             ${Object.entries(statusCounts).map(([status, count]) => `
               <span class="px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(status)}">
-                ${status.replace('_', ' ')}: ${count}
+                ${(status === 'declined' || status === 'rejected') ? 'Declined' : status.replace('_', ' ')}: ${count}
               </span>
             `).join('')}
           </div>
@@ -1200,7 +1251,7 @@ export function AdminMapDashboard() {
         </div>
         <div class="text-sm text-gray-600 mb-3 leading-relaxed">${report.description.substring(0, 120)}${report.description.length > 120 ? '...' : ''}</div>
         <div class="flex items-center justify-between text-xs mb-2">
-          <span class="px-2 py-1 rounded-full ${getStatusColor(report.status)} font-medium">${report.status.replace('_', ' ')}</span>
+          <span class="px-2 py-1 rounded-full ${getStatusColor(report.status)} font-medium">${(report.status === 'declined' || report.status === 'rejected') ? 'Declined' : report.status.replace('_', ' ')}</span>
           <span class="px-2 py-1 rounded-full ${getPriorityColor(report.priority)} font-medium">${(report.priority || '').charAt(0).toUpperCase() + (report.priority || '').slice(1)}</span>
         </div>
         ${(() => { const lvl = getEffectiveLevel(report as any); return typeof lvl === 'number' ? `
@@ -1224,13 +1275,16 @@ export function AdminMapDashboard() {
   };
 
   const getStatusColor = (status: string): string => {
-    switch (status) {
+    const normalizedStatus = status?.toLowerCase();
+    switch (normalizedStatus) {
       case 'verifying': return 'bg-purple-100 text-purple-800';
       case 'pending': return 'bg-yellow-100 text-yellow-800';
       case 'in_progress': return 'bg-blue-100 text-blue-800';
       case 'awaiting_verification': return 'bg-orange-100 text-orange-800';
       case 'resolved': return 'bg-green-100 text-green-800';
-      case 'declined': return 'bg-red-100 text-red-800';
+      case 'declined':
+      case 'rejected': // Backward compatibility
+        return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -1446,8 +1500,9 @@ export function AdminMapDashboard() {
   };
 
   const filteredReports = reports.filter(report => {
-    // Exclude resolved and declined reports from the main view - they go to history
-    if (report.status === 'resolved' || report.status === 'declined') return false;
+    // Exclude resolved and declined/rejected reports from the main view - they go to history
+    const status = report.status?.toLowerCase();
+    if (status === 'resolved' || status === 'declined' || status === 'rejected') return false;
     
     // Exclude patrol reports (in_progress and awaiting_verification) from the main view
     // They should only appear in the Patrol Reports section
@@ -1539,7 +1594,10 @@ export function AdminMapDashboard() {
                 { key: 'in_progress', label: 'In Progress' },
                 { key: 'awaiting_verification', label: 'Awaiting Verification' }
               ] as Array<{ key: 'all' | Report['status']; label: string }>).map(({ key, label }) => {
-                const nonResolvedDeclined = reports.filter(r => r.status !== 'resolved' && r.status !== 'declined');
+                const nonResolvedDeclined = reports.filter(r => {
+                  const status = r.status?.toLowerCase();
+                  return status !== 'resolved' && status !== 'declined' && status !== 'rejected';
+                });
                 const count = key === 'all' ? nonResolvedDeclined.length : nonResolvedDeclined.filter(r => r.status === key).length;
                 const isActive = filter === key;
                 return (
@@ -1815,7 +1873,7 @@ export function AdminMapDashboard() {
               <div>
                 <h3 className="text-sm font-medium text-gray-500 mb-1">Status</h3>
                 <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(selectedReportForModal.status)}`}>
-                  {selectedReportForModal.status.replace('_', ' ')}
+                  {(selectedReportForModal.status === 'declined' || selectedReportForModal.status === 'rejected') ? 'Declined' : selectedReportForModal.status.replace('_', ' ')}
                 </span>
               </div>
 
@@ -1976,7 +2034,7 @@ export function AdminMapDashboard() {
                       </div>
                       <div className="flex flex-col items-end gap-2 ml-4">
                         <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(report.status)}`}>
-                          {report.status.replace('_', ' ')}
+                          {(report.status === 'declined' || report.status === 'rejected') ? 'Declined' : report.status.replace('_', ' ')}
                         </span>
                         <span className={`px-3 py-1 rounded-full text-sm font-medium ${getPriorityColor(report.priority)}`}>
                           {capitalize(report.priority)}
@@ -2022,17 +2080,27 @@ export function AdminMapDashboard() {
                     {/* Status Management Buttons */}
                     <div className="flex items-center gap-2 flex-wrap">
                       {(['verifying','pending','in_progress','awaiting_verification','resolved','declined'] as const)
-                        .filter(target => target !== report.status)
+                        .filter(target => {
+                          // Filter out current status
+                          if (target === report.status) return false;
+                          // Filter out 'declined' if report is already 'rejected' (they're treated the same)
+                          if (target === 'declined' && report.status === 'rejected') return false;
+                          return true;
+                        })
                         .sort((a, b) => {
-                          const orderMap: Record<Report['status'], Record<string, number>> = {
+                          const orderMap: Record<string, Record<string, number>> = {
                             verifying: { pending: 0, in_progress: 1, awaiting_verification: 2, resolved: 3, declined: 4, verifying: 99 },
                             pending: { in_progress: 0, awaiting_verification: 1, resolved: 2, declined: 3, pending: 99 },
                             in_progress: { awaiting_verification: 0, resolved: 1, declined: 2, pending: 3, in_progress: 99 },
                             awaiting_verification: { resolved: 0, declined: 1, pending: 2, in_progress: 3, awaiting_verification: 99 },
                             resolved: { in_progress: 0, pending: 1, declined: 2, resolved: 99 },
                             declined: { pending: 0, in_progress: 1, resolved: 2, declined: 99 },
-                          } as any;
-                          return (orderMap[report.status] as any)[a] - (orderMap[report.status] as any)[b];
+                            rejected: { pending: 0, in_progress: 1, resolved: 2, declined: 99 }, // Handle rejected as declined
+                          };
+                          const currentStatusMap = orderMap[report.status || ''] || {};
+                          const orderA = currentStatusMap[a] ?? 99;
+                          const orderB = currentStatusMap[b] ?? 99;
+                          return orderA - orderB;
                         })
                         .map(target => (
                           <button

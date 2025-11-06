@@ -103,26 +103,9 @@ class WarmupService {
   }
 
   async warmupAuth() {
-    console.log('🔐 Auth endpoints warmup...');
-    
-    // Warm up the email test endpoint (doesn't send actual emails)
-    const emailResult = await this.makeRequest(`${this.baseUrl}/api/email/test`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        to: 'warmup@example.com',
-        subject: 'Warmup Test',
-        text: 'This is a warmup request'
-      })
-    });
-
-    if (emailResult.success) {
-      console.log('✅ Auth endpoints warmed up');
-    }
-
-    return emailResult;
+    // Email warmup removed to prevent email flooding
+    // This method is kept for compatibility but does nothing
+    return { success: true, skipped: true };
   }
 
   async warmupDatabase() {

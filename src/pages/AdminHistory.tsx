@@ -237,7 +237,10 @@ export function AdminHistory() {
 
   const exportToPDF = async () => {
     const getReportsBySelection = () => {
-      if (exportStatus === 'both') return reports.filter(r => r.status === 'resolved' || r.status === 'declined');
+      if (exportStatus === 'both') return reports.filter(r => {
+        const status = r.status?.toLowerCase();
+        return status === 'resolved' || status === 'declined' || status === 'rejected';
+      });
       return reports.filter(r => r.status === exportStatus);
     };
 
@@ -324,7 +327,10 @@ export function AdminHistory() {
     drawChip(`Total: ${selectedReports.length}`);
     if (exportStatus === 'both') {
       drawChip(`Resolved: ${selectedReports.filter(r => r.status === 'resolved').length}`);
-      drawChip(`Declined: ${selectedReports.filter(r => r.status === 'declined').length}`);
+      drawChip(`Declined: ${selectedReports.filter(r => {
+        const status = r.status?.toLowerCase();
+        return status === 'declined' || status === 'rejected';
+      }).length}`);
     }
 
     // Table columns
@@ -341,7 +347,7 @@ export function AdminHistory() {
     ] as any[];
 
     const body = selectedReports.map(r => ({
-      status: r.status === 'resolved' ? 'Resolved' : 'Declined',
+      status: (r.status === 'resolved' || r.status?.toLowerCase() === 'resolved') ? 'Resolved' : 'Declined',
       title: r.title || '',
       category: r.category || '',
       priority: r.priority || '',
@@ -545,7 +551,10 @@ export function AdminHistory() {
                 <XCircle className="w-4 h-4" />
                 <span>Declined</span>
                 <span className="bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full">
-                  {reports.filter(r => r.status === 'declined').length}
+                  {reports.filter(r => {
+                    const status = r.status?.toLowerCase();
+                    return status === 'declined' || status === 'rejected';
+                  }).length}
                 </span>
               </div>
             </button>
@@ -759,7 +768,7 @@ export function AdminHistory() {
                       </h3>
                       <span className={`px-3 py-1.5 rounded-full text-xs font-medium border ${getCategoryColor(report.category)}`}>{report.category.charAt(0).toUpperCase() + report.category.slice(1)}</span>
                       <span className={`px-3 py-1.5 rounded-full text-xs font-medium border ${getPriorityColor(report.priority)}`}>{report.priority.charAt(0).toUpperCase() + report.priority.slice(1)} Priority</span>
-                      {report.status === 'declined' && (
+                      {(report.status === 'declined' || report.status === 'rejected') && (
                         <span className="px-3 py-1.5 rounded-full text-xs font-medium border bg-red-100 text-red-800 border-red-200">Declined</span>
                       )}
                     </div>
