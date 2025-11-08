@@ -23,7 +23,7 @@ interface VerificationRequest {
   user_id: string;
   id_front_image_url: string;
   id_back_image_url: string;
-  status: 'pending' | 'approved' | 'declined' | 'ai_processing';
+  status: 'pending' | 'approved' | 'declined';
   admin_notes?: string;
   created_at: string;
   processed_at?: string;
@@ -128,8 +128,7 @@ const AdminVerificationQueue: React.FC<AdminVerificationQueueProps> = ({ onClose
     const statusConfig = {
       pending: { color: 'bg-yellow-100 text-yellow-800', icon: ClockIcon, text: 'Pending' },
       approved: { color: 'bg-green-100 text-green-800', icon: CheckCircleIcon, text: 'Approved' },
-      declined: { color: 'bg-red-100 text-red-800', icon: XCircleIcon, text: 'Declined' },
-      ai_processing: { color: 'bg-blue-100 text-blue-800', icon: ClockIcon, text: 'AI Processing' }
+      declined: { color: 'bg-red-100 text-red-800', icon: XCircleIcon, text: 'Declined' }
     };
 
     const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending;

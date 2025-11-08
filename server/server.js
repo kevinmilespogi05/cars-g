@@ -1969,23 +1969,73 @@ app.post('/api/admin/verify-user', authenticateToken, requireRole('admin'), asyn
 
     if (updateRequestError) {
       console.error('Error updating verification request:', updateRequestError);
-      return res.status(500).json({ success: false, error: 'Failed to update verification request' });
+      console.error('Update data:', { status: newStatus, requestId, decision });
+      return res.status(500).json({ 
+        success: false, 
+        error: 'Failed to update verification request',
+        details: updateRequestError.message,
+        code: updateRequestError.code
+      });
+    }
+
+    // Get user profile to check current image URLs before updating
+    const { data: userProfile, error: userProfileError } = await supabaseAdmin
+      .from('profiles')
+      .select('id_front_image_url, id_back_image_url')
+      .eq('id', request.user_id)
+      .single();
+
+    if (userProfileError) {
+      console.error('Error fetching user profile:', userProfileError);
+    }
+
+    // Prepare profile update based on decision
+    const profileUpdate = {
+      verification_status: isApproved ? 'active' : 'declined',
+      verification_notes: isApproved ? (notes || 'Manually verified by admin') : `Declined by admin: ${notes || 'No reason provided'}`,
+      verified_by: req.user.id,
+      updated_at: new Date().toISOString()
+    };
+
+    if (isApproved) {
+      // For approval, set verified_at
+      profileUpdate.verified_at = new Date().toISOString();
+    } else {
+      // For decline, clear verified_at and image URLs
+      profileUpdate.verified_at = null;
+      profileUpdate.id_front_image_url = null;
+      profileUpdate.id_back_image_url = null;
     }
 
     // Update user profile
     const { error: updateProfileError } = await supabaseAdmin
       .from('profiles')
-      .update({
-        verification_status: isApproved ? 'verified' : 'declined',
-        verification_notes: notes || null,
-        verified_by: req.user.id,
-        verified_at: new Date().toISOString()
-      })
+      .update(profileUpdate)
       .eq('id', request.user_id);
 
     if (updateProfileError) {
       console.error('Error updating user profile:', updateProfileError);
-      return res.status(500).json({ success: false, error: 'Failed to update user profile' });
+      console.error('Profile update data:', profileUpdate);
+      console.error('Error code:', updateProfileError.code);
+      console.error('Error hint:', updateProfileError.hint);
+      
+      // If it's a constraint violation, provide helpful message
+      if (updateProfileError.code === '23514' || updateProfileError.message?.includes('check constraint')) {
+        return res.status(500).json({ 
+          success: false, 
+          error: 'Database constraint error: verification_status value not allowed',
+          details: updateProfileError.message,
+          hint: 'The profiles.verification_status constraint may not allow this status. Please run the database migration to fix the constraint.',
+          code: updateProfileError.code
+        });
+      }
+      
+      return res.status(500).json({ 
+        success: false, 
+        error: 'Failed to update user profile',
+        details: updateProfileError.message,
+        code: updateProfileError.code
+      });
     }
 
     return res.json({
@@ -1997,7 +2047,12 @@ app.post('/api/admin/verify-user', authenticateToken, requireRole('admin'), asyn
 
   } catch (error) {
     console.error('Admin verify user error:', error);
-    return res.status(500).json({ success: false, error: 'Internal server error' });
+    console.error('Error stack:', error.stack);
+    return res.status(500).json({ 
+      success: false, 
+      error: 'Internal server error',
+      message: error.message 
+    });
   }
 });
 

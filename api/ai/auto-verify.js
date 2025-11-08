@@ -342,11 +342,8 @@ export default async function handler(req, res) {
       });
     }
 
-    // Update status to AI processing
-    await supabase
-      .from('user_verification_requests')
-      .update({ status: 'ai_processing' })
-      .eq('id', requestId);
+    // Status remains 'pending' during AI processing (no status change needed)
+    // The AI processing happens and then status is updated to 'approved' or 'declined'
 
     try {
       // Perform AI analysis

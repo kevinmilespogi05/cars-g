@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import Swal from 'sweetalert2';
 import { 
   Shield, 
   CheckCircle, 
@@ -14,12 +15,12 @@ import {
   Check,
   X,
   Loader2,
-  Filter,
   Search
 } from 'lucide-react';
 import { getApiUrl } from '../lib/config';
 import { authenticatedRequest } from '../lib/jwt';
 import { ImageViewer } from './ImageViewer';
+import { useToastContext } from '../contexts/ToastContext';
 
 interface VerificationRequest {
   id: string;
@@ -53,6 +54,7 @@ export function AdminVerificationDashboard() {
   const [selectedImageTitle, setSelectedImageTitle] = useState<string>('');
   const [imageLoadingStates, setImageLoadingStates] = useState<{[key: string]: boolean}>({});
   const [fullScreenImageLoading, setFullScreenImageLoading] = useState(false);
+  const { success: showToastSuccess, error: showToastError, info: showToastInfo } = useToastContext();
 
   // Helper function to get image URL (now using Cloudinary directly)
   const getImageUrl = (imageUrl: string) => {
@@ -120,9 +122,11 @@ export function AdminVerificationDashboard() {
         setRequests(data.requests || []);
       } else {
         console.error('Failed to fetch verification requests:', response.status, response.statusText);
+        showToastError('Failed to load verification requests. Please refresh the page.', 5000);
       }
     } catch (error) {
       console.error('Error fetching verification requests:', error);
+      showToastError('Error loading verification requests. Please try again.', 5000);
     } finally {
       setLoading(false);
     }
@@ -132,9 +136,16 @@ export function AdminVerificationDashboard() {
     fetchRequests();
   }, []);
 
+  // Normalize status display (handle "rejected" as "declined")
+  const normalizeStatus = (status: string): string => {
+    if (status === 'rejected') return 'declined';
+    return status;
+  };
+
   // Filter requests based on status and search term
   const filteredRequests = requests.filter(request => {
-    const matchesFilter = filter === 'all' || request.status === filter;
+    const normalizedStatus = normalizeStatus(request.status);
+    const matchesFilter = filter === 'all' || normalizedStatus === filter;
     const matchesSearch = searchTerm === '' || 
       request.user_profile?.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       request.user_profile?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -144,7 +155,45 @@ export function AdminVerificationDashboard() {
     return matchesFilter && matchesSearch;
   });
 
-  // Handle AI analysis
+  // Show confirmation dialog before verification decision
+  const confirmVerification = async (requestId: string, decision: 'approved' | 'declined', request?: VerificationRequest) => {
+    const isApproved = decision === 'approved';
+    const userName = request?.user_profile 
+      ? `${request.user_profile.first_name} ${request.user_profile.last_name}` 
+      : 'this user';
+    const userEmail = request?.user_profile?.email || '';
+
+    const result = await Swal.fire({
+      title: isApproved ? 'Approve Verification?' : 'Decline Verification?',
+      html: `
+        <div style="text-align: left;">
+          <p style="margin-bottom: 10px;"><strong>User:</strong> ${userName}</p>
+          ${userEmail ? `<p style="margin-bottom: 10px;"><strong>Email:</strong> ${userEmail}</p>` : ''}
+          <p style="margin-top: 15px; color: ${isApproved ? '#10b981' : '#dc2626'};">
+            ${isApproved 
+              ? 'This will approve the user\'s account and grant them full access to the platform.'
+              : 'This will decline the user\'s verification request. Their ID images will be deleted for privacy.'
+            }
+          </p>
+        </div>
+      `,
+      icon: isApproved ? 'question' : 'warning',
+      showCancelButton: true,
+      confirmButtonColor: isApproved ? '#10b981' : '#dc2626',
+      cancelButtonColor: '#6b7280',
+      confirmButtonText: isApproved ? 'Yes, Approve' : 'Yes, Decline',
+      cancelButtonText: 'Cancel',
+      reverseButtons: true,
+      focusCancel: true,
+      allowOutsideClick: false,
+      allowEscapeKey: true
+    });
+
+    if (result.isConfirmed) {
+      // User confirmed, proceed with verification
+      await handleVerification(requestId, decision);
+    }
+  };
 
   // Handle verification decision
   const handleVerification = async (requestId: string, decision: 'approved' | 'declined', notes?: string) => {
@@ -169,13 +218,23 @@ export function AdminVerificationDashboard() {
         ));
         setShowModal(false);
         setSelectedRequest(null);
+        // Refresh the list to get updated data
+        fetchRequests();
+        // Show success toast
+        const action = decision === 'approved' ? 'approved' : 'declined';
+        showToastSuccess(`User verification ${action} successfully!`, 4000);
       } else {
         const error = await response.json();
-        alert(error.message || 'Failed to process verification');
+        console.error('Verification error:', error);
+        const errorMessage = error.details 
+          ? `${error.error}: ${error.details}` 
+          : error.error || error.message || 'Failed to process verification';
+        showToastError(errorMessage, 6000);
       }
     } catch (error) {
       console.error('Error processing verification:', error);
-      alert('Failed to process verification');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      showToastError(`Failed to process verification: ${errorMessage}`, 6000);
     } finally {
       setProcessing(null);
     }
@@ -183,7 +242,8 @@ export function AdminVerificationDashboard() {
 
   // Get status icon and color
   const getStatusInfo = (status: string) => {
-    switch (status) {
+    const normalizedStatus = normalizeStatus(status);
+    switch (normalizedStatus) {
       case 'pending':
         return { icon: Clock, color: 'text-yellow-600', bg: 'bg-yellow-100' };
       case 'approved':
@@ -193,6 +253,12 @@ export function AdminVerificationDashboard() {
       default:
         return { icon: Clock, color: 'text-gray-600', bg: 'bg-gray-100' };
     }
+  };
+
+  // Format status for display
+  const formatStatus = (status: string): string => {
+    const normalized = normalizeStatus(status);
+    return normalized.charAt(0).toUpperCase() + normalized.slice(1);
   };
 
   return (
@@ -244,7 +310,7 @@ export function AdminVerificationDashboard() {
             <div className="ml-4">
               <p className="text-sm font-medium text-gray-600">Declined</p>
               <p className="text-2xl font-bold text-gray-900">
-                {requests.filter(r => r.status === 'declined').length}
+                {requests.filter(r => normalizeStatus(r.status) === 'declined').length}
               </p>
             </div>
           </div>
@@ -335,7 +401,8 @@ export function AdminVerificationDashboard() {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredRequests.map((request) => {
-                  const statusInfo = getStatusInfo(request.status);
+                  const normalizedStatus = normalizeStatus(request.status);
+                  const statusInfo = getStatusInfo(normalizedStatus);
                   const StatusIcon = statusInfo.icon;
                   
                   return (
@@ -358,31 +425,11 @@ export function AdminVerificationDashboard() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusInfo.bg} ${statusInfo.color}`}>
                           <StatusIcon className="h-3 w-3 mr-1" />
-                          {request.status}
+                          {formatStatus(request.status)}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {new Date(request.created_at).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {request.ai_confidence ? (
-                          <div className="flex items-center">
-                            <span className="text-sm font-medium">
-                              {Math.round(request.ai_confidence)}%
-                            </span>
-                            {request.ai_confidence >= 80 && (
-                              <CheckCircle className="h-4 w-4 text-green-500 ml-1" />
-                            )}
-                            {request.ai_confidence < 80 && request.ai_confidence >= 60 && (
-                              <AlertTriangle className="h-4 w-4 text-yellow-500 ml-1" />
-                            )}
-                            {request.ai_confidence < 60 && (
-                              <XCircle className="h-4 w-4 text-red-500 ml-1" />
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-gray-400">No AI analysis</span>
-                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex gap-2">
@@ -399,7 +446,10 @@ export function AdminVerificationDashboard() {
                           {request.status === 'pending' && (
                             <>
                               <button
-                                onClick={() => handleVerification(request.id, 'approved')}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  confirmVerification(request.id, 'approved', request);
+                                }}
                                 disabled={processing === request.id}
                                 className="text-green-600 hover:text-green-700 flex items-center gap-1 disabled:opacity-50"
                               >
@@ -407,12 +457,15 @@ export function AdminVerificationDashboard() {
                                 Approve
                               </button>
                               <button
-                                onClick={() => handleVerification(request.id, 'declined')}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  confirmVerification(request.id, 'declined', request);
+                                }}
                                 disabled={processing === request.id}
                                 className="text-red-600 hover:text-red-700 flex items-center gap-1 disabled:opacity-50"
                               >
                                 <X className="h-4 w-4" />
-                                Reject
+                                Declined
                               </button>
                             </>
                           )}
@@ -651,14 +704,14 @@ export function AdminVerificationDashboard() {
                   {selectedRequest.status === 'pending' && (
                     <>
                       <button
-                        onClick={() => handleVerification(selectedRequest.id, 'declined')}
+                        onClick={() => confirmVerification(selectedRequest.id, 'declined', selectedRequest)}
                         disabled={processing === selectedRequest.id}
                         className="px-4 py-2 text-red-700 bg-red-100 border border-red-300 rounded-lg hover:bg-red-200 disabled:opacity-50"
                       >
                         Decline
                       </button>
                       <button
-                        onClick={() => handleVerification(selectedRequest.id, 'approved')}
+                        onClick={() => confirmVerification(selectedRequest.id, 'approved', selectedRequest)}
                         disabled={processing === selectedRequest.id}
                         className="px-4 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50"
                       >
