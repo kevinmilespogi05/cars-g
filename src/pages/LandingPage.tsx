@@ -408,8 +408,8 @@ export function LandingPage() {
               {/* CTA Buttons with Advanced Animations */}
               <motion.div 
                 className="flex flex-col sm:flex-row gap-5 justify-center mb-12"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
+                initial={{ y: 20 }}
+                animate={{ y: 0 }}
                 transition={{ duration: 0.8, delay: 0.7 }}
               >
                 {/* Primary CTA */}
@@ -417,29 +417,18 @@ export function LandingPage() {
                   <motion.button
                     className="group relative px-8 py-5 rounded-2xl text-lg font-bold text-white overflow-hidden shadow-2xl"
                     style={{
-                      background: 'linear-gradient(135deg, #800000 0%, #a00000 100%)',
+                      backgroundColor: '#800000',
+                      zIndex: 1,
                     }}
-                    whileHover={{ scale: 1.05, y: -2 }}
+                    whileHover={{ 
+                      scale: 1.05, 
+                      y: -2,
+                      backgroundColor: '#660000'
+                    }}
                     whileTap={{ scale: 0.98 }}
                     transition={{ type: "spring", stiffness: 400, damping: 17 }}
                   >
-                    {/* Animated gradient overlay */}
-                    <motion.div
-                      className="absolute inset-0 bg-gradient-to-r from-red-600 via-red-700 to-red-600"
-                      style={{ backgroundSize: '200% 100%' }}
-                      animate={{ backgroundPosition: ['0% center', '100% center', '0% center'] }}
-                      transition={{ duration: 3, repeat: Infinity }}
-                    />
-                    
-                    {/* Ripple effect on hover */}
-                    <motion.div
-                      className="absolute inset-0 bg-white"
-                      initial={{ scale: 0, opacity: 0.5 }}
-                      whileHover={{ scale: 2, opacity: 0 }}
-                      transition={{ duration: 0.6 }}
-                    />
-                    
-                    <span className="relative z-10 flex items-center justify-center space-x-2">
+                    <span className="relative z-20 flex items-center justify-center space-x-2" style={{ color: 'white', textShadow: '0 1px 2px rgba(0,0,0,0.2)' }}>
                       <Zap className="h-5 w-5 group-hover:rotate-12 transition-transform duration-300" />
                       <span>Start Protecting Your Community</span>
                       <motion.span
