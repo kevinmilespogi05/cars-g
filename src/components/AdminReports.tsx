@@ -102,6 +102,29 @@ export function AdminReports() {
     loadReports();
   }, []);
 
+  // Fetch patrol officers
+  useEffect(() => {
+    const fetchPatrolOfficers = async () => {
+      try {
+        setLoadingPatrols(true);
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, full_name, email')
+          .eq('role', 'patrol')
+          .order('full_name');
+        
+        if (error) throw error;
+        setPatrolOfficers(data || []);
+      } catch (err) {
+        console.error('Failed to fetch patrol officers:', err);
+        showToastError('Failed to load patrol officers', 3000);
+      } finally {
+        setLoadingPatrols(false);
+      }
+    };
+    fetchPatrolOfficers();
+  }, []);
+
   // Debounced fetch for search only
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -173,7 +196,10 @@ export function AdminReports() {
 
   const [dispatchGroup, setDispatchGroup] = useState<Record<string, Report['assigned_group']>>({});
   const [dispatchAssignee, setDispatchAssignee] = useState<Record<string, string>>({});
+  const [dispatchOfficerId, setDispatchOfficerId] = useState<Record<string, string>>({});
   const [dispatchResponsibility, setDispatchResponsibility] = useState<Record<string, string>>({});
+  const [patrolOfficers, setPatrolOfficers] = useState<Array<{ id: string; full_name: string; email: string }>>([]);
+  const [loadingPatrols, setLoadingPatrols] = useState(false);
   const now = new Date();
   const [showMonthPicker, setShowMonthPicker] = useState(false);
   const [showYearPicker, setShowYearPicker] = useState(false);
@@ -254,24 +280,74 @@ export function AdminReports() {
   };
 
   const handleDispatch = async (reportId: string) => {
-    const group = dispatchGroup[reportId] || 'Other';
     const assignee = dispatchAssignee[reportId] || '';
-    const responsibility = dispatchResponsibility[reportId] || '';
+    
+    if (!assignee) {
+      showNotification('Please select a patrol officer before dispatching', 'warning');
+      return;
+    }
+
+    // Check if any patrol officers are already assigned to reports
+    const assignedReports = reports.filter(r => r.assigned_patroller_name && r.status === 'in_progress');
+    
     try {
-      setReports(prev => prev.map(r => r.id === reportId ? { ...r, assigned_group: group, assigned_patroller_name: assignee, status: 'in_progress' } : r));
-      await reportsService.updateReportTicketing(reportId, {
-        assigned_group: group as any,
-        assigned_patroller_name: assignee || undefined,
-      } as any);
+      setReports(prev => prev.map(r => r.id === reportId ? { ...r, assigned_patroller_name: assignee, status: 'in_progress' } : r));
+      
+      // Update assignment
+      try {
+        await reportsService.updateReportTicketing(reportId, {
+          assigned_patroller_name: assignee,
+        } as any);
+      } catch (err) {
+        console.warn('Ticketing update failed, trying separate updates:', err);
+        // Fallback: just update status if ticketing update fails
+      }
+      
       await reportsService.updateReportStatus(reportId, 'in_progress');
-      // Log assignment responsibility as a status update comment if provided
-      if (responsibility) {
-        try {
-          await CommentsService.addComment(reportId, `Assigned to ${group}${assignee ? ` (${assignee})` : ''} · Task: ${responsibility}`, 'assignment');
-        } catch {}
+      
+      // Show success toast
+      showNotification(`✓ Report successfully assigned to ${assignee}`, 'success');
+      
+      // Show warning if other officers are already working on reports
+      if (assignedReports.length > 0) {
+        setTimeout(() => {
+          showNotification(`⚠ ${assignedReports.length} patrol officer(s) already assigned to active reports`, 'warning');
+        }, 2000);
       }
     } catch (e: any) {
-      alert(e?.message || 'Failed to dispatch');
+      showNotification(e?.message || 'Failed to dispatch', 'error');
+      await loadReports();
+    }
+  };
+
+  const handleRemoveAssignment = async (reportId: string) => {
+    const report = reports.find(r => r.id === reportId);
+    const officerName = report?.assigned_patroller_name || 'Unknown Officer';
+    
+    try {
+      // Immediately update UI (optimistic update)
+      setReports(prev => prev.map(r => r.id === reportId ? { ...r, assigned_patroller_name: undefined, status: 'pending' } : r));
+      setDispatchOfficerId(prev => ({ ...prev, [reportId]: '' }));
+      setDispatchAssignee(prev => ({ ...prev, [reportId]: '' }));
+      
+      // Use updateReportStatus to reset to pending
+      await reportsService.updateReportStatus(reportId, 'pending');
+      
+      // Then clear the assigned_patroller_name using updateReportTicketing
+      // Pass undefined to clear the field
+      // Pass empty string to clear the field (Supabase treats empty string as null for optional fields)
+      await reportsService.updateReportTicketing(reportId, {
+        assigned_patroller_name: '' as any,
+      });
+      
+      // Reload reports to confirm changes persisted
+      await loadReports();
+      
+      showNotification(`✓ ${officerName} removed from this report`, 'success');
+    } catch (e: any) {
+      console.error('Remove assignment error:', e);
+      showNotification(e?.message || 'Failed to remove assignment', 'error');
+      // Reload to revert optimistic update if something goes wrong
       await loadReports();
     }
   };
@@ -436,15 +512,16 @@ export function AdminReports() {
     
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from('reports')
-        .update({
-          title: editForm.title.trim(),
-          description: editForm.description.trim(),
-          category: editForm.category.trim(),
-          priority: editForm.priority,
-          updated_at: new Date().toISOString()
-        })
+      const updateData = {
+        title: editForm.title.trim(),
+        description: editForm.description.trim(),
+        category: editForm.category.trim(),
+        priority: editForm.priority,
+        updated_at: new Date().toISOString()
+      };
+      const { error } = await ((supabase
+        .from('reports') as any)
+        .update(updateData))
         .eq('id', selectedReport.id);
 
       if (error) throw error;
@@ -957,15 +1034,17 @@ export function AdminReports() {
                       </div>
                     )}
 
-                    {/* Assigned Group */}
-                    {r.assigned_group && (
+                    {/* Assigned Group / Patroller */}
+                    {(r.assigned_group || r.assigned_patroller_name) && (
                       <div className="col-span-2 flex items-center gap-2">
                         <User2 className="w-5 h-5 text-blue-500 flex-shrink-0" />
                         <div className="min-w-0">
                           <div className="text-xs text-gray-500">Assigned To</div>
                           <div className="text-sm font-medium text-blue-700">
-                            {r.assigned_group}
-                            {r.assigned_patroller_name && ` • ${r.assigned_patroller_name}`}
+                            {/* Prefer showing the assigned group when available, otherwise show the patroller's name */}
+                            {r.assigned_group ? r.assigned_group : r.assigned_patroller_name}
+                            {/* If both exist, show the patroller name after the group */}
+                            {r.assigned_group && r.assigned_patroller_name && ` • ${r.assigned_patroller_name}`}
                           </div>
                         </div>
                       </div>
@@ -1310,7 +1389,6 @@ export function AdminReports() {
                       <button
                         onClick={() => {
                           // Detect platform and use appropriate navigation method
-                          const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
                           const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
                           const isAndroid = /Android/.test(navigator.userAgent);
                           
@@ -1424,81 +1502,53 @@ export function AdminReports() {
                     </button>
                   </>
                 )}
-                {/* Dispatch controls */}
+                {/* Dispatch controls - Simplified to single officer picker */}
                 <div className="mr-auto flex items-center gap-2 flex-wrap">
-                  <select
-                    value={dispatchGroup[selectedReport.id] || selectedReport.assigned_group || ''}
-                    onChange={(e) => setDispatchGroup(prev => ({ ...prev, [selectedReport.id]: e.target.value as Report['assigned_group'] }))}
-                    className="px-2 py-1 border border-gray-300 rounded-lg text-sm"
-                  >
-                    <option value="">Select group</option>
-                    <option>Waste Management</option>
-                    <option>Barangay Police</option>
-                    <option>Engineering Group</option>
-                    <option>Field Group</option>
-                    <option>Maintenance Group</option>
-                    <option>Other</option>
-                  </select>
-                  {/* Responsibility selector varies by group */}
-                  <select
-                    value={dispatchResponsibility[selectedReport.id] || ''}
-                    onChange={(e) => setDispatchResponsibility(prev => ({ ...prev, [selectedReport.id]: e.target.value }))}
-                    className="px-2 py-1 border border-gray-300 rounded-lg text-sm"
-                  >
-                    <option value="">Select responsibility</option>
-                    {(dispatchGroup[selectedReport.id] === 'Waste Management') && (
-                      <>
-                        <option>Garbage collection</option>
-                        <option>Other waste-related concerns</option>
-                      </>
-                    )}
-                    {(dispatchGroup[selectedReport.id] === 'Barangay Police') && (
-                      <>
-                        <option>Conduct investigations within barangay</option>
-                        <option>Respond to presence-required case</option>
-                      </>
-                    )}
-                    {(dispatchGroup[selectedReport.id] === 'Engineering Group') && (
-                      <>
-                        <option>Repair roads</option>
-                        <option>Other engineering-related works</option>
-                      </>
-                    )}
-                    {(!dispatchGroup[selectedReport.id] || ['Field Group','Maintenance Group','Other'].includes(dispatchGroup[selectedReport.id]!)) && (
-                      <>
-                        <option>Initial assessment</option>
-                        <option>Follow-up visit</option>
-                      </>
-                    )}
-                  </select>
-                  <input
-                    value={dispatchAssignee[selectedReport.id] ?? selectedReport.assigned_patroller_name ?? ''}
-                    onChange={(e) => setDispatchAssignee(prev => ({ ...prev, [selectedReport.id]: e.target.value }))}
-                    placeholder="Assignee name or user"
-                    className="px-2 py-1 border border-gray-300 rounded-lg text-sm"
-                  />
-                  {/* Quick assign shortcuts */}
-                  <button
-                    onClick={() => setDispatchGroup(prev => ({ ...prev, [selectedReport.id]: 'Waste Management' }))}
-                    className="px-2 py-1 text-xs border border-green-200 text-green-700 bg-green-50 rounded hover:bg-green-100"
-                    title="Assign Waste Management"
-                  >WM</button>
-                  <button
-                    onClick={() => setDispatchGroup(prev => ({ ...prev, [selectedReport.id]: 'Barangay Police' }))}
-                    className="px-2 py-1 text-xs border border-blue-200 text-blue-700 bg-blue-50 rounded hover:bg-blue-100"
-                    title="Assign Barangay Police"
-                  >BP</button>
-                  <button
-                    onClick={() => setDispatchGroup(prev => ({ ...prev, [selectedReport.id]: 'Engineering Group' }))}
-                    className="px-2 py-1 text-xs border border-amber-200 text-amber-700 bg-amber-50 rounded hover:bg-amber-100"
-                    title="Assign Engineering"
-                  >ENG</button>
-                  <button
-                    onClick={() => handleDispatch(selectedReport.id)}
-                    className="inline-flex items-center gap-2 px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm"
-                  >
-                    Dispatch
-                  </button>
+                  {selectedReport.assigned_patroller_name ? (
+                    <>
+                      <div className="px-3 py-2 bg-green-50 border border-green-300 rounded-lg text-sm text-green-900 font-medium">
+                        ✓ Assigned: {selectedReport.assigned_patroller_name}
+                      </div>
+                      <button
+                        onClick={() => handleRemoveAssignment(selectedReport.id)}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm"
+                      >
+                        Remove
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <select
+                        value={dispatchOfficerId[selectedReport.id] ?? ''}
+                        onChange={(e) => {
+                          const selectedId = e.target.value;
+                          const selectedOfficer = patrolOfficers.find(p => p.id === selectedId);
+                          setDispatchOfficerId(prev => ({ 
+                            ...prev, 
+                            [selectedReport.id]: selectedId
+                          }));
+                          setDispatchAssignee(prev => ({ 
+                            ...prev, 
+                            [selectedReport.id]: selectedOfficer?.full_name || ''
+                          }));
+                        }}
+                        className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900"
+                      >
+                        <option value="">Select Patrol Officer</option>
+                        {patrolOfficers.map(officer => (
+                          <option key={officer.id} value={officer.id}>
+                            {officer.full_name}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={() => handleDispatch(selectedReport.id)}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm"
+                      >
+                        Dispatch
+                      </button>
+                    </>
+                  )}
                 </div>
                 <button
                   onClick={() => {
