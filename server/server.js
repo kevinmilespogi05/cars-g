@@ -76,7 +76,7 @@ const io = new Server(server, {
       "http://localhost:5173",
       "http://localhost:3000",
       "https://cars-g.vercel.app",
-      "https://cars-g.vercel.app/",
+      "https://cars-g.onrender.com",
       "https://cars-g-git-main-kevinmccarthy.vercel.app",
       "https://cars-g-git-main-kevinmccarthy.vercel.app/"
     ],
@@ -138,7 +138,7 @@ app.use(cors({
     "http://localhost:5173",
     "http://localhost:3000",
     "https://cars-g.vercel.app",
-    "https://cars-g.vercel.app/",
+    "https://cars-g.onrender.com",
     "https://cars-g-git-main-kevinmccarthy.vercel.app",
     "https://cars-g-git-main-kevinmccarthy.vercel.app/"
   ],

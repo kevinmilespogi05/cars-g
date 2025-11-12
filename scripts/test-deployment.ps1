@@ -13,7 +13,7 @@ param(
 Write-Host "Starting Cars-G Deployment Testing..." -ForegroundColor Cyan
 
 # Configuration
-$FRONTEND_URL = "https://cars-g.vercel.app/"
+$FRONTEND_URL = "https://cars-g.onrender.com"
 $BACKEND_URL = "https://cars-g-api.onrender.com"
 $SUPABASE_URL = "https://mffuqdwqjdxbwpbhuxby.supabase.co"
 $SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1mZnVxZHdxamR4YndwYmh1eGJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM5MTI4NzMsImV4cCI6MjA1OTQ4ODg3M30.3ALtkwlAO-V_98e-Y263l9pYSWjW1h1AY3qhqSTMkW0"

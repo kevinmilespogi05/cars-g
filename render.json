@@ -1,0 +1,47 @@
+{
+  "routes": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html",
+      "methods": ["GET"]
+    },
+    {
+      "source": "/sw.js",
+      "destination": "/sw.js",
+      "methods": ["GET"]
+    },
+    {
+      "source": "/dev-sw.js",
+      "destination": "/dev-sw.js",
+      "methods": ["GET"]
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)\\.js$",
+      "headers": {
+        "Content-Type": "application/javascript; charset=utf-8",
+        "Cache-Control": "public, max-age=31536000, immutable"
+      }
+    },
+    {
+      "source": "/manifest\\.webmanifest",
+      "headers": {
+        "Content-Type": "application/manifest+json",
+        "Cache-Control": "public, max-age=3600"
+      }
+    },
+    {
+      "source": "/index.html",
+      "headers": {
+        "Cache-Control": "public, max-age=0, must-revalidate"
+      }
+    },
+    {
+      "source": "/(.*)",
+      "headers": {
+        "Access-Control-Allow-Origin": "*"
+      }
+    }
+  ]
+}

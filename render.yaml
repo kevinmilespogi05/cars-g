@@ -1,4 +1,19 @@
 services:
+  - type: static
+    name: cars-g-frontend
+    buildCommand: npm run build
+    staticPublishPath: ./dist
+    envVars:
+      - key: VITE_SUPABASE_URL
+        value: https://mffuqdwqjdxbwpbhuxby.supabase.co
+      - key: VITE_SUPABASE_ANON_KEY
+        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1mZnVxZHdxamR4YndwYmh1eGJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDM5MTI4NzMsImV4cCI6MjA1OTQ4ODg3M30.3ALtkwlAO-V_98e-Y263l9pYSWjW1h1AY3qhqSTMkW0
+      - key: VITE_CLOUDINARY_CLOUD_NAME
+        value: dzqtdl5aa
+      - key: VITE_CLOUDINARY_API_KEY
+        value: 829735821883862
+      - key: VITE_CLOUDINARY_UPLOAD_PRESET
+        value: cars-g-uploads
   - type: web
     name: cars-g-api
     env: node
@@ -11,7 +26,7 @@ services:
       - key: PORT
         value: 3001
       - key: FRONTEND_URL
-        value: https://cars-g.vercel.app
+        value: https://cars-g.onrender.com
       - key: VITE_SUPABASE_URL
         value: https://mffuqdwqjdxbwpbhuxby.supabase.co
       - key: VITE_SUPABASE_ANON_KEY

@@ -247,6 +247,7 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     host: true, // Allow external connections
+    allowedHosts: ['cars-g.onrender.com', 'localhost', '127.0.0.1'],
     hmr: {
       port: 5173,
       host: 'localhost'
