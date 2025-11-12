@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { track } from '@vercel/analytics';
+// Analytics (vercel) removed — provide a safe no-op tracker to avoid build-time errors
 import { useNavigate } from 'react-router-dom';
 import { Camera, MapPin, Loader2, AlertCircle, X, CheckCircle, Upload, Bot, Sparkles, Trophy, Construction, Shield, Leaf, Building2, HelpCircle, ChevronRight, EyeOff, Eye } from 'lucide-react';
 import { MapPicker } from '../components/MapPicker';
@@ -126,10 +126,12 @@ export function CreateReport() {
   const wordCount = formData.description.trim() ? formData.description.trim().split(/\s+/).length : 0;
   const safeTrack = (name: string, props?: Record<string, any>) => {
     try {
-      // Sample high-volume step events at 30%
+      // If an analytics implementation is present on window, call it. Otherwise no-op.
+      // This keeps instrumentation calls in place without forcing a hard dependency.
+      const globalTrack = (window as any)?.__VERCEL_ANALYTICS__?.track || (window as any)?.analytics?.track;
       const stepEvent = name === 'report_submit_step';
       if (stepEvent && Math.random() > 0.3) return;
-      track(name as any, props as any);
+      if (typeof globalTrack === 'function') globalTrack(name, props);
     } catch {}
   };
 

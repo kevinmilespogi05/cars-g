@@ -109,6 +109,67 @@
   }
 }
 
+/* Override browser autofill styles */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 30px white inset !important;
+  box-shadow: 0 0 0 30px white inset !important;
+}
+
+input:-webkit-autofill {
+  -webkit-text-fill-color: #333 !important;
+}
+
+input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #333 !important;
+}
+
+/* Additional autofill overrides for different states */
+input:-webkit-autofill::first-line {
+  font-size: 16px;
+}
+
+/* Override CSS for all input backgrounds */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="tel"],
+input[type="url"],
+input[type="search"] {
+  background-color: white !important;
+}
+
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus,
+input[type="number"]:focus,
+input[type="tel"]:focus,
+input[type="url"]:focus,
+input[type="search"]:focus {
+  background-color: white !important;
+}
+
+/* Generic interactive form fields (exclude checkboxes, radios, files, ranges) */
+input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]),
+textarea,
+select {
+  background-color: white !important;
+  color: #111827 !important; /* text-gray-900 */
+  -webkit-text-fill-color: #111827 !important;
+}
+
+/* Ensure focus state keeps white background and dark text */
+input:focus:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="range"]),
+textarea:focus,
+select:focus {
+  background-color: white !important;
+  color: #111827 !important;
+  -webkit-text-fill-color: #111827 !important;
+}
+
 /* Custom Scrollbar Styles */
 .scrollbar-thin {
   scrollbar-width: thin;
@@ -1049,6 +1110,65 @@ p {
   .modal-content {
     margin: 1rem;
     border-radius: 0.5rem;
+  }
+
+  /* Make modal/dialogs responsive on smaller viewports so admin popups don't overflow */
+  .modal,
+  .modal-backdrop {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+  }
+
+  /* Responsive modal content: full-width on small screens, capped width on larger screens */
+  .modal-content {
+    width: 100% !important;
+    max-width: 95vw !important; /* small screens */
+    max-height: calc(100vh - 3.5rem) !important;
+    overflow-y: auto !important;
+    box-sizing: border-box !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+  }
+
+  @media (min-width: 640px) {
+    .modal-content {
+      max-width: 720px !important;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .modal-content {
+      max-width: 980px !important;
+    }
+  }
+
+  @media (min-width: 1280px) {
+    .modal-content {
+      max-width: 1200px !important;
+    }
+  }
+
+  /* Ensure modal actions row wraps on small screens */
+  .modal-content .actions,
+  .modal-content .modal-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+  }
+
+  /* Make large inner grids inside modal responsive */
+  .modal-content .grid,
+  .modal-content .flex-row {
+    flex-wrap: wrap;
+  }
+
+  /* Ensure form controls inside modal stack on small screens */
+  .modal-content .form-row,
+  .modal-content .form-group {
+    width: 100% !important;
   }
 
   /* Mobile-friendly cards */

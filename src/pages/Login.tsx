@@ -162,7 +162,7 @@ export function Login() {
                     required
                     value={emailOrUsername}
                     onChange={(e) => setEmailOrUsername(e.target.value)}
-                    className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:bg-white focus:border-red-800 focus:ring-2 focus:ring-red-800/20 transition-all duration-200 outline-none"
+                    className="w-full pl-11 pr-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:border-red-800 focus:ring-2 focus:ring-red-800/20 transition-all duration-200 outline-none"
                     placeholder="Enter your username or email"
                   />
                 </div>
@@ -183,7 +183,7 @@ export function Login() {
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-11 pr-11 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:bg-white focus:border-red-800 focus:ring-2 focus:ring-red-800/20 transition-all duration-200 outline-none"
+                    className="w-full pl-11 pr-11 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:border-red-800 focus:ring-2 focus:ring-red-800/20 transition-all duration-200 outline-none"
                     placeholder="Enter your password"
                   />
                   <button

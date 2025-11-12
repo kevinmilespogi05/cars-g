@@ -1631,7 +1631,7 @@ export function AdminMapDashboard() {
                       placeholder="Search by title, description, or location..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                      className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                     />
                   </div>
                 </div>
@@ -1640,7 +1640,7 @@ export function AdminMapDashboard() {
                   <select
                     value={filter}
                     onChange={(e) => setFilter(e.target.value as any)}
-                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
                   >
                     <option value="all">All Statuses</option>
                     <option value="verifying">Verifying</option>

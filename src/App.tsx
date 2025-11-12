@@ -3,7 +3,6 @@ import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { SidebarNavigation } from './components/SidebarNavigation';
 import { useAuthStore } from './store/authStore';
 import { useImageViewerStore } from './store/imageViewerStore';
-import { Analytics } from "@vercel/analytics/react";
 import { initializeAchievements } from './lib/initAchievements';
 import { Providers } from './components/Providers';
 import { motion } from 'framer-motion';
@@ -324,8 +323,7 @@ function AppContentInner() {
           {/* Toast Notifications */}
           <ToastContainer />
           
-          {/* Analytics */}
-          <Analytics />
+          {/* Analytics removed (Vercel analytics not installed) */}
         </div>
       );
     }

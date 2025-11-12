@@ -547,7 +547,7 @@ export function AdminReports() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search reports by title, description, or reporter name..."
-              className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
               aria-label="Search reports"
             />
           </div>
@@ -557,7 +557,7 @@ export function AdminReports() {
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value as StatusFilter)}
-            className="w-full sm:w-48 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            className="w-full sm:w-48 px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 focus:ring-2 focus:ring-blue-500"
           >
             <option>All</option>
             <option value="verifying">Verifying</option>

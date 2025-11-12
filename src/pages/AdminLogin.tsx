@@ -107,7 +107,7 @@ export function AdminLogin() {
                   name="emailOrUsername"
                   type="text"
                   required
-                  className="block w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-color/20 focus:border-primary-color text-sm transition-all duration-200 bg-gray-50/50 hover:bg-white"
+                  className="block w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-color/20 focus:border-primary-color text-sm transition-all duration-200 bg-white"
                   placeholder="Enter your admin username or email"
                   value={emailOrUsername}
                   onChange={(e) => setEmailOrUsername(e.target.value)}
@@ -128,7 +128,7 @@ export function AdminLogin() {
                   name="password"
                   type="password"
                   required
-                  className="block w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-color/20 focus:border-primary-color text-sm transition-all duration-200 bg-gray-50/50 hover:bg-white"
+                  className="block w-full pl-12 pr-4 py-3 border-2 border-gray-200 rounded-xl placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-color/20 focus:border-primary-color text-sm transition-all duration-200 bg-white"
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}

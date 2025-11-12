@@ -716,7 +716,7 @@ export function Register() {
                             }
                           }}
                           placeholder="your.name@gmail.com"
-                          className={`w-full pl-11 pr-11 py-3 bg-gray-50 border rounded-lg text-gray-900 placeholder-gray-400 focus:bg-white focus:ring-2 transition-all duration-200 outline-none ${
+                          className={`w-full pl-11 pr-11 py-3 bg-white border rounded-lg text-gray-900 placeholder-gray-400 focus:ring-2 transition-all duration-200 outline-none ${
                             isEmailVerified ? 'opacity-70 cursor-not-allowed' : ''
                           } ${
                             !isGmailValid
@@ -819,7 +819,7 @@ export function Register() {
                           value={otp}
                           onChange={(e) => setOtp(e.target.value.replace(/[^0-9]/g, ''))}
                           placeholder="123456"
-                          className="w-full text-center text-2xl tracking-[0.5em] px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 focus:bg-white focus:border-red-800 focus:ring-2 focus:ring-red-800/20 transition-all duration-200 outline-none"
+                          className="w-full text-center text-2xl tracking-[0.5em] px-4 py-3 border border-gray-300 rounded-lg bg-white focus:border-red-800 focus:ring-2 focus:ring-red-800/20 transition-all duration-200 outline-none"
                         />
                         <p className="mt-2 text-xs text-gray-500 text-center">
                           Code expires in 10 minutes. Check your spam folder if you don't see it.
@@ -898,7 +898,7 @@ export function Register() {
                           value={firstName}
                           onChange={(e) => setFirstName(e.target.value)}
                           required
-                          className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:bg-white focus:border-red-800 focus:ring-2 focus:ring-red-800/20 transition-all duration-200 outline-none"
+                          className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:border-red-800 focus:ring-2 focus:ring-red-800/20 transition-all duration-200 outline-none"
                           placeholder="John"
                         />
                       </div>
@@ -912,7 +912,7 @@ export function Register() {
                           value={lastName}
                           onChange={(e) => setLastName(e.target.value)}
                           required
-                          className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:bg-white focus:border-red-800 focus:ring-2 focus:ring-red-800/20 transition-all duration-200 outline-none"
+                          className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:border-red-800 focus:ring-2 focus:ring-red-800/20 transition-all duration-200 outline-none"
                           placeholder="Doe"
                         />
                       </div>
@@ -949,7 +949,7 @@ export function Register() {
                           }}
                           required
                           disabled={isEmailVerified}
-                          className={`w-full pl-11 pr-11 py-3 bg-gray-50 border rounded-lg text-gray-900 placeholder-gray-400 focus:bg-white focus:ring-2 transition-all duration-200 outline-none ${
+                          className={`w-full pl-11 pr-11 py-3 bg-white border rounded-lg text-gray-900 placeholder-gray-400 focus:ring-2 transition-all duration-200 outline-none ${
                             isEmailVerified ? 'opacity-70 cursor-not-allowed' : ''
                           } ${
                             !isGmailValid
@@ -1005,7 +1005,7 @@ export function Register() {
                           value={username}
                           onChange={(e) => setUsername(e.target.value)}
                           required
-                          className={`w-full pl-11 pr-11 py-3 bg-gray-50 border rounded-lg text-gray-900 placeholder-gray-400 focus:bg-white focus:ring-2 transition-all duration-200 outline-none ${
+                          className={`w-full pl-11 pr-11 py-3 bg-white border rounded-lg text-gray-900 placeholder-gray-400 focus:ring-2 transition-all duration-200 outline-none ${
                             usernameCheck.isChecking
                               ? 'border-gray-300 focus:border-gray-400'
                               : usernameCheck.isAvailable === true
@@ -1072,7 +1072,7 @@ export function Register() {
                               e.preventDefault();
                             }
                           }}
-                          className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:bg-white focus:border-red-800 focus:ring-2 focus:ring-red-800/20 transition-all duration-200 outline-none"
+                          className="w-full pl-11 pr-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:border-red-800 focus:ring-2 focus:ring-red-800/20 transition-all duration-200 outline-none"
                           placeholder="+63 9XX XXX XXXX"
                           maxLength={13}
                         />
@@ -1095,7 +1095,7 @@ export function Register() {
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
                           required
-                          className="w-full pl-11 pr-11 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:bg-white focus:border-red-800 focus:ring-2 focus:ring-red-800/20 transition-all duration-200 outline-none"
+                          className="w-full pl-11 pr-11 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:border-red-800 focus:ring-2 focus:ring-red-800/20 transition-all duration-200 outline-none"
                           placeholder="••••••••"
                         />
                         <button
@@ -1136,7 +1136,7 @@ export function Register() {
                           value={confirmPassword}
                           onChange={(e) => setConfirmPassword(e.target.value)}
                           required
-                          className="w-full pl-11 pr-11 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:bg-white focus:border-red-800 focus:ring-2 focus:ring-red-800/20 transition-all duration-200 outline-none"
+                          className="w-full pl-11 pr-11 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:border-red-800 focus:ring-2 focus:ring-red-800/20 transition-all duration-200 outline-none"
                           placeholder="••••••••"
                         />
                         <button
