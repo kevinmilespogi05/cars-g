@@ -1,11 +1,20 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { AdminChatInterface } from '../components/AdminChatInterface';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, MessageCircle } from 'lucide-react';
+import { useSidebarContext } from '../contexts/SidebarContext';
 
 export const AdminChat: React.FC = () => {
   const { user, isAuthenticated } = useAuthStore();
+  const { isCollapsed, sidebarWidth, collapsedWidth } = useSidebarContext();
+  const [isDesktop, setIsDesktop] = useState(() => window.innerWidth >= 1024);
+
+  useEffect(() => {
+    const handleResize = () => setIsDesktop(window.innerWidth >= 1024);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     if (!isAuthenticated || !user) {
@@ -46,10 +55,13 @@ export const AdminChat: React.FC = () => {
     );
   }
 
+  // Compute left offset so the admin page respects the global sidebar state
+  const effectiveLeft = isDesktop ? (isCollapsed ? collapsedWidth : sidebarWidth) : 0;
+
   return (
-    <div 
-      className="fixed top-0 right-0 bottom-0 left-0 lg:left-72 bg-white flex flex-col transition-all duration-300" 
-      style={{ paddingTop: '80px' }}
+    <div
+      className="fixed top-0 right-0 bottom-0 bg-white flex flex-col transition-all duration-300"
+      style={{ paddingTop: '80px', left: `${effectiveLeft}px` }}
     >
       {/* Header - Messenger Style */}
       <div className="bg-white border-b border-gray-200 flex-shrink-0 z-10">

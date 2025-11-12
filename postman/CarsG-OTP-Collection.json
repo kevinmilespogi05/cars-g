@@ -1,0 +1,3 @@
+{
+  "note": "This Postman collection previously contained OTP/Brevo test requests and has been removed as part of removing email/OTP integration. Preserve history in git if needed."
+}

@@ -30,7 +30,6 @@ import {
   ThumbsUp,
   Menu
 } from 'lucide-react';
-import { useSidebarContext } from '../contexts/SidebarContext';
 
 interface AdminChatInterfaceProps {
   isOpen: boolean;
@@ -56,8 +55,6 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
   const [messageInput, setMessageInput] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const { isCollapsed, sidebarWidth, collapsedWidth } = useSidebarContext();
-  // Local sidebar state used for mobile toggling of the conversations list
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isTyping, setIsTyping] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -543,25 +540,13 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
 
   if (!isOpen) return null;
 
-  // Compute effective app sidebar width from global context
-  const effectiveSidebarWidth = isCollapsed ? collapsedWidth : sidebarWidth;
-
   return (
-    <div
-      className="bg-white w-full h-full flex overflow-hidden max-h-full transition-all duration-300 ease-in-out"
-      // expose CSS variable for child calculations
-      style={{ ['--app-sidebar-width' as any]: `${effectiveSidebarWidth}px` }}
-    >
+    <div className="bg-white w-full h-full flex overflow-hidden max-h-full">
         {/* Chat List Sidebar - Messenger Style */}
         <div 
-          className={`flex-shrink-0 border-r border-gray-200 flex flex-col bg-white transition-all duration-300 h-full overflow-hidden`}
-          // left panel width should adapt to available space minus the app sidebar
-          // use calc() and the CSS variable set on the parent
-          style={{
-            width: `min(24rem, calc((100% - var(--app-sidebar-width)) * 0.33))`,
-            maxWidth: '28rem',
-            display: isSidebarOpen ? undefined : 'none'
-          }}
+          className={`${
+            isSidebarOpen ? 'w-full md:w-96' : 'w-0'
+          } ${selectedChat && !isSidebarOpen ? 'hidden md:block' : ''} flex-shrink-0 border-r border-gray-200 flex flex-col bg-white transition-all duration-300 h-full overflow-hidden`}
         >
           {/* Sidebar Header */}
           <div className="p-4 border-b border-gray-200">
@@ -693,15 +678,7 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
         </div>
 
         {/* Chat Messages Area */}
-        <div
-          className={`flex-1 flex flex-col bg-white ${selectedChat ? '' : 'hidden md:flex'} h-full overflow-hidden min-w-0 transition-all duration-300 ease-in-out`}
-          // ensure this area fills remaining space and responds to sidebar variable
-          style={{
-            // available width = 100% - left panel width - app sidebar width
-            // but flex-1 with min-w-0 and the left panel width ensures proper behavior
-            paddingLeft: 0
-          }}
-        >
+        <div className={`flex-1 flex flex-col bg-white ${selectedChat ? '' : 'hidden md:flex'} h-full overflow-hidden min-w-0`}>
           {selectedChat ? (
             <>
               {/* Chat Header - Messenger Style */}

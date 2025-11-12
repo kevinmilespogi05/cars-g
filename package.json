@@ -46,7 +46,6 @@
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
-    "@getbrevo/brevo": "^3.0.1",
     "@google-cloud/vision": "^4.0.2",
     "@googlemaps/js-api-loader": "^1.16.6",
     "@mui/icons-material": "^7.3.4",
