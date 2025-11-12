@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useImageViewerStore } from '../store/imageViewerStore';
 
@@ -26,6 +26,16 @@ export function ImageViewer({
   showNavigation = false
 }: ImageViewerProps) {
   const { setIsImageViewerOpen } = useImageViewerStore();
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const imgRef = useRef<HTMLImageElement | null>(null);
+  const [scale, setScale] = useState(1);
+  const translate = useRef({ x: 0, y: 0 });
+  const lastTouchDistance = useRef<number | null>(null);
+  const lastPan = useRef<{ x: number; y: number } | null>(null);
+  const lastTap = useRef<number>(0);
+
+  const MIN_SCALE = 1;
+  const MAX_SCALE = 4;
 
   // Prevent body scroll when modal is open
   useEffect(() => {
@@ -76,6 +86,88 @@ export function ImageViewer({
 
   if (!isOpen) return null;
 
+  // Touch handlers for swipe navigation
+  // Basic swipe and pinch/pan handlers
+  const touchStartX = useRef<number | null>(null);
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
+      touchStartX.current = e.touches[0]?.clientX ?? null;
+      lastPan.current = { x: e.touches[0].clientX - translate.current.x, y: e.touches[0].clientY - translate.current.y };
+    } else if (e.touches.length === 2) {
+      // Start pinch
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      lastTouchDistance.current = Math.hypot(dx, dy);
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 2 && lastTouchDistance.current) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.hypot(dx, dy);
+      const factor = dist / lastTouchDistance.current;
+      let nextScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale * factor));
+      setScale(nextScale);
+      // Update base distance for relative changes
+      lastTouchDistance.current = dist;
+    } else if (e.touches.length === 1 && scale > 1 && lastPan.current) {
+      // Pan while zoomed
+      const x = e.touches[0].clientX - lastPan.current.x;
+      const y = e.touches[0].clientY - lastPan.current.y;
+      translate.current = { x, y };
+      applyTransform();
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null) return;
+    // If it was a single-finger tap/drag
+    if (e.changedTouches && e.changedTouches.length === 1 && Math.abs((e.changedTouches[0]?.clientX ?? 0) - (touchStartX.current ?? 0)) > 50) {
+      const diff = (e.changedTouches[0]?.clientX ?? 0) - (touchStartX.current ?? 0);
+      const threshold = 50; // pixels
+      if (diff > threshold && onPrevious) {
+        onPrevious();
+      } else if (diff < -threshold && onNext) {
+        onNext();
+      }
+    }
+    touchStartX.current = null;
+    lastTouchDistance.current = null;
+    lastPan.current = null;
+  };
+
+  const applyTransform = () => {
+    if (!imgRef.current) return;
+    const t = translate.current;
+    imgRef.current.style.transform = `translate(${t.x}px, ${t.y}px) scale(${scale})`;
+  };
+
+  // Wheel zoom for desktop
+  const handleWheel = (e: React.WheelEvent) => {
+    if (!e.ctrlKey && Math.abs(e.deltaY) === 0) return;
+    e.preventDefault();
+    const delta = -e.deltaY;
+    const zoomFactor = delta > 0 ? 1.1 : 0.9;
+    const nextScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale * zoomFactor));
+    setScale(nextScale);
+  };
+
+  // Double-tap to toggle zoom
+  const handleDoubleTap = () => {
+    const now = Date.now();
+    if (now - lastTap.current < 300) {
+      // Toggle
+      const next = scale > 1 ? 1 : 2;
+      setScale(next);
+    }
+    lastTap.current = now;
+  };
+
+  useEffect(() => {
+    applyTransform();
+  }, [scale]);
+
   return (
     <div 
       className="fixed inset-0 z-[99999] bg-black bg-opacity-95 flex items-center justify-center"
@@ -86,8 +178,13 @@ export function ImageViewer({
       
       {/* Image Container */}
       <div 
+        ref={wrapperRef}
         className="relative max-w-[95vw] max-h-[95vh] flex items-center justify-center"
         onClick={(e) => e.stopPropagation()}
+  onTouchStart={(e) => { handleTouchStart(e); handleDoubleTap(); }}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onWheel={handleWheel}
       >
         {/* Close Button */}
         <button
@@ -132,9 +229,11 @@ export function ImageViewer({
 
         {/* Image */}
         <img
+          ref={imgRef}
           src={imageUrl}
           alt={alt}
           className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+          style={{ transform: `scale(${scale})` }}
           loading="eager"
           decoding="sync"
           fetchPriority="high"

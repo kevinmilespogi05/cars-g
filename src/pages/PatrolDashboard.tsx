@@ -1165,7 +1165,7 @@ export function PatrolDashboard() {
                   )}
 
                 {/* Ticketing Information */}
-                {(selectedReport.case_number || selectedReport.priority_level || selectedReport.assigned_group) && (
+                {(selectedReport.case_number || selectedReport.priority_level || selectedReport.assigned_group || selectedReport.assigned_patroller_name) && (
                   <div className="bg-white border border-gray-200 rounded-xl p-4">
                     <h4 className="text-sm font-medium text-gray-900 mb-3">Case Information</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

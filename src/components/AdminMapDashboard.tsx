@@ -1,25 +1,25 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
-import { awardPoints } from '../lib/points';
+import { awardPoints, awardCustomPoints } from '../lib/points';
 import { 
   MapPin, 
   AlertTriangle, 
   Check, 
   X, 
   Eye, 
-  Clock,
   Filter,
   Search,
-  Bell,
-  Settings,
+  
   RefreshCw,
   Layers,
   Wrench,
   ChevronDown,
   ChevronUp,
-  Hash
+  Hash,
+  FileText,
+  User2
 } from 'lucide-react';
 import { Notification } from './Notification';
 import { ImageViewer } from './ImageViewer';
@@ -29,7 +29,7 @@ interface Report {
   title: string;
   description: string;
   category: string;
-  status: 'verifying' | 'pending' | 'in_progress' | 'resolved' | 'declined';
+  status: 'verifying' | 'pending' | 'in_progress' | 'awaiting_verification' | 'resolved' | 'declined' | 'rejected' | 'cancelled';
   priority: 'low' | 'medium' | 'high';
   location: {
     lat: number;
@@ -56,7 +56,7 @@ interface MapMarker {
 }
 
 export function AdminMapDashboard() {
-  const navigate = useNavigate();
+  // navigate is not used in this component; remove to satisfy lint
   const [searchParams] = useSearchParams();
   const { user } = useAuthStore();
   const [reports, setReports] = useState<Report[]>([]);
@@ -108,7 +108,9 @@ export function AdminMapDashboard() {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [showClusterModal, setShowClusterModal] = useState(false);
   const [clusterReports, setClusterReports] = useState<Report[]>([]);
-  const [clusterPosition, setClusterPosition] = useState<[number, number]>([0, 0]);
+  // clusterPosition is only set when opening cluster modal; keep setter to avoid unused variable lint
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [, setClusterPosition] = useState<[number, number]>([0, 0]);
 
   // Keyboard navigation for image modal
   useEffect(() => {
@@ -384,15 +386,16 @@ export function AdminMapDashboard() {
     }
     
     // Also clean up the DOM container
-    if (mapRef.current) {
+      if (mapRef.current) {
       try {
-        mapRef.current.innerHTML = '';
-        if (mapRef.current._leaflet_id) {
-          delete mapRef.current._leaflet_id;
+        const el: any = mapRef.current;
+        el.innerHTML = '';
+        if (el._leaflet_id) {
+          delete el._leaflet_id;
         }
         // Clear our custom map ID
-        if (mapRef.current.dataset.mapId) {
-          delete mapRef.current.dataset.mapId;
+        if (el.dataset && el.dataset.mapId) {
+          delete el.dataset.mapId;
         }
       } catch (error) {
         console.log('Error cleaning up DOM container:', error);
@@ -456,21 +459,24 @@ export function AdminMapDashboard() {
       }
 
       // Check if the container already has a map instance or Leaflet elements
-      if (mapRef.current._leaflet_id || mapRef.current.querySelector('.leaflet-container') || mapRef.current.querySelector('.leaflet-map-pane')) {
+      const containerEl: any = mapRef.current;
+      if (containerEl._leaflet_id || containerEl.querySelector('.leaflet-container') || containerEl.querySelector('.leaflet-map-pane')) {
         console.log('Container already has Leaflet elements, cleaning up...');
         try {
           // Clear the container completely
-          mapRef.current.innerHTML = '';
+          containerEl.innerHTML = '';
           // Remove any Leaflet references
-          if (mapRef.current._leaflet_id) {
-            delete mapRef.current._leaflet_id;
+          if (containerEl._leaflet_id) {
+            delete containerEl._leaflet_id;
           }
           // Also check for any other Leaflet-related attributes
           const leafletAttrs = ['data-leaflet-id', 'data-leaflet-layer-id'];
           leafletAttrs.forEach(attr => {
-            if (mapRef.current.hasAttribute(attr)) {
-              mapRef.current.removeAttribute(attr);
-            }
+            try {
+              if (containerEl.hasAttribute && containerEl.hasAttribute(attr)) {
+                containerEl.removeAttribute(attr);
+              }
+            } catch {}
           });
         } catch (cleanupError) {
           console.log('Error cleaning up existing map from container:', cleanupError);
@@ -481,9 +487,9 @@ export function AdminMapDashboard() {
       }
 
       // Final safety check - ensure container is completely clean
-      if (mapRef.current.children.length > 0) {
+      if (mapRef.current && (mapRef.current as any).children && (mapRef.current as any).children.length > 0) {
         console.log('Container still has children after cleanup, forcing clear...');
-        mapRef.current.innerHTML = '';
+        (mapRef.current as any).innerHTML = '';
         await new Promise(resolve => setTimeout(resolve, 25));
       }
 
@@ -542,7 +548,8 @@ export function AdminMapDashboard() {
     if (!mapInstance.current) return;
 
     try {
-      const L = await import('leaflet');
+        const importedLeaflet: any = await import('leaflet');
+        const LF: any = (importedLeaflet && (importedLeaflet as any).default) || importedLeaflet;
       
       // Check if map instance is still valid and has required methods
       if (!mapInstance.current || 
@@ -553,12 +560,12 @@ export function AdminMapDashboard() {
       }
       
       // Real-time toggle control
-      const realTimeControl = L.Control.extend({
+        const realTimeControl = LF.Control.extend({
         options: {
           position: 'topright'
         },
         onAdd: function() {
-          const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+            const container = LF.DomUtil.create('div', 'leaflet-bar leaflet-control');
           // Safely access realTimeEnabled state with fallback
           const isRealTimeEnabled = typeof realTimeEnabled === 'boolean' ? realTimeEnabled : true;
           container.innerHTML = `
@@ -583,7 +590,7 @@ export function AdminMapDashboard() {
         }
       });
 
-      realTimeControl().addTo(mapInstance.current);
+  new realTimeControl().addTo(mapInstance.current);
     } catch (error) {
       console.error('Error adding custom controls:', error);
     }
@@ -611,8 +618,8 @@ export function AdminMapDashboard() {
       fetchAbortRef.current = new AbortController();
 
       // Fetch only the latest 50 reports
-      const { data: reportsData, error: reportsError } = await supabase
-        .from('reports')
+      // Supabase client types can be strict in this project; treat results as any locally
+      const reportsRes: any = await (supabase.from('reports') as any)
         .select(`
           id,
           title,
@@ -631,24 +638,27 @@ export function AdminMapDashboard() {
         .order('created_at', { ascending: false })
         .range(0, 49);
 
+      const reportsData: any[] = reportsRes?.data || [];
+      const reportsError = reportsRes?.error;
       if (reportsError) throw reportsError;
 
       // Try to get usernames for all user_ids and patrol_user_ids from profiles table
       let userMap = new Map();
       let patrolUserMap = new Map();
-      const userIds = [...new Set((reportsData || []).map(report => report.user_id))];
-      const patrolUserIds = [...new Set((reportsData || []).map(report => report.patrol_user_id).filter(Boolean))];
+  const userIds = [...new Set((reportsData || []).map((report: any) => report.user_id))];
+  const patrolUserIds = [...new Set((reportsData || []).map((report: any) => report.patrol_user_id).filter(Boolean))];
       
       if (userIds.length > 0 || patrolUserIds.length > 0) {
         try {
           const allUserIds = [...userIds, ...patrolUserIds];
-          const { data: profilesData, error: profilesError } = await supabase
-            .from('profiles')
+          const profilesRes: any = await (supabase.from('profiles') as any)
             .select('id, username')
             .in('id', allUserIds);
+          const profilesData: any[] = profilesRes?.data || [];
+          const profilesError = profilesRes?.error;
 
           if (!profilesError && profilesData) {
-            profilesData.forEach(profile => {
+            profilesData.forEach((profile: any) => {
               userMap.set(profile.id, profile.username);
               if (patrolUserIds.includes(profile.id)) {
                 patrolUserMap.set(profile.id, profile.username);
@@ -662,7 +672,7 @@ export function AdminMapDashboard() {
       }
 
       // Fast formatting first; defer geocoding to background queue
-      const formattedReports: Report[] = (reportsData || []).map((report) => {
+  const formattedReports: Report[] = (reportsData || []).map((report: any) => {
         let location = report.location;
         if (isInvalidLocation(location)) {
           // Schedule background geocoding if address is present
@@ -674,8 +684,8 @@ export function AdminMapDashboard() {
         }
         return {
           ...report,
-          username: userMap.get(report.user_id) || `User ${report.user_id.slice(0, 8)}`,
-          patrol_username: report.patrol_user_id ? (patrolUserMap.get(report.patrol_user_id) || `Patrol ${report.patrol_user_id.slice(0, 8)}`) : null,
+          username: userMap.get(report.user_id) || `User ${String(report.user_id || '').slice(0, 8)}`,
+          patrol_username: report.patrol_user_id ? (patrolUserMap.get(report.patrol_user_id) || `Patrol ${String(report.patrol_user_id).slice(0, 8)}`) : null,
           avatar_url: null,
           location
         } as Report;
@@ -844,12 +854,13 @@ export function AdminMapDashboard() {
       let username = `User ${newReport.user_id?.slice(0, 8) || 'Unknown'}`;
       if (newReport.user_id) {
         try {
-          const { data: profileData, error: profileError } = await supabase
-            .from('profiles')
+          const profileRes: any = await (supabase.from('profiles') as any)
             .select('username')
             .eq('id', newReport.user_id)
             .single();
-          
+          const profileData: any = profileRes?.data;
+          const profileError = profileRes?.error;
+
           if (!profileError && profileData && profileData.username) {
             username = profileData.username;
           }
@@ -906,7 +917,8 @@ export function AdminMapDashboard() {
     if (!mapInstance.current || !markersLayer.current || !report.location?.lat || !report.location?.lng) return;
 
     try {
-      const L = await import('leaflet');
+      const importedLeaflet: any = await import('leaflet');
+      const LF: any = (importedLeaflet && (importedLeaflet as any).default) || importedLeaflet;
       
       // Check if map and markers layer are still valid
       if (!mapInstance.current || !markersLayer.current || !mapInstance.current.getContainer) {
@@ -915,8 +927,8 @@ export function AdminMapDashboard() {
       }
       
       // Create marker with new report styling
-      const marker = L.marker([report.location.lat, report.location.lng], {
-        icon: L.divIcon({
+      const marker = LF.marker([report.location.lat, report.location.lng], {
+        icon: LF.divIcon({
           className: 'new-report-marker',
           html: `
             <div class="relative">
@@ -960,7 +972,7 @@ export function AdminMapDashboard() {
       });
 
       // Add to map with animation
-      marker.addTo(markersLayer.current);
+  marker.addTo(markersLayer.current);
       
       // Animate to new marker
       if (mapInstance.current && mapInstance.current.setView) {
@@ -978,7 +990,8 @@ export function AdminMapDashboard() {
     if (!mapInstance.current || !markersLayer.current) return;
 
     try {
-      const L = await import('leaflet');
+      const importedLeaflet: any = await import('leaflet');
+      const LF: any = (importedLeaflet && (importedLeaflet as any).default) || importedLeaflet;
       
       // Check if map and markers layer are still valid
       if (!mapInstance.current || !markersLayer.current || !mapInstance.current.getContainer) {
@@ -1039,11 +1052,11 @@ export function AdminMapDashboard() {
          try {
            let marker;
            
-           if (markerData.isCluster && markerData.clusterReports) {
+             if (markerData.isCluster && markerData.clusterReports) {
              // Create cluster marker
              const clusterCount = markerData.clusterReports.length;
-             marker = L.marker(markerData.position, {
-               icon: L.divIcon({
+             marker = LF.marker(markerData.position, {
+               icon: LF.divIcon({
                  className: 'report-marker cluster-marker',
                  html: `
                    <div class="relative group">
@@ -1065,8 +1078,8 @@ export function AdminMapDashboard() {
              const markerColor = getMarkerColor(markerData.report.status, markerData.report.priority);
              const markerIcon = getMarkerIcon(markerData.report.status, markerData.report.priority);
              
-             marker = L.marker(markerData.position, {
-               icon: L.divIcon({
+             marker = LF.marker(markerData.position, {
+               icon: LF.divIcon({
                  className: 'report-marker',
                  html: `
                    <div class="relative group">
@@ -1152,9 +1165,9 @@ export function AdminMapDashboard() {
        });
 
        // Auto-fit map to show all markers if there are any
-       if (!didFitBoundsRef.current && newMarkers.length > 0 && mapInstance.current) {
+      if (!didFitBoundsRef.current && newMarkers.length > 0 && mapInstance.current) {
          try {
-           const group = new L.featureGroup(newMarkers.map(m => L.marker(m.position)));
+           const group = LF.featureGroup(newMarkers.map((m: any) => LF.marker(m.position)));
            mapInstance.current.fitBounds(group.getBounds().pad(0.1));
            didFitBoundsRef.current = true;
          } catch (error) {
@@ -1336,7 +1349,6 @@ export function AdminMapDashboard() {
     }
 
     try {
-      const L = await import('leaflet');
       
       // Find the existing marker
       const existingMarker = markerRefs.current.get(reportId);
@@ -1360,27 +1372,7 @@ export function AdminMapDashboard() {
         return;
       }
 
-      // Get new marker color and icon based on new status
-      const markerColor = getMarkerColor(newStatus, report.priority);
-      const markerIcon = getMarkerIcon(newStatus, report.priority);
-
-      // Create new marker icon with updated status
-      const newIcon = L.divIcon({
-        className: 'report-marker',
-        html: `
-          <div class="relative group">
-            <div class="w-8 h-8 ${markerColor} rounded-full border-3 border-white shadow-lg cursor-pointer flex items-center justify-center text-white font-bold text-sm hover:scale-110 transition-transform duration-200">
-              ${markerIcon}
-            </div>
-            <div class="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-${markerColor.replace('bg-', '')}"></div>
-            <div class="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-10">
-              ${report.title.substring(0, 20)}${report.title.length > 20 ? '...' : ''}
-            </div>
-          </div>
-        `,
-        iconSize: [32, 32],
-        iconAnchor: [16, 32]
-      });
+  // Intentionally recreate marker visuals via a full refresh below; no local icon reuse required here.
 
       // Instead of recreating, let's try a different approach - force a complete map refresh
       console.log('Forcing map marker refresh...');
@@ -1459,8 +1451,7 @@ export function AdminMapDashboard() {
         await giveReporterRewards(currentReport.user_id, reportId, 'REPORT_RESOLVED');
       }
 
-      const { error } = await supabase
-        .from('reports')
+      const { error } = await (supabase.from('reports') as any)
         .update({ status: newStatus })
         .eq('id', reportId);
 
@@ -1499,23 +1490,7 @@ export function AdminMapDashboard() {
     }
   };
 
-  const filteredReports = reports.filter(report => {
-    // Exclude resolved and declined/rejected reports from the main view - they go to history
-    const status = report.status?.toLowerCase();
-    if (status === 'resolved' || status === 'declined' || status === 'rejected') return false;
-    
-    // Exclude patrol reports (in_progress and awaiting_verification) from the main view
-    // They should only appear in the Patrol Reports section
-    if (report.status === 'in_progress' || report.status === 'awaiting_verification') return false;
-    
-    const matchesFilter = filter === 'all' || report.status === filter;
-    const matchesSearch = searchTerm === '' || 
-      report.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      report.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      report.username.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    return matchesFilter && matchesSearch;
-  });
+  // Filter logic is applied directly where needed (map and UI chips) to avoid unused intermediate values
 
   return (
     <div className="h-screen bg-gray-50 pt-0">
@@ -1590,6 +1565,7 @@ export function AdminMapDashboard() {
             <div className="flex items-center gap-2 min-w-max">
               {([
                 { key: 'all', label: 'All' },
+                { key: 'verifying', label: 'Verifying' },
                 { key: 'pending', label: 'Pending' },
                 { key: 'in_progress', label: 'In Progress' },
                 { key: 'awaiting_verification', label: 'Awaiting Verification' }
@@ -1721,6 +1697,10 @@ export function AdminMapDashboard() {
                 <div className="px-3 pb-3 min-w-[200px]">
                   <div className="space-y-1 text-xs">
                     <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 rounded-full border border-white bg-purple-500"></div>
+                      <span>Verifying</span>
+                    </div>
+                    <div className="flex items-center gap-2">
                       <div className="w-4 h-4 rounded-full border border-white bg-yellow-500"></div>
                       <span>Pending</span>
                     </div>
@@ -1823,144 +1803,178 @@ export function AdminMapDashboard() {
       {/* Report Details Modal */}
       {showReportModal && selectedReportForModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[10002] p-4">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h2 className="text-xl font-bold text-gray-900">{selectedReportForModal.title}</h2>
-              <button
-                onClick={() => {
-                  setShowReportModal(false);
-                  setSelectedReportForModal(null);
-                }}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <X className="w-6 h-6" />
-              </button>
+          <div className="bg-white rounded-xl max-w-3xl w-full max-h-[95vh] overflow-y-auto shadow-2xl">
+            {/* Modal Header - Enhanced */}
+            <div className="sticky top-0 z-10 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200 p-6">
+              <div className="flex items-start justify-between gap-4 mb-4">
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-2xl font-bold text-gray-900 mb-2">{selectedReportForModal.title}</h2>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {selectedReportForModal.case_number && (
+                      <span className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-semibold">
+                        <Hash className="w-3 h-3" />
+                        Case #{selectedReportForModal.case_number}
+                      </span>
+                    )}
+                    <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(selectedReportForModal.status)}`}>
+                      {selectedReportForModal.status.replace('_', ' ').toUpperCase()}
+                    </span>
+                    <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${getPriorityColor(selectedReportForModal.priority)}`}>
+                      {selectedReportForModal.priority.toUpperCase()} PRIORITY
+                    </span>
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowReportModal(false);
+                    setSelectedReportForModal(null);
+                  }}
+                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
             </div>
 
-            {/* Modal Content */}
-            <div className="p-6 space-y-4">
-              {/* Issue Description */}
-              <div>
-                <h3 className="text-sm font-medium text-gray-500 mb-1">Issue Description</h3>
-                <p className="text-gray-900">{selectedReportForModal.description}</p>
+            {/* Modal Content - Enhanced */}
+            <div className="p-6 space-y-6">
+              {/* Issue Description - Featured */}
+              <div className="bg-white border border-gray-100 rounded-lg p-4 shadow-sm">
+                <div className="text-xs uppercase tracking-wide text-gray-500 mb-2 flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-blue-600" />
+                  <span>Issue Description</span>
+                </div>
+                <p className="text-gray-900 leading-relaxed">{selectedReportForModal.description}</p>
               </div>
 
-              {/* Category and Priority / Case Level */}
+              {/* Quick Stats Grid */}
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500 mb-1">Category</h3>
-                  <span className="inline-block px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm">
-                    {selectedReportForModal.category}
-                  </span>
+                {/* Category */}
+                <div className="bg-blue-50 rounded-lg p-4 border border-blue-100">
+                  <h3 className="text-xs font-semibold text-blue-700 uppercase tracking-wide mb-2">Category</h3>
+                  <p className="text-sm font-semibold text-gray-900">{selectedReportForModal.category}</p>
                 </div>
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500 mb-1">Case Level</h3>
-                  <div className="flex flex-col gap-1">
-                    <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getPriorityColor(selectedReportForModal.priority)}`}>
-                      {capitalize(selectedReportForModal.priority)}
-                    </span>
-                    {(() => { const lvl = getEffectiveLevel(selectedReportForModal); return typeof lvl === 'number' ? (
-                      <span className={`${lvl >= 5 ? 'bg-red-100 text-red-800' : lvl >= 4 ? 'bg-orange-100 text-orange-800' : lvl >= 3 ? 'bg-yellow-100 text-yellow-800' : lvl >= 2 ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'} inline-block px-3 py-1 rounded-full text-sm font-medium`} title={getServiceLevelText(lvl)}>
-                        Level {lvl} · {getServiceLevelText(lvl)}
-                      </span>
-                    ) : null; })()}
-                  </div>
+
+                {/* Service Level */}
+                <div className="bg-purple-50 rounded-lg p-4 border border-purple-100">
+                  <h3 className="text-xs font-semibold text-purple-700 uppercase tracking-wide mb-2">Service Level</h3>
+                  {(() => { 
+                    const lvl = getEffectiveLevel(selectedReportForModal); 
+                    return typeof lvl === 'number' ? (
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">Level {lvl}</p>
+                        <p className="text-xs text-gray-600 mt-1">{getServiceLevelText(lvl)}</p>
+                      </div>
+                    ) : (
+                      <p className="text-sm font-semibold text-gray-900">Not specified</p>
+                    );
+                  })()}
                 </div>
               </div>
 
-              {/* Status */}
-              <div>
-                <h3 className="text-sm font-medium text-gray-500 mb-1">Status</h3>
-                <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(selectedReportForModal.status)}`}>
-                  {(selectedReportForModal.status === 'declined' || selectedReportForModal.status === 'rejected') ? 'Declined' : selectedReportForModal.status.replace('_', ' ')}
-                </span>
-              </div>
-
-              {/* Case Number */}
-              {selectedReportForModal.case_number && (
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500 mb-1">Case Number</h3>
-                  <div className="flex items-center gap-2">
-                    <Hash className="h-4 w-4 text-gray-600" />
-                    <span className="text-gray-900 font-medium">{selectedReportForModal.case_number}</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Reporter Info */}
-              <div>
-                <h3 className="text-sm font-medium text-gray-500 mb-1">Reported By</h3>
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold">
+              {/* Reporter Information */}
+              <div className="border-l-4 border-blue-500 bg-blue-50 rounded-lg p-4">
+                <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                  <User2 className="w-4 h-4 text-blue-600" />
+                  Reporter Information
+                </h3>
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
                     {selectedReportForModal.username.charAt(0).toUpperCase()}
                   </div>
-                  <div>
-                    <p className="font-medium text-gray-900">{selectedReportForModal.username}</p>
-                    <p className="text-sm text-gray-500">
-                      {new Date(selectedReportForModal.created_at).toLocaleString()}
+                  <div className="flex-1">
+                    <p className="font-semibold text-gray-900">{selectedReportForModal.username}</p>
+                    <p className="text-xs text-gray-600 mt-1">
+                      📅 {new Date(selectedReportForModal.created_at).toLocaleDateString()} • ⏰ {new Date(selectedReportForModal.created_at).toLocaleTimeString()}
                     </p>
                   </div>
                 </div>
               </div>
 
-              {/* Patrol Officer Info */}
+              {/* Patrol Officer Information */}
               {(selectedReportForModal.patrol_username || selectedReportForModal.patrol_user_id) && (
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500 mb-1">Patrol Officer</h3>
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center text-white font-semibold">
+                <div className="border-l-4 border-orange-500 bg-orange-50 rounded-lg p-4">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <User2 className="w-4 h-4 text-orange-600" />
+                    Assigned Patrol Officer
+                  </h3>
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-orange-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
                       {(selectedReportForModal.patrol_username || 'P').charAt(0).toUpperCase()}
                     </div>
-                    <div>
-                      <p className="font-medium text-gray-900">
-                        {selectedReportForModal.patrol_username || `Patrol ${selectedReportForModal.patrol_user_id?.slice(0, 8)}...`}
+                    <div className="flex-1">
+                      <p className="font-semibold text-gray-900">
+                        {selectedReportForModal.patrol_username || `Patrol Officer`}
                       </p>
-                      <p className="text-sm text-gray-500">Completed the job</p>
+                      <p className="text-xs text-gray-600 mt-1">Status: <span className="text-green-600 font-semibold">Assigned</span></p>
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* Location */}
-              <div>
-                <h3 className="text-sm font-medium text-gray-500 mb-1">Location</h3>
-                <div className="flex items-center gap-2 text-gray-900">
-                  <MapPin className="w-4 h-4 text-gray-400" />
-                  <span>{selectedReportForModal.location_address}</span>
+              {/* Location Information */}
+              <div className="bg-white border border-gray-100 rounded-lg p-4 shadow-sm">
+                <div className="text-xs uppercase tracking-wide text-gray-500 mb-2 flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-green-600" />
+                  <span>Location</span>
                 </div>
+                <p className="text-sm text-gray-900 leading-relaxed">{selectedReportForModal.location_address}</p>
+                {selectedReportForModal.location?.lat && selectedReportForModal.location?.lng && (
+                  <p className="text-xs text-gray-500 mt-2">
+                    📍 Coordinates: {selectedReportForModal.location.lat.toFixed(4)}, {selectedReportForModal.location.lng.toFixed(4)}
+                  </p>
+                )}
               </div>
 
-              {/* Images */}
+              {/* Images Section */}
               {selectedReportForModal.images && selectedReportForModal.images.length > 0 && (
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500 mb-3">IMAGES</h3>
-                  <div className="grid grid-cols-3 gap-2">
+                <div className="bg-white border border-gray-100 rounded-lg p-4 shadow-sm">
+                  <div className="text-xs uppercase tracking-wide text-gray-500 mb-3">Images</div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     {selectedReportForModal.images.map((image, index) => (
-                      <img
+                      <div
                         key={index}
-                        src={image}
-                        alt={`Report image ${index + 1}`}
-                        className="w-full h-20 object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-80 transition-opacity"
+                        className="relative group rounded-lg overflow-hidden border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer"
                         onClick={() => {
                           setSelectedImage(image);
                           setShowImageModal(true);
                         }}
-                      />
+                      >
+                        <img
+                          src={image}
+                          alt={`Report image ${index + 1}`}
+                          className="w-full h-32 object-cover group-hover:scale-110 transition-transform duration-200"
+                        />
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center">
+                          <Eye className="w-5 h-5 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </div>
+                        <div className="absolute top-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+                          {index + 1}/{selectedReportForModal.images.length}
+                        </div>
+                      </div>
                     ))}
                   </div>
                 </div>
               )}
+
+              {/* Additional meta removed to streamline modal (Report ID and Last Updated removed) */}
             </div>
 
-            {/* Modal Footer */}
-            <div className="flex justify-end gap-3 p-6 border-t border-gray-200">
+            {/* Modal Footer - Enhanced */}
+            <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 p-6 flex justify-end gap-3">
+              <button
+                onClick={() => focusReportOnMap(selectedReportForModal)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm flex items-center gap-2"
+              >
+                <MapPin className="w-4 h-4" />
+                Focus on Map
+              </button>
               <button
                 onClick={() => {
                   setShowReportModal(false);
                   setSelectedReportForModal(null);
                 }}
-                className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                className="px-4 py-2 text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors font-medium text-sm"
               >
                 Close
               </button>
@@ -2025,7 +2039,7 @@ export function AdminMapDashboard() {
             {/* Modal Content */}
             <div className="p-6">
               <div className="grid gap-4">
-                {clusterReports.map((report, index) => (
+                {clusterReports.map((report) => (
                   <div key={report.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1">
