@@ -959,7 +959,14 @@ export function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="relative z-20 bg-gray-900 text-white py-6 w-full">
+      <footer
+        className="relative z-20 bg-gray-900 text-white py-6"
+        style={{
+          marginLeft: 'var(--app-left-offset, 0)',
+          width: 'calc(100% - var(--app-left-offset, 0))',
+          transition: 'margin-left .25s ease, width .25s ease'
+        }}
+      >
         <div className="w-full px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             {/* Brand Section */}

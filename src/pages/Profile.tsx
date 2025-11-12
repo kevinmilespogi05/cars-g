@@ -8,6 +8,8 @@ import { ProfileTabContent } from '../components/ProfileTabContent';
 import { supabase } from '../lib/supabase';
 import { motion } from 'framer-motion';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useVerificationStatus } from '../hooks/useVerificationStatus';
+import { useToastContext } from '../contexts/ToastContext';
 import { Report } from '../types';
 import { deleteMultipleImages } from '../lib/cloudinaryStorage';
 import { ConfirmationDialog } from '../components/ConfirmationDialog';
@@ -34,7 +36,7 @@ interface ProfileData {
   email?: string;
 }
 
-export function Profile() {
+export function Profile({ softBlocked = false }: { softBlocked?: boolean }) {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user: currentUser, setUser } = useAuthStore();
@@ -63,6 +65,8 @@ export function Profile() {
 
   const isOwnProfile = !id || (currentUser && id === currentUser.id);
   const user = isOwnProfile ? currentUser : profileData;
+  const { isPending } = useVerificationStatus();
+  const { error: showToastError } = useToastContext();
   const [myReports, setMyReports] = useState<Report[]>([]);
   const [myResolvedReports, setMyResolvedReports] = useState<Report[]>([]);
   const [loadingMyReports, setLoadingMyReports] = useState(false);
@@ -170,6 +174,9 @@ export function Profile() {
       fetchMyReports(id);
     }
   }, [id, currentUser?.id, isOwnProfile]);
+
+  // NOTE: routing-level guard will pass `softBlocked` when a pending user attempts
+  // to view someone else's profile; render a limited (soft-blocked) experience below.
 
   // Determine current shift based on local time
   const getCurrentShift = () => {
@@ -536,6 +543,24 @@ export function Profile() {
           transition={{ duration: 0.3 }}
           className="space-y-6"
         >
+        {/* Soft-block banner when route guard marks this as softBlocked for pending users */}
+        {softBlocked && (
+          <div className="mb-4 px-4">
+            <div className="rounded-lg p-3 bg-yellow-50 border border-yellow-200 text-yellow-800 flex items-center justify-between">
+              <div className="text-sm">
+                Your account is pending verification — some profile details are hidden. Verify your account to view full profiles.
+              </div>
+              <div>
+                <button
+                  onClick={() => navigate('/reports')}
+                  className="ml-4 px-3 py-1 rounded bg-yellow-600 text-white text-sm"
+                >
+                  Back to reports
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         {/* Modern Profile Header */}
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-2xl border border-gray-200/50 overflow-hidden relative">
           {/* Background Pattern */}
@@ -722,7 +747,7 @@ export function Profile() {
               <div className="px-8 py-6 space-y-6">
                 <div className="bg-blue-50 rounded-xl p-4">
                   <label className="block text-sm font-semibold text-blue-800 mb-2">Email Address</label>
-                  <p className="text-blue-900 font-medium">{user?.email || 'Not set'}</p>
+                  <p className="text-blue-900 font-medium">{softBlocked ? 'Hidden while your account is pending verification' : (user?.email || 'Not set')}</p>
                 </div>
                 {user?.role === 'admin' && (
                   <div className="bg-purple-50 rounded-xl p-4">

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   Mail, 
@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 
 // LGU Footer details – update these to your LGU specifics
+import { useSidebarContext } from '../contexts/SidebarContext';
 const LGU_NAME = 'Castillejos Local Government Unit';
 const LGU_ADDRESS = 'Municipal Building, San Juan, Castillejos, Zambales, 2208, Philippines';
 const LGU_FACEBOOK_URL = 'https://www.facebook.com/profile.php?id=100086396687833';
@@ -22,6 +23,21 @@ const LGU_PHONE = '+63 (047) 123-4567';
 export function Footer() {
 
   // Handler for telephone links to prevent errors on desktop
+  const { isCollapsed, sidebarWidth, collapsedWidth } = useSidebarContext();
+  const [isDesktop, setIsDesktop] = useState(typeof window !== 'undefined' ? window.innerWidth >= 1024 : true);
+
+  useEffect(() => {
+    const onResize = () => setIsDesktop(window.innerWidth >= 1024);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  const leftOffset = isDesktop ? (isCollapsed ? collapsedWidth : sidebarWidth) : 0;
+  const footerStyle: React.CSSProperties = {
+    marginLeft: leftOffset ? `${leftOffset}px` : undefined,
+    width: leftOffset ? `calc(100% - ${leftOffset}px)` : '100%',
+    transition: 'margin-left 250ms cubic-bezier(0.4, 0, 0.2, 1), width 250ms cubic-bezier(0.4,0,0.2,1)'
+  };
   const handlePhoneClick = (e: React.MouseEvent<HTMLAnchorElement>, phoneNumber: string) => {
     // Check if device has phone calling capabilities
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
@@ -45,6 +61,7 @@ export function Footer() {
   return (
     <footer 
       className="bg-gray-900 text-white relative z-[5] w-full"
+      style={footerStyle}
     >
       <div className="w-full px-2 sm:px-6 lg:px-8 py-1">
         <div className="w-full pt-4">

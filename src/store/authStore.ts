@@ -1,4 +1,3 @@
-import React from 'react';
 import { create } from 'zustand';
 import { User } from '../types';
 import { supabase } from '../lib/supabase';
@@ -10,22 +9,19 @@ import {
   getCurrentUser, 
   logoutWithJWT, 
   isAuthenticated as isJWTAuthenticated,
-  getCurrentStoredUser,
-  clearTokens,
-  storeTokens,
-  storeUser
+  clearTokens
 } from '../lib/jwt';
 
 // Helper function to check verification status
 const checkVerificationStatus = async (profile: any) => {
+  // Allow pending users to access the site with limited functionality
   if (profile.verification_status === 'pending') {
-    // Sign out the user if they're not verified
-    await supabase.auth.signOut();
-    throw new Error('Your account is pending ID verification. Please wait for admin approval before signing in.');
+    console.log('User account pending verification - allowing limited access');
+    return; // Don't block, just allow with limited access
   }
   
   if (profile.verification_status === 'declined') {
-    // Sign out the user if they're declined
+    // Only block declined users
     await supabase.auth.signOut();
     throw new Error('Your account verification was declined. Please contact support for assistance.');
   }
@@ -38,19 +34,21 @@ interface AuthState {
   signIn: (email: string, password: string) => Promise<void>;
   signInWithUsername: (username: string, password: string) => Promise<void>;
   signInWithEmailOrUsername: (emailOrUsername: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, username: string, firstName?: string, lastName?: string, phone?: string, confirmPassword?: string, idFrontImageUrl?: string, idBackImageUrl?: string) => Promise<void>;
+  signUp: (email: string, password: string, username: string, firstName?: string, lastName?: string, phone?: string, confirmPassword?: string, idFrontImageUrl?: string, idBackImageUrl?: string) => Promise<any>;
   signInWithGoogle: () => Promise<void>;
   signInWithFacebook: () => Promise<void>;
   signOut: () => Promise<void>;
-  initialize: () => Promise<void>;
+  initialize: () => Promise<void | (() => void)>;
   // JWT methods
   signInWithJWT: (email: string, password: string) => Promise<void>;
   refreshJWTToken: () => Promise<boolean>;
   checkJWTAuthentication: () => boolean;
   initializeJWT: () => Promise<void>;
+  // Internal helpers
+  _startSessionMonitoring: () => () => void;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   isAuthenticated: false,
   setUser: (user) => set({ user, isAuthenticated: !!user }),
@@ -60,7 +58,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     const checkSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        if (!session && useAuthStore.getState().isAuthenticated) {
+        if (!session && get().isAuthenticated) {
           console.log('Session lost during monitoring, updating state');
           set({ user: null, isAuthenticated: false });
         }
@@ -68,10 +66,10 @@ export const useAuthStore = create<AuthState>((set) => ({
         console.warn('Session monitoring error:', error);
       }
     };
-    
+
     // Check every 5 minutes
     const interval = setInterval(checkSession, 5 * 60 * 1000);
-    
+
     // Return cleanup function
     return () => clearInterval(interval);
   },
@@ -79,10 +77,10 @@ export const useAuthStore = create<AuthState>((set) => ({
   initialize: async () => {
     try {
       // First try JWT authentication
-      await useAuthStore.getState().initializeJWT();
+      await get().initializeJWT();
       
       // If JWT authentication succeeded, we're done
-      if (useAuthStore.getState().isAuthenticated) {
+      if (get().isAuthenticated) {
         return;
       }
 
@@ -111,7 +109,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       
       if (session?.user) {
         // Fetch the user's profile
-        const { data: profile, error: profileError } = await supabase
+        const { data: profile, error: profileError } = await (supabase as any)
           .from('profiles')
           .select('*')
           .eq('id', session.user.id)
@@ -123,7 +121,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         
         if (!profile) {
           // Create profile for new user
-          const { error: createError } = await supabase
+          const { error: createError } = await (supabase as any)
             .from('profiles')
             .upsert({
               id: session.user.id,
@@ -153,7 +151,7 @@ export const useAuthStore = create<AuthState>((set) => ({
           }
 
           // Fetch the newly created profile
-          const { data: newProfile, error: fetchError } = await supabase
+          const { data: newProfile, error: fetchError } = await (supabase as any)
             .from('profiles')
             .select('*')
             .eq('id', session.user.id)
@@ -161,13 +159,16 @@ export const useAuthStore = create<AuthState>((set) => ({
             
           if (fetchError && String((fetchError as any).status) !== '406') throw fetchError;
           
+          const userObj: any = newProfile 
+            ? { ...newProfile, email: session.user.email }
+            : { id: session.user.id, email: session.user.email };
           set({ 
-            user: newProfile ? { ...newProfile, email: session.user.email } : { id: session.user.id, email: session.user.email } as any,
+            user: userObj as User,
             isAuthenticated: true,
           });
         } else {
           // If user is banned, immediately sign out and stop initializing
-          if (profile.is_banned) {
+          if ((profile as any).is_banned) {
             await supabase.auth.signOut();
             set({ user: null, isAuthenticated: false });
             return;
@@ -182,8 +183,9 @@ export const useAuthStore = create<AuthState>((set) => ({
             console.warn('Skipping stats initialization:', e);
           }
           
+          const userObj: any = { ...profile, email: session.user.email };
           set({ 
-            user: { ...profile, email: session.user.email },
+            user: userObj as User,
             isAuthenticated: true,
           });
         }
@@ -194,7 +196,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         try {
           if (event === 'SIGNED_IN' && session?.user) {
             // Check if profile exists
-            const { data: existingProfile, error: profileError } = await supabase
+            const { data: existingProfile, error: profileError } = await (supabase as any)
               .from('profiles')
               .select('*')
               .eq('id', session.user.id)
@@ -206,7 +208,7 @@ export const useAuthStore = create<AuthState>((set) => ({
             
             if (!existingProfile) {
               // Create profile for new user
-              const { error: createError } = await supabase
+              const { error: createError } = await (supabase as any)
                 .from('profiles')
                 .upsert({
                   id: session.user.id,
@@ -240,7 +242,7 @@ export const useAuthStore = create<AuthState>((set) => ({
               await initializeUserStats(session.user.id);
               
               // Fetch the newly created profile
-              const { data: newProfile, error: fetchError } = await supabase
+              const { data: newProfile, error: fetchError } = await (supabase as any)
                 .from('profiles')
                 .select('*')
                 .eq('id', session.user.id)
@@ -248,8 +250,11 @@ export const useAuthStore = create<AuthState>((set) => ({
                 
               if (fetchError && String((fetchError as any).status) !== '406') throw fetchError;
               
+              const userObj: any = newProfile
+                ? { ...newProfile, email: session.user.email }
+                : { id: session.user.id, email: session.user.email };
               set({ 
-                user: newProfile ? { ...newProfile, email: session.user.email } : { id: session.user.id, email: session.user.email } as any,
+                user: userObj as User,
                 isAuthenticated: true,
               });
             } else {
@@ -265,8 +270,9 @@ export const useAuthStore = create<AuthState>((set) => ({
                 console.warn('Skipping stats initialization:', e);
               }
               
+              const userObj: any = { ...existingProfile, email: session.user.email };
               set({ 
-                user: { ...existingProfile, email: session.user.email },
+                user: userObj as User,
                 isAuthenticated: true,
               });
             }
@@ -276,19 +282,20 @@ export const useAuthStore = create<AuthState>((set) => ({
             // Handle token refresh
             if (session?.user) {
               // Update user data if needed
-              const { data: profile } = await supabase
+              const { data: profile } = await (supabase as any)
                 .from('profiles')
                 .select('*')
                 .eq('id', session.user.id)
                 .maybeSingle();
                 
               if (profile) {
-                if (profile.is_banned) {
+                if ((profile as any).is_banned) {
                   await supabase.auth.signOut();
                   set({ user: null, isAuthenticated: false });
                   return;
                 }
-                set({ user: { ...profile, email: session.user.email } });
+                const userObj: any = { ...profile, email: session.user.email };
+                set({ user: userObj as User });
               }
             }
           }
@@ -299,11 +306,11 @@ export const useAuthStore = create<AuthState>((set) => ({
         }
       });
       
-      // Start session monitoring
-      const cleanupMonitoring = useAuthStore.getState()._startSessionMonitoring();
+  // Start session monitoring
+  const cleanupMonitoring = get()._startSessionMonitoring();
       
-      // Return cleanup function for the monitoring
-      return cleanupMonitoring;
+  // Return cleanup function for the monitoring
+  return cleanupMonitoring;
     } catch (error) {
       console.error('Error initializing auth:', error);
       set({ user: null, isAuthenticated: false });
@@ -342,14 +349,17 @@ export const useAuthStore = create<AuthState>((set) => ({
           
         if (profileError) throw profileError;
 
-        // Check verification status
-        await checkVerificationStatus(profile);
+  // Check verification status
+  await checkVerificationStatus(profile as any);
 
         // Initialize user stats if they don't exist
         await initializeUserStats(data.user.id);
-          
+        
+        const userObj: any = profile 
+          ? Object.assign({}, profile, { email: data.user.email })
+          : { id: data.user.id, email: data.user.email };
         set({ 
-          user: { ...profile, email: data.user.email },
+          user: userObj as User,
           isAuthenticated: true,
         });
       }
@@ -394,7 +404,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       }
 
       // First, look up the user by username to get their email
-      const { data: profile, error: profileError } = await supabase
+      const { data: profile, error: profileError } = await (supabase as any)
         .from('profiles')
         .select('email')
         .eq('username', username)
@@ -413,22 +423,26 @@ export const useAuthStore = create<AuthState>((set) => ({
       if (error) throw error;
       
       if (data.user) {
-      const { data: fullProfile, error: fullProfileError } = await supabase
-          .from('profiles')
+    const { data: fullProfile, error: fullProfileError } = await (supabase as any)
+      .from('profiles')
           .select('*')
           .eq('id', data.user.id)
         .maybeSingle();
           
-        if (fullProfileError) throw fullProfileError;
 
-        // Check verification status
-        await checkVerificationStatus(fullProfile);
+  if (fullProfileError) throw fullProfileError;
+
+  // Check verification status
+  await checkVerificationStatus(fullProfile as any);
 
         // Initialize user stats if they don't exist
         await initializeUserStats(data.user.id);
-          
+        
+        const userObj: any = fullProfile
+          ? { ...fullProfile, email: data.user.email }
+          : { id: data.user.id, email: data.user.email };
         set({ 
-          user: { ...fullProfile, email: data.user.email },
+          user: userObj as User,
           isAuthenticated: true,
         });
       }
@@ -483,7 +497,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         email = emailOrUsername;
       } else {
         // It's a username, look up the email
-        const { data: profile, error: profileError } = await supabase
+        const { data: profile, error: profileError } = await (supabase as any)
           .from('profiles')
           .select('email')
           .eq('username', emailOrUsername)
@@ -499,7 +513,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
       // Try JWT authentication first
       try {
-        await useAuthStore.getState().signInWithJWT(email, password);
+        await get().signInWithJWT(email, password);
         return; // Success with JWT, exit early
       } catch (jwtError) {
         console.log('JWT authentication failed, falling back to Supabase:', jwtError);
@@ -514,23 +528,27 @@ export const useAuthStore = create<AuthState>((set) => ({
       
       if (error) throw error;
       
-      if (data.user) {
-      const { data: fullProfile, error: fullProfileError } = await supabase
-          .from('profiles')
+    if (data.user) {
+    const { data: fullProfile, error: fullProfileError } = await (supabase as any)
+      .from('profiles')
           .select('*')
           .eq('id', data.user.id)
         .maybeSingle();
           
-        if (fullProfileError) throw fullProfileError;
 
-        // Check verification status
-        await checkVerificationStatus(fullProfile);
+  if (fullProfileError) throw fullProfileError;
+
+  // Check verification status
+  await checkVerificationStatus(fullProfile as any);
 
         // Initialize user stats if they don't exist
         await initializeUserStats(data.user.id);
-          
+        
+        const userObj: any = fullProfile
+          ? { ...fullProfile, email: data.user.email }
+          : { id: data.user.id, email: data.user.email };
         set({ 
-          user: { ...fullProfile, email: data.user.email },
+          user: userObj as User,
           isAuthenticated: true,
         });
       }
@@ -563,7 +581,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       console.log('Starting Google OAuth sign-in...');
       
-      const { data, error } = await supabase.auth.signInWithOAuth({
+      const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: `${window.location.origin}/auth/callback`,
@@ -589,7 +607,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         throw error;
       }
       
-      console.log('Google OAuth initiated successfully:', data);
+      console.log('Google OAuth initiated successfully');
     } catch (error: any) {
       console.error('Unexpected error during Google OAuth:', error);
       throw error;
@@ -598,7 +616,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   signInWithFacebook: async () => {
     try {
-      const { data, error } = await supabase.auth.signInWithOAuth({
+      const { error } = await supabase.auth.signInWithOAuth({
         provider: 'facebook',
         options: {
           redirectTo: `${window.location.origin}/auth/callback`,
@@ -635,6 +653,10 @@ export const useAuthStore = create<AuthState>((set) => ({
   ) => {
     try {
       // Use the server-side registration endpoint (direct registration without verification)
+      // If the user has already verified the email via the email-first flow, include skipEmailOtp
+      const emailVerified = typeof window !== 'undefined' ? localStorage.getItem('emailVerified') : null;
+      const skipEmailOtp = emailVerified && emailVerified === email;
+
       const response = await fetch(getApiUrl('/api/auth/register'), {
         method: 'POST',
         headers: {
@@ -650,7 +672,7 @@ export const useAuthStore = create<AuthState>((set) => ({
           phone: phone || '',
           idFrontImageUrl: idFrontImageUrl || '',
           idBackImageUrl: idBackImageUrl || ''
-        }),
+        , skipEmailOtp: skipEmailOtp || false }),
       });
 
       const result = await response.json();
@@ -668,6 +690,8 @@ export const useAuthStore = create<AuthState>((set) => ({
         success: true,
         message: result.message || 'Registration successful! Your account is pending ID verification.',
         email: result.email,
+        userId: result.userId || null,
+        requiresEmailOtp: result.requiresEmailOtp || false,
         requiresVerification: result.requiresVerification || true,
         verificationStatus: result.verificationStatus || 'pending',
         redirectUrl: result.data?.redirectUrl || null

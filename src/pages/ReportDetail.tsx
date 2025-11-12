@@ -5,6 +5,8 @@ import { getStatusColor as badgeStatusColor, getPriorityColor as badgePriorityCo
 import { motion } from 'framer-motion';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
+import { useVerificationStatus } from '../hooks/useVerificationStatus';
+import { useToastContext } from '../contexts/ToastContext';
 import { LikeDetailsModal } from '../components/LikeDetailsModal';
 import { Comment, CommentReply, ReportComment } from '../types';
 import { reportsService } from '../services/reportsService';
@@ -45,6 +47,8 @@ export function ReportDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuthStore();
+  const { isPending } = useVerificationStatus();
+  const { error: showToastError } = useToastContext();
   const [report, setReport] = useState<Report | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -294,6 +298,10 @@ export function ReportDetail() {
   };
 
   const handleLike = async () => {
+    if (isPending) {
+      try { showToastError('Your account is pending verification. You cannot like reports until approved by an admin.', 5000); } catch {};
+      return;
+    }
     console.log('handleLike called, user:', user?.id, 'report:', report?.id);
     if (!user || !report) {
       console.log('User or report not available, returning');
@@ -328,6 +336,10 @@ export function ReportDetail() {
   const handleSubmitComment = async (e: React.FormEvent) => {
     e.preventDefault();
     console.log('handleSubmitComment called, user:', user?.id, 'report:', report?.id, 'content:', commentContent);
+    if (isPending) {
+      try { showToastError('Your account is pending verification. Commenting is disabled until approval.', 5000); } catch {};
+      return;
+    }
     if (!user || !report || !commentContent.trim()) {
       console.log('User, report, or content not available, returning');
       if (!user) {
@@ -370,6 +382,11 @@ export function ReportDetail() {
   };
 
   const handleCommentLike = async (commentId: string) => {
+    if (isPending) {
+      try { showToastError('Your account is pending verification. You cannot like comments until approved.', 5000); } catch {};
+      return;
+    }
+
     if (!user) {
       alert('Please sign in to like comments');
       return;
@@ -450,6 +467,11 @@ export function ReportDetail() {
   };
 
   const handleReply = async (commentId: string) => {
+    if (isPending) {
+      try { showToastError('Your account is pending verification. Replying is disabled until approval.', 5000); } catch {};
+      return;
+    }
+
     if (!user) {
       alert('Please sign in to reply to comments');
       return;
@@ -500,6 +522,11 @@ export function ReportDetail() {
   };
 
   const handleNestedReply = async (replyId: string, commentId: string) => {
+    if (isPending) {
+      try { showToastError('Your account is pending verification. Replying is disabled until approval.', 5000); } catch {};
+      return;
+    }
+
     if (!user) {
       alert('Please sign in to reply to comments');
       return;
@@ -581,6 +608,11 @@ export function ReportDetail() {
   };
 
   const handleReplyLike = async (replyId: string) => {
+    if (isPending) {
+      try { showToastError('Your account is pending verification. You cannot like replies until approved.', 5000); } catch {};
+      return;
+    }
+
     if (!user) {
       alert('Please sign in to like replies');
       return;
@@ -1428,6 +1460,10 @@ export function ReportDetail() {
                       <button
                         key={n}
                         onClick={async () => {
+                          if (isPending) {
+                            try { showToastError('Your account is pending verification. Rating reports is disabled until approval.', 5000); } catch {};
+                            return;
+                          }
                           if (submittingRating) return;
                           try {
                             setSubmittingRating(true);

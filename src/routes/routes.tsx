@@ -2,6 +2,7 @@ import { lazy } from 'react';
 import { RouteObject } from 'react-router-dom';
 import { ProtectedRoute } from '../components/ProtectedRoute';
 import { PatrolRoute } from '../components/PatrolRoute';
+import { ProfileRoute } from '../components/ProfileRoute';
 
 // Lazy load components
 const LandingPage = lazy(() => import('../pages/LandingPage').then(module => ({ default: module.LandingPage })));
@@ -25,7 +26,6 @@ const VerificationReports = lazy(() => import('../pages/VerificationReports').th
 const Announcements = lazy(() => import('../pages/Announcements').then(module => ({ default: module.Announcements })));
 const EmergencyContacts = lazy(() => import('../pages/EmergencyContacts').then(module => ({ default: module.EmergencyContacts })));
 const CaseDetailsPage = lazy(() => import('../pages/CaseDetailsPage').then(module => ({ default: module.CaseDetailsPage })));
-const VerifyEmail = lazy(() => import('../pages/VerifyEmail').then(module => ({ default: module.VerifyEmail })));
 
 export const publicRoutes: RouteObject[] = [
   {
@@ -55,10 +55,6 @@ export const publicRoutes: RouteObject[] = [
   {
     path: '/terms-of-service',
     element: <TermsOfService />
-  },
-  {
-    path: '/verify-email',
-    element: <VerifyEmail />
   }
 ];
 
@@ -81,11 +77,11 @@ export const protectedRoutes: RouteObject[] = [
   },
   {
     path: '/profile',
-    element: <ProtectedRoute><Profile /></ProtectedRoute>
+    element: <ProtectedRoute><ProfileRoute><Profile /></ProfileRoute></ProtectedRoute>
   },
   {
     path: '/profile/:id',
-    element: <ProtectedRoute><Profile /></ProtectedRoute>
+    element: <ProtectedRoute><ProfileRoute><Profile /></ProfileRoute></ProtectedRoute>
   },
   {
     path: '/verification-reports',

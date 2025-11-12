@@ -6,6 +6,8 @@ import helmet from 'helmet';
 import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
 import fetch from 'node-fetch';
@@ -14,9 +16,20 @@ import multer from 'multer';
 import { generateTokenPair, verifyToken, extractTokenFromHeader } from './lib/jwt.js';
 import { authenticateToken, requireRole } from './middleware/auth.js';
 import WarmupService from './warmup.js';
+import { sendMail } from './utils/smtpService.js';
+import { setOtpForEmail, getOtpEntry, incrementAttempts, clearOtp } from './utils/inMemoryOtpStore.js';
 
-// Load environment variables
-dotenv.config();
+// Load environment variables (explicitly from this file's directory so `.env` in the server folder is used
+// even when the process is started from the repo root)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+dotenv.config({ path: path.join(__dirname, '.env') });
+
+// Quick masked debug for critical env vars (will help verify .env loaded)
+const mask = (s = '') => (s && s.length > 10 ? `${s.slice(0, 6)}...${s.slice(-4)}` : s ? '***' : '(not set)');
+console.log('Loaded env:', {
+  EMAIL_USER: process.env.EMAIL_USER || '(not set)'
+});
 
 // Check required environment variables with fallbacks for development
 const requiredEnvVars = [
@@ -310,6 +323,8 @@ app.use((req, res, next) => {
 
 // In-memory rate limit for push registration
 const recentRegistrations = new Map();
+
+// Email/OTP in-memory helpers removed per request (server no longer sends OTPs via SMTP/Brevo).
 
 
 // Push: register device token
@@ -1724,7 +1739,7 @@ app.post('/api/auth/check-availability', async (req, res) => {
 // Registration endpoint with ID verification support
 app.post('/api/auth/register', async (req, res) => {
   try {
-    const { email, password, username, firstName, lastName, phone, idFrontImageUrl, idBackImageUrl } = req.body || {};
+    const { email, password, username, firstName, lastName, phone, idFrontImageUrl, idBackImageUrl, skipEmailOtp } = req.body || {};
 
     if (!email || !password || !username) {
       return res.status(400).json({ success: false, error: 'Email, password, and username are required', code: 'MISSING_FIELDS' });
@@ -1762,11 +1777,11 @@ app.post('/api/auth/register', async (req, res) => {
       return res.status(400).json({ success: false, error: 'An account with this email already exists', code: 'EMAIL_EXISTS' });
     }
 
-    // Create user in Supabase Auth directly
+    // Create user in Supabase Auth directly (do not auto-confirm email; we'll verify via OTP)
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: email,
       password: password,
-      email_confirm: true, // Mark as confirmed since we're not using email verification
+      email_confirm: false, // We'll confirm after OTP verification
       user_metadata: {
         username: username,
         first_name: firstName || '',
@@ -1809,6 +1824,8 @@ app.post('/api/auth/register', async (req, res) => {
     }
 
     // Create profile in profiles table
+    // Note: email_verified is set false until OTP is validated
+    profilePayload.email_verified = false;
     let { error: profileCreateError } = await supabaseAdmin
       .from('profiles')
       .insert(profilePayload);
@@ -1829,6 +1846,71 @@ app.post('/api/auth/register', async (req, res) => {
         error: 'Failed to create user profile',
         code: 'PROFILE_ERROR'
       });
+    }
+
+    // If the client indicates the email was already verified in the email-first flow,
+    // mark the auth user email as confirmed and set profile.email_verified = true.
+    if (skipEmailOtp) {
+      try {
+        // Confirm auth user's email
+        await supabaseAdmin.auth.admin.updateUserById(authData.user.id, { email_confirm: true });
+      } catch (e) {
+        console.warn('Failed to confirm auth user email on create (non-fatal):', e?.message || e);
+      }
+
+      try {
+        await supabaseAdmin.from('profiles').update({
+          email_verified: true,
+          email_otp_hash: null,
+          email_otp_expires: null,
+          email_otp_sent_at: null,
+          otp_attempts: 0,
+          updated_at: new Date().toISOString()
+        }).eq('id', authData.user.id);
+      } catch (e) {
+        console.warn('Failed to update profile email_verified flag (non-fatal):', e?.message || e);
+      }
+    } else {
+      // Generate OTP, store hashed OTP in profiles, and send via SMTP
+      try {
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const otpHash = crypto.createHash('sha256').update(String(otp)).digest('hex');
+        const now = new Date();
+        const expiry = new Date(now.getTime() + 10 * 60 * 1000).toISOString();
+
+        const { error: otpUpdateError } = await supabaseAdmin.from('profiles').update({
+          email_otp_hash: otpHash,
+          email_otp_expires: expiry,
+          email_otp_sent_at: now.toISOString(),
+          otp_attempts: 0,
+          updated_at: now.toISOString()
+        }).eq('id', authData.user.id);
+
+        if (otpUpdateError) {
+          console.error('Failed to store OTP in profile:', otpUpdateError);
+        }
+
+        // Send OTP email
+        try {
+          const subject = 'Your CARS-G verification code';
+          const html = `
+            <div style="font-family: Arial, Helvetica, sans-serif;">
+              <p>Hi ${firstName || profilePayload.first_name || 'User'},</p>
+              <p>Your verification code is:</p>
+              <div style="font-size: 28px; font-weight: 700; letter-spacing: 6px;">${otp}</div>
+              <p>This code expires in 10 minutes.</p>
+            </div>
+          `;
+
+          await sendMail({ to: email, subject, html });
+          console.log('OTP email sent to', email);
+        } catch (sendErr) {
+          console.error('Failed to send OTP email:', sendErr);
+          // We do not fail registration for email send failures; client will be informed
+        }
+      } catch (err) {
+        console.error('Error generating/sending OTP during registration:', err);
+      }
     }
 
     // Create verification request if ID images were provided
@@ -1857,10 +1939,11 @@ app.post('/api/auth/register', async (req, res) => {
     }
 
     return res.json({ 
-      success: true, 
-      message: 'Registration successful! Your account is pending ID verification. You will be notified once verified.',
+      success: true,
+      message: 'Registration created. An OTP was sent to your email. Please verify to complete registration.',
       email,
-      requiresVerification: true,
+      userId: authData.user.id,
+      requiresEmailOtp: true,
       verificationStatus: 'pending'
     });
 
@@ -2053,6 +2136,293 @@ app.post('/api/admin/verify-user', authenticateToken, requireRole('admin'), asyn
       error: 'Internal server error',
       message: error.message 
     });
+  }
+});
+
+app.post('/api/auth/start-email-verification', async (req, res) => {
+  try {
+    const { email } = req.body || {};
+
+    if (!email || typeof email !== 'string' || !email.includes('@')) {
+      return res.status(400).json({ success: false, error: 'Valid email is required' });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    let existingProfile = null;
+    let authLookup = null;
+
+    if (supabaseAdmin) {
+      const { data } = await supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .eq('email', normalizedEmail)
+        .maybeSingle();
+      existingProfile = data || null;
+
+      try {
+        // supabase-js v2 may not expose getUserByEmail. Use listUsers and find by email as a safer fallback.
+        const { data: listData, error: listErr } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+        if (listErr) throw listErr;
+        const found = listData?.users?.find(u => u.email === normalizedEmail);
+        authLookup = found ? { user: found } : null;
+      } catch (err) {
+        if (err?.status !== 404) {
+          throw err;
+        }
+      }
+    } else {
+      try {
+        const { data } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('email', normalizedEmail)
+          .maybeSingle();
+        existingProfile = data || null;
+      } catch (profileErr) {
+        console.warn('Non-fatal: failed to check existing profile with anon key', profileErr);
+      }
+    }
+
+    const alreadyRegistered = Boolean(existingProfile || authLookup?.user);
+    if (alreadyRegistered) {
+      return res.status(400).json({ success: false, error: 'Email already registered' });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpHash = crypto.createHash('sha256').update(String(otp)).digest('hex');
+    const now = new Date();
+    const expiryIso = new Date(now.getTime() + 10 * 60 * 1000).toISOString();
+
+    setOtpForEmail(normalizedEmail, otpHash, expiryIso, now.toISOString());
+
+    try {
+      const subject = 'Your CARS-G verification code';
+      const html = `
+        <div style="font-family: Arial, Helvetica, sans-serif;">
+          <p>Hi,</p>
+          <p>Your verification code is:</p>
+          <div style="font-size: 28px; font-weight: 700; letter-spacing: 6px;">${otp}</div>
+          <p>This code expires in 10 minutes.</p>
+        </div>
+      `;
+
+      await sendMail({ to: normalizedEmail, subject, html });
+      console.log('OTP email sent (start-register) to', normalizedEmail);
+    } catch (sendErr) {
+      console.error('Failed to send verification email:', sendErr);
+      return res.status(500).json({ success: false, error: 'Failed to send verification email' });
+    }
+
+    return res.json({ success: true, message: 'Verification code sent' });
+  } catch (error) {
+    console.error('start-email-verification error', error);
+    return res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+app.post('/api/auth/verify-email-otp', async (req, res) => {
+  try {
+    const { userId, email, otp } = req.body || {};
+
+    if ((!userId && !email) || !otp) {
+      return res.status(400).json({ success: false, error: 'Missing userId/email or otp' });
+    }
+
+    const otpValue = String(otp).trim();
+    if (otpValue.length === 0) {
+      return res.status(400).json({ success: false, error: 'OTP is required' });
+    }
+
+    if (userId) {
+      if (!supabaseAdmin) {
+        return res.status(503).json({ success: false, error: 'Admin privileges required' });
+      }
+
+      const { data: profile, error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .select('id, email, email_otp_hash, email_otp_expires, otp_attempts')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (profileError || !profile) {
+        return res.status(404).json({ success: false, error: 'User not found' });
+      }
+
+      const now = new Date();
+      const expires = profile.email_otp_expires ? new Date(profile.email_otp_expires) : null;
+
+      if (!profile.email_otp_hash || !expires) {
+        return res.status(400).json({ success: false, error: 'No OTP pending for this user' });
+      }
+
+      if (expires && now > expires) {
+        return res.status(410).json({ success: false, error: 'OTP expired' });
+      }
+
+      const attempts = (profile.otp_attempts || 0) + 1;
+      if (attempts > 5) {
+        return res.status(429).json({ success: false, error: 'Too many attempts' });
+      }
+
+      const otpHash = crypto.createHash('sha256').update(otpValue).digest('hex');
+      if (otpHash !== profile.email_otp_hash) {
+        await supabaseAdmin
+          .from('profiles')
+          .update({ otp_attempts: attempts })
+          .eq('id', userId);
+        return res.status(400).json({ success: false, error: 'Invalid OTP' });
+      }
+
+      await supabaseAdmin
+        .from('profiles')
+        .update({
+          email_verified: true,
+          verification_status: 'active',
+          email_otp_hash: null,
+          email_otp_expires: null,
+          otp_attempts: 0,
+          updated_at: now.toISOString()
+        })
+        .eq('id', userId);
+
+      try {
+        await supabaseAdmin.auth.admin.updateUserById(userId, { email_confirm: true });
+      } catch (confirmErr) {
+        console.warn('Failed to confirm auth user email on verify:', confirmErr);
+      }
+
+      return res.json({ success: true, message: 'Email verified' });
+    }
+
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const entry = getOtpEntry(normalizedEmail);
+    if (!entry) {
+      return res.status(404).json({ success: false, error: 'No OTP pending for this email' });
+    }
+
+    const now = new Date();
+    const expires = entry.expires ? new Date(entry.expires) : null;
+    if (expires && now > expires) {
+      clearOtp(normalizedEmail);
+      return res.status(410).json({ success: false, error: 'OTP expired' });
+    }
+
+    const attempts = incrementAttempts(normalizedEmail);
+    if (attempts > 5) {
+      return res.status(429).json({ success: false, error: 'Too many attempts' });
+    }
+
+    const otpHash = crypto.createHash('sha256').update(otpValue).digest('hex');
+    if (otpHash !== entry.hash) {
+      return res.status(400).json({ success: false, error: 'Invalid OTP' });
+    }
+
+    clearOtp(normalizedEmail);
+    return res.json({ success: true, message: 'Email verified' });
+  } catch (error) {
+    console.error('verify-email-otp error', error);
+    return res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+app.post('/api/auth/resend-email-otp', async (req, res) => {
+  try {
+    const { userId, email } = req.body || {};
+    if (!userId && !email) {
+      return res.status(400).json({ success: false, error: 'Missing userId or email' });
+    }
+
+    if (userId) {
+      if (!supabaseAdmin) {
+        return res.status(503).json({ success: false, error: 'Admin privileges required' });
+      }
+
+      const { data: profile, error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .select('email')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (profileError || !profile) {
+        return res.status(404).json({ success: false, error: 'User not found' });
+      }
+
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const otpHash = crypto.createHash('sha256').update(String(otp)).digest('hex');
+      const now = new Date();
+      const expiryIso = new Date(now.getTime() + 10 * 60 * 1000).toISOString();
+
+      const { error: updateError } = await supabaseAdmin
+        .from('profiles')
+        .update({
+          email_otp_hash: otpHash,
+          email_otp_expires: expiryIso,
+          otp_attempts: 0,
+          email_otp_sent_at: now.toISOString(),
+          updated_at: now.toISOString()
+        })
+        .eq('id', userId);
+
+      if (updateError) {
+        console.error('Failed to store OTP in profile during resend:', updateError);
+        return res.status(500).json({ success: false, error: 'Failed to create OTP' });
+      }
+
+      try {
+        const subject = 'Your CARS-G verification code';
+        const html = `
+          <div style="font-family: Arial, Helvetica, sans-serif;">
+            <p>Hi,</p>
+            <p>Your verification code is:</p>
+            <div style="font-size: 28px; font-weight: 700; letter-spacing: 6px;">${otp}</div>
+            <p>This code expires in 10 minutes.</p>
+          </div>
+        `;
+        await sendMail({ to: profile.email, subject, html });
+        console.log('OTP email resent to', profile.email);
+      } catch (sendErr) {
+        console.error('Failed to resend OTP email:', sendErr);
+        return res.status(500).json({ success: false, error: 'Failed to resend verification email' });
+      }
+
+      return res.json({ success: true, message: 'Verification code resent' });
+    }
+
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const entry = getOtpEntry(normalizedEmail);
+    if (!entry) {
+      return res.status(404).json({ success: false, error: 'No OTP pending for this email' });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpHash = crypto.createHash('sha256').update(String(otp)).digest('hex');
+    const now = new Date();
+    const expiryIso = new Date(now.getTime() + 10 * 60 * 1000).toISOString();
+
+    setOtpForEmail(normalizedEmail, otpHash, expiryIso, now.toISOString());
+
+    try {
+      const subject = 'Your CARS-G verification code';
+      const html = `
+        <div style="font-family: Arial, Helvetica, sans-serif;">
+          <p>Hi,</p>
+          <p>Your verification code is:</p>
+          <div style="font-size: 28px; font-weight: 700; letter-spacing: 6px;">${otp}</div>
+          <p>This code expires in 10 minutes.</p>
+        </div>
+      `;
+      await sendMail({ to: normalizedEmail, subject, html });
+      console.log('OTP email resent (email-only) to', normalizedEmail);
+    } catch (sendErr) {
+      console.error('Failed to resend verification email:', sendErr);
+      return res.status(500).json({ success: false, error: 'Failed to resend verification email' });
+    }
+
+    return res.json({ success: true, message: 'Verification code resent' });
+  } catch (error) {
+    console.error('resend-email-otp error', error);
+    return res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 

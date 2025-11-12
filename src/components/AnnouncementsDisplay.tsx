@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Search, Filter, Calendar, Clock, AlertCircle, Info, AlertTriangle, Star, Shield, Users, MapPin, RefreshCw } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { AnnouncementCard, Announcement } from './AnnouncementCard';
-import { AnnouncementCarousel } from './AnnouncementCarousel';
 import { AnnouncementModal } from './AnnouncementModal';
 
 type PriorityFilter = 'all' | 'low' | 'normal' | 'high' | 'urgent';
@@ -290,21 +289,15 @@ export function AnnouncementsDisplay() {
           </p>
         </div>
       ) : (
-        <>
-          {/* Featured Announcements Carousel */}
-          <AnnouncementCarousel className="mb-6" />
-
-          {/* All Announcements Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {announcements.map((announcement) => (
-              <AnnouncementCard
-                key={announcement.id}
-                announcement={announcement}
-                onView={handleViewAnnouncement}
-              />
-            ))}
-          </div>
-        </>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {announcements.map((announcement) => (
+            <AnnouncementCard
+              key={announcement.id}
+              announcement={announcement}
+              onView={handleViewAnnouncement}
+            />
+          ))}
+        </div>
       )}
 
       {/* Full Display Modal */}

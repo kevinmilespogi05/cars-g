@@ -12,6 +12,7 @@ import { publicRoutes, protectedRoutes, adminRoutes, patrolRoutes } from './rout
 import { PWAPrompt } from './components/PWAPrompt';
 import { NetworkStatus } from './components/NetworkStatus';
 import { WelcomeGuide } from './components/WelcomeGuide';
+import { VerificationPendingBanner } from './components/VerificationPendingBanner';
 
 import { usePushNotifications } from './hooks/usePushNotifications';
 import { useAchievementNotifications, AchievementNotification } from './components/AchievementNotification';
@@ -19,6 +20,8 @@ import { Footer } from './components/Footer';
 import { useReducedMotion } from './hooks/useReducedMotion';
 import { ToastContainer } from './components/ToastContainer';
 import { useSidebarContext } from './contexts/SidebarContext';
+import { MobileOptimizationsProvider } from './components/MobileOptimizationsProvider';
+
 
 // Configure future flags for React Router v7
 const routerConfig = {
@@ -81,7 +84,7 @@ const ErrorFallback = ({ error, resetErrorBoundary }: { error: Error; resetError
 
 // Mobile menu button component
 function MobileMenuButton() {
-  const { toggleSidebar } = useSidebarContext();
+  const { toggleSidebar, isCollapsed } = useSidebarContext();
   
   return (
     <button
@@ -94,8 +97,8 @@ function MobileMenuButton() {
       }}
       className="fixed top-4 left-4 z-menuButton lg:hidden p-2 rounded-lg bg-white/90 backdrop-blur-sm shadow-lg border border-gray-200 hover:bg-white transition-all duration-200 min-h-[44px] min-w-[44px] flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 group"
       aria-label="Toggle navigation menu"
-      aria-expanded="false"
-      title="Toggle menu"
+      aria-expanded={!isCollapsed}
+      title={isCollapsed ? 'Open menu' : 'Close menu'}
     >
       <svg 
         className="h-6 w-6 text-gray-700 transition-transform duration-200 group-hover:scale-110" 
@@ -216,7 +219,13 @@ function AppContentInner() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-50 relative">
+    <div className="min-h-screen bg-gray-50 relative" style={{ ['--app-left-offset' as any]: isDesktop ? (isCollapsed ? `${collapsedWidth}px` : `${sidebarWidth}px`) : '0px' }}>
+          {/* Mobile Optimizations Provider - Initialize mobile fixes */}
+          <MobileOptimizationsProvider />
+
+          {/* Verification Pending Banner */}
+          {isAuthenticated && <VerificationPendingBanner />}
+          
           {/* Blurred Background Wallpaper - Show on all pages except landing */}
           {!isLandingPage && (
             <>
@@ -250,12 +259,10 @@ function AppContentInner() {
           
           <main 
             className={isLandingPage ? 'pt-0' : isAuthPage ? 'relative min-h-screen' : 'relative min-h-screen'}
-            style={!isLandingPage && !isAuthPage ? {
-              marginLeft: isDesktop 
-                ? (isCollapsed ? `${collapsedWidth}px` : `${sidebarWidth}px`)
-                : '0',
-              transition: 'margin-left 250ms cubic-bezier(0.4, 0, 0.2, 1)',
-            } : undefined}
+            style={!isLandingPage && !isAuthPage ? ({
+              marginLeft: isDesktop ? 'var(--app-left-offset)' : undefined,
+              transition: 'margin-left 250ms cubic-bezier(0.4, 0, 0.2, 1)'
+            } as React.CSSProperties) : undefined}
           >
             <Suspense fallback={<LoadingSpinner />}>
               <Routes>

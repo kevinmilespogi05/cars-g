@@ -37,16 +37,75 @@
 
 /* Base styles for mobile PWA */
 @layer base {
+  /* Critical: Prevent layout issues on mobile */
+  html {
+    /* Support custom vh property for address bar */
+    height: 100%;
+    height: 100vh;
+    height: 100dvh; /* Dynamic viewport height - accounts for mobile address bar */
+  }
+  
   body {
     /* Prevent pull-to-refresh on mobile */
     overscroll-behavior-y: contain;
     /* Support safe area insets on iOS */
     padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    /* Prevent horizontal scroll */
+    overflow-x: hidden;
+    width: 100%;
+    height: 100%;
+    height: 100vh;
+    height: 100dvh;
+    /* Smooth scrolling */
+    -webkit-overflow-scrolling: touch;
+    /* Better rendering */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
   
   /* Disable pull-to-refresh for better PWA experience */
   html {
     overscroll-behavior: contain;
+  }
+  
+  /* Fix for form input zoom on iOS */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  input[type="tel"],
+  input[type="url"],
+  input[type="search"],
+  input[type="date"],
+  input[type="time"],
+  textarea,
+  select {
+    font-size: 16px !important; /* Prevents zoom on iOS focus */
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    border-radius: 0; /* Reset iOS border-radius */
+  }
+  
+  /* Fix select dropdown on mobile */
+  select {
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 20px;
+    padding-right: 40px;
+  }
+  
+  /* Disable zoom on button tap */
+  button, a {
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  /* Fix for iOS select styling */
+  @supports (-webkit-touch-callout: none) {
+    select {
+      background-image: none;
+    }
   }
 }
 
@@ -982,6 +1041,8 @@ p {
     width: 100%;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    /* Prevent horizontal scroll from breaking layout */
+    max-width: 100vw;
   }
 
   /* Mobile-friendly modals */
@@ -1000,16 +1061,48 @@ p {
   .btn {
     padding: 12px 24px;
     font-size: 16px;
+    min-height: 44px;
+    width: 100%;
   }
 
   /* Mobile-friendly navigation */
   .nav-link {
     padding: 12px 16px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
   }
 
   /* Mobile-friendly lists */
   .list-group-item {
     padding: 12px 16px;
+    min-height: 44px;
+  }
+  
+  /* Ensure form inputs don't overflow on mobile */
+  form {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+  
+  /* Fix input overflow on mobile */
+  input,
+  textarea,
+  select {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  
+  /* Prevent horizontal scroll from form elements */
+  .form-group,
+  .form-row,
+  .form-inline {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow-x: hidden;
   }
 }
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { getLeaderboard } from '../lib/points';
 import { Trophy, Medal, Award, User } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import ProfileLinkGuarded from './ProfileLinkGuarded';
 
 interface LeaderboardEntry {
   id: string;
@@ -15,6 +16,7 @@ export function Leaderboard({ limit = 10 }: { limit?: number }) {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // profile link behavior is handled by ProfileLinkGuarded
 
   useEffect(() => {
     fetchLeaderboard();
@@ -119,23 +121,21 @@ export function Leaderboard({ limit = 10 }: { limit?: number }) {
               </div>
               
               <div className="ml-4 flex-1">
-                <Link
+                <ProfileLinkGuarded
                   to={`/profile/${entry.id}`}
                   className="text-sm font-medium text-blue-600 hover:text-blue-800"
                 >
                   {entry.username}
-                </Link>
+                </ProfileLinkGuarded>
                 <p className="text-sm text-gray-700">
                   {entry.points.toLocaleString()} points
                 </p>
               </div>
-              
               <div className="ml-4">
                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                   #{index + 1}
                 </span>
               </div>
-            </div>
           </li>
         ))}
       </ul>

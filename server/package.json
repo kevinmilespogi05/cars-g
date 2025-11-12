@@ -12,7 +12,6 @@
     "warmup:standalone": "node ../warmup-standalone.js"
   },
   "dependencies": {
-    "@getbrevo/brevo": "^3.0.1",
     "@google-cloud/vision": "^5.3.4",
     "@supabase/supabase-js": "^2.39.7",
     "bcrypt": "^6.0.0",

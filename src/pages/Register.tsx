@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
+import { useToastContext } from '../contexts/ToastContext';
+import { getApiUrl } from '../lib/config';
 import { useAvailabilityCheck } from '../hooks/useAvailabilityCheck';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -27,13 +29,24 @@ import {
 export function Register() {
   const navigate = useNavigate();
   const { signUp, signInWithGoogle } = useAuthStore();
+  const { success: showToastSuccess, error: showToastError } = useToastContext();
   
   // Multi-step state
   const [currentStep, setCurrentStep] = useState(1);
-  const totalSteps = 2;
+  const totalSteps = 3;
   
   // Form data
   const [email, setEmail] = useState('');
+  const [otp, setOtp] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpError, setOtpError] = useState('');
+  const [otpSuccess, setOtpSuccess] = useState('');
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+  const [isResendingOtp, setIsResendingOtp] = useState(false);
+  const [resendDisabled, setResendDisabled] = useState(false);
+  const [resendCountdown, setResendCountdown] = useState(0);
+  const [isEmailVerified, setIsEmailVerified] = useState(false);
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
   const [firstName, setFirstName] = useState('');
@@ -50,6 +63,14 @@ export function Register() {
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
+  const [registeredUserId, setRegisteredUserId] = useState<string | null>(null);
+
+  const steps = [
+    { id: 1, title: 'Email Verification' },
+    { id: 2, title: 'Account Info' },
+    { id: 3, title: 'ID Verification' }
+  ];
+  const progress = totalSteps > 1 ? ((Math.min(currentStep, totalSteps) - 1) / (totalSteps - 1)) * 100 : 100;
   
   // ID image upload states
   const [idFrontImage, setIdFrontImage] = useState<File | null>(null);
@@ -93,6 +114,16 @@ export function Register() {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
+
+  useEffect(() => {
+    let timer: any;
+    if (resendCountdown > 0) {
+      timer = setTimeout(() => setResendCountdown((prev) => prev - 1), 1000);
+    } else if (resendCountdown === 0 && resendDisabled) {
+      setResendDisabled(false);
+    }
+    return () => clearTimeout(timer);
+  }, [resendCountdown, resendDisabled]);
 
   // Auto-check checkbox when both documents are completed
   useEffect(() => {
@@ -198,7 +229,7 @@ export function Register() {
       formData.append('frontImage', frontImage);
       formData.append('backImage', backImage);
 
-      const response = await fetch('/api/upload/id-images', {
+      const response = await fetch(getApiUrl('/api/upload/id-images'), {
         method: 'POST',
         body: formData,
       });
@@ -218,8 +249,187 @@ export function Register() {
     }
   };
 
-  // Validate Step 1
-  const validateStep1 = () => {
+  const resetOtpMessages = () => {
+    setOtpError('');
+    setOtpSuccess('');
+    setError('');
+  };
+
+  const handleSendOtp = async () => {
+    resetOtpMessages();
+    if (!email || !email.includes('@')) {
+      setOtpError('Please enter a valid email address.');
+      return;
+    }
+
+    if (!email.toLowerCase().endsWith('@gmail.com')) {
+      setIsGmailValid(false);
+      setGmailError('Only Gmail addresses (@gmail.com) are accepted');
+      setOtpError('Only Gmail addresses (@gmail.com) are accepted for registration.');
+      return;
+    }
+
+    setIsGmailValid(true);
+    setGmailError('');
+
+    if (emailCheck.isChecking) {
+      setOtpError('Please wait while we validate your email availability.');
+      return;
+    }
+
+    if (emailCheck.isAvailable === false) {
+      setOtpError('Email is already registered. Please use a different email or sign in.');
+      return;
+    }
+
+    setIsSendingOtp(true);
+    try {
+      const response = await fetch(getApiUrl('/api/auth/start-email-verification'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to send verification code');
+      }
+
+      try {
+        localStorage.setItem('registeredEmail', email);
+        if (data.userId) {
+          localStorage.setItem('registeredUserId', data.userId);
+          setRegisteredUserId(data.userId);
+        }
+      } catch (err) {
+        console.warn('Failed to persist registration info', err);
+      }
+
+      setOtpSent(true);
+      setOtpSuccess('Verification code sent. Please check your email.');
+      try { showToastSuccess('Verification code sent', 3500); } catch (err) { console.warn(err); }
+
+      setResendDisabled(true);
+      setResendCountdown(60);
+    } catch (error: any) {
+      const message = error.message || 'Failed to send verification code';
+      setOtpError(message);
+      try { showToastError(message, 5000); } catch (err) { console.warn(err); }
+    } finally {
+      setIsSendingOtp(false);
+    }
+  };
+
+  const handleVerifyOtp = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    resetOtpMessages();
+
+    if (!email) {
+      setOtpError('Please enter your email address first.');
+      return;
+    }
+
+    if (!otp || otp.trim().length < 6) {
+      setOtpError('Enter the 6-digit code sent to your email.');
+      return;
+    }
+
+    setIsVerifyingOtp(true);
+    try {
+      const body: any = { otp: otp.trim() };
+      if (registeredUserId) {
+        body.userId = registeredUserId;
+      } else {
+        body.email = email;
+      }
+
+      const response = await fetch(getApiUrl('/api/auth/verify-email-otp'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Verification failed');
+      }
+
+      setIsEmailVerified(true);
+      setOtpSuccess('Email verified successfully! Continue to create your account.');
+      setOtp('');
+      try {
+        localStorage.setItem('registeredEmail', email);
+        localStorage.setItem('emailVerified', email);
+        localStorage.removeItem('registeredUserId');
+      } catch (err) {
+        console.warn('Failed to persist email verification status', err);
+      }
+      setRegisteredUserId(null);
+      setResendDisabled(false);
+      setResendCountdown(0);
+      try { showToastSuccess('Email verified successfully', 3500); } catch (err) { console.warn(err); }
+
+      setTimeout(() => {
+        setCurrentStep(2);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }, 300);
+    } catch (error: any) {
+      const message = error.message || 'Verification failed';
+      setOtpError(message);
+      try { showToastError(message, 5000); } catch (err) { console.warn(err); }
+    } finally {
+      setIsVerifyingOtp(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (!otpSent || resendDisabled || !email) return;
+
+    resetOtpMessages();
+    setIsResendingOtp(true);
+    try {
+      const body: any = {};
+      if (registeredUserId) {
+        body.userId = registeredUserId;
+      } else {
+        body.email = email;
+      }
+
+      const response = await fetch(getApiUrl('/api/auth/resend-email-otp'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to resend verification code');
+      }
+
+      try {
+        localStorage.setItem('registeredEmail', email);
+      } catch (err) {
+        console.warn(err);
+      }
+
+      setOtpSuccess('A new verification code was sent to your email.');
+      try { showToastSuccess('A new verification code was sent', 3500); } catch (err) { console.warn(err); }
+      setResendDisabled(true);
+      setResendCountdown(60);
+    } catch (error: any) {
+      const message = error.message || 'Failed to resend verification code';
+      setOtpError(message);
+      try { showToastError(message, 5000); } catch (err) { console.warn(err); }
+    } finally {
+      setIsResendingOtp(false);
+    }
+  };
+
+  // Validate account details (Step 2)
+  const validateAccountDetails = () => {
+    setError('');
+
+    if (!isEmailVerified) {
+      setError('Please verify your email before continuing.');
+      return false;
+    }
     setError('');
 
     if (!firstName.trim() || !lastName.trim()) {
@@ -275,9 +485,9 @@ export function Register() {
   };
 
   // Handle Step 1 completion
-  const handleContinueToStep2 = () => {
-    if (validateStep1()) {
-      setCurrentStep(2);
+  const handleContinueToStep3 = () => {
+    if (validateAccountDetails()) {
+      setCurrentStep(3);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
@@ -287,6 +497,12 @@ export function Register() {
     e.preventDefault();
     setError('');
     setSuccess('');
+
+    if (!isEmailVerified) {
+      setError('Please verify your email before completing registration.');
+      setCurrentStep(1);
+      return;
+    }
 
     // Check if ID images are uploaded
     if (!idFrontImage || !idBackImage) {
@@ -302,23 +518,18 @@ export function Register() {
       const { idFrontImageUrl, idBackImageUrl } = await uploadIdImages(idFrontImage!, idBackImage!);
       
       // Register with ID image URLs
-      const result = await signUp(email, password, username, firstName, lastName, phone, confirmPassword, idFrontImageUrl, idBackImageUrl);
+      await signUp(email, password, username, firstName, lastName, phone, confirmPassword, idFrontImageUrl, idBackImageUrl);
+
+      // Always redirect to reports page after successful registration
+      setSuccess('Registration successful! Redirecting to reports...');
+      try { showToastSuccess('Registration successful! Welcome to Cars-G', 4000); } catch (e) {}
       
-      // Check if we need to redirect to email verification
-      if (result.redirectUrl) {
-        localStorage.setItem('registeredEmail', email);
-        setSuccess('Registration successful! Please check your Gmail for the verification code.');
-        setTimeout(() => {
-          navigate('/verify-email');
-        }, 2000);
-      } else {
-        setSuccess('Registration successful! Your account is pending verification. You will be notified once verified.');
-        setTimeout(() => {
-          navigate('/login');
-        }, 2000);
-      }
+      setTimeout(() => {
+        navigate('/reports', { replace: true });
+      }, 1500);
     } catch (error: any) {
       setError(error.message || 'Registration failed. Please try again.');
+      try { showToastError(error.message || 'Registration failed', 5000); } catch (e) {}
     } finally {
       setIsLoading(false);
       setIsUploadingImages(false);
@@ -391,38 +602,37 @@ export function Register() {
             </div>
 
             {/* Step Indicator */}
-            <div className="flex items-center justify-between mt-6">
-              <div className="flex items-center gap-2">
-                <div className={`flex items-center justify-center w-8 h-8 rounded-full font-semibold text-sm ${
-                  currentStep >= 1 ? 'bg-white text-red-900' : 'bg-red-800 text-white'
-                }`}>
-                  {currentStep > 1 ? <Check className="h-5 w-5" /> : '1'}
+            <div className="mt-6">
+              <div className="flex items-center justify-between gap-2">
+                {steps.map((step) => {
+                  const isComplete = currentStep > step.id;
+                  const isActive = currentStep === step.id;
+                  return (
+                    <div key={step.id} className="flex flex-1 flex-col items-center sm:items-start text-center sm:text-left">
+                      <div
+                        className={`flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full font-semibold text-sm sm:text-base ${
+                          isComplete || isActive ? 'bg-white text-red-900' : 'bg-red-800 text-white'
+                        }`}
+                      >
+                        {isComplete ? <Check className="h-5 w-5" /> : step.id}
                 </div>
-                <div className="hidden sm:block">
-                  <div className="text-xs font-medium">Step 1</div>
-                  <div className="text-xs text-red-100">Account Info</div>
+                      <div className="mt-2">
+                        <div className="text-[10px] sm:text-xs font-medium uppercase tracking-wide text-red-100/80">
+                          Step {step.id}
                 </div>
+                        <div className="text-[11px] sm:text-xs text-red-100">
+                          {step.title}
               </div>
-
-              <div className="flex-1 mx-4">
-                <div className="h-1 bg-red-800 rounded-full overflow-hidden">
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="mt-4 h-1 bg-red-900/50 rounded-full overflow-hidden">
                   <div 
                     className="h-full bg-white transition-all duration-500"
-                    style={{ width: `${(currentStep / totalSteps) * 100}%` }}
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <div className={`flex items-center justify-center w-8 h-8 rounded-full font-semibold text-sm ${
-                  currentStep >= 2 ? 'bg-white text-red-900' : 'bg-red-800 text-white'
-                }`}>
-                  2
-                </div>
-                <div className="hidden sm:block">
-                  <div className="text-xs font-medium">Step 2</div>
-                  <div className="text-xs text-red-100">ID Verification</div>
-                </div>
+                  style={{ width: `${progress}%` }}
+                />
               </div>
             </div>
           </div>
@@ -437,8 +647,245 @@ export function Register() {
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -20 }}
                   transition={{ duration: 0.3 }}
+                  className="space-y-6"
                 >
-                  <form onSubmit={(e) => { e.preventDefault(); handleContinueToStep2(); }} className="space-y-5">
+                  <div className="bg-red-50 border border-red-100 rounded-lg p-4">
+                    <h3 className="text-sm font-semibold text-red-900 mb-1">Verify your email address</h3>
+                    <p className="text-sm text-red-800">
+                      Enter your Gmail address and we'll send a one-time passcode (OTP). Verify the code to continue with your registration.
+                    </p>
+                  </div>
+
+                  {otpError && (
+                    <div className="flex items-start gap-2 text-red-700 bg-red-50 border border-red-200 p-3 rounded-lg">
+                      <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+                      <span className="text-sm">{otpError}</span>
+                    </div>
+                  )}
+
+                  {otpSuccess && (
+                    <div className="flex items-start gap-2 text-green-700 bg-green-50 border border-green-200 p-3 rounded-lg">
+                      <CheckCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+                      <span className="text-sm">{otpSuccess}</span>
+                    </div>
+                  )}
+
+                  <div className="space-y-4">
+                    <div>
+                      <label htmlFor="registrationEmail" className="block text-sm font-semibold text-gray-700 mb-2">
+                        Email Address <span className="text-red-500">*</span>
+                        <span className="text-xs font-normal text-gray-500 ml-2">(Gmail only)</span>
+                      </label>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                        <input
+                          type="email"
+                          id="registrationEmail"
+                          value={email}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setEmail(value);
+                            setOtp('');
+                            setOtpSent(false);
+                            resetOtpMessages();
+                            if (isEmailVerified) {
+                              setIsEmailVerified(false);
+                              try {
+                                localStorage.removeItem('emailVerified');
+                              } catch (err) {
+                                console.warn(err);
+                              }
+                            }
+                            try {
+                              localStorage.removeItem('registeredEmail');
+                              localStorage.removeItem('registeredUserId');
+                            } catch (err) {
+                              console.warn(err);
+                            }
+                            if (value.length > 0) {
+                              const isValid = value.toLowerCase().endsWith('@gmail.com');
+                              setIsGmailValid(isValid);
+                              if (!isValid && value.includes('@')) {
+                                setGmailError('Only Gmail addresses (@gmail.com) are accepted');
+                              } else {
+                                setGmailError('');
+                              }
+                            } else {
+                              setIsGmailValid(true);
+                              setGmailError('');
+                            }
+                          }}
+                          placeholder="your.name@gmail.com"
+                          className={`w-full pl-11 pr-11 py-3 bg-gray-50 border rounded-lg text-gray-900 placeholder-gray-400 focus:bg-white focus:ring-2 transition-all duration-200 outline-none ${
+                            isEmailVerified ? 'opacity-70 cursor-not-allowed' : ''
+                          } ${
+                            !isGmailValid
+                              ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20'
+                              : emailCheck.isChecking
+                              ? 'border-gray-300 focus:border-gray-400'
+                              : emailCheck.isAvailable === true
+                              ? 'border-green-300 focus:border-green-500 focus:ring-green-500/20'
+                              : emailCheck.isAvailable === false
+                              ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20'
+                              : 'border-gray-300 focus:border-red-800 focus:ring-red-800/20'
+                          }`}
+                          disabled={isEmailVerified || isSendingOtp || isVerifyingOtp}
+                        />
+                        <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                          {emailCheck.isChecking && (
+                            <Loader2 className="h-5 w-5 text-gray-400 animate-spin" />
+                          )}
+                          {!emailCheck.isChecking && isGmailValid && emailCheck.isAvailable === true && (
+                            <CheckCircle className="h-5 w-5 text-green-500" />
+                          )}
+                          {(!isGmailValid || (!emailCheck.isChecking && emailCheck.isAvailable === false)) && (
+                            <XCircle className="h-5 w-5 text-red-500" />
+                          )}
+                        </div>
+                      </div>
+                      {gmailError && (
+                        <p className="mt-2 text-xs text-red-600 flex items-center gap-1">
+                          <AlertCircle className="h-3 w-3" />
+                          {gmailError}
+                        </p>
+                      )}
+                      {!emailCheck.isChecking && emailCheck.message && email.length >= 3 && isGmailValid && (
+                        <p className={`mt-2 text-xs ${emailCheck.isAvailable ? 'text-green-600' : 'text-red-600'}`}>
+                          {emailCheck.message}
+                        </p>
+                      )}
+                      {isEmailVerified && (
+                        <p className="mt-2 text-xs text-green-600 flex items-center gap-1">
+                          <CheckCircle className="h-4 w-4" />
+                          Email verified — you may proceed to complete the registration.
+                        </p>
+                      )}
+                    </div>
+
+                    {!isEmailVerified && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (otpSent) {
+                            handleResendOtp();
+                          } else {
+                            handleSendOtp();
+                          }
+                        }}
+                        disabled={
+                          !email ||
+                          !email.toLowerCase().endsWith('@gmail.com') ||
+                          emailCheck.isAvailable === false ||
+                          isSendingOtp ||
+                          (otpSent && (isResendingOtp || resendDisabled)) ||
+                          isVerifyingOtp
+                        }
+                        className="w-full bg-red-900 hover:bg-red-800 text-white py-3 rounded-lg font-semibold shadow-lg hover:shadow-xl focus:ring-4 focus:ring-red-800/50 disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-300 flex items-center justify-center gap-2"
+                      >
+                        {otpSent ? (
+                          isResendingOtp ? (
+                            <>
+                              <Loader2 className="h-5 w-5 animate-spin" />
+                              <span>Resending code...</span>
+                            </>
+                          ) : resendDisabled ? (
+                            <span>Resend code in {resendCountdown}s</span>
+                          ) : (
+                            <span>Resend verification code</span>
+                          )
+                        ) : isSendingOtp ? (
+                          <>
+                            <Loader2 className="h-5 w-5 animate-spin" />
+                            <span>Sending code...</span>
+                          </>
+                        ) : (
+                          <span>Send verification code</span>
+                        )}
+                      </button>
+                    )}
+                  </div>
+
+                  {otpSent && !isEmailVerified && (
+                    <form onSubmit={handleVerifyOtp} className="space-y-4">
+                      <div>
+                        <label htmlFor="registrationOtp" className="block text-sm font-semibold text-gray-700 mb-2">
+                          Enter the 6-digit code
+                        </label>
+                        <input
+                          type="text"
+                          id="registrationOtp"
+                          inputMode="numeric"
+                          maxLength={6}
+                          value={otp}
+                          onChange={(e) => setOtp(e.target.value.replace(/[^0-9]/g, ''))}
+                          placeholder="123456"
+                          className="w-full text-center text-2xl tracking-[0.5em] px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 focus:bg-white focus:border-red-800 focus:ring-2 focus:ring-red-800/20 transition-all duration-200 outline-none"
+                        />
+                        <p className="mt-2 text-xs text-gray-500 text-center">
+                          Code expires in 10 minutes. Check your spam folder if you don't see it.
+                        </p>
+                      </div>
+                      <div className="flex flex-col sm:flex-row gap-3">
+                        <button
+                          type="submit"
+                          disabled={isVerifyingOtp || otp.length !== 6}
+                          className="flex-1 bg-red-900 hover:bg-red-800 text-white py-3 rounded-lg font-semibold shadow-lg hover:shadow-xl focus:ring-4 focus:ring-red-800/50 disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-300 flex items-center justify-center gap-2"
+                        >
+                          {isVerifyingOtp ? (
+                            <>
+                              <Loader2 className="h-5 w-5 animate-spin" />
+                              <span>Verifying...</span>
+                            </>
+                          ) : (
+                            <span>Verify code</span>
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleResendOtp}
+                          disabled={isResendingOtp || resendDisabled}
+                          className="flex-1 bg-white border-2 border-gray-200 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-50 hover:border-gray-300 focus:ring-4 focus:ring-gray-200 disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-300"
+                        >
+                          {isResendingOtp ? 'Resending...' : resendDisabled ? `Resend in ${resendCountdown}s` : 'Resend code'}
+                        </button>
+                      </div>
+                    </form>
+                  )}
+
+                  {isEmailVerified && (
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+                      <div className="flex items-start gap-3">
+                        <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
+                        <div>
+                          <h3 className="text-sm font-semibold text-green-800">Email verified</h3>
+                          <p className="text-sm text-green-700">Great! Let's complete your account details.</p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setError('');
+                          setSuccess('');
+                          setCurrentStep(2);
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }}
+                        className="bg-green-600 hover:bg-green-700 text-white py-2.5 px-4 rounded-lg font-semibold transition-all duration-300 shadow focus:ring-4 focus:ring-green-500/50"
+                      >
+                        Continue
+                      </button>
+                    </div>
+                  )}
+                </motion.div>
+              )}
+              {currentStep === 2 && (
+                <motion.div
+                  key="step2"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <form onSubmit={(e) => { e.preventDefault(); handleContinueToStep3(); }} className="space-y-5">
                     {/* Name Fields */}
                     <div className="grid sm:grid-cols-2 gap-4">
                       <div>
@@ -501,7 +948,10 @@ export function Register() {
                             }
                           }}
                           required
+                          disabled={isEmailVerified}
                           className={`w-full pl-11 pr-11 py-3 bg-gray-50 border rounded-lg text-gray-900 placeholder-gray-400 focus:bg-white focus:ring-2 transition-all duration-200 outline-none ${
+                            isEmailVerified ? 'opacity-70 cursor-not-allowed' : ''
+                          } ${
                             !isGmailValid
                               ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20'
                               : emailCheck.isChecking
@@ -536,6 +986,9 @@ export function Register() {
                         <p className={`mt-2 text-xs ${emailCheck.isAvailable ? 'text-green-600' : 'text-red-600'}`}>
                           {emailCheck.message}
                         </p>
+                      )}
+                      {isEmailVerified && (
+                        <p className="mt-2 text-xs text-green-600">Email verified — you may proceed to complete the registration.</p>
                       )}
                     </div>
 
@@ -784,14 +1237,28 @@ export function Register() {
                       </motion.div>
                     )}
 
-                    {/* Continue Button */}
+                    {/* Navigation */}
+                    <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setError('');
+                          setCurrentStep(1);
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }}
+                        className="w-full sm:flex-1 bg-white border-2 border-gray-300 text-gray-700 py-3.5 px-6 rounded-lg font-semibold hover:bg-gray-50 hover:border-gray-400 focus:ring-4 focus:ring-gray-200 transition-all duration-300 flex items-center justify-center gap-2"
+                      >
+                        <ChevronLeft className="h-5 w-5" />
+                        Back
+                      </button>
                     <button
                       type="submit"
-                      className="w-full bg-red-900 hover:bg-red-800 text-white py-3.5 px-6 rounded-lg font-semibold text-base shadow-lg hover:shadow-xl focus:ring-4 focus:ring-red-800/50 transition-all duration-300 flex items-center justify-center gap-2"
+                        className="w-full sm:flex-1 bg-red-900 hover:bg-red-800 text-white py-3.5 px-6 rounded-lg font-semibold text-base shadow-lg hover:shadow-xl focus:ring-4 focus:ring-red-800/50 transition-all duration-300 flex items-center justify-center gap-2"
                     >
                       Continue to ID Verification
                       <ChevronRight className="h-5 w-5" />
                     </button>
+                    </div>
 
                     {/* Divider */}
                     <div className="relative py-4">
@@ -821,9 +1288,9 @@ export function Register() {
                 </motion.div>
               )}
 
-              {currentStep === 2 && (
+              {currentStep === 3 && (
                 <motion.div
-                  key="step2"
+                  key="step3"
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -20 }}
@@ -973,7 +1440,7 @@ export function Register() {
                       <button
                         type="button"
                         onClick={() => {
-                          setCurrentStep(1);
+                          setCurrentStep(2);
                           window.scrollTo({ top: 0, behavior: 'smooth' });
                         }}
                         className="flex-1 bg-white border-2 border-gray-300 text-gray-700 py-3.5 px-6 rounded-lg font-semibold hover:bg-gray-50 hover:border-gray-400 focus:ring-4 focus:ring-gray-200 transition-all duration-300 flex items-center justify-center gap-2"

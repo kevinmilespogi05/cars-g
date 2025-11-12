@@ -9,6 +9,7 @@ export interface User {
   role?: string;
   created_at?: string;
   phone?: string | null;
+  verification_status?: 'pending' | 'approved' | 'declined' | null;
 }
 
 export interface Report {

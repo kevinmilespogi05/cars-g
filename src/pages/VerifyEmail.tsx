@@ -1,296 +1,169 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { 
-  Mail, 
-  ArrowLeft, 
-  CheckCircle, 
-  AlertCircle, 
-  Loader2,
-  RefreshCw,
-  Clock
-} from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useToastContext } from '../contexts/ToastContext';
+import { getApiUrl } from '../lib/config';
 
-export function VerifyEmail() {
-  const navigate = useNavigate();
-  const [otp, setOtp] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+export default function VerifyEmail() {
+  const [code, setCode] = useState('');
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [resendCooldown, setResendCooldown] = useState(0);
-  const [isResending, setIsResending] = useState(false);
-
-  // Get email from URL params or localStorage
   const [email, setEmail] = useState('');
+  const navigate = useNavigate();
+  const { success: showToastSuccess, error: showToastError } = useToastContext();
 
   useEffect(() => {
-    // Try to get email from URL params first
-    const urlParams = new URLSearchParams(window.location.search);
-    const emailParam = urlParams.get('email');
-    
-    if (emailParam) {
-      setEmail(emailParam);
+    // Get email from localStorage or redirect if not available
+    const registeredEmail = localStorage.getItem('registeredEmail');
+    if (registeredEmail) {
+      setEmail(registeredEmail);
     } else {
-      // Try to get from localStorage (if user just registered)
-      const storedEmail = localStorage.getItem('registeredEmail');
-      if (storedEmail) {
-        setEmail(storedEmail);
-      }
+      navigate('/start-register');
     }
-  }, []);
+  }, [navigate]);
 
-  const handleOtpSubmit = async (e: React.FormEvent) => {
+  const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    setSuccess('');
 
-    if (!otp || otp.length !== 6) {
-      setError('Please enter a valid 6-digit verification code');
+    if (!code || code.length < 6) {
+      setError('Please enter a valid verification code');
       return;
     }
 
-    if (!email) {
-      setError('Email not found. Please try registering again.');
-      return;
-    }
-
-    setIsLoading(true);
-
+    setLoading(true);
     try {
-      const response = await fetch('/api/auth/verify-otp', {
+      const response = await fetch(getApiUrl('/api/auth/verify-email'), {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email: email,
-          otp: otp
-        }),
+          email,
+          code
+        })
       });
 
-      const result = await response.json();
+      const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || 'Verification failed');
+        throw new Error(data.error || 'Verification failed');
       }
 
-      if (!result.success) {
-        throw new Error(result.error || 'Invalid verification code');
-      }
+      // Clear the registered email
+      try {
+        localStorage.removeItem('registeredEmail');
+      } catch (e) {}
 
-      setSuccess('Email verified successfully! Your account is now pending admin approval.');
+      showToastSuccess('Email verified successfully!', 3500);
       
-      // Clear stored email
-      localStorage.removeItem('registeredEmail');
-      
-      // Redirect to login after success
+      // Redirect to appropriate page
+      // After verification, redirect to login or let user proceed
       setTimeout(() => {
-        navigate('/login');
-      }, 3000);
-
-    } catch (error: any) {
-      setError(error.message || 'Verification failed. Please try again.');
+        navigate('/login', { replace: true });
+      }, 1500);
+    } catch (err: any) {
+      const errorMessage = err.message || 'Verification failed';
+      setError(errorMessage);
+      try {
+        showToastError(errorMessage, 5000);
+      } catch (e) {}
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  const handleResendOtp = async () => {
-    if (!email) {
-      setError('Email not found. Please try registering again.');
-      return;
-    }
-
-    setIsResending(true);
-    setError('');
-
+  const handleResendCode = async () => {
+    setLoading(true);
     try {
-      const response = await fetch('/api/auth/resend-otp', {
+      const response = await fetch(getApiUrl('/api/auth/start-email-verification'), {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: email
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
       });
 
-      const result = await response.json();
+      const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || 'Failed to resend code');
+        throw new Error(data.error || 'Failed to resend code');
       }
 
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to resend code');
-      }
-
-      setSuccess('Verification code sent! Please check your email.');
-      
-      // Start cooldown timer (60 seconds)
-      setResendCooldown(60);
-      const timer = setInterval(() => {
-        setResendCooldown((prev) => {
-          if (prev <= 1) {
-            clearInterval(timer);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-
-    } catch (error: any) {
-      setError(error.message || 'Failed to resend code. Please try again.');
+      showToastSuccess('Verification code resent!', 3500);
+      setError('');
+    } catch (err: any) {
+      const errorMessage = err.message || 'Failed to resend code';
+      setError(errorMessage);
+      try {
+        showToastError(errorMessage, 5000);
+      } catch (e) {}
     } finally {
-      setIsResending(false);
+      setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen w-screen flex items-center justify-center px-4 py-8 bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
-      {/* Back to Home Link */}
-      <div className="fixed top-4 left-4 z-50">
-        <Link 
-          to="/" 
-          className="inline-flex items-center gap-2 text-gray-700 hover:text-gray-900 bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 font-medium text-sm"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          <span>Back to Home</span>
-        </Link>
-      </div>
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gray-50">
+      <div className="max-w-md w-full bg-white rounded-2xl shadow-lg p-8">
+        <div className="text-center mb-8">
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Verify your email</h1>
+          <p className="text-gray-600">
+            We've sent a verification code to <span className="font-semibold">{email}</span>
+          </p>
+        </div>
 
-      <div className="w-full max-w-md">
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, ease: "easeOut" }}
-          className="bg-white rounded-2xl shadow-2xl overflow-hidden"
-        >
-          {/* Header */}
-          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 py-8 text-center">
-            <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Mail className="h-8 w-8 text-white" />
-            </div>
-            <h1 className="text-2xl font-bold text-white mb-2">Verify Your Email</h1>
-            <p className="text-blue-100">
-              We sent a 6-digit verification code to
-            </p>
-            {email && (
-              <p className="text-white font-medium mt-1">{email}</p>
-            )}
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 text-sm">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleVerify} className="space-y-6">
+          <div>
+            <label htmlFor="code" className="block text-sm font-medium text-gray-700 mb-2">
+              Verification code
+            </label>
+            <input
+              id="code"
+              type="text"
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              placeholder="000000"
+              maxLength={6}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-center text-2xl tracking-widest font-mono"
+              disabled={loading}
+            />
+            <p className="text-xs text-gray-500 mt-2">Enter the 6-digit code from your email</p>
           </div>
 
-          {/* Form */}
-          <div className="p-6">
-            <form onSubmit={handleOtpSubmit} className="space-y-6">
-              {/* OTP Input */}
-              <div>
-                <label htmlFor="otp" className="block text-sm font-medium text-gray-700 mb-2">
-                  Enter Verification Code
-                </label>
-                <input
-                  type="text"
-                  id="otp"
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  placeholder="000000"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center text-2xl font-mono tracking-widest"
-                  maxLength={6}
-                  required
-                />
-                <p className="text-xs text-gray-500 mt-2 text-center">
-                  Enter the 6-digit code from your email
-                </p>
-              </div>
+          <button
+            type="submit"
+            disabled={loading || code.length < 6}
+            className="w-full bg-red-900 hover:bg-red-800 disabled:bg-gray-300 text-white py-3 rounded-lg font-semibold transition-colors duration-200"
+          >
+            {loading ? 'Verifying...' : 'Verify email'}
+          </button>
+        </form>
 
-              {/* Error Message */}
-              {error && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700"
-                >
-                  <AlertCircle className="h-4 w-4 flex-shrink-0" />
-                  <span className="text-sm">{error}</span>
-                </motion.div>
-              )}
+        <div className="mt-6 pt-6 border-t border-gray-200">
+          <p className="text-sm text-gray-600 text-center mb-4">
+            Didn't receive the code?
+          </p>
+          <button
+            type="button"
+            onClick={handleResendCode}
+            disabled={loading}
+            className="w-full bg-gray-100 hover:bg-gray-200 disabled:bg-gray-100 text-gray-700 py-2 rounded-lg font-medium text-sm transition-colors duration-200"
+          >
+            Resend verification code
+          </button>
+        </div>
 
-              {/* Success Message */}
-              {success && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700"
-                >
-                  <CheckCircle className="h-4 w-4 flex-shrink-0" />
-                  <span className="text-sm">{success}</span>
-                </motion.div>
-              )}
-
-              {/* Submit Button */}
-              <button
-                type="submit"
-                disabled={isLoading || otp.length !== 6}
-                className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-medium py-3 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center gap-2"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Verifying...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle className="h-4 w-4" />
-                    Verify Email
-                  </>
-                )}
-              </button>
-
-              {/* Resend Code */}
-              <div className="text-center">
-                <p className="text-sm text-gray-600 mb-3">
-                  Didn't receive the code?
-                </p>
-                <button
-                  type="button"
-                  onClick={handleResendOtp}
-                  disabled={isResending || resendCooldown > 0}
-                  className="text-blue-600 hover:text-blue-700 disabled:text-gray-400 font-medium text-sm flex items-center justify-center gap-2 mx-auto"
-                >
-                  {isResending ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Sending...
-                    </>
-                  ) : resendCooldown > 0 ? (
-                    <>
-                      <Clock className="h-4 w-4" />
-                      Resend in {resendCooldown}s
-                    </>
-                  ) : (
-                    <>
-                      <RefreshCw className="h-4 w-4" />
-                      Resend Code
-                    </>
-                  )}
-                </button>
-              </div>
-
-              {/* Help Text */}
-              <div className="text-center">
-                <p className="text-xs text-gray-500">
-                  Check your spam folder if you don't see the email
-                </p>
-                <Link 
-                  to="/register" 
-                  className="text-blue-600 hover:text-blue-700 text-sm font-medium mt-2 inline-block"
-                >
-                  Try registering again
-                </Link>
-              </div>
-            </form>
-          </div>
-        </motion.div>
+        <div className="mt-6 text-center">
+          <button
+            type="button"
+            onClick={() => navigate('/start-register')}
+            className="text-sm text-gray-600 hover:text-gray-900"
+          >
+            Use a different email
+          </button>
+        </div>
       </div>
     </div>
   );

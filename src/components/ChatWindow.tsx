@@ -7,6 +7,7 @@ import { MessageInput } from './MessageInput';
 import { ChatHeader } from './ChatHeader';
 import { checkAdminStatus } from '../services/adminService';
 import { getApiUrl } from '../lib/config';
+import { useSidebarContext } from '../contexts/SidebarContext';
 
 interface ChatWindowProps {
   isOpen: boolean;
@@ -18,6 +19,7 @@ interface ChatWindowProps {
 
 export const ChatWindow: React.FC<ChatWindowProps> = ({ isOpen, onClose, adminId, position, unreadCount = 0 }) => {
   const { user, isAuthenticated } = useAuthStore();
+  const { isCollapsed, sidebarWidth, collapsedWidth } = useSidebarContext();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [isAdminOnline, setIsAdminOnline] = useState(false);
@@ -28,7 +30,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ isOpen, onClose, adminId
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [isExpanded, setIsExpanded] = useState(true);
   const [isMaximized, setIsMaximized] = useState(false);
-  const [isMobile, setIsMobile] = useState<boolean>(typeof window !== 'undefined' ? window.innerWidth < 640 : false);
   const [windowSize, setWindowSize] = useState({ width: 0, height: 0 });
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -38,7 +39,6 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ isOpen, onClose, adminId
     const onResize = () => {
       const newWidth = window.innerWidth;
       const newHeight = window.innerHeight;
-      setIsMobile(newWidth < 640);
       setWindowSize({ width: newWidth, height: newHeight });
     };
     
@@ -174,6 +174,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ isOpen, onClose, adminId
 
         // Check admin status first
         const adminStatus = await checkAdminStatus();
+        console.log('ChatWindow: Initial admin status check:', adminStatus);
         if (adminStatus.success) {
           setIsAdminOnline(adminStatus.isOnline);
         }
@@ -216,6 +217,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ isOpen, onClose, adminId
         };
 
         const handleAdminOnline = (data: { isOnline: boolean }) => {
+          console.log('ChatWindow: Admin online status changed via socket:', data);
           setIsAdminOnline(data.isOnline);
         };
 
@@ -239,6 +241,19 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ isOpen, onClose, adminId
         socketManager.onChatError(handleChatError);
         socketManager.onMessageSeen(handleMessageSeen);
 
+        // Poll for admin status every 3 seconds while chat is open
+        const statusPollInterval = setInterval(async () => {
+          try {
+            const adminStatus = await checkAdminStatus();
+            console.log('ChatWindow: Admin status poll result:', adminStatus);
+            if (adminStatus.success) {
+              setIsAdminOnline(adminStatus.isOnline);
+            }
+          } catch (error) {
+            console.error('ChatWindow: Admin status polling error:', error);
+          }
+        }, 3000);
+
         // Load existing messages
         await loadExistingMessages();
 
@@ -257,6 +272,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ isOpen, onClose, adminId
 
         // Cleanup function
         return () => {
+          clearInterval(statusPollInterval);
           socketManager.offMessageReceived(handleMessageReceived);
           socketManager.offMessageSent(handleMessageSent);
           socketManager.offUserTyping(handleUserTyping);
@@ -329,16 +345,15 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ isOpen, onClose, adminId
     // Calculate safe margins and spacing
     const margin = 16; // Reduced margin for better integration
     const bottomMargin = 16; // Space from bottom edge
-    const sidebarWidth = 288; // Account for sidebar navigation (w-72 = 288px)
     
-    // On very small screens, sidebar might be collapsed
-    const effectiveSidebarWidth = viewportWidth < 1024 ? 64 : sidebarWidth;
+    // Use actual sidebar width from context (responsive to collapsed state)
+    const effectiveSidebarWidth = isCollapsed ? collapsedWidth : sidebarWidth;
     
     // Chat dimensions - fixed at bottom
     const chatHeight = isMaximized ? 600 : (isExpanded ? 500 : 60); // Maximized: 600px, Expanded: 500px, Collapsed: 60px
     const chatWidth = isMaximized ? Math.min(500, viewportWidth - effectiveSidebarWidth - (margin * 2)) : Math.min(400, viewportWidth - effectiveSidebarWidth - (margin * 2));
     
-    // Position at bottom right of screen
+    // Position at bottom right of screen, accounting for sidebar width
     const x = viewportWidth - chatWidth - margin;
     const y = viewportHeight - chatHeight - bottomMargin;
     
@@ -431,25 +446,28 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ isOpen, onClose, adminId
       ) : (
         /* Collapsed view - compact header */
         <div 
-          className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-gray-50/50 transition-colors"
+          className="flex items-center justify-between px-4 py-3 cursor-pointer transition-colors"
+          style={{
+            background: 'linear-gradient(to right, #800000dd, #80009999)'
+          }}
           onClick={() => setIsExpanded(true)}
         >
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
-              <div className={`w-2.5 h-2.5 rounded-full ${isAdminOnline ? 'bg-green-500' : 'bg-gray-400'}`}></div>
-              <span className="font-medium text-gray-800 text-sm">Chat with Admin</span>
+              <div className={`w-2.5 h-2.5 rounded-full transition-colors duration-300 ${isAdminOnline ? 'bg-green-400' : 'bg-white'}`}></div>
+              <span className="font-medium text-white text-sm">Chat with Admin</span>
             </div>
             {unreadCount > 0 && (
-              <div className="bg-red-500 text-white text-xs rounded-full px-2 py-0.5 font-bold min-w-[20px] text-center">
+              <div className="bg-yellow-400 text-gray-900 text-xs rounded-full px-2 py-0.5 font-bold min-w-[20px] text-center">
                 {unreadCount > 99 ? '99+' : unreadCount}
               </div>
             )}
           </div>
           <div className="flex items-center gap-2">
             {isTyping && (
-              <span className="text-xs text-gray-500">typing...</span>
+              <span className="text-xs text-gray-200">typing...</span>
             )}
-            <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-3.5 h-3.5 text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </div>

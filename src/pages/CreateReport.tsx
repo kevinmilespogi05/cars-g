@@ -7,6 +7,7 @@ import { useAuthStore } from '../store/authStore';
 import { uploadMultipleImages } from '../lib/cloudinaryStorage';
 import { awardPoints } from '../lib/points';
 import { useToastContext } from '../contexts/ToastContext';
+import { useVerificationStatus } from '../hooks/useVerificationStatus';
 
 // Points awarded when a report is verified by admin
 const POINTS_FOR_REPORT = 25;
@@ -65,9 +66,18 @@ const MAX_IMAGES = 5;
 export function CreateReport() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
+  const { isPending } = useVerificationStatus();
   const { success: showToastSuccess, error: showToastError } = useToastContext();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
+  
+  // Check if user is pending verification - they cannot create reports
+  useEffect(() => {
+    if (isPending) {
+      showToastError('Your account is pending verification. You cannot create reports until your account is approved by an admin.', 5000);
+      navigate('/reports', { replace: true });
+    }
+  }, [isPending, navigate, showToastError]);
   
   // Detect mobile/PWA environment
   const [isMobileOrPWA, setIsMobileOrPWA] = useState(false);

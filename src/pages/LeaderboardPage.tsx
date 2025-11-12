@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { getLeaderboard } from '../lib/points';
 import { Trophy, Medal, Award, User, Search, ChevronLeft, ChevronRight, ArrowUpDown, TrendingUp, Shield, Crown } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import ProfileLinkGuarded from '../components/ProfileLinkGuarded';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '../store/authStore';
+import { useVerificationStatus } from '../hooks/useVerificationStatus';
+import { useToastContext } from '../contexts/ToastContext';
 
 interface LeaderboardEntry {
   id: string;
@@ -32,6 +34,8 @@ interface CachedData {
 
 export function LeaderboardPage() {
   const { user: currentUser } = useAuthStore();
+  const { isPending } = useVerificationStatus();
+  const { error: showToastError } = useToastContext();
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [patrolEntries, setPatrolEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -424,13 +428,13 @@ export function LeaderboardPage() {
                             </div>
                           )}
                           <div>
-                            <Link
+                            <ProfileLinkGuarded
                               to={`/profile/${entry.id}`}
                               className="text-sm font-semibold text-gray-900 hover:text-blue-600 transition-colors"
                               onClick={(e) => e.stopPropagation()}
                             >
                               {entry.username}
-                            </Link>
+                            </ProfileLinkGuarded>
                             <div className="text-xs text-gray-500">Contributor</div>
                           </div>
                         </div>
@@ -541,13 +545,13 @@ export function LeaderboardPage() {
                                 </div>
                               )}
                               <div>
-                                <Link
+                                <ProfileLinkGuarded
                                   to={`/profile/${entry.id}`}
                                   className="text-sm font-semibold text-gray-900 hover:text-blue-600 transition-colors"
                                   onClick={(e) => e.stopPropagation()}
                                 >
                                   {entry.username}
-                                </Link>
+                                </ProfileLinkGuarded>
                                 <div className="text-xs text-gray-500">Patrol Officer</div>
                               </div>
                             </div>
@@ -650,12 +654,12 @@ export function LeaderboardPage() {
                   </div>
                 </div>
 
-                <Link
+                <ProfileLinkGuarded
                   to={`/profile/${selectedUser.id}`}
                   className="block w-full text-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
                 >
                   View Full Profile
-                </Link>
+                </ProfileLinkGuarded>
               </div>
             </motion.div>
           </motion.div>

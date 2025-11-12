@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Search, Filter, MapPin, Calendar, User, Heart, MessageCircle, Eye, Clock, CheckCircle, XCircle, AlertTriangle, Loader2, X, Shield, Trash2 } from 'lucide-react';
 import { getPriorityColor as badgePriorityColor, getStatusColor as badgeStatusColor, formatStatusForDisplay } from '../lib/badges';
 import { useAuthStore } from '../store/authStore';
+import { useVerificationStatus } from '../hooks/useVerificationStatus';
+import { useToastContext } from '../contexts/ToastContext';
 import { Report } from '../types';
 import { reportsService } from '../services/reportsService';
 import { LikeDetailsModal } from '../components/LikeDetailsModal';
@@ -15,6 +17,8 @@ const PRIORITIES = ['All', 'Low', 'Medium', 'High'];
 export function VerificationReports() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
+  const { isPending } = useVerificationStatus();
+  const { error: showToastError } = useToastContext();
   const [reports, setReports] = useState<Report[]>([]);
   
   // Debug: Log reports state changes
@@ -290,6 +294,10 @@ export function VerificationReports() {
   };
 
   const handleLike = async (reportId: string) => {
+    if (isPending) {
+      try { showToastError('Your account is pending verification. You cannot like reports until approved.', 5000); } catch {};
+      return;
+    }
     if (!user) {
       alert('Please sign in to like reports');
       return;

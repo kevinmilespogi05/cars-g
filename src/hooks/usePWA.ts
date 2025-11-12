@@ -137,7 +137,20 @@ export function usePWA(): UsePWAReturn {
 
   const handleUpdate = () => {
     if (isUpdateAvailable) {
-      window.location.reload();
+      // More graceful update handling
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(registrations => {
+          registrations.forEach(registration => {
+            // Signal the new service worker to take control
+            registration.waiting?.postMessage({ type: 'SKIP_WAITING' });
+          });
+        });
+      }
+      
+      // Reload after a brief delay to allow service worker to update
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
     }
   };
 

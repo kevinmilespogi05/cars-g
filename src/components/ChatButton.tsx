@@ -30,9 +30,14 @@ export const ChatButton: React.FC<ChatButtonProps> = ({
 
     // Check initial admin status
     const checkInitialAdminStatus = async () => {
-      const adminStatus = await checkAdminStatus();
-      if (adminStatus.success) {
-        setIsAdminOnline(adminStatus.isOnline);
+      try {
+        const adminStatus = await checkAdminStatus();
+        console.log('Initial admin status check:', adminStatus);
+        if (adminStatus.success) {
+          setIsAdminOnline(adminStatus.isOnline);
+        }
+      } catch (error) {
+        console.error('Failed to check initial admin status:', error);
       }
     };
 
@@ -40,6 +45,7 @@ export const ChatButton: React.FC<ChatButtonProps> = ({
 
     // Set up admin online status listener
     const handleAdminOnline = (data: { isOnline: boolean }) => {
+      console.log('Admin online status changed via socket:', data);
       setIsAdminOnline(data.isOnline);
     };
 
@@ -59,7 +65,22 @@ export const ChatButton: React.FC<ChatButtonProps> = ({
     socketManager.onMessageReceived(handleMessageReceived);
     socketManager.onMessagesRead(handleMessagesRead);
 
+    // Poll for admin status every 2 seconds as a fallback
+    // More frequent polling to detect admin status changes in sidebar
+    const statusPollInterval = setInterval(async () => {
+      try {
+        const adminStatus = await checkAdminStatus();
+        console.log('Admin status poll result:', adminStatus);
+        if (adminStatus.success) {
+          setIsAdminOnline(adminStatus.isOnline);
+        }
+      } catch (error) {
+        console.error('Admin status polling error:', error);
+      }
+    }, 2000);
+
     return () => {
+      clearInterval(statusPollInterval);
       socketManager.offAdminOnline(handleAdminOnline);
       socketManager.offMessageReceived(handleMessageReceived);
       socketManager.offMessagesRead(handleMessagesRead);
@@ -93,14 +114,19 @@ export const ChatButton: React.FC<ChatButtonProps> = ({
           aria-label="Open chat with administrator"
         >
           <MessageCircle className="h-5 w-5 mr-3" aria-hidden="true" />
-          {variant === 'full' && <span>Chat with Admin</span>}
+          {variant === 'full' && (
+            <div className="flex items-center gap-2 flex-1">
+              <span>Chat with Admin</span>
+              {/* Admin Status Indicator - Green when online, White when offline */}
+              <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 transition-colors duration-300 ${
+                isAdminOnline ? 'bg-green-500' : 'bg-white'
+              }`}></div>
+            </div>
+          )}
           {unreadCount > 0 && (
             <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
               {unreadCount}
             </div>
-          )}
-          {isAdminOnline && (
-            <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
           )}
         </button>
 

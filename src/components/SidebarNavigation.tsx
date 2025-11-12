@@ -435,11 +435,6 @@ export function SidebarNavigation() {
                           <span className={`text-sm font-medium flex-1 ${isEmergency && !isActive(path) ? 'text-red-100' : ''}`}>
                             {label}
                           </span>
-                          {isNewItem && (
-                            <div className="ml-auto mr-2">
-                              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                            </div>
-                          )}
                           {isActive(path) && (
                             <div className="absolute right-3 w-2 h-2 bg-white rounded-full"></div>
                           )}
