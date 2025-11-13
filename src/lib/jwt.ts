@@ -389,26 +389,11 @@ export function getAccessToken(): string | null {
   const tokens = getStoredTokens();
   const token = tokens?.accessToken || null;
   
-  console.log('🔑 Getting access token:', {
-    hasTokens: !!tokens,
-    hasAccessToken: !!tokens?.accessToken,
-    tokenLength: token?.length || 0,
-    tokenPreview: token ? token.substring(0, 20) + '...' : 'None'
-  });
-  
   if (token) {
-    console.log('JWT Token found:', token.substring(0, 20) + '...');
-    console.log('Token length:', token.length);
-    
     // Check if token is expired
     if (isTokenExpired(token)) {
-      console.log('❌ JWT Token is expired');
       return null;
-    } else {
-      console.log('✅ JWT Token is valid');
     }
-  } else {
-    console.log('❌ No JWT token found');
   }
   
   return token;

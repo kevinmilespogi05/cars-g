@@ -607,10 +607,14 @@ export const reportsService = {
 
         if (!data) {
           // Use server endpoint with service role
-          const res = await fetch(getApiUrl(`/api/comments/${actualCommentId}/replies`), {
+          const res = await authenticatedRequest(getApiUrl(`/api/comments/${actualCommentId}/replies`), {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: user.id, content, isNested })
+            body: JSON.stringify({
+              userId: user.id,
+              content,
+              isNested,
+              parentReplyId: isNested ? parentId : undefined,
+            }),
           });
           if (!res.ok) {
             const errText = await res.text();
@@ -662,15 +666,14 @@ export const reportsService = {
 
       if (!data) {
         // Use server endpoint with service role
-        const res = await fetch(getApiUrl(`/api/reports/${actualCommentId}/replies`), {
+        const res = await authenticatedRequest(getApiUrl(`/api/reports/${actualCommentId}/replies`), {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            userId: user.id, 
-            content, 
+          body: JSON.stringify({
+            userId: user.id,
+            content,
             isNested,
-            parentReplyId: isNested ? parentId : undefined
-          })
+            parentReplyId: isNested ? parentId : undefined,
+          }),
         });
         if (!res.ok) {
           const errText = await res.text();
@@ -770,10 +773,7 @@ export const reportsService = {
   async toggleReplyLike(replyId: string): Promise<boolean> {
     const user = getCurrentUser();
 
-    // For simulated replies (created for report comments), we use localStorage
-    // since they are not persisted to the `comment_replies` table and thus
-    // cannot be referenced by `reply_likes` without violating FKs.
-    if (replyId.startsWith('mock-')) {
+    const toggleLocalReplyLike = () => {
       const allLikesKey = 'report_comment_reply_all_likes';
       const allLikes = JSON.parse(localStorage.getItem(allLikesKey) || '{}');
 
@@ -790,6 +790,13 @@ export const reportsService = {
         localStorage.setItem(allLikesKey, JSON.stringify(allLikes));
         return true;
       }
+    };
+
+    // For simulated replies (created for report comments), we use localStorage
+    // since they are not persisted to the `comment_replies` table and thus
+    // cannot be referenced by `reply_likes` without violating FKs.
+    if (replyId.startsWith('mock-')) {
+      return toggleLocalReplyLike();
     }
 
     // If there's no Supabase session (e.g. user logged in via JWT), use server endpoint
@@ -799,6 +806,9 @@ export const reportsService = {
         const url = `${getApiUrl(`/api/replies/${replyId}/likes/toggle`)}`;
         const resp = await authenticatedRequest(url, { method: 'POST' });
         if (!resp.ok) {
+          if (resp.status === 422) {
+            return toggleLocalReplyLike();
+          }
           const body = await resp.text().catch(() => '');
           throw new ReportsServiceError(`Failed to toggle reply like (api): HTTP ${resp.status} ${body}`);
         }
@@ -836,6 +846,9 @@ export const reportsService = {
             const url = `${getApiUrl(`/api/replies/${replyId}/likes/toggle`)}`;
             const resp = await authenticatedRequest(url, { method: 'POST' });
             if (!resp.ok) {
+              if (resp.status === 422) {
+                return toggleLocalReplyLike();
+              }
               const body = await resp.text().catch(() => '');
               throw new ReportsServiceError(`Failed to toggle reply like (api): HTTP ${resp.status} ${body}`);
             }
@@ -844,6 +857,9 @@ export const reportsService = {
           } catch (apiErr: any) {
             throw new ReportsServiceError(`Failed to like reply: ${apiErr?.message || message}`);
           }
+        }
+        if (String((error as any)?.code || '').includes('23503')) {
+          return toggleLocalReplyLike();
         }
         throw new ReportsServiceError(`Failed to like reply: ${error.message}`);
       }

@@ -12,6 +12,7 @@ import { fileURLToPath } from 'url';
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
 import fetch from 'node-fetch';
+import FormData from 'form-data';
 import { GoogleAuth } from 'google-auth-library';
 import multer from 'multer';
 import { generateTokenPair, verifyToken, extractTokenFromHeader } from './lib/jwt.js';
@@ -153,8 +154,8 @@ app.use(helmet({
       scriptSrc: ["'self'", "'unsafe-inline'", 'https://www.gstatic.com', 'https://www.googleapis.com', 'https:'],
       styleSrc: ["'self'", "'unsafe-inline'", 'https:'],
       // Allow connections to Google APIs and FCM endpoints
-      connectSrc: ["'self'", 'https://www.googleapis.com', 'https://fcm.googleapis.com', 'https:'],
-      imgSrc: ["'self'", 'data:', 'https:'],
+      connectSrc: ["'self'", 'https://www.googleapis.com', 'https://fcm.googleapis.com', 'https:', 'wss:'],
+      imgSrc: ["'self'", 'data:', 'https:', 'blob:'],
       fontSrc: ["'self'", 'https://r2cdn.perplexity.ai', 'https://fonts.gstatic.com', 'https://fonts.googleapis.com', 'data:'],
       manifestSrc: ["'self'"],
       workerSrc: ["'self'", 'blob:']
@@ -405,10 +406,21 @@ app.post('/api/push/register', async (req, res) => {
 async function handleCreateComment(req, res) {
   try {
     const { reportId } = req.params;
-    const { userId, comment, commentType = 'comment' } = req.body || {};
+    const { userId: bodyUserId, comment, commentType = 'comment' } = req.body || {};
+    const tokenUserId = req.user?.id;
 
-    if (!reportId || !userId || !comment) {
-      return res.status(400).json({ error: 'reportId, userId and comment are required' });
+    if (!reportId || !comment) {
+      return res.status(400).json({ error: 'reportId and comment are required' });
+    }
+
+    if (tokenUserId && bodyUserId && tokenUserId !== bodyUserId) {
+      return res.status(403).json({ error: 'Cannot create comments on behalf of another user' });
+    }
+
+    const effectiveUserId = tokenUserId || bodyUserId;
+
+    if (!effectiveUserId) {
+      return res.status(401).json({ error: 'User authentication required' });
     }
 
     if (!supabaseAdmin) {
@@ -419,7 +431,7 @@ async function handleCreateComment(req, res) {
       .from('report_comments')
       .insert({
         report_id: reportId,
-        user_id: userId,
+        user_id: effectiveUserId,
         comment: comment,
         comment_type: commentType
       })
@@ -434,7 +446,7 @@ async function handleCreateComment(req, res) {
     const { data: profile } = await supabaseAdmin
       .from('profiles')
       .select('username, avatar_url')
-      .eq('id', userId)
+      .eq('id', effectiveUserId)
       .single();
 
     res.json({
@@ -448,9 +460,9 @@ async function handleCreateComment(req, res) {
 }
 
 // Primary route
-app.post('/api/reports/:reportId/comments', handleCreateComment);
+app.post('/api/reports/:reportId/comments', authenticateToken, handleCreateComment);
 // Alias route (in case reverse proxy strips /api)
-app.post('/reports/:reportId/comments', handleCreateComment);
+app.post('/reports/:reportId/comments', authenticateToken, handleCreateComment);
 
 // Ratings: create report rating via service role
 async function handleCreateRating(req, res) {
@@ -501,10 +513,21 @@ app.post('/reports/:reportId/ratings', handleCreateRating);
 async function handleCreateCommentReply(req, res) {
   try {
     const { commentId } = req.params;
-    const { userId, content, isNested = false } = req.body || {};
+    const { userId: bodyUserId, content, isNested = false, parentReplyId } = req.body || {};
+    const tokenUserId = req.user?.id;
 
-    if (!commentId || !userId || !content) {
-      return res.status(400).json({ error: 'commentId, userId and content are required' });
+    if (!commentId || !content) {
+      return res.status(400).json({ error: 'commentId and content are required' });
+    }
+
+    if (tokenUserId && bodyUserId && tokenUserId !== bodyUserId) {
+      return res.status(403).json({ error: 'Cannot create replies on behalf of another user' });
+    }
+
+    const effectiveUserId = tokenUserId || bodyUserId;
+
+    if (!effectiveUserId) {
+      return res.status(401).json({ error: 'User authentication required' });
     }
 
     if (!supabaseAdmin) {
@@ -515,8 +538,8 @@ async function handleCreateCommentReply(req, res) {
       .from('comment_replies')
       .insert({
         parent_comment_id: isNested ? null : commentId,
-        parent_reply_id: isNested ? commentId : null,
-        user_id: userId,
+        parent_reply_id: isNested ? (parentReplyId || commentId) : null,
+        user_id: effectiveUserId,
         content: content
       })
       .select('*')
@@ -537,10 +560,21 @@ async function handleCreateCommentReply(req, res) {
 async function handleCreateReportCommentReply(req, res) {
   try {
     const { reportId } = req.params;
-    const { userId, content, isNested = false } = req.body || {};
+    const { userId: bodyUserId, content, isNested = false, parentReplyId } = req.body || {};
+    const tokenUserId = req.user?.id;
 
-    if (!reportId || !userId || !content) {
-      return res.status(400).json({ error: 'reportId, userId and content are required' });
+    if (!reportId || !content) {
+      return res.status(400).json({ error: 'reportId and content are required' });
+    }
+
+    if (tokenUserId && bodyUserId && tokenUserId !== bodyUserId) {
+      return res.status(403).json({ error: 'Cannot create replies on behalf of another user' });
+    }
+
+    const effectiveUserId = tokenUserId || bodyUserId;
+
+    if (!effectiveUserId) {
+      return res.status(401).json({ error: 'User authentication required' });
     }
 
     if (!supabaseAdmin) {
@@ -551,8 +585,8 @@ async function handleCreateReportCommentReply(req, res) {
       .from('report_comment_replies')
       .insert({
         comment_id: reportId, // Always the comment ID
-        parent_reply_id: isNested ? req.body.parentReplyId : null, // When nested, this should be the reply ID being replied to
-        user_id: userId,
+        parent_reply_id: isNested ? (parentReplyId || null) : null, // When nested, this should be the reply ID being replied to
+        user_id: effectiveUserId,
         reply_text: content
       })
       .select('*')
@@ -570,8 +604,8 @@ async function handleCreateReportCommentReply(req, res) {
 }
 
 // Comment reply endpoints
-app.post('/api/comments/:commentId/replies', handleCreateCommentReply);
-app.post('/api/reports/:reportId/replies', handleCreateReportCommentReply);
+app.post('/api/comments/:commentId/replies', authenticateToken, handleCreateCommentReply);
+app.post('/api/reports/:reportId/replies', authenticateToken, handleCreateReportCommentReply);
 
 // Reports: create via service role to avoid client RLS/session issues
 app.post('/api/reports', authenticateToken, async (req, res) => {
@@ -3003,8 +3037,10 @@ app.post('/api/upload/id-images', upload.fields([
 
     // Upload front image to Cloudinary
     const frontFormData = new FormData();
-    const frontBlob = new Blob([frontImage[0].buffer], { type: frontImage[0].mimetype });
-    frontFormData.append('file', frontBlob, `id-front-${Date.now()}.${frontImage[0].mimetype.split('/')[1]}`);
+    frontFormData.append('file', frontImage[0].buffer, {
+      filename: `id-front-${Date.now()}.${frontImage[0].mimetype.split('/')[1]}`,
+      contentType: frontImage[0].mimetype
+    });
     frontFormData.append('upload_preset', uploadPreset);
     frontFormData.append('folder', 'cars-g/id-verification');
 
@@ -3013,6 +3049,7 @@ app.post('/api/upload/id-images', upload.fields([
       {
         method: 'POST',
         body: frontFormData,
+        headers: frontFormData.getHeaders(),
       }
     );
 
@@ -3028,8 +3065,10 @@ app.post('/api/upload/id-images', upload.fields([
 
     // Upload back image to Cloudinary
     const backFormData = new FormData();
-    const backBlob = new Blob([backImage[0].buffer], { type: backImage[0].mimetype });
-    backFormData.append('file', backBlob, `id-back-${Date.now()}.${backImage[0].mimetype.split('/')[1]}`);
+    backFormData.append('file', backImage[0].buffer, {
+      filename: `id-back-${Date.now()}.${backImage[0].mimetype.split('/')[1]}`,
+      contentType: backImage[0].mimetype
+    });
     backFormData.append('upload_preset', uploadPreset);
     backFormData.append('folder', 'cars-g/id-verification');
 
@@ -3038,6 +3077,7 @@ app.post('/api/upload/id-images', upload.fields([
       {
         method: 'POST',
         body: backFormData,
+        headers: backFormData.getHeaders(),
       }
     );
 

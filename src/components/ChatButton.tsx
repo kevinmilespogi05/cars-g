@@ -70,7 +70,6 @@ export const ChatButton: React.FC<ChatButtonProps> = ({
     const statusPollInterval = setInterval(async () => {
       try {
         const adminStatus = await checkAdminStatus();
-        console.log('Admin status poll result:', adminStatus);
         if (adminStatus.success) {
           setIsAdminOnline(adminStatus.isOnline);
         }

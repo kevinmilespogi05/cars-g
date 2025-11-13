@@ -3,6 +3,7 @@ import type { ReportComment } from '../types';
 import { reportsService } from './reportsService';
 import { useAuthStore } from '../store/authStore';
 import { getApiUrl } from '../lib/config';
+import { authenticatedRequest } from '../lib/jwt';
 
 // Helper function to get current user from auth store
 function getCurrentUser() {
@@ -149,9 +150,8 @@ export class CommentsService {
 
       if (!data) {
         // Use server endpoint with service role
-        const res = await fetch(getApiUrl(`/api/reports/${reportId}/comments`), {
+        const res = await authenticatedRequest(getApiUrl(`/api/reports/${reportId}/comments`), {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ userId: user.id, comment, commentType })
         });
         if (!res.ok) {
