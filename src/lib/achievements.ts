@@ -230,20 +230,26 @@ export async function checkAchievements(userId: string): Promise<Achievement[]> 
       if (hasEarned) {
         newlyEarnedAchievements.push(achievement);
         
-        // Record the achievement
+        // Record the achievement via backend API
         try {
-          await supabase
-            .from('user_achievements')
-            .insert({ 
-              user_id: userId, 
-              achievement_id: achievement.id, 
-              earned_at: new Date().toISOString() 
-            });
+          const response = await fetch('/api/achievements/award', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              userId,
+              achievementId: achievement.id,
+              points: achievement.points
+            })
+          });
 
-          // Award points for the achievement
-          await awardCustomPoints(userId, achievement.points, `ACHIEVEMENT_${achievement.id.toUpperCase()}`);
-          
-          console.log(`Achievement unlocked: ${achievement.title} for user ${userId}`);
+          if (!response.ok) {
+            const error = await response.json();
+            console.error(`Error recording achievement ${achievement.id}:`, error);
+          } else {
+            console.log(`Achievement unlocked: ${achievement.title} for user ${userId}`);
+          }
           
           // Trigger achievement notification
           try {
