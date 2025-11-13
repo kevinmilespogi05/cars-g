@@ -61,13 +61,19 @@ export function UserManagement() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      // Filter out admin users if current user is not an admin
-      // NOTE: Do NOT exclude users with verification_status === 'pending' here —
-      // pending users belong on the verification workflow only.
+      // Filter users based on current user role
       const allProfiles = (data || []);
-      const filteredUsers = isAdminLike(currentUser?.role)
-        ? allProfiles
-        : allProfiles.filter((user: any) => user.role !== 'admin' && user.role !== 'superadmin');
+      let filteredUsers = allProfiles;
+      
+      // If current user is admin, hide superadmin users
+      if (currentUser?.role === 'admin') {
+        filteredUsers = allProfiles.filter((user: any) => user.role !== 'superadmin');
+      } 
+      // If current user is not admin-like, hide both admin and superadmin users
+      else if (!isAdminLike(currentUser?.role)) {
+        filteredUsers = allProfiles.filter((user: any) => user.role !== 'admin' && user.role !== 'superadmin');
+      }
+      
       setUsers(filteredUsers);
     } catch (error) {
       console.error('Error fetching users:', error);
@@ -322,20 +328,22 @@ export function UserManagement() {
                     </div>
                   </button>
 
-                  <button
-                    onClick={() => { setRoleFilter('superadmin'); setRoleDropdownOpen(false); }}
-                    className={`w-full text-left px-4 py-2 flex items-center justify-between gap-3 text-sm ${roleFilter === 'superadmin' ? 'bg-sky-50 text-sky-700' : 'text-slate-700 hover:bg-slate-50'}`}
-                    role="menuitem"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="text-lg">👑</span>
-                      <span>Super Admins</span>
-                    </div>
-                    <div className="inline-flex items-center gap-2">
-                      <span className="text-xs text-slate-500">{superadminCount}</span>
-                      {roleFilter === 'superadmin' && <Check className="w-4 h-4 text-sky-600" />}
-                    </div>
-                  </button>
+                  {currentUser?.role === 'superadmin' && (
+                    <button
+                      onClick={() => { setRoleFilter('superadmin'); setRoleDropdownOpen(false); }}
+                      className={`w-full text-left px-4 py-2 flex items-center justify-between gap-3 text-sm ${roleFilter === 'superadmin' ? 'bg-sky-50 text-sky-700' : 'text-slate-700 hover:bg-slate-50'}`}
+                      role="menuitem"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="text-lg">👑</span>
+                        <span>Super Admins</span>
+                      </div>
+                      <div className="inline-flex items-center gap-2">
+                        <span className="text-xs text-slate-500">{superadminCount}</span>
+                        {roleFilter === 'superadmin' && <Check className="w-4 h-4 text-sky-600" />}
+                      </div>
+                    </button>
+                  )}
 
                   <button
                     onClick={() => { setRoleFilter('patrol'); setRoleDropdownOpen(false); }}
@@ -372,10 +380,12 @@ export function UserManagement() {
             <div className="text-sm text-slate-500">Total Users</div>
             <div className="text-2xl font-semibold text-slate-900 mt-1">{totalUsers}</div>
           </div>
-          <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
-            <div className="text-sm text-slate-500">Admins</div>
-            <div className="text-2xl font-semibold text-slate-900 mt-1">{adminCount}</div>
-          </div>
+          {currentUser?.role === 'superadmin' && (
+            <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
+              <div className="text-sm text-slate-500">Admins</div>
+              <div className="text-2xl font-semibold text-slate-900 mt-1">{adminCount}</div>
+            </div>
+          )}
           <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100">
             <div className="text-sm text-slate-500">Patrols</div>
             <div className="text-2xl font-semibold text-slate-900 mt-1">{patrolCount}</div>
@@ -449,27 +459,30 @@ export function UserManagement() {
 
                     {isAdminLike(currentUser?.role) && (
                       <div className="mt-3 flex items-center gap-2">
-                        {/* Role actions */}
-                        {user.role !== 'admin' ? (
-                          <button
-                            onClick={() => handleRoleChange(user.id, 'admin')}
-                            disabled={actionLoading === user.id}
-                            className="inline-flex items-center gap-2 px-3 py-1.5 text-xs rounded-md bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-50"
-                          >
-                            {actionLoading === user.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Shield className="h-3 w-3" />} 
-                            Admin
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => handleRoleChange(user.id, 'user')}
-                            disabled={actionLoading === user.id}
-                            className="inline-flex items-center gap-2 px-3 py-1.5 text-xs rounded-md bg-slate-600 text-white hover:bg-slate-700 disabled:opacity-50"
-                          >
-                            {actionLoading === user.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <UserMinus className="h-3 w-3" />}
-                            Remove
-                          </button>
+                        {/* Only allow superadmins to manage admin role */}
+                        {currentUser?.role === 'superadmin' && (
+                          user.role !== 'admin' ? (
+                            <button
+                              onClick={() => handleRoleChange(user.id, 'admin')}
+                              disabled={actionLoading === user.id}
+                              className="inline-flex items-center gap-2 px-3 py-1.5 text-xs rounded-md bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-50"
+                            >
+                              {actionLoading === user.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Shield className="h-3 w-3" />} 
+                              Admin
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleRoleChange(user.id, 'user')}
+                              disabled={actionLoading === user.id}
+                              className="inline-flex items-center gap-2 px-3 py-1.5 text-xs rounded-md bg-slate-600 text-white hover:bg-slate-700 disabled:opacity-50"
+                            >
+                              {actionLoading === user.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <UserMinus className="h-3 w-3" />}
+                              Remove
+                            </button>
+                          )
                         )}
 
+                        {/* Patrol and User role management for admins and superadmins */}
                         {user.role !== 'patrol' ? (
                           <button
                             onClick={() => handleRoleChange(user.id, 'patrol')}
@@ -490,7 +503,7 @@ export function UserManagement() {
                           </button>
                         )}
 
-                        {/* Superadmin actions (only visible to superadmins) */}
+                        {/* Superadmin management (only visible to superadmins) */}
                         {currentUser?.role === 'superadmin' && (
                           user.role !== 'superadmin' ? (
                             <button

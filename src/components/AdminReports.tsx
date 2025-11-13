@@ -13,6 +13,7 @@ import { ConfirmationModal } from './ConfirmationModal';
 import { Notification } from './Notification';
 import { useToastContext } from '../contexts/ToastContext';
 import { getReportCoordinates, isValidCoordinates } from '../lib/geocoding';
+import { pdfReportService } from '../services/pdfReportService';
 
 type StatusFilter = 'All' | 'pending' | 'in_progress' | 'resolved' | 'declined';
 
@@ -219,73 +220,56 @@ export function AdminReports() {
   });
   const [yearValue, setYearValue] = useState<number>(() => now.getFullYear());
 
-  // Simple CSV export for reporting
-  const exportReportsCsv = (items: Report[], filename: string) => {
-    const col = [
-      'id',
-      'case_number',
-      'title',
-      'description',
-      'category',
-      'status',
-      'priority',
-      'priority_level',
-      'assigned_group',
-      'assigned_patroller_name',
-      'location_address',
-      'created_at',
-      'updated_at',
-      'reporter_username',
-      'likes_count',
-      'comments_count',
-      'rating_avg',
-      'rating_count',
-    ] as const;
-    const escape = (v: any) => {
-      const s = v === null || v === undefined ? '' : String(v);
-      if (/[",\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
-      return s;
+  // Calculate statistics for reports
+  const calculateStats = (items: Report[]) => {
+    const stats = {
+      total: items.length,
+      pending: items.filter(r => r.status === 'pending').length,
+      inProgress: items.filter(r => r.status === 'in_progress').length,
+      resolved: items.filter(r => r.status === 'resolved').length,
+      declined: items.filter(r => r.status === 'declined').length,
+      highPriority: items.filter(r => r.priority === 'high').length,
+      byCategory: {} as Record<string, number>,
+      byPriority: {} as Record<string, number>,
+      byStatus: {} as Record<string, number>,
     };
-    const header = col.join(',');
-    const rows = items.map((r: any) => {
-      const likeCount = Array.isArray(r.likes)
-        ? (r.likes[0]?.count || 0)
-        : (typeof r.likes === 'number' ? r.likes : 0);
-      const legacyComments = Array.isArray(r.comments) ? (r.comments[0]?.count || 0) : 0;
-      const newComments = Array.isArray(r.comment_count) ? (r.comment_count[0]?.count || 0) : 0;
-      const totalComments = legacyComments + newComments;
-      const row: Record<string,string|number|null|undefined> = {
-        id: r.id,
-        case_number: r.case_number,
-        title: r.title,
-        description: r.description,
-        category: r.category,
-        status: r.status,
-        priority: r.priority,
-        priority_level: r.priority_level,
-        assigned_group: r.assigned_group,
-        assigned_patroller_name: r.assigned_patroller_name,
-        location_address: r.location_address,
-        created_at: r.created_at,
-        updated_at: (r as any).updated_at,
-        reporter_username: r.user_profile?.username,
-        likes_count: likeCount,
-        comments_count: totalComments,
-        rating_avg: (r as any).rating_avg,
-        rating_count: (r as any).rating_count,
-      };
-      return col.map(k => escape((row as any)[k])).join(',');
+
+    items.forEach(r => {
+      stats.byCategory[r.category] = (stats.byCategory[r.category] || 0) + 1;
+      stats.byPriority[r.priority || 'medium'] = (stats.byPriority[r.priority || 'medium'] || 0) + 1;
+      stats.byStatus[r.status] = (stats.byStatus[r.status] || 0) + 1;
     });
-    const csv = [header, ...rows].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+
+    return stats;
+  };
+
+  // Professional PDF export for reporting
+  const exportReportsPdf = async (
+    items: Report[],
+    filename: string,
+    year: number,
+    month?: number
+  ) => {
+    try {
+      const stats = calculateStats(items);
+      
+      if (month) {
+        await pdfReportService.generateMonthlyPDF(items, year, month, stats, filename);
+      } else {
+        await pdfReportService.generateYearlyPDF(items, year, stats, filename);
+      }
+      
+      showNotification(
+        `PDF report exported successfully. ${items.length} report(s) included.`,
+        'success'
+      );
+    } catch (error) {
+      console.error('PDF export error:', error);
+      showNotification(
+        'Failed to export PDF report. Please try again.',
+        'error'
+      );
+    }
   };
 
   const handleDispatch = async (reportId: string) => {
@@ -665,7 +649,7 @@ export function AdminReports() {
                 setShowMonthPicker(true);
               }}
               className="inline-flex items-center gap-2 px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-              title="Export Monthly Report - Generate and download a CSV report for a specific month"
+              title="Export Monthly Report - Generate and download a professional PDF report for a specific month"
               aria-label="Export monthly report"
             >
               <Download className="w-4 h-4" />
@@ -674,7 +658,7 @@ export function AdminReports() {
             </button>
             <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20">
               <div className="bg-gray-900 text-white text-xs rounded py-1 px-2 whitespace-nowrap shadow-lg">
-                Export Monthly Report - Generate and download a CSV report for a specific month
+                Export Monthly Report - Generate and download a professional PDF report for a specific month
                 <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
               </div>
             </div>
@@ -685,7 +669,7 @@ export function AdminReports() {
                 setShowYearPicker(true);
               }}
               className="inline-flex items-center gap-2 px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-              title="Export Yearly Report - Generate and download a CSV report for a specific year"
+              title="Export Yearly Report - Generate and download a professional PDF report for a specific year"
               aria-label="Export yearly report"
             >
               <Download className="w-4 h-4" />
@@ -694,7 +678,7 @@ export function AdminReports() {
             </button>
             <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20">
               <div className="bg-gray-900 text-white text-xs rounded py-1 px-2 whitespace-nowrap shadow-lg">
-                Export Yearly Report - Generate and download a CSV report for a specific year
+                Export Yearly Report - Generate and download a professional PDF report for a specific year
                 <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
               </div>
             </div>
@@ -736,11 +720,7 @@ export function AdminReports() {
                       await caseService.generateMonthly(year, month);
                       const monthName = new Date(year, month - 1, 1).toLocaleString('en-US', { month: 'long' });
                       const statusText = status === 'All' ? 'All' : status;
-                      exportReportsCsv(all as any, `${monthName}, ${year} - ${statusText} report.csv`);
-                      showNotification(
-                        `Monthly report exported successfully. ${all.length} report(s) included.`,
-                        'success'
-                      );
+                      await exportReportsPdf(all as any, `${monthName}_${year}_${statusText}_Report.pdf`, year, month);
                       setShowMonthPicker(false);
                     } catch (e: any) {
                       showNotification(
@@ -792,11 +772,7 @@ export function AdminReports() {
                       }
                       await caseService.generateYearly(year);
                       const statusText = status === 'All' ? 'All' : status;
-                      exportReportsCsv(all as any, `${year} - ${statusText} report.csv`);
-                      showNotification(
-                        `Yearly report exported successfully. ${all.length} report(s) included.`,
-                        'success'
-                      );
+                      await exportReportsPdf(all as any, `${year}_${statusText}_Annual_Report.pdf`, year);
                       setShowYearPicker(false);
                     } catch (e: any) {
                       showNotification(
@@ -927,7 +903,59 @@ export function AdminReports() {
               : r.description;
             
             return (
-              <div key={r.id} className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden">
+              <div key={r.id} className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden flex flex-col">
+                {/* Image Gallery - Professional Display */}
+                {Array.isArray(r.images) && r.images.length > 0 ? (
+                    <div className="relative w-full bg-gray-100 overflow-hidden group aspect-[16/7]">
+                      {/* Primary Image - keep aspect ratio and avoid distortion; object-cover will crop but not stretch */}
+                      <img
+                        src={r.images[0]}
+                        alt={r.title}
+                        loading="lazy"
+                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 cursor-pointer"
+                        onClick={() => {
+                          setSelectedReport(r);
+                          setSelectedImage(r.images?.[0] || null);
+                        }}
+                        style={{ display: 'block' }}
+                      />
+                    
+                    {/* Image Badge - Multiple Images Indicator */}
+                    {r.images.length > 1 && (
+                      <div className="absolute bottom-3 right-3 bg-black/70 text-white px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 backdrop-blur-sm">
+                        <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4.5-4.5 3 3 4-4 2.5 2.5V5z" />
+                        </svg>
+                        {r.images.length} photos
+                      </div>
+                    )}
+                    
+                    {/* View Photos Overlay */}
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors duration-200 flex items-center justify-center opacity-0 group-hover:opacity-100">
+                      <button
+                        onClick={() => {
+                          setSelectedReport(r);
+                          setSelectedImage(r.images?.[0] || null);
+                        }}
+                        className="bg-white text-gray-900 px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 shadow-lg"
+                      >
+                        <Eye className="w-4 h-4" />
+                        View Photos
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  /* No Image Placeholder */
+                  <div className="w-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center aspect-[16/7]">
+                    <div className="text-center">
+                      <svg className="w-12 h-12 mx-auto text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <p className="text-xs sm:text-sm text-gray-500 font-medium">No Image</p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Card Header */}
                 <div className="p-4 sm:p-5 border-b border-gray-100">
                   <div className="flex items-start justify-between gap-3 mb-3">
@@ -972,51 +1000,50 @@ export function AdminReports() {
                   </p>
                 </div>
 
-                {/* Card Body - Two Column Layout for Meta Info */}
+                {/* Card Body - Meta Information Grid */}
                 <div className="p-4 sm:p-5 bg-gray-50 border-b border-gray-100">
                   <div className="grid grid-cols-2 gap-3 sm:gap-4">
                     {/* Reporter */}
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
                       {r.user_profile?.avatar_url ? (
                         <img 
                           src={r.user_profile.avatar_url} 
                           alt={r.user_profile.username || 'User'} 
-                          className="w-6 h-6 rounded-full object-cover flex-shrink-0 border border-gray-200" 
+                          className="w-7 h-7 rounded-full object-cover flex-shrink-0 border border-gray-200" 
                         />
                       ) : (
-                        <div className="w-6 h-6 rounded-full bg-gray-300 flex items-center justify-center flex-shrink-0">
-                          <User2 className="w-3.5 h-3.5 text-gray-600" />
+                        <div className="w-7 h-7 rounded-full bg-blue-200 flex items-center justify-center flex-shrink-0 text-xs font-semibold text-blue-900">
+                          {(r.user_profile?.username || 'U').charAt(0).toUpperCase()}
                         </div>
                       )}
-                      <div className="min-w-0">
-                        <div className="text-xs text-gray-500">Reporter</div>
-                        <div className="text-sm font-medium text-gray-900 truncate">
+                      <div className="min-w-0 flex-1">
+                        <div className="text-xs text-gray-500 font-medium">Reporter</div>
+                        <div className="text-xs font-semibold text-gray-900 truncate">
                           {r.user_profile?.username || 'Unknown'}
                         </div>
                       </div>
                     </div>
                     
                     {/* Date */}
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
                       <Calendar className="w-5 h-5 text-gray-400 flex-shrink-0" />
-                      <div className="min-w-0">
-                        <div className="text-xs text-gray-500">Reported</div>
-                        <div className="text-sm font-medium text-gray-900">
+                      <div className="min-w-0 flex-1">
+                        <div className="text-xs text-gray-500 font-medium">Reported</div>
+                        <div className="text-xs font-semibold text-gray-900">
                           {new Date(r.created_at).toLocaleDateString('en-US', { 
                             month: 'short', 
-                            day: 'numeric',
-                            year: 'numeric'
+                            day: 'numeric'
                           })}
                         </div>
                       </div>
                     </div>
 
                     {/* Category */}
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
                       <FileText className="w-5 h-5 text-gray-400 flex-shrink-0" />
-                      <div className="min-w-0">
-                        <div className="text-xs text-gray-500">Category</div>
-                        <div className="text-sm font-medium text-gray-900 truncate">
+                      <div className="min-w-0 flex-1">
+                        <div className="text-xs text-gray-500 font-medium">Category</div>
+                        <div className="text-xs font-semibold text-gray-900 truncate">
                           {r.category}
                         </div>
                       </div>
@@ -1024,13 +1051,13 @@ export function AdminReports() {
 
                     {/* Location */}
                     {r.location_address && (
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
                         <MapPin className="w-5 h-5 text-green-600 flex-shrink-0" />
-                        <div className="min-w-0">
-                          <div className="text-xs text-gray-500">Location</div>
-                          <div className="text-sm font-medium text-gray-900 truncate" title={r.location_address}>
-                            {r.location_address.length > 25 
-                              ? r.location_address.substring(0, 25) + '...' 
+                        <div className="min-w-0 flex-1">
+                          <div className="text-xs text-gray-500 font-medium">Location</div>
+                          <div className="text-xs font-semibold text-gray-900 truncate" title={r.location_address}>
+                            {r.location_address.length > 20 
+                              ? r.location_address.substring(0, 20) + '...' 
                               : r.location_address}
                           </div>
                         </div>
@@ -1039,14 +1066,12 @@ export function AdminReports() {
 
                     {/* Assigned Group / Patroller */}
                     {(r.assigned_group || r.assigned_patroller_name) && (
-                      <div className="col-span-2 flex items-center gap-2">
+                      <div className="col-span-2 flex items-center gap-2 min-w-0">
                         <User2 className="w-5 h-5 text-blue-500 flex-shrink-0" />
-                        <div className="min-w-0">
-                          <div className="text-xs text-gray-500">Assigned To</div>
-                          <div className="text-sm font-medium text-blue-700">
-                            {/* Prefer showing the assigned group when available, otherwise show the patroller's name */}
+                        <div className="min-w-0 flex-1">
+                          <div className="text-xs text-gray-500 font-medium">Assigned To</div>
+                          <div className="text-xs font-semibold text-blue-700 truncate">
                             {r.assigned_group ? r.assigned_group : r.assigned_patroller_name}
-                            {/* If both exist, show the patroller name after the group */}
                             {r.assigned_group && r.assigned_patroller_name && ` • ${r.assigned_patroller_name}`}
                           </div>
                         </div>
@@ -1059,73 +1084,67 @@ export function AdminReports() {
                 <div className="p-4 sm:p-5 bg-white">
                   <div className="flex items-center justify-between gap-2 flex-wrap">
                     {/* Status Actions */}
-                    <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       {(['pending','in_progress','resolved','declined'] as const)
                         .filter(target => {
-                          // Show only valid transitions based on current status
                           if (target === r.status) return false;
-                          
-                          // Define valid transitions (prevents invalid status changes)
                           const validTransitions: Record<Report['status'], Report['status'][]> = {
                             'verifying': ['pending', 'declined'],
                             'pending': ['in_progress', 'declined', 'verifying'],
                             'in_progress': ['resolved', 'pending', 'declined'],
-                            'resolved': ['in_progress', 'pending'], // Allow reopening resolved reports
-                            'declined': ['pending', 'verifying'], // Allow reopening declined reports
+                            'resolved': ['in_progress', 'pending'],
+                            'declined': ['pending', 'verifying'],
                             'awaiting_verification': ['pending', 'declined'],
                             'cancelled': ['pending', 'verifying']
                           };
-                          
                           const allowedTransitions = validTransitions[r.status] || [];
-                          // Only show buttons for valid transitions
                           return allowedTransitions.includes(target);
                         })
-                        .slice(0, 2) // Show max 2 status buttons in card view
+                        .slice(0, 2)
                         .map(target => (
                           <button
                             key={target}
                             onClick={() => updateStatus(r.id, target)}
                             disabled={statusUpdateLoading[r.id]}
-                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                            className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
                               target === 'pending'
-                                ? 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100 border border-yellow-200'
+                                ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border border-yellow-300'
                                 : target === 'in_progress'
-                                ? 'bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200'
+                                ? 'bg-blue-100 text-blue-800 hover:bg-blue-200 border border-blue-300'
                                 : target === 'resolved'
-                                ? 'bg-green-50 text-green-700 hover:bg-green-100 border border-green-200'
-                                : 'bg-red-50 text-red-700 hover:bg-red-100 border border-red-200'
+                                ? 'bg-green-100 text-green-800 hover:bg-green-200 border border-green-300'
+                                : 'bg-red-100 text-red-800 hover:bg-red-200 border border-red-300'
                             }`}
                             title={`Mark as ${target.replace('_', ' ')}`}
                           >
                             {statusUpdateLoading[r.id] ? (
-                              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                              <RefreshCw className="w-3 h-3 animate-spin" />
                             ) : target === 'resolved' ? (
-                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <CheckCircle2 className="w-3 h-3" />
                             ) : target === 'declined' ? (
-                              <XCircle className="w-3.5 h-3.5" />
+                              <XCircle className="w-3 h-3" />
                             ) : (
-                              <Wrench className="w-3.5 h-3.5" />
+                              <Wrench className="w-3 h-3" />
                             )}
-                            {target === 'pending' ? 'Pending' : target === 'in_progress' ? 'In Progress' : target === 'resolved' ? 'Resolve' : 'Decline'}
+                            <span className="hidden sm:inline">{target === 'pending' ? 'Pending' : target === 'in_progress' ? 'In Progress' : target === 'resolved' ? 'Resolve' : 'Decline'}</span>
                           </button>
                         ))}
                     </div>
 
-                    {/* View & Delete Actions - Separated with more spacing */}
-                    <div className="flex items-center gap-3">
+                    {/* View & Delete Actions */}
+                    <div className="flex items-center gap-2">
                       <button
                         onClick={() => handleView(r)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-lg border border-blue-200 text-xs font-medium transition-colors"
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-blue-600 text-white hover:bg-blue-700 rounded-md text-xs font-semibold transition-colors"
                         title="View Full Details"
                       >
                         <Eye className="w-3.5 h-3.5" />
                         <span className="hidden sm:inline">View</span>
                       </button>
-                      <div className="w-px h-4 bg-gray-300"></div>
                       <button
                         onClick={() => handleDeleteClick(r.id, r.title)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-700 hover:bg-red-100 rounded-lg border border-red-200 text-xs font-medium transition-colors"
-                        title="Delete Report (cannot be undone)"
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-red-600 text-white hover:bg-red-700 rounded-md text-xs font-semibold transition-colors"
+                        title="Delete Report"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                         <span className="hidden sm:inline">Delete</span>
@@ -1472,13 +1491,17 @@ export function AdminReports() {
                     <div className="text-xs uppercase tracking-wide text-gray-500 mb-2">Images</div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {selectedReport.images.map((src, idx) => (
-                        <img
-                          key={idx}
-                          src={src}
-                          alt={`Report image ${idx+1}`}
-                          className="w-full h-56 sm:h-64 md:h-72 object-cover rounded-lg border cursor-pointer"
-                          onClick={() => { setSelectedImage(src); }}
-                        />
+                        <div className="w-full flex items-center justify-center">
+                          <img
+                            key={idx}
+                            src={src}
+                            alt={`Report image ${idx+1}`}
+                            loading="lazy"
+                            className="w-full max-h-[60vh] object-contain rounded-lg border cursor-pointer"
+                            onClick={() => { setSelectedImage(src); }}
+                            style={{ display: 'block' }}
+                          />
+                        </div>
                       ))}
                     </div>
                   </div>
