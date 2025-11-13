@@ -29,6 +29,7 @@
     "deploy:full": "powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1 full",
     "server:install": "cd server && npm install",
     "server:start": "cd server && npm start",
+    "server": "cd server && npm start",
     "server:dev": "cd server && npm run dev",
     "test:deployment": "powershell -ExecutionPolicy Bypass -File scripts/test-deployment.ps1",
     "test:deployment:frontend": "powershell -ExecutionPolicy Bypass -File scripts/test-deployment.ps1 -SkipBackend -SkipDatabase -SkipCloudinary -SkipPerformance",
