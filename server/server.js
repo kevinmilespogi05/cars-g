@@ -3,6 +3,7 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import helmet from 'helmet';
+import { existsSync } from 'fs';
 import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
@@ -68,18 +69,32 @@ if (process.env.NODE_ENV === 'development') {
 const app = express();
 const server = createServer(app);
 
+// Normalize FRONTEND_URL so it includes protocol when provided without one
+function normalizeFrontendUrl(url) {
+  if (!url) return url;
+  const trimmed = String(url).trim();
+  if (/^https?:\/\//i.test(trimmed)) return trimmed.replace(/\/$/, '');
+  // Default to https for hosted frontends like Netlify
+  return `https://${trimmed.replace(/\/$/, '')}`;
+}
+
+const normalizedFrontendUrl = normalizeFrontendUrl(process.env.FRONTEND_URL);
+
+// Build a single allowed origins array to use for both CORS and Socket.IO
+const allowedOrigins = [
+  normalizedFrontendUrl || 'http://localhost:5173',
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'https://cars-g.vercel.app',
+  'https://cars-g.onrender.com',
+  'https://cars-g-git-main-kevinmccarthy.vercel.app',
+  'https://cars-g-git-main-kevinmccarthy.vercel.app/'
+];
+
 // Initialize Socket.IO
 const io = new Server(server, {
   cors: {
-    origin: [
-      process.env.FRONTEND_URL || "http://localhost:5173",
-      "http://localhost:5173",
-      "http://localhost:3000",
-      "https://cars-g.vercel.app",
-      "https://cars-g.onrender.com",
-      "https://cars-g-git-main-kevinmccarthy.vercel.app",
-      "https://cars-g-git-main-kevinmccarthy.vercel.app/"
-    ],
+    origin: allowedOrigins,
     methods: ["GET", "POST"],
     credentials: true
   }
@@ -130,18 +145,24 @@ const testSupabaseConnection = async () => {
 };
 
 // Middleware
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", 'https:'],
+      styleSrc: ["'self'", "'unsafe-inline'", 'https:'],
+      connectSrc: ["'self'", 'https:'],
+      imgSrc: ["'self'", 'data:', 'https:'],
+      fontSrc: ["'self'", 'https://r2cdn.perplexity.ai', 'https://fonts.gstatic.com', 'https://fonts.googleapis.com', 'data:'],
+      manifestSrc: ["'self'"],
+      workerSrc: ["'self'", 'blob:']
+    }
+  }
+}));
+
 app.use(compression());
 app.use(cors({
-  origin: [
-    process.env.FRONTEND_URL || "http://localhost:5173",
-    "http://localhost:5173",
-    "http://localhost:3000",
-    "https://cars-g.vercel.app",
-    "https://cars-g.onrender.com",
-    "https://cars-g-git-main-kevinmccarthy.vercel.app",
-    "https://cars-g-git-main-kevinmccarthy.vercel.app/"
-  ],
+  origin: allowedOrigins,
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
@@ -3050,6 +3071,22 @@ app.get('/api/performance', (req, res) => {
 });
 
 
+
+// Serve frontend static files if the build exists (e.g. `dist` produced by `npm run build`)
+const clientDist = path.resolve(__dirname, '../dist');
+if (existsSync(clientDist)) {
+  app.use(express.static(clientDist));
+
+  // SPA fallback: only serve index.html for non-API routes
+  app.get('*', (req, res, next) => {
+    const url = String(req.path || '');
+    // Let API, socket and health routes pass through
+    if (url.startsWith('/api') || url.startsWith('/reports') || url.startsWith('/socket.io') || url === '/health' || url.startsWith('/_next') || url.startsWith('/sw.js') || url.startsWith('/manifest.webmanifest')) {
+      return next();
+    }
+    res.sendFile(path.join(clientDist, 'index.html'));
+  });
+}
 
 // General error handling
 app.use((err, req, res, next) => {

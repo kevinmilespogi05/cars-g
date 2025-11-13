@@ -6,7 +6,7 @@ echo 🧪 Starting Cars-G Deployment Testing...
 echo.
 
 REM Configuration
-set FRONTEND_URL=https://cars-g.onrender.com
+set FRONTEND_URL=cars-g.netlify.app
 set BACKEND_URL=https://cars-g-api.onrender.com
 set SUPABASE_URL=https://mffuqdwqjdxbwpbhuxby.supabase.co
 set CLOUDINARY_URL=https://res.cloudinary.com/dzqtdl5aa

@@ -40,7 +40,7 @@
     "test:deployment:verbose": "powershell -ExecutionPolicy Bypass -File scripts/test-deployment.ps1 -Verbose",
     "test:e2e:deployment": "cypress run --spec 'cypress/e2e/deployment.cy.js'",
     "test:e2e:deployment:open": "cypress open --config specPattern='cypress/e2e/deployment.cy.js'",
-    "test:health": "curl -f https://cars-g.onrender.com/ && curl -f https://cars-g-api.onrender.com/health",
+    "test:health": "curl -f cars-g.netlify.app/ && curl -f https://cars-g-api.onrender.com/health",
     "test:quick": "npm run test:deployment:frontend && npm run test:deployment:backend",
     "deploy:backend": "powershell -ExecutionPolicy Bypass -File scripts/deploy-backend.ps1"
   },
