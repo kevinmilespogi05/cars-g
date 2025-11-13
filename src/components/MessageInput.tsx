@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Paperclip, Smile, Loader2 } from 'lucide-react';
+import { Send, Loader2 } from 'lucide-react';
 
 interface MessageInputProps {
   onSendMessage: (message: string) => void;
@@ -136,7 +136,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
               onBlur={handleBlur}
               placeholder={placeholder}
               disabled={disabled || isSending}
-              className={`w-full px-4 py-3 pr-20 bg-transparent rounded-3xl resize-none focus:outline-none transition-all duration-200 text-sm ${
+              className={`w-full px-4 py-3 bg-transparent rounded-3xl resize-none focus:outline-none transition-all duration-200 text-sm ${
                 disabled || isSending
                   ? 'cursor-not-allowed text-gray-400' 
                   : 'text-gray-900 placeholder-gray-400'
@@ -145,25 +145,6 @@ export const MessageInput: React.FC<MessageInputProps> = ({
               style={{ minHeight: '48px', maxHeight: '120px' }}
             />
             
-            {/* Attachment and emoji buttons */}
-            <div className="absolute right-2 bottom-2 flex items-center gap-1">
-              <button
-                type="button"
-                className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-full transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={disabled || isSending}
-                title="Attach file"
-              >
-                <Paperclip className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-full transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={disabled || isSending}
-                title="Add emoji"
-              >
-                <Smile className="w-4 h-4" />
-              </button>
-            </div>
           </div>
           
           {/* Character counter for long messages */}

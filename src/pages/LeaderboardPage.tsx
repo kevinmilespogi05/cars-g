@@ -172,26 +172,26 @@ export function LeaderboardPage() {
   return (
     <div className="min-h-screen">
       {/* Clean Header - Full Width Edge-to-Edge */}
-      <div className="bg-white border-b border-gray-200 relative z-10">
+      <div className="border-b border-gray-200 relative z-10" style={{ backgroundColor: '#800000' }}>
         <div className="w-full px-4 sm:px-6 lg:px-8 py-12">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-4xl font-bold text-gray-900 tracking-tight">
+              <h1 className="text-4xl font-bold text-white tracking-tight">
                 Community Leaderboard
               </h1>
-              <p className="mt-2 text-lg text-gray-600">
+              <p className="mt-2 text-lg text-gray-100">
                 Recognizing our top contributors
               </p>
             </div>
             <div className="hidden sm:flex items-center gap-6">
               <div className="text-center">
-                <div className="text-3xl font-bold text-gray-900">{entries.length}</div>
-                <div className="text-sm text-gray-500">Contributors</div>
+                <div className="text-3xl font-bold text-white">{entries.length}</div>
+                <div className="text-sm text-gray-200">Contributors</div>
               </div>
-              <div className="h-12 w-px bg-gray-200"></div>
+              <div className="h-12 w-px bg-white/20"></div>
               <div className="text-center">
-                <div className="text-3xl font-bold text-gray-900">{patrolEntries.length}</div>
-                <div className="text-sm text-gray-500">Officers</div>
+                <div className="text-3xl font-bold text-white">{patrolEntries.length}</div>
+                <div className="text-sm text-gray-200">Officers</div>
               </div>
             </div>
           </div>
