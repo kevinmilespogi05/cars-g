@@ -347,7 +347,7 @@ app.use((req, res, next) => {
 // In-memory rate limit for push registration
 const recentRegistrations = new Map();
 
-// Email/OTP in-memory helpers removed per request (server no longer sends OTPs via SMTP/Brevo).
+// Email/OTP in-memory helpers removed per request (server no longer sends OTPs via legacy SMTP/Brevo).
 
 
 // Push: register device token
@@ -751,7 +751,7 @@ app.get('/health', (req, res) => {
 // Test email configuration endpoint
 app.get('/api/test/email', async (req, res) => {
   try {
-    const { testEmailConfiguration } = await import('./utils/nodemailerService.js');
+    const { testEmailConfiguration } = await import('./utils/smtpService.js');
     const isValid = await testEmailConfiguration();
     
     res.json({
@@ -1894,7 +1894,7 @@ app.post('/api/auth/register', async (req, res) => {
         console.warn('Failed to update profile email_verified flag (non-fatal):', e?.message || e);
       }
     } else {
-      // Generate OTP, store hashed OTP in profiles, and send via SMTP
+      // Generate OTP, store hashed OTP in profiles, and email the code via SendGrid
       try {
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         const otpHash = crypto.createHash('sha256').update(String(otp)).digest('hex');

@@ -1,44 +1,82 @@
-import nodemailer from 'nodemailer';
+import sgMail from '@sendgrid/mail';
 
-// SMTP helper using environment variables. Do NOT commit credentials to git.
+// SendGrid helper using environment variables. Do NOT commit credentials to git.
 // Required env vars (set these in your local .env):
-// SMTP_HOST, SMTP_PORT, SMTP_SECURE (true|false), SMTP_USER, SMTP_PASS, SMTP_FROM
+//   SENDGRID_API_KEY (required)
+//   SENDGRID_FROM_EMAIL (recommended)
+// Legacy SMTP_* variables are still read as fallbacks for the "from" address.
 
-let transporter;
-function getTransporter() {
-  if (transporter) return transporter;
+let isConfigured = false;
 
-  const host = process.env.SMTP_HOST || 'smtp.gmail.com';
-  const port = Number(process.env.SMTP_PORT || 587);
-  const secure = String(process.env.SMTP_SECURE || 'false') === 'true';
+function ensureClientConfigured() {
+  if (isConfigured) return;
 
-  transporter = nodemailer.createTransport({
-    host,
-    port,
-    secure,
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
-    },
-  });
+  const apiKey = process.env.SENDGRID_API_KEY;
+  if (!apiKey) {
+    throw new Error('Missing SENDGRID_API_KEY environment variable.');
+  }
 
-  return transporter;
+  sgMail.setApiKey(apiKey);
+
+  const residency = process.env.SENDGRID_DATA_RESIDENCY;
+  if (residency && residency.toLowerCase() === 'eu') {
+    if (typeof sgMail.setDataResidency === 'function') {
+      sgMail.setDataResidency('eu');
+    } else {
+      console.warn(
+        'SENDGRID_DATA_RESIDENCY=eu requested, but current @sendgrid/mail version does not expose setDataResidency. Consider upgrading the SDK.'
+      );
+    }
+  }
+
+  isConfigured = true;
 }
 
 export async function sendMail({ to, subject, html, text }) {
-  const t = getTransporter();
+  ensureClientConfigured();
 
-  const from = process.env.SMTP_FROM || process.env.SMTP_USER || 'no-reply@example.com';
+  const from =
+    process.env.SENDGRID_FROM_EMAIL ||
+    process.env.SMTP_FROM ||
+    process.env.SMTP_USER ||
+    'no-reply@example.com';
 
-  const info = await t.sendMail({
-    from,
-    to,
-    subject,
-    html,
-    text,
-  });
+  try {
+    const [response] = await sgMail.send({
+      to,
+      from,
+      subject,
+      html,
+      text,
+    });
 
-  return info;
+    return response;
+  } catch (error) {
+    if (error?.response?.body) {
+      console.error('SendGrid error response:', error.response.body);
+    }
+    throw error;
+  }
 }
 
-export default { sendMail };
+export async function testEmailConfiguration() {
+  try {
+    ensureClientConfigured();
+
+    const from =
+      process.env.SENDGRID_FROM_EMAIL ||
+      process.env.SMTP_FROM ||
+      process.env.SMTP_USER;
+
+    if (!from) {
+      throw new Error('No from address configured. Set SENDGRID_FROM_EMAIL or SMTP_FROM.');
+    }
+
+    return true;
+  } catch (error) {
+    console.error('SendGrid configuration test failed:', error);
+    return false;
+  }
+}
+
+export default { sendMail, testEmailConfiguration };

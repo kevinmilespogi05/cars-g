@@ -1,6 +1,6 @@
 // Quick end-to-end test for the email-first OTP flow (dev only).
 // This script will:
-// 1. Monkey-patch the SMTP helper to capture the sent email HTML
+// 1. Monkey-patch the email helper to capture the sent email HTML
 // 2. Invoke the start-email-verification handler with a test email
 // 3. Extract the 6-digit OTP from the captured email
 // 4. Invoke the verify-email-otp handler with the extracted OTP
@@ -17,7 +17,7 @@ const TEST_EMAIL = process.env.TEST_TO || '202210346@gordoncollege.edu.ph';
 async function run() {
   console.log('Starting email-first OTP flow test for:', TEST_EMAIL);
 
-  // Load .env from the server folder (so SMTP credentials are available)
+  // Load .env from the server folder (so email credentials are available)
   const dotenv = await import('dotenv');
   dotenv.config({ path: path.join(__dirname, '.env') });
 
@@ -53,7 +53,7 @@ async function run() {
     const html = `\n      <div style="font-family: Arial, Helvetica, sans-serif;">\n        <p>Hi,</p>\n        <p>Your verification code is:</p>\n        <div style="font-size: 28px; font-weight: 700; letter-spacing: 6px;">${otp}</div>\n        <p>This code expires in 10 minutes.</p>\n      </div>\n    `;
     console.log('Sending email (may take a second)...');
     const info = await smtpMod.sendMail({ to: TEST_EMAIL, subject, html });
-    console.log('SMTP send result:', info && info.accepted ? { accepted: info.accepted, rejected: info.rejected, response: info.response } : info);
+    console.log('Email send result:', info && info.statusCode ? { statusCode: info.statusCode, headers: info.headers } : info);
 
     // Now call verify handler
     function makeRes() {
