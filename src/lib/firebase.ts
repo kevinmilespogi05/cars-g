@@ -1,4 +1,4 @@
-import { initializeApp, getApp, getApps } from 'firebase/app';
+import { initializeApp } from 'firebase/app';
 import { getMessaging, getToken, onMessage, isSupported, Messaging, deleteToken } from 'firebase/messaging';
 import { config } from './config';
 
@@ -37,15 +37,13 @@ export async function initializeFirebase(): Promise<Messaging | null> {
       return null;
     }
 
-    const app = getApps().length
-      ? getApp()
-      : initializeApp({
-          apiKey: config.firebase.apiKey,
-          authDomain: config.firebase.authDomain,
-          projectId: config.firebase.projectId,
-          messagingSenderId: config.firebase.messagingSenderId,
-          appId: config.firebase.appId,
-        });
+    const app = initializeApp({
+      apiKey: config.firebase.apiKey,
+      authDomain: config.firebase.authDomain,
+      projectId: config.firebase.projectId,
+      messagingSenderId: config.firebase.messagingSenderId,
+      appId: config.firebase.appId,
+    });
 
     const messaging = getMessaging(app);
     messagingInstance = messaging;
