@@ -44,81 +44,6 @@ const _updateBatch = new Map<string, any>();
 const _batchTimer = setTimeout(() => {}, 0); // Placeholder
 const BATCH_DELAY = 50; // 50ms batch delay
 
-const REPORT_REPLY_LIKES_KEY = 'report_comment_reply_all_likes';
-const _reportReplyTypeCache = new Map<string, boolean>();
-
-function _getLocalReportReplyLikes(): Record<string, Record<string, boolean>> {
-  if (typeof window === 'undefined' || !window.localStorage) {
-    return {};
-  }
-  try {
-    const raw = window.localStorage.getItem(REPORT_REPLY_LIKES_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw);
-    return typeof parsed === 'object' && parsed !== null ? parsed : {};
-  } catch (error) {
-    console.warn('Failed to parse report reply likes cache:', error);
-    return {};
-  }
-}
-
-function _setLocalReportReplyLikes(map: Record<string, Record<string, boolean>>) {
-  if (typeof window === 'undefined' || !window.localStorage) {
-    return;
-  }
-  try {
-    window.localStorage.setItem(REPORT_REPLY_LIKES_KEY, JSON.stringify(map));
-  } catch (error) {
-    console.warn('Failed to persist report reply likes cache:', error);
-  }
-}
-
-function _toggleLocalReportReplyLike(replyId: string, userId: string): boolean {
-  const likes = _getLocalReportReplyLikes();
-  if (!likes[userId]) {
-    likes[userId] = {};
-  }
-  const currentlyLiked = !!likes[userId][replyId];
-  if (currentlyLiked) {
-    delete likes[userId][replyId];
-    if (Object.keys(likes[userId]).length === 0) {
-      delete likes[userId];
-    }
-  } else {
-    likes[userId][replyId] = true;
-  }
-  _setLocalReportReplyLikes(likes);
-  return !currentlyLiked;
-}
-
-function _isLocalReportReplyLiked(replyId: string, userId: string): boolean {
-  const likes = _getLocalReportReplyLikes();
-  return !!likes[userId]?.[replyId];
-}
-
-async function _isReportCommentReply(replyId: string): Promise<boolean> {
-  if (_reportReplyTypeCache.has(replyId)) {
-    return _reportReplyTypeCache.get(replyId)!;
-  }
-  try {
-    const { data, error } = await supabase
-      .from('report_comment_replies')
-      .select('id')
-      .eq('id', replyId)
-      .maybeSingle();
-    if (error && (error as any)?.code && (error as any).code !== 'PGRST116') {
-      console.warn('Error checking reply system type:', error);
-    }
-    const isReportReply = !!data;
-    _reportReplyTypeCache.set(replyId, isReportReply);
-    return isReportReply;
-  } catch (err) {
-    console.warn('Unexpected error checking reply system type:', err);
-    _reportReplyTypeCache.set(replyId, false);
-    return false;
-  }
-}
-
 function _getCachedProfile(userId: string) {
   const expiry = _cacheExpiry.get(userId);
   if (expiry && Date.now() < expiry) {
@@ -414,15 +339,11 @@ export const reportsService = {
         return [];
       }
       // Check if this is a report comment or regular comment
-      const { data: reportComment, error: reportCommentError } = await supabase
+      const { data: reportComment } = await supabase
         .from('report_comments')
         .select('id')
         .eq('id', commentId)
-        .maybeSingle();
-
-      if (reportCommentError) {
-        throw reportCommentError;
-      }
+        .single();
 
       let rootReplies: any[] = [];
       
@@ -469,15 +390,10 @@ export const reportsService = {
         // For each reply, get likes count, is_liked, and nested replies if depth allows
         const result: CommentReply[] = [];
         for (const r of replies) {
-          const [likesResult, userLikedData] = await Promise.all([
+          const [{ count: likesCount }, userLikedData] = await Promise.all([
             supabase.from('reply_likes').select('*', { count: 'exact', head: true }).eq('reply_id', r.id),
             user ? supabase.from('reply_likes').select('id').eq('reply_id', r.id).eq('user_id', user.id) : Promise.resolve({ data: null })
           ] as any);
-
-          const likesCount = likesResult?.count || 0;
-          const isReportReply = Object.prototype.hasOwnProperty.call(r, 'reply_text') && r.reply_text !== undefined;
-          const localLiked = isReportReply ? _isLocalReportReplyLiked(r.id, user.id) : !!(userLikedData && userLikedData.data && userLikedData.data.length > 0);
-          const effectiveLikesCount = likesCount + (isReportReply && localLiked ? 1 : 0);
 
           let nested: CommentReply[] | undefined = undefined;
           if (depth < maxDepth) {
@@ -505,9 +421,8 @@ export const reportsService = {
             user: { username: profile.username, avatar_url: profile.avatar_url },
             replies: nested,
             reply_depth: depth,
-            likes_count: effectiveLikesCount || 0,
-            is_liked: localLiked,
-            is_report_reply: isReportReply
+            likes_count: likesCount || 0,
+            is_liked: !!(userLikedData && userLikedData.data && userLikedData.data.length > 0)
           } as CommentReply);
         }
 
@@ -629,30 +544,22 @@ export const reportsService = {
       if (isNested) {
         // For nested replies, we need to find the parent comment
         // Check if parentId is a report comment reply
-        const { data: reportReply, error: reportReplyError } = await supabase
+        const { data: reportReply } = await supabase
           .from('report_comment_replies')
           .select('comment_id')
           .eq('id', parentId)
-          .maybeSingle();
-        
-        if (reportReplyError) {
-          console.warn('Error checking report comment reply:', reportReplyError);
-        }
+          .single();
         
         if (reportReply) {
           isReportComment = true;
           actualCommentId = reportReply.comment_id;
         } else {
           // Check if it's a regular comment reply
-          const { data: regularReply, error: regularReplyError } = await supabase
+          const { data: regularReply } = await supabase
             .from('comment_replies')
             .select('parent_comment_id')
             .eq('id', parentId)
-            .maybeSingle();
-          
-          if (regularReplyError) {
-            console.warn('Error checking legacy comment reply:', regularReplyError);
-          }
+            .single();
           
           if (regularReply) {
             actualCommentId = regularReply.parent_comment_id;
@@ -664,12 +571,8 @@ export const reportsService = {
           .from('report_comments')
           .select('id')
           .eq('id', parentId)
-          .maybeSingle();
+          .single();
         
-        if (reportCommentError) {
-          console.warn('Error checking report comment:', reportCommentError);
-        }
-
         if (reportComment) {
           isReportComment = true;
         }
@@ -808,13 +711,9 @@ export const reportsService = {
       .from('report_comments')
       .select('id')
       .eq('id', commentId)
-      .maybeSingle();
+      .single();
 
-    if (reportCommentError) {
-      throw new ReportsServiceError(reportCommentError.message);
-    }
-
-    if (!reportComment) {
+    if (reportCommentError && reportCommentError.code !== 'PGRST116') {
       // If it's not a report comment, try the old system
       const { data: existing, error: checkError } = await supabase
         .from('comment_likes')
@@ -875,13 +774,22 @@ export const reportsService = {
     // since they are not persisted to the `comment_replies` table and thus
     // cannot be referenced by `reply_likes` without violating FKs.
     if (replyId.startsWith('mock-')) {
-      return _toggleLocalReportReplyLike(replyId, user.id);
-    }
+      const allLikesKey = 'report_comment_reply_all_likes';
+      const allLikes = JSON.parse(localStorage.getItem(allLikesKey) || '{}');
 
-    // Replies from the new report comment replies system currently do not support
-    // server-side likes, so we gracefully fall back to local storage for now.
-    if (await _isReportCommentReply(replyId)) {
-      return _toggleLocalReportReplyLike(replyId, user.id);
+      if (!allLikes[user.id]) {
+        allLikes[user.id] = {};
+      }
+
+      if (allLikes[user.id][replyId]) {
+        delete allLikes[user.id][replyId];
+        localStorage.setItem(allLikesKey, JSON.stringify(allLikes));
+        return false;
+      } else {
+        allLikes[user.id][replyId] = true;
+        localStorage.setItem(allLikesKey, JSON.stringify(allLikes));
+        return true;
+      }
     }
 
     // If there's no Supabase session (e.g. user logged in via JWT), use server endpoint
@@ -892,10 +800,6 @@ export const reportsService = {
         const resp = await authenticatedRequest(url, { method: 'POST' });
         if (!resp.ok) {
           const body = await resp.text().catch(() => '');
-          if (resp.status === 422 && body && body.includes('Reply belongs to the newer report replies system')) {
-            _reportReplyTypeCache.set(replyId, true);
-            return _toggleLocalReportReplyLike(replyId, user.id);
-          }
           throw new ReportsServiceError(`Failed to toggle reply like (api): HTTP ${resp.status} ${body}`);
         }
         const json = await resp.json().catch(() => ({} as any));
@@ -927,21 +831,12 @@ export const reportsService = {
       if (error) {
         // If RLS blocks client insert, fallback to server toggle endpoint
         const message = (error as any)?.message || '';
-        const code = String((error as any)?.code || '');
-        if (code === '23503' || message.includes('Reply belongs to the newer report replies system')) {
-          _reportReplyTypeCache.set(replyId, true);
-          return _toggleLocalReportReplyLike(replyId, user.id);
-        }
         if (message.includes('row-level security') || (error as any)?.status === 401) {
           try {
             const url = `${getApiUrl(`/api/replies/${replyId}/likes/toggle`)}`;
             const resp = await authenticatedRequest(url, { method: 'POST' });
             if (!resp.ok) {
               const body = await resp.text().catch(() => '');
-              if (resp.status === 422 && body && body.includes('Reply belongs to the newer report replies system')) {
-                _reportReplyTypeCache.set(replyId, true);
-                return _toggleLocalReportReplyLike(replyId, user.id);
-              }
               throw new ReportsServiceError(`Failed to toggle reply like (api): HTTP ${resp.status} ${body}`);
             }
             const json = await resp.json().catch(() => ({} as any));
@@ -1090,8 +985,11 @@ export const reportsService = {
   // Get like details for a reply
   async getReplyLikeDetails(replyId: string): Promise<LikeDetail[]> {
     try {
-      const buildLocalLikeDetails = async (): Promise<LikeDetail[]> => {
-        const allLikes = _getLocalReportReplyLikes();
+      // Handle simulated replies (mock IDs) via localStorage
+      if (replyId.startsWith('mock-')) {
+        const allLikesKey = 'report_comment_reply_all_likes';
+        const allLikes = JSON.parse(localStorage.getItem(allLikesKey) || '{}');
+
         const userIds = Object.keys(allLikes).filter(userId =>
           allLikes[userId] && allLikes[userId][replyId]
         );
@@ -1114,22 +1012,13 @@ export const reportsService = {
         return userIds.map(userId => {
           const profile = _getCachedProfile(userId) || { username: `User ${userId.slice(0, 8)}`, avatar_url: null };
           return {
-            id: `local-${userId}-${replyId}`,
+            id: `mock-${userId}-${replyId}`,
             user_id: userId,
             reply_id: replyId,
             created_at: new Date().toISOString(),
             user: { username: profile.username, avatar_url: profile.avatar_url }
           } as LikeDetail;
         });
-      };
-
-      // Handle simulated replies (mock IDs) and report comment replies via local storage
-      if (replyId.startsWith('mock-')) {
-        return await buildLocalLikeDetails();
-      }
-
-      if (await _isReportCommentReply(replyId)) {
-        return await buildLocalLikeDetails();
       }
 
       const { data, error } = await supabase
