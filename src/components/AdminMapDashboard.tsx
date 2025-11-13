@@ -58,7 +58,7 @@ interface MapMarker {
 export function AdminMapDashboard() {
   // navigate is not used in this component; remove to satisfy lint
   const [searchParams] = useSearchParams();
-  const { user } = useAuthStore();
+  const { user, isAdminLike } = useAuthStore();
   const [reports, setReports] = useState<Report[]>([]);
   const [mapMarkers, setMapMarkers] = useState<MapMarker[]>([]);
   const [loading, setLoading] = useState(true);
@@ -262,7 +262,7 @@ export function AdminMapDashboard() {
 
   // Check if user has admin privileges
   useEffect(() => {
-    if (user && user.role !== 'admin') {
+    if (user && !isAdminLike(user.role)) {
       showNotification('Admin privileges required to access this dashboard', 'error');
     }
   }, [user]);

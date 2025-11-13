@@ -10,7 +10,7 @@ interface WelcomeGuideProps {
 }
 
 const getSteps = (userRole?: string) => {
-  if (userRole === 'admin') {
+  if (userRole === 'admin' || userRole === 'superadmin') {
     return [
       {
         id: 1,

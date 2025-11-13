@@ -815,7 +815,7 @@ app.put('/api/admin/users/:userId/role', authenticateToken, requireRole('admin')
     const { userId } = req.params;
     const { role } = req.body || {};
 
-    const allowedRoles = ['user', 'admin', 'patrol'];
+    const allowedRoles = ['user', 'admin', 'patrol', 'superadmin'];
     if (!allowedRoles.includes(role)) {
       return res.status(400).json({ success: false, error: 'Invalid role' });
     }

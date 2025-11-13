@@ -18,7 +18,7 @@
     "cypress:open": "cypress open",
     "cypress:run": "cypress run",
     "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx,css,md,json}\"",
-    "prepare": "husky install",
+    "prepare": "node -e \"try { require('husky'); require('child_process').execSync('husky install', {stdio: 'inherit'}); } catch (e) { console.log('husky not installed - skipping husky install'); }\"",
     "analyze": "vite-bundle-analyzer",
     "deploy:check": "powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1 check",
     "deploy:install": "powershell -ExecutionPolicy Bypass -File scripts/deploy.ps1 install",

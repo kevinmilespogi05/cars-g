@@ -31,12 +31,12 @@ interface QuickActionsProps {
 }
 
 export function QuickActions({ hideEmergencyActions = false, variant = 'default' }: QuickActionsProps) {
-  const { user } = useAuthStore();
+  const { user, isAdminLike } = useAuthStore();
   const [isOpen, setIsOpen] = React.useState(false);
   const [isChatOpen, setIsChatOpen] = React.useState(false);
 
   const getQuickActions = (): QuickAction[] => {
-    if (user?.role === 'admin') {
+    if (isAdminLike(user?.role)) {
       return [
         {
           id: 'map',
@@ -64,7 +64,7 @@ export function QuickActions({ hideEmergencyActions = false, variant = 'default'
     } else {
       return [
         {
-          id: 'create-report',
+          id: 'report',
           title: 'Report Issue',
           description: 'Report a community problem',
           icon: Plus,
@@ -96,6 +96,10 @@ export function QuickActions({ hideEmergencyActions = false, variant = 'default'
 
 
   const quickActions = getQuickActions();
+  // For sidebar (compact) variant, hide items that don't belong in the quick-actions sidebar
+  const visibleQuickActions = variant === 'sidebar'
+    ? quickActions.filter(a => a.id !== 'view-reports' && a.id !== 'leaderboard')
+    : quickActions;
 
   return (
     <>
@@ -104,7 +108,7 @@ export function QuickActions({ hideEmergencyActions = false, variant = 'default'
         {variant === 'sidebar' ? (
           // Sidebar variant: Vertical list layout for narrow sidebars
           <div className="space-y-2">
-            {quickActions.map((action, index) => (
+            {visibleQuickActions.map((action, index) => (
               <motion.div
                 key={action.id}
                 initial={{ opacity: 0, x: -10 }}
@@ -133,7 +137,7 @@ export function QuickActions({ hideEmergencyActions = false, variant = 'default'
         ) : (
           // Default variant: Grid layout for wider spaces
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {quickActions.map((action, index) => (
+            {visibleQuickActions.map((action, index) => (
               <motion.div
                 key={action.id}
                 initial={{ opacity: 0, y: 20 }}
@@ -162,7 +166,7 @@ export function QuickActions({ hideEmergencyActions = false, variant = 'default'
         )}
 
         {/* Emergency Actions - only show in default variant */}
-        {user?.role !== 'admin' && !hideEmergencyActions && variant === 'default' && (
+        {!isAdminLike(user?.role) && !hideEmergencyActions && variant === 'default' && (
           <div className="mt-6 pt-6 border-t border-gray-200">
             <h3 className="text-sm font-medium text-gray-900 mb-3">Emergency Actions</h3>
             <div className="flex flex-col sm:flex-row gap-3">
@@ -190,9 +194,9 @@ export function QuickActions({ hideEmergencyActions = false, variant = 'default'
         <div className="fixed bottom-5 left-5 z-50">
           {/* Expanded actions list */}
           <div className="flex flex-col items-start mb-3">
-            {isOpen && (
+                {isOpen && (
               <div className="flex flex-col items-stretch gap-2 mb-2">
-                {quickActions.map((action, index) => (
+                {visibleQuickActions.map((action, index) => (
                   <motion.div
                     key={action.id}
                     initial={{ opacity: 0, y: 10, scale: 0.98 }}
@@ -213,7 +217,7 @@ export function QuickActions({ hideEmergencyActions = false, variant = 'default'
                 ))}
                 
                 {/* Support Chat (mobile only) */}
-                {user?.role !== 'admin' && user?.role !== 'patrol' && (
+                {!isAdminLike(user?.role) && user?.role !== 'patrol' && (
                   <motion.div
                     initial={{ opacity: 0, y: 10, scale: 0.98 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -233,7 +237,7 @@ export function QuickActions({ hideEmergencyActions = false, variant = 'default'
                 )}
                 
                 {/* Emergency actions (mobile) */}
-                {user?.role !== 'admin' && !hideEmergencyActions && (
+                {!isAdminLike(user?.role) && !hideEmergencyActions && (
                   <div className="mt-1 pt-1 border-t border-gray-200">
                     <motion.div
                       initial={{ opacity: 0, y: 10, scale: 0.98 }}

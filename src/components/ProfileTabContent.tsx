@@ -30,6 +30,7 @@ import { Report } from '../types';
 import { AchievementsPanel } from './AchievementsPanel';
 import { useImageViewerStore } from '../store/imageViewerStore';
 import { supabase } from '../lib/supabase';
+import { useAuthStore } from '../store/authStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { authenticatedRequest } from '../lib/jwt';
 
@@ -77,6 +78,7 @@ export function ProfileTabContent({
   onUserUpdate = () => {}
 }: ProfileTabContentProps) {
   const navigate = useNavigate();
+  const { isAdminLike } = useAuthStore();
   const [showTooltip, setShowTooltip] = React.useState<string | null>(null);
   
   // Lightbox state
@@ -652,7 +654,7 @@ export function ProfileTabContent({
                   <p className="font-medium text-gray-900">{formatDate(user?.created_at)}</p>
                 </div>
               </div>
-              {user?.role === 'admin' && (
+              {isAdminLike(user?.role) && (
                 <div className="flex items-center gap-3">
                   <Shield className="w-4 h-4 text-purple-600" />
                   <div>
@@ -1132,7 +1134,7 @@ export function ProfileTabContent({
           </p>
         </div>
         
-        {user?.role === 'admin' && (
+        {isAdminLike(user?.role) && (
           <div className="bg-purple-50 rounded-2xl p-6 border border-purple-100 shadow-sm">
             <label className="flex items-center gap-2 text-sm font-semibold text-purple-800 mb-3">
               <Shield className="h-4 w-4 text-purple-600" />

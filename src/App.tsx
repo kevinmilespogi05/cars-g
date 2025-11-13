@@ -114,7 +114,7 @@ function MobileMenuButton() {
 
 // Inner content component that uses sidebar context
 function AppContentInner() {
-  const { isAuthenticated, user } = useAuthStore();
+  const { isAuthenticated, user, isAdminLike } = useAuthStore();
   const { isImageViewerOpen } = useImageViewerStore();
   const location = useLocation();
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -273,7 +273,7 @@ function AppContentInner() {
                     <Route key={route.path} {...route} />
                   ))}
                 {isAuthenticated &&
-                  user?.role === 'admin' &&
+                  isAdminLike() &&
                   adminRoutes.map((route) => (
                     <Route key={route.path} {...route} />
                   ))}
@@ -284,7 +284,7 @@ function AppContentInner() {
                   ))}
                 <Route
                   path="*"
-                  element={<Navigate to={isAuthenticated ? (user?.role === 'admin' ? "/admin" : user?.role === 'patrol' ? '/patrol' : "/reports") : "/login"} replace />}
+                  element={<Navigate to={isAuthenticated ? (isAdminLike() ? "/admin" : user?.role === 'patrol' ? '/patrol' : "/reports") : "/login"} replace />}
                 />
               </Routes>
             </Suspense>

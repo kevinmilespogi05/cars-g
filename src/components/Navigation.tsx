@@ -9,7 +9,7 @@ import { PhilippinesDateTime } from './PhilippinesDateTime';
 export function Navigation() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, signOut } = useAuthStore();
+  const { user, signOut, isAdminLike } = useAuthStore();
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
@@ -37,7 +37,7 @@ export function Navigation() {
 
   // Simplified navigation items - show only the most important ones
   const getNavItems = () => {
-    if (user?.role === 'admin') {
+    if (isAdminLike()) {
       return [
         { path: '/admin', icon: MapPin, label: 'Dashboard' },
         { path: '/admin/map', icon: MapPin, label: 'Map' },
@@ -84,7 +84,7 @@ export function Navigation() {
           {/* Logo and DateTime */}
           <div className="flex items-center space-x-4">
             <Link 
-              to={user ? (user.role === 'admin' ? '/admin' : user.role === 'patrol' ? '/patrol' : '/reports') : '/login'}
+              to={user ? (isAdminLike() ? '/admin' : user.role === 'patrol' ? '/patrol' : '/reports') : '/login'}
               className="flex items-center space-x-4 text-white hover:text-gray-200 transition-colors group"
             >
               <div className="relative flex items-center">
@@ -130,7 +130,7 @@ export function Navigation() {
               ))}
               
               {/* Chat Button - only for regular users (not admin or patrol) on desktop */}
-              {user?.role !== 'admin' && user?.role !== 'patrol' && (
+              {!isAdminLike() && user?.role !== 'patrol' && (
                 <ChatButton 
                   adminId="admin" // This should be the actual admin user ID
                   className="ml-2"

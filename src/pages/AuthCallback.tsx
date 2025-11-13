@@ -7,7 +7,7 @@ import { storeTokens, storeUser } from '../lib/jwt';
 
 export function AuthCallback() {
   const navigate = useNavigate();
-  const { setUser } = useAuthStore();
+  const { setUser, isAdminLike } = useAuthStore();
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(true);
 
@@ -78,8 +78,8 @@ export function AuthCallback() {
               // Set user in auth store
               setUser(jwtData.user);
               
-              // Redirect based on user role from database
-              if (jwtData.user.role === 'admin') {
+              // Redirect based on user role from database (treat superadmin as admin)
+              if (isAdminLike(jwtData.user.role)) {
                 navigate('/admin', { replace: true });
               } else if (jwtData.user.role === 'patrol') {
                 navigate('/patrol', { replace: true });

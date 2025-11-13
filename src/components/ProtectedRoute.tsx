@@ -8,7 +8,7 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children, adminRedirect = false, patrolRedirect = false }: ProtectedRouteProps) {
-  const { isAuthenticated, user } = useAuthStore();
+  const { isAuthenticated, user, isAdminLike } = useAuthStore();
   const location = useLocation();
 
   if (!isAuthenticated) {
@@ -28,7 +28,7 @@ export function ProtectedRoute({ children, adminRedirect = false, patrolRedirect
   }
 
   // Redirect admin users to admin dashboard if this route is meant for regular users
-  if (adminRedirect && user?.role === 'admin') {
+  if (adminRedirect && isAdminLike()) {
     return <Navigate to="/admin" replace />;
   }
 

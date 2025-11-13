@@ -1,9 +1,5 @@
 import js from '@eslint/js';
 import globals from 'globals';
-import reactHooks from 'eslint-plugin-react-hooks';
-import reactRefresh from 'eslint-plugin-react-refresh';
-import tseslint from '@typescript-eslint/eslint-plugin';
-import tsparser from '@typescript-eslint/parser';
 
 export default [
   { ignores: ['dist', 'dev-dist'] },
@@ -50,6 +46,25 @@ export default [
         define: 'readonly',
         _: 'readonly',
         _extends: 'readonly',
+      },
+    },
+  },
+  // Cypress E2E tests - provide Cypress globals to avoid no-undef
+  {
+    files: ['cypress/**', 'cypress/**/*.js', 'cypress/**/*.ts'],
+    languageOptions: {
+      globals: {
+        ...globals.cypress,
+      },
+    },
+  },
+  // Unit tests (Jest) and __tests__ folders - provide jest globals
+  {
+    files: ['**/__tests__/**', '**/*.spec.js', '**/*.test.js', '**/*.spec.ts', '**/*.test.ts', '**/*.spec.tsx', '**/*.test.tsx'],
+    languageOptions: {
+      globals: {
+        ...globals.jest,
+        ...globals.node,
       },
     },
   },

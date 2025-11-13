@@ -1,4 +1,5 @@
 import { verifyToken, extractTokenFromHeader } from '../lib/jwt.js';
+import { hasPermission } from '../utils/adminControl.js';
 
 /**
  * JWT Authentication Middleware
@@ -107,6 +108,12 @@ export function requireRole(allowedRoles) {
     const userRole = req.user.role;
     const roles = Array.isArray(allowedRoles) ? allowedRoles : [allowedRoles];
 
+    // Treat 'admin' as including 'superadmin' so existing checks that require 'admin'
+    // will also accept 'superadmin' without changing every call site.
+    if (roles.includes('admin') && !roles.includes('superadmin')) {
+      roles.push('superadmin');
+    }
+
     if (!roles.includes(userRole)) {
       return res.status(403).json({
         success: false,
@@ -122,10 +129,60 @@ export function requireRole(allowedRoles) {
 }
 
 /**
+ * Permission-based authorization middleware (for new RBAC system)
+ * Checks if user has specific permission code
+ * @param {string|string[]} requiredPermissions - Permission code(s) required
+ * @param {Object} supabaseAdmin - Supabase admin client
+ */
+export function requirePermission(requiredPermissions, supabaseAdmin) {
+  return async (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication required',
+        code: 'AUTH_REQUIRED'
+      });
+    }
+
+    // Superadmins always have all permissions
+    if (req.user.role === 'superadmin') {
+      return next();
+    }
+
+    const permissions = Array.isArray(requiredPermissions) 
+      ? requiredPermissions 
+      : [requiredPermissions];
+
+    // Check if user has at least one of the required permissions
+    for (const permission of permissions) {
+      const hasAccess = await hasPermission(supabaseAdmin, req.user.id, permission);
+      if (hasAccess) {
+        return next();
+      }
+    }
+
+    return res.status(403).json({
+      success: false,
+      error: 'Missing required permissions',
+      code: 'INSUFFICIENT_PERMISSIONS',
+      required: permissions,
+      current: req.user.role
+    });
+  };
+}
+
+/**
  * Admin-only middleware
  */
 export function requireAdmin(req, res, next) {
   return requireRole('admin')(req, res, next);
+}
+
+/**
+ * Superadmin-only middleware
+ */
+export function requireSuperAdmin(req, res, next) {
+  return requireRole('superadmin')(req, res, next);
 }
 
 /**

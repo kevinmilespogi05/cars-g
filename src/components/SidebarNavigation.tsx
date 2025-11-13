@@ -11,7 +11,7 @@ import { useSidebarContext } from '../contexts/SidebarContext';
 export function SidebarNavigation() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, signOut } = useAuthStore();
+  const { user, signOut, isAdminLike } = useAuthStore();
   const { isCollapsed, setIsCollapsed, toggleSidebar } = useSidebarContext();
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
@@ -70,7 +70,7 @@ export function SidebarNavigation() {
   useEffect(() => {
     let timer: NodeJS.Timeout | null = null;
     
-    if (user?.role === 'admin' && !manualToggleRef.current) {
+    if (isAdminLike() && !manualToggleRef.current) {
       if (location.pathname === '/admin' && !isCollapsed && !isDashboardOpen) {
         setIsDashboardOpen(true);
         localStorage.setItem('adminDashboardDropdownOpen', 'true');
@@ -119,7 +119,7 @@ export function SidebarNavigation() {
 
   // Navigation items based on user role
   const getNavItems = () => {
-    if (user?.role === 'admin') {
+    if (isAdminLike()) {
       return [
         { path: '/admin/map', icon: MapPin, label: 'Map' },
         { path: '/leaderboard', icon: Award, label: 'Leaderboard' },
@@ -196,9 +196,9 @@ export function SidebarNavigation() {
           <div className={`flex items-center border-b border-white/20 ${
             isCollapsed ? 'justify-center p-3' : 'justify-between p-4'
           }`}>
-            {!isCollapsed && (
+              {!isCollapsed && (
               <Link 
-                to={user ? (user.role === 'admin' ? '/admin' : user.role === 'patrol' ? '/patrol' : '/reports') : '/login'}
+                to={user ? (isAdminLike() ? '/admin' : user.role === 'patrol' ? '/patrol' : '/reports') : '/login'}
                 className="flex items-center space-x-3 text-white hover:text-gray-200 transition-colors group flex-1"
               >
                 <img 
@@ -210,10 +210,10 @@ export function SidebarNavigation() {
                 <span className="text-xl font-bold text-white group-hover:text-gray-200 transition-colors leading-tight">CARS-G</span>
               </Link>
             )}
-            {isCollapsed && (
+              {isCollapsed && (
               <>
                 <Link 
-                  to={user ? (user.role === 'admin' ? '/admin' : user.role === 'patrol' ? '/patrol' : '/reports') : '/login'}
+                  to={user ? (isAdminLike() ? '/admin' : user.role === 'patrol' ? '/patrol' : '/reports') : '/login'}
                   className="flex items-center justify-center flex-1"
                 >
                   <img 
@@ -269,12 +269,12 @@ export function SidebarNavigation() {
           )}
 
           {/* Navigation Items */}
-          {user && (
+              {user && (
             <nav className={`flex-1 overflow-y-auto overflow-x-hidden py-4 ${
               isCollapsed ? 'px-2' : 'px-3'
             } space-y-1`}>
               {/* Dashboard Dropdown for Admin */}
-              {user?.role === 'admin' && (
+              {isAdminLike() && (
                 <div className="mb-1" ref={dashboardDropdownRef}>
                   <div className="relative">
                     {/* Dashboard Main Container */}
@@ -315,7 +315,7 @@ export function SidebarNavigation() {
                       >
                         <LayoutDashboard className={`h-5 w-5 flex-shrink-0 transition-colors duration-200 text-white ${isCollapsed ? '' : 'mr-3'}`} />
                         {!isCollapsed && (
-                          <span className="text-sm font-medium">Dashboard</span>
+                          <span className="text-sm font-medium text-white">Dashboard</span>
                         )}
                       </Link>
                       {!isCollapsed && (
@@ -449,7 +449,7 @@ export function SidebarNavigation() {
               })}
               
               {/* Chat Button - only for regular users (not admin or patrol) */}
-              {user?.role !== 'admin' && user?.role !== 'patrol' && (
+              {!isAdminLike() && user?.role !== 'patrol' && (
                 <div className={`pt-2 ${isCollapsed ? 'px-0' : 'px-0'}`}>
                   <ChatButton 
                     adminId="admin" // This should be the actual admin user ID
@@ -463,7 +463,7 @@ export function SidebarNavigation() {
 
 
           {/* Quick Actions Section - only for regular users */}
-          {user && user?.role !== 'admin' && user?.role !== 'patrol' && !isCollapsed && (
+          {user && !isAdminLike() && user?.role !== 'patrol' && !isCollapsed && (
             <div className="px-3 py-4 border-t border-white/20">
               <div className="mb-2.5">
                 <h2 className="text-sm font-semibold text-white mb-1">

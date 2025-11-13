@@ -18,7 +18,7 @@ import { useToastContext } from '../contexts/ToastContext';
 export function Login() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { signInWithEmailOrUsername, signInWithGoogle, user, isAuthenticated } = useAuthStore();
+  const { signInWithEmailOrUsername, signInWithGoogle, user, isAuthenticated, isAdminLike } = useAuthStore();
   const { error: showToastError, success: showToastSuccess } = useToastContext();
   const [emailOrUsername, setEmailOrUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -39,7 +39,7 @@ export function Login() {
   // Redirect users if they're already authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      if (user?.role === 'admin') {
+      if (isAdminLike()) {
         navigate('/admin', { replace: true });
       } else if (user?.role === 'patrol') {
         navigate('/patrol', { replace: true });

@@ -56,7 +56,7 @@ interface Statistics {
 }
 
 export function EnhancedAdminStatistics() {
-  const { user: currentUser } = useAuthStore();
+  const { user: currentUser, isAdminLike } = useAuthStore();
   const [loading, setLoading] = useState(true);
   const [notification, setNotification] = useState<{
     message: string;
@@ -106,7 +106,7 @@ export function EnhancedAdminStatistics() {
   });
 
   useEffect(() => {
-    if (currentUser?.role === 'admin') {
+    if (isAdminLike(currentUser?.role)) {
       fetchStatistics();
     }
   }, [currentUser?.role, filters]);
@@ -257,7 +257,7 @@ export function EnhancedAdminStatistics() {
     setIsDrillDownOpen(true);
   };
 
-  if (currentUser?.role !== 'admin') {
+  if (!isAdminLike(currentUser?.role)) {
     return (
       <div className="w-full px-2 sm:px-4 lg:px-6">
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">

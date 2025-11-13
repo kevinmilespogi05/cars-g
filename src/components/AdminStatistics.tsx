@@ -73,7 +73,7 @@ interface Statistics {
 }
 
 export function AdminStatistics() {
-  const { user: currentUser } = useAuthStore();
+  const { user: currentUser, isAdminLike } = useAuthStore();
   const [statistics, setStatistics] = useState<Statistics>({
     totalReports: 0,
     pendingReports: 0,
@@ -115,7 +115,7 @@ export function AdminStatistics() {
   const [timeRange, setTimeRange] = useState<'day' | 'week' | 'month' | 'year'>('week');
 
   useEffect(() => {
-    if (currentUser?.role === 'admin') {
+    if (isAdminLike(currentUser?.role)) {
       fetchStatistics();
     }
   }, [timeRange, currentUser?.role]);
@@ -1088,8 +1088,8 @@ export function AdminStatistics() {
   console.log('AdminStatistics - User role:', currentUser?.role);
   console.log('AdminStatistics - Is authenticated:', !!currentUser);
 
-  if (currentUser?.role !== 'admin') {
-    console.log('AdminStatistics - Access denied: User is not admin');
+  if (!isAdminLike(currentUser?.role)) {
+    console.log('AdminStatistics - Access denied: User is not admin-like');
     return (
       <div className="w-full px-2 sm:px-4 lg:px-6">
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">

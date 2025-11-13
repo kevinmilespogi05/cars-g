@@ -93,61 +93,54 @@ export function Leaderboard({ limit = 10 }: { limit?: number }) {
 
   return (
     <div className="bg-white shadow rounded-lg overflow-hidden">
-      <div className="px-6 py-4 border-b border-gray-200">
-        <h2 className="text-xl font-bold text-gray-800">Community Leaderboard</h2>
-        <p className="text-sm text-gray-700">Top contributors this month</p>
+      <div className="px-6 py-4 border-b border-gray-100">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-semibold text-slate-900">Community Leaderboard</h2>
+            <p className="text-sm text-slate-500">Top contributors this month</p>
+          </div>
+          <div className="text-sm text-slate-500">Clean, modern UI • Responsive</div>
+        </div>
       </div>
-      
-      <ul className="divide-y divide-gray-200">
-        {entries.map((entry, index) => (
-          <li key={entry.id} className="px-6 py-4 hover:bg-gray-50">
-            <div className="flex items-center">
-              <div className="flex-shrink-0 w-10 h-10 flex items-center justify-center">
-                {getRankIcon(index + 1)}
+
+      <ul className="divide-y divide-gray-100">
+        {entries.map((entry, index) => {
+          const rank = entry.rank ?? index + 1;
+          const rankClass = rank === 1 ? 'bg-yellow-50 text-yellow-700' : rank === 2 ? 'bg-slate-50 text-slate-700' : rank === 3 ? 'bg-amber-50 text-amber-700' : 'bg-slate-50 text-slate-700';
+          return (
+            <li key={entry.id} className="px-6 py-4 hover:bg-slate-50 transition-colors">
+              <div className="flex items-center gap-4">
+                <div className="flex flex-col items-center w-12 flex-shrink-0">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${rankClass} font-semibold`}>{getRankIcon(rank)}</div>
+                  <div className="text-xs text-slate-400 mt-1">#{rank}</div>
+                </div>
+
+                <div className="flex-shrink-0">
+                  {entry.avatar_url ? (
+                    <img className="h-12 w-12 rounded-full object-cover" src={entry.avatar_url} alt={`Profile of ${entry.username}`} />
+                  ) : (
+                    <div className="h-12 w-12 rounded-full bg-slate-100 flex items-center justify-center">
+                      <User className="h-6 w-6 text-slate-400" />
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <ProfileLinkGuarded to={`/profile/${entry.id}`} className="block text-sm font-semibold text-slate-900 hover:text-blue-600 truncate">
+                    {entry.username}
+                  </ProfileLinkGuarded>
+                  <div className="mt-1 text-xs text-slate-500">Contributed this month</div>
+                </div>
+
+                <div className="text-right">
+                  <div className="text-lg font-semibold text-slate-900">{entry.points.toLocaleString()}</div>
+                  <div className="text-xs text-slate-500">points</div>
+                </div>
               </div>
-              
-              <div className="ml-4 flex-shrink-0">
-                {entry.avatar_url ? (
-                  <img
-                    className="h-10 w-10 rounded-full"
-                    src={entry.avatar_url}
-                    alt={`Profile picture of ${entry.username}`}
-                  />
-                ) : (
-                  <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
-                    <User className="h-6 w-6 text-gray-400" />
-                  </div>
-                )}
-              </div>
-              
-              <div className="ml-4 flex-1">
-                <ProfileLinkGuarded
-                  to={`/profile/${entry.id}`}
-                  className="text-sm font-medium text-blue-600 hover:text-blue-800"
-                >
-                  {entry.username}
-                </ProfileLinkGuarded>
-                <p className="text-sm text-gray-700">
-                  {entry.points.toLocaleString()} points
-                </p>
-              </div>
-              <div className="ml-4">
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                  #{index + 1}
-                </span>
-              </div>
-          </li>
-        ))}
+            </li>
+          );
+        })}
       </ul>
-      
-      <div className="px-6 py-4 border-t border-gray-200">
-        <Link
-          to="/leaderboard"
-          className="text-sm font-medium text-blue-600 hover:text-blue-800"
-        >
-          View full leaderboard →
-        </Link>
-      </div>
     </div>
   );
 } 

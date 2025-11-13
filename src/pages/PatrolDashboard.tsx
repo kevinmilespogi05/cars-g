@@ -6,7 +6,6 @@ import type { Report } from '../types';
 import { useAuthStore } from '../store/authStore';
 import { reportsService } from '../services/reportsService';
 import { cloudinary } from '../lib/cloudinary';
-import { AnnouncementCarousel } from '../components/AnnouncementCarousel';
 import { CommentsService } from '../services/commentsService';
 import { useToastContext } from '../contexts/ToastContext';
 
@@ -342,10 +341,30 @@ export function PatrolDashboard() {
     
     try {
       setActionLoading(true);
-      
+      // Prevent accepting new job if officer already has an active assigned job
+      try {
+        const { data: existingAssigned, error: assignedErr } = await supabase
+          .from('reports')
+          .select('id')
+          .eq('patrol_user_id', user.id)
+          .in('status', ['pending', 'in_progress', 'awaiting_verification'])
+          .limit(1);
+
+        if (assignedErr) {
+          console.warn('Failed to check existing assigned jobs:', assignedErr);
+        } else if (existingAssigned && existingAssigned.length > 0) {
+          setActionLoading(false);
+          showToastError('You already have an assigned job. Complete or cancel it before accepting another.', 5000);
+          return;
+        }
+      } catch (checkErr) {
+        console.warn('Error while checking assigned jobs:', checkErr);
+      }
+
       // Check if the job is already accepted by another patrol officer
       const report = reports.find(r => r.id === reportId);
       if (report?.patrol_user_id && report.patrol_user_id !== user.id) {
+        setActionLoading(false);
         alert('This job has already been accepted by another patrol officer.');
         return;
       }
@@ -682,24 +701,31 @@ export function PatrolDashboard() {
                 </div>
               </div>
             </div>
-            <button
-              onClick={() => {
-                loadReports();
-                loadPatrolStats();
-                loadAllReportsStats();
-              }}
-              className="inline-flex items-center px-3.5 py-2 border border-emerald-600/10 text-sm font-medium rounded-lg text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-colors shadow-sm"
-            >
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Refresh
-            </button>
+
+            <div className="flex items-center space-x-3">
+              <div className="hidden sm:flex items-center space-x-3 px-2 py-1 rounded-md bg-white/80 border border-gray-100 shadow-sm">
+                <div className="h-8 w-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-medium">{(user?.username || 'P').charAt(0).toUpperCase()}</div>
+                <div className="text-sm text-gray-700">{user?.username || user?.email?.split('@')[0] || 'Patrol'}</div>
+              </div>
+              <button
+                onClick={() => {
+                  loadReports();
+                  loadPatrolStats();
+                  loadAllReportsStats();
+                }}
+                aria-label="Refresh reports"
+                className="inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-colors shadow-sm"
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Refresh
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
       <div className="w-full px-4 sm:px-6 lg:px-8 py-8">
-        {/* Announcements Section */}
-        <AnnouncementCarousel />
+        {/* Announcements Section removed from Patrol Dashboard */}
         {/* Stats Overview (clickable filters) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5 mb-8">
           <button
@@ -848,9 +874,18 @@ export function PatrolDashboard() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search reports..."
-              className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm placeholder:text-gray-400"
+              placeholder="Search reports by title, description, or address..."
+              className="block w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 text-sm placeholder:text-gray-400"
             />
+            {search && (
+              <button
+                onClick={() => setSearch('')}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                aria-label="Clear search"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
           </div>
         </div>
 
@@ -870,12 +905,17 @@ export function PatrolDashboard() {
               <p className="mt-2 text-gray-500">Try adjusting your search or filter criteria.</p>
             </div>
           ) : (
-            <div className="divide-y divide-gray-200">
+            <div className="px-4 py-6">
               {filtered.map((report) => (
                 <div
                   key={report.id}
-                  className="p-6 hover:bg-gray-50/70 transition-colors cursor-pointer"
                   onClick={() => setSelectedReport(report)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === 'Enter') setSelectedReport(report); }}
+                  className={`p-4 bg-white rounded-lg mb-4 shadow-sm hover:shadow-md transition-all cursor-pointer ${
+                    report.priority === 'high' ? 'border-l-4 border-red-500' : report.priority === 'medium' ? 'border-l-4 border-amber-400' : 'border-l-4 border-emerald-400'
+                  }`}
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1 min-w-0">
@@ -941,24 +981,20 @@ export function PatrolDashboard() {
                     
                     <div className="flex items-center space-x-2 ml-4">
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleOpenCaseInfo(report);
-                        }}
-                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        onClick={(e) => { e.stopPropagation(); handleOpenCaseInfo(report); }}
+                        className="inline-flex items-center px-3 py-2 border border-gray-100 rounded-md text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-700 transition"
                         title="View Case Details"
                       >
-                        <Hash className="h-5 w-5" />
+                        <Hash className="h-4 w-4 mr-2" />
+                        Details
                       </button>
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openWaypointNavigation(report);
-                        }}
-                        className="p-2 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                        onClick={(e) => { e.stopPropagation(); openWaypointNavigation(report); }}
+                        className="inline-flex items-center px-3 py-2 border border-gray-100 rounded-md text-sm text-gray-600 hover:bg-emerald-50 hover:text-emerald-700 transition"
                         title="Navigate to Location"
                       >
-                        <Navigation className="h-5 w-5" />
+                        <Navigation className="h-4 w-4 mr-2" />
+                        Navigate
                       </button>
                       <button
                         onClick={async (e) => {
@@ -973,10 +1009,11 @@ export function PatrolDashboard() {
                           }
                           window.open(url, '_blank', 'noopener,noreferrer');
                         }}
-                        className="p-2 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                        className="inline-flex items-center px-3 py-2 border border-gray-100 rounded-md text-sm text-gray-600 hover:bg-white hover:text-emerald-700 transition"
                         title="Open in Maps"
                       >
-                        <MapPin className="h-5 w-5" />
+                        <MapPin className="h-4 w-4 mr-2" />
+                        Maps
                       </button>
                     </div>
                   </div>
@@ -987,43 +1024,7 @@ export function PatrolDashboard() {
         </div>
       </div>
 
-      {/* Bottom Navigation (mobile) */}
-      <div className="fixed inset-x-0 bottom-0 z-40 md:hidden">
-        <div className="w-full px-4 sm:px-6 lg:px-8 pb-safe">
-          <div className="mb-4 rounded-2xl border border-gray-200 bg-white/95 backdrop-blur shadow-lg">
-            <div className="grid grid-cols-4">
-              <button
-                onClick={() => setFilterStatus('all')}
-                className={`flex flex-col items-center justify-center py-3 text-xs ${filterStatus === 'all' ? 'text-emerald-600' : 'text-gray-500'}`}
-              >
-                <Activity className="h-5 w-5" />
-                <span className="mt-1">All</span>
-              </button>
-              <button
-                onClick={() => setFilterStatus('pending')}
-                className={`flex flex-col items-center justify-center py-3 text-xs ${filterStatus === 'pending' ? 'text-amber-600' : 'text-gray-500'}`}
-              >
-                <AlertTriangle className="h-5 w-5" />
-                <span className="mt-1">Pending</span>
-              </button>
-              <button
-                onClick={() => setFilterStatus('in_progress')}
-                className={`flex flex-col items-center justify-center py-3 text-xs ${filterStatus === 'in_progress' ? 'text-blue-600' : 'text-gray-500'}`}
-              >
-                <Clock className="h-5 w-5" />
-                <span className="mt-1">Ongoing</span>
-              </button>
-              <button
-                onClick={() => setFilterStatus('awaiting_verification')}
-                className={`flex flex-col items-center justify-center py-3 text-xs ${filterStatus === 'awaiting_verification' ? 'text-orange-600' : 'text-gray-500'}`}
-              >
-                <ShieldCheck className="h-5 w-5" />
-                <span className="mt-1">Verify</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* Bottom navigation removed for patrol users (mobile footer) */}
 
       {/* Detail Modal */}
       {selectedReport && (

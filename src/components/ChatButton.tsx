@@ -18,7 +18,7 @@ export const ChatButton: React.FC<ChatButtonProps> = ({
   className = '',
   variant = 'default'
 }) => {
-  const { user, isAuthenticated } = useAuthStore();
+  const { user, isAuthenticated, isAdminLike } = useAuthStore();
   const { isImageViewerOpen } = useImageViewerStore();
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isAdminOnline, setIsAdminOnline] = useState(false);
@@ -100,7 +100,7 @@ export const ChatButton: React.FC<ChatButtonProps> = ({
     setButtonPosition(position);
   };
 
-  if (!isAuthenticated || !user || user.role === 'admin' || user.role === 'patrol' || isImageViewerOpen) {
+  if (!isAuthenticated || !user || isAdminLike() || user.role === 'patrol' || isImageViewerOpen) {
     return null;
   }
 

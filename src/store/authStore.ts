@@ -44,6 +44,8 @@ interface AuthState {
   refreshJWTToken: () => Promise<boolean>;
   checkJWTAuthentication: () => boolean;
   initializeJWT: () => Promise<void>;
+  // Role helpers
+  isAdminLike: (role?: string | null) => boolean;
   // Internal helpers
   _startSessionMonitoring: () => () => void;
 }
@@ -736,6 +738,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // Also clear JWT tokens
       clearTokens();
     }
+  },
+
+  // Role helpers
+  isAdminLike: (role?: string | null) => {
+    const r = role ?? get().user?.role ?? null;
+    return r === 'admin' || r === 'superadmin';
   },
 
   // JWT Authentication Methods

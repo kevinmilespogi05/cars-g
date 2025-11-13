@@ -39,7 +39,7 @@ interface ProfileData {
 export function Profile({ softBlocked = false }: { softBlocked?: boolean }) {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user: currentUser, setUser } = useAuthStore();
+  const { user: currentUser, setUser, isAdminLike } = useAuthStore();
   const [isUpdating, setIsUpdating] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editedFirstName, setEditedFirstName] = useState('');
@@ -651,7 +651,7 @@ export function Profile({ softBlocked = false }: { softBlocked?: boolean }) {
                       <Calendar className="w-4 h-4" />
                       <span className="text-sm lg:text-lg">Member since {formatDate(user?.created_at)}</span>
                     </div>
-                    {user?.role === 'admin' && (
+                    {isAdminLike(user?.role) && (
                       <div className="flex items-center gap-2 bg-white/20 px-2 lg:px-3 py-0.5 lg:py-1 rounded-full">
                         <Shield className="w-4 h-4" />
                         <span className="text-xs lg:text-sm font-semibold capitalize">{user.role}</span>
@@ -749,7 +749,7 @@ export function Profile({ softBlocked = false }: { softBlocked?: boolean }) {
                   <label className="block text-sm font-semibold text-blue-800 mb-2">Email Address</label>
                   <p className="text-blue-900 font-medium">{softBlocked ? 'Hidden while your account is pending verification' : (user?.email || 'Not set')}</p>
                 </div>
-                {user?.role === 'admin' && (
+                {isAdminLike(user?.role) && (
                   <div className="bg-purple-50 rounded-xl p-4">
                     <label className="block text-sm font-semibold text-purple-800 mb-2">Account Type</label>
                     <div className="flex items-center gap-2">

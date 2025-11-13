@@ -40,7 +40,7 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
   isOpen,
   onClose
 }) => {
-  const { user, isAuthenticated } = useAuthStore();
+  const { user, isAuthenticated, isAdminLike } = useAuthStore();
   const [chats, setChats] = useState<AdminChat[]>([]);
   const [selectedChat, setSelectedChat] = useState<AdminChat | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -150,7 +150,7 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
   };
 
   useEffect(() => {
-    if (!isOpen || !isAuthenticated || !user || user.role !== 'admin') return;
+    if (!isOpen || !isAuthenticated || !user || !isAdminLike(user?.role)) return;
 
     // Scroll to bottom when admin chat opens
     if (isOpen && messages.length > 0) {

@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-import sharp from 'sharp';
 import { resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { existsSync, mkdirSync } from 'fs';
@@ -8,17 +7,26 @@ import { existsSync, mkdirSync } from 'fs';
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
 async function generateIcons() {
+  let sharp;
+  try {
+    const sharpModule = await import('sharp');
+    sharp = sharpModule.default || sharpModule;
+  } catch (err) {
+    console.warn('⚠️  `sharp` is not installed — skipping icon generation.');
+    return; // Not a fatal error for production builds where devDeps are omitted
+  }
+
   try {
     console.log('🎨 Generating app icons...');
-    
+
     const inputPath = resolve(__dirname, '../public/images/logo.jpg');
     const outputDir = resolve(__dirname, '../public');
-    
+
     // Ensure output directory exists
     if (!existsSync(outputDir)) {
       mkdirSync(outputDir, { recursive: true });
     }
-    
+
     const sizes = [
       { size: 16, name: 'favicon-16x16.png' },
       { size: 32, name: 'favicon-32x32.png' },
@@ -26,7 +34,7 @@ async function generateIcons() {
       { size: 512, name: 'pwa-512x512.png' },
       { size: 180, name: 'apple-touch-icon.png' }
     ];
-    
+
     for (const { size, name } of sizes) {
       await sharp(inputPath)
         .resize(size, size, {
@@ -35,10 +43,10 @@ async function generateIcons() {
         })
         .png()
         .toFile(resolve(outputDir, name));
-      
+
       console.log(`✅ Generated ${name} (${size}x${size})`);
     }
-    
+
     console.log('🎉 All icons generated successfully!');
   } catch (error) {
     console.error('❌ Error generating icons:', error);

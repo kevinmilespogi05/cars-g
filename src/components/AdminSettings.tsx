@@ -20,7 +20,7 @@ interface NotificationState {
 }
 
 export function AdminSettings() {
-  const { user: currentUser } = useAuthStore();
+  const { user: currentUser, isAdminLike } = useAuthStore();
   const [settings, setSettings] = useState<Setting[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -34,7 +34,7 @@ export function AdminSettings() {
   const [quotaSaving, setQuotaSaving] = useState(false);
 
   useEffect(() => {
-    if (currentUser?.role === 'admin') {
+    if (isAdminLike(currentUser?.role)) {
       fetchSettings();
     }
   }, [currentUser?.role]);
@@ -100,7 +100,7 @@ export function AdminSettings() {
     );
   };
 
-  if (currentUser?.role !== 'admin') {
+  if (!isAdminLike(currentUser?.role)) {
     return null;
   }
 

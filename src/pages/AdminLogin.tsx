@@ -8,7 +8,7 @@ import { useToastContext } from '../contexts/ToastContext';
 export function AdminLogin() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { signInWithEmailOrUsername, signOut, user, isAuthenticated } = useAuthStore();
+  const { signInWithEmailOrUsername, signOut, user, isAuthenticated, isAdminLike } = useAuthStore();
   const { error: showToastError, success: showToastSuccess } = useToastContext();
   const [emailOrUsername, setEmailOrUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -18,10 +18,10 @@ export function AdminLogin() {
   const from = (location.state as any)?.from?.pathname || '/admin';
 
   useEffect(() => {
-    if (isAuthenticated && user?.role === 'admin') {
+    if (isAuthenticated && isAdminLike()) {
       navigate('/admin', { replace: true });
     }
-  }, [isAuthenticated, user?.role, navigate]);
+  }, [isAuthenticated, user?.role, navigate, isAdminLike]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,7 +33,7 @@ export function AdminLogin() {
       await signInWithEmailOrUsername(emailOrUsername, password);
       
       // Re-check role after sign-in
-      if (useAuthStore.getState().user?.role === 'admin') {
+      if (useAuthStore.getState().isAdminLike()) {
         showToastSuccess('Successfully signed in as admin!', 2000);
         navigate(from, { replace: true });
       } else {

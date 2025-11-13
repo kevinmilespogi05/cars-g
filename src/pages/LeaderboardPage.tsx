@@ -33,7 +33,7 @@ interface CachedData {
 }
 
 export function LeaderboardPage() {
-  const { user: currentUser } = useAuthStore();
+  const { user: currentUser, isAdminLike } = useAuthStore();
   const { isPending } = useVerificationStatus();
   const { error: showToastError } = useToastContext();
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
@@ -58,9 +58,9 @@ export function LeaderboardPage() {
       // Check cache first
       const cachedData = cache[timeFrame];
       if (cachedData && Date.now() - cachedData.timestamp < CACHE_DURATION) {
-        const filteredData = currentUser?.role === 'admin'
-          ? cachedData.data.filter(entry => entry.role !== 'patrol')
-          : cachedData.data.filter(entry => entry.role !== 'admin' && entry.role !== 'patrol');
+          const filteredData = isAdminLike()
+            ? cachedData.data.filter(entry => entry.role !== 'patrol')
+            : cachedData.data.filter(entry => entry.role !== 'admin' && entry.role !== 'patrol' && entry.role !== 'superadmin');
         
         // Extract patrol officers separately
         const patrolData = cachedData.data.filter(entry => entry.role === 'patrol');
@@ -78,9 +78,9 @@ export function LeaderboardPage() {
       const data = await getLeaderboard();
       
       // Filter community members (exclude admin and patrol)
-      const communityData = currentUser?.role === 'admin'
+      const communityData = isAdminLike()
         ? data.filter((entry: any) => entry.role !== 'patrol')
-        : (data.filter((entry: any) => entry.role !== 'admin' && entry.role !== 'patrol') || []);
+        : (data.filter((entry: any) => entry.role !== 'admin' && entry.role !== 'patrol' && entry.role !== 'superadmin') || []);
       
       // Filter patrol officers
       const patrolData = data.filter((entry: any) => entry.role === 'patrol');

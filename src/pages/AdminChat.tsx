@@ -6,7 +6,7 @@ import { ArrowLeft, MessageCircle } from 'lucide-react';
 import { useSidebarContext } from '../contexts/SidebarContext';
 
 export const AdminChat: React.FC = () => {
-  const { user, isAuthenticated } = useAuthStore();
+  const { user, isAuthenticated, isAdminLike } = useAuthStore();
   const { isCollapsed, sidebarWidth, collapsedWidth } = useSidebarContext();
   const [isDesktop, setIsDesktop] = useState(() => window.innerWidth >= 1024);
 
@@ -21,7 +21,7 @@ export const AdminChat: React.FC = () => {
       return;
     }
 
-    if (user.role !== 'admin') {
+    if (!isAdminLike()) {
       // Redirect non-admin users
       window.location.href = '/reports';
       return;
@@ -41,7 +41,7 @@ export const AdminChat: React.FC = () => {
     );
   }
 
-  if (user.role !== 'admin') {
+  if (!isAdminLike()) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">

@@ -20,7 +20,7 @@ interface AnnouncementBannerProps {
 }
 
 export function AnnouncementBanner({ className = '' }: AnnouncementBannerProps) {
-  const { user } = useAuthStore();
+  const { user, isAdminLike } = useAuthStore();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isVisible, setIsVisible] = useState(true);
@@ -55,7 +55,7 @@ export function AnnouncementBanner({ className = '' }: AnnouncementBannerProps) 
             case 'patrols':
               return user.role === 'patrol';
             case 'admins':
-              return user.role === 'admin';
+              return isAdminLike(user?.role);
             default:
               return true;
           }
