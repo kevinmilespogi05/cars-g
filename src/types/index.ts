@@ -128,6 +128,7 @@ export interface CommentReply {
   reply_depth?: number;
   likes_count?: number;
   is_liked?: boolean;
+  is_report_reply?: boolean;
 }
 
 export interface Comment {

@@ -2547,6 +2547,119 @@ app.post('/api/reports/:reportId/likes/toggle', authenticateToken, async (req, r
   }
 });
 
+// Reply likes: like/unlike/toggle using service role (supports JWT-authenticated users)
+app.post('/api/replies/:replyId/likes', authenticateToken, async (req, res) => {
+  try {
+    if (!supabaseAdmin) {
+      return res.status(503).json({ success: false, error: 'Admin privileges required' });
+    }
+
+    const { replyId } = req.params;
+    const userId = req.user.id;
+
+    try {
+      const { error } = await supabaseAdmin
+        .from('reply_likes')
+        .upsert({ reply_id: replyId, user_id: userId }, { onConflict: 'reply_id,user_id', ignoreDuplicates: false });
+
+      if (error) {
+        // Foreign key violation when reply_id points to a different replies table
+        if (String(error.code) === '23503' || /foreign key/i.test(String(error.message || ''))) {
+          return res.status(422).json({ success: false, error: 'Reply belongs to the newer report replies system and cannot be liked via legacy reply_likes.', code: error.code, details: error.message });
+        }
+        return res.status(500).json({ success: false, error: error.message, code: error.code });
+      }
+
+      return res.json({ success: true, liked: true });
+    } catch (e) {
+      console.error('Like reply error (unexpected):', e);
+      return res.status(500).json({ success: false, error: 'Failed to like reply' });
+    }
+  } catch (e) {
+    console.error('Like reply error:', e);
+    return res.status(500).json({ success: false, error: 'Failed to like reply' });
+  }
+});
+
+app.delete('/api/replies/:replyId/likes', authenticateToken, async (req, res) => {
+  try {
+    if (!supabaseAdmin) {
+      return res.status(503).json({ success: false, error: 'Admin privileges required' });
+    }
+
+    const { replyId } = req.params;
+    const userId = req.user.id;
+
+    const { error } = await supabaseAdmin
+      .from('reply_likes')
+      .delete()
+      .eq('reply_id', replyId)
+      .eq('user_id', userId);
+
+    if (error) {
+      return res.status(500).json({ success: false, error: error.message, code: error.code });
+    }
+
+    return res.json({ success: true, liked: false });
+  } catch (e) {
+    console.error('Unlike reply error:', e);
+    return res.status(500).json({ success: false, error: 'Failed to unlike reply' });
+  }
+});
+
+app.post('/api/replies/:replyId/likes/toggle', authenticateToken, async (req, res) => {
+  try {
+    if (!supabaseAdmin) {
+      return res.status(503).json({ success: false, error: 'Admin privileges required' });
+    }
+
+    const { replyId } = req.params;
+    const userId = req.user.id;
+
+    // Check existing
+    const { data: existing, error: checkError } = await supabaseAdmin
+      .from('reply_likes')
+      .select('id')
+      .eq('reply_id', replyId)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (checkError) {
+      return res.status(500).json({ success: false, error: checkError.message, code: checkError.code });
+    }
+
+    if (existing) {
+      const { error: delErr } = await supabaseAdmin
+        .from('reply_likes')
+        .delete()
+        .eq('id', existing.id);
+      if (delErr) {
+        return res.status(500).json({ success: false, error: delErr.message, code: delErr.code });
+      }
+      return res.json({ success: true, liked: false });
+    }
+
+    try {
+      const { error: insErr } = await supabaseAdmin
+        .from('reply_likes')
+        .insert({ reply_id: replyId, user_id: userId });
+      if (insErr) {
+        if (String(insErr.code) === '23503' || /foreign key/i.test(String(insErr.message || ''))) {
+          return res.status(422).json({ success: false, error: 'Reply belongs to the newer report replies system and cannot be liked via legacy reply_likes.', code: insErr.code, details: insErr.message });
+        }
+        return res.status(500).json({ success: false, error: insErr.message, code: insErr.code });
+      }
+      return res.json({ success: true, liked: true });
+    } catch (e) {
+      console.error('Toggle reply like error (unexpected):', e);
+      return res.status(500).json({ success: false, error: 'Failed to toggle reply like' });
+    }
+  } catch (e) {
+    console.error('Toggle reply like error:', e);
+    return res.status(500).json({ success: false, error: 'Failed to toggle reply like' });
+  }
+});
+
 // Current user quota usage
 app.get('/api/quotas/:userId', async (req, res) => {
   try {

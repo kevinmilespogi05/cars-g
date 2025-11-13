@@ -8,22 +8,21 @@ export default defineConfig({
     react(),
     VitePWA({
       strategies: 'generateSW',
-      registerType: 'prompt',
+      registerType: 'autoUpdate',
       injectRegister: 'auto',
       devOptions: {
         enabled: false, // Disable service worker in development
         type: 'module'
       },
       workbox: {
+        skipWaiting: true,
+        clientsClaim: true,
         globPatterns: ['**/*.{js,css,html,ico,png,svg,json,vue,txt,woff2}'],
         cleanupOutdatedCaches: true,
         sourcemap: true,
-        // Improved offline fallback
+        // Offline fallback
         navigateFallback: '/offline.html',
         navigateFallbackAllowlist: [/^\/$/],
-        // Better service worker lifecycle management
-        skipWaiting: false,
-        clientsClaim: false,
         runtimeCaching: [
           {
             // Opportunistic map tiles caching (OpenStreetMap)

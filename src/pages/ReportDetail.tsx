@@ -668,7 +668,20 @@ export function ReportDetail() {
       }
     } catch (error) {
       console.error('Error toggling reply like:', error);
-      alert('Failed to like/unlike reply. Please try again.');
+      // Create a helpful user-facing message based on the error
+      const raw = (error && (error as any).message) ? (error as any).message : String(error);
+      const lower = raw.toLowerCase();
+      let userMessage = 'Failed to like/unlike reply. Please try again.';
+      if (lower.includes('401') || lower.includes('unauthorized') || lower.includes('authentication')) {
+        userMessage = 'Please sign in to like replies.';
+      } else if (lower.includes('row-level security') || lower.includes('row-level') || lower.includes('rls')) {
+        userMessage = 'Your session does not allow this action. Try signing out and signing in again.';
+      } else if (lower.includes('foreign') || lower.includes('constraint') || lower.includes('reply_id')) {
+        userMessage = 'This reply cannot be liked due to a data mismatch. Please contact support.';
+      }
+      try { showToastError(userMessage, 5000); } catch {}
+      console.debug('Reply like error details:', { replyId, error: raw });
+
       // Rollback optimistic update
       const applyRollback = (tree: CommentReply[]): CommentReply[] => {
         const rollback = (replies: CommentReply[]): CommentReply[] => {
