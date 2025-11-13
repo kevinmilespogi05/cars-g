@@ -87,6 +87,15 @@ export function AdminReports() {
   useEffect(() => {
     // initial load
     loadReports();
+    
+    // Subscribe to real-time report updates (status changes)
+    const unsubscribe = reportsService.subscribeToReportStatusChanges((reportId: string, newStatus: string) => {
+      setReports(prev => prev.map(r => r.id === reportId ? { ...r, status: newStatus as Report['status'] } : r));
+    });
+    
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
   }, []);
 
   // Fetch patrol officers
@@ -413,11 +422,6 @@ export function AdminReports() {
         `Report status updated from "${formatStatusForDisplay(currentReport.status)}" to "${formatStatusForDisplay(newStatus)}" successfully.`,
         'success'
       );
-      
-      // Auto-refresh after a short delay to ensure consistency
-      setTimeout(() => {
-        loadReports();
-      }, 1000);
     } catch (e: any) {
       // Show error notification
       showNotification(

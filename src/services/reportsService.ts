@@ -1590,7 +1590,7 @@ export const reportsService = {
     const user = getCurrentUser();
 
     // Validate status
-    const validStatuses = ['verifying', 'pending', 'in_progress', 'resolved', 'declined', 'cancelled'] as const;
+    const validStatuses = ['verifying', 'pending', 'in_progress', 'resolved', 'declined', 'cancelled', 'awaiting_verification'] as const;
     if (!validStatuses.includes(newStatus as any)) {
       throw new ReportsServiceError(`Invalid status value: ${newStatus}`);
     }
