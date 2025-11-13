@@ -21,6 +21,17 @@ export function PatrolDashboard() {
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
   const [priorityLevelInput, setPriorityLevelInput] = useState<number | ''>('');
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [lightboxImages, setLightboxImages] = useState<string[] | null>(null);
+
+  // Lock body scroll while lightbox is open
+  useEffect(() => {
+    if (lightboxIndex !== null && lightboxImages) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => { document.body.style.overflow = prev; };
+    }
+    return;
+  }, [lightboxIndex, lightboxImages]);
   const [actionLoading, setActionLoading] = useState(false);
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'in_progress' | 'awaiting_verification'>('all');
   const [proofFile, setProofFile] = useState<File | null>(null);
@@ -906,7 +917,10 @@ export function PatrolDashboard() {
             </div>
           ) : (
             <div className="px-4 py-6">
-              {filtered.map((report) => (
+              {filtered.map((report) => {
+                const firstMeta = (report as any)?.image_dimensions?.[0] || (report as any)?.images_meta?.[0] || (report as any)?.image_sizes?.[0] || null;
+                const aspectStyle = firstMeta && firstMeta.width && firstMeta.height ? { aspectRatio: `${firstMeta.width}/${firstMeta.height}` } : undefined;
+                return (
                 <div
                   key={report.id}
                   onClick={() => setSelectedReport(report)}
@@ -917,7 +931,34 @@ export function PatrolDashboard() {
                     report.priority === 'high' ? 'border-l-4 border-red-500' : report.priority === 'medium' ? 'border-l-4 border-amber-400' : 'border-l-4 border-emerald-400'
                   }`}
                 >
-                  <div className="flex items-start justify-between">
+                  <div className="flex items-start justify-between gap-4">
+                    {/* Thumbnail */}
+                    {Array.isArray(report.images) && report.images.length > 0 ? (
+                      <div className="relative flex-shrink-0 w-36 h-24 sm:w-44 sm:h-28 overflow-hidden rounded-lg bg-gray-100" style={aspectStyle}>
+                        <img
+                          src={report.images[0]}
+                          alt={report.title}
+                          loading="lazy"
+                          width={firstMeta?.width}
+                          height={firstMeta?.height}
+                          className="w-full h-full object-contain bg-white cursor-pointer"
+                            onClick={(e) => { e.stopPropagation(); setLightboxImages(report.images || []); setLightboxIndex(0); /* don't open report modal */ }}
+                          style={{ display: 'block' }}
+                        />
+                        {report.images.length > 1 && (
+                          <div className="absolute top-2 right-2 bg-black/70 text-white px-2 py-0.5 rounded-full text-xs font-semibold backdrop-blur-sm">
+                            {report.images.length} photos
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="flex-shrink-0 w-36 h-24 sm:w-44 sm:h-28 overflow-hidden rounded-lg bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center text-gray-400" style={aspectStyle}>
+                        <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                      </div>
+                    )}
+
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center space-x-3 mb-2">
                         <h3 className="text-lg font-semibold text-gray-900 truncate">{report.title}</h3>
@@ -1018,7 +1059,8 @@ export function PatrolDashboard() {
                     </div>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -1296,7 +1338,13 @@ export function PatrolDashboard() {
                             src={src as string}
                             alt={`Report image ${idx+1}`}
                             className="w-full h-32 md:h-40 object-cover rounded-lg border cursor-pointer hover:opacity-90 transition-opacity"
-                            onClick={() => setLightboxIndex(idx)}
+                            onClick={() => {
+                              const images = ([proofPreviewUrl, ...(selectedReport.images || [])].filter(Boolean) as string[]);
+                              setLightboxImages(images);
+                              setLightboxIndex(idx);
+                              // close the report modal when opening the standalone lightbox
+                              setSelectedReport(null);
+                            }}
                           />
                           {idx === 0 && proofPreviewUrl && (
                             <span className="absolute top-2 left-2 text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200">
@@ -1387,31 +1435,35 @@ export function PatrolDashboard() {
       )}
 
       {/* Lightbox */}
-      {lightboxIndex !== null && selectedReport && Array.isArray(selectedReport.images) && (
-        <div className="fixed inset-0 z-[1003] bg-black bg-opacity-90 flex items-center justify-center">
-          <div className="relative max-w-4xl max-h-full p-4 z-[1004]">
+      {lightboxIndex !== null && lightboxImages && Array.isArray(lightboxImages) && (
+        <div className="fixed inset-0 z-[99999] bg-black bg-opacity-95 flex items-center justify-center p-4">
+          <div className="relative w-full max-w-[90vw] max-h-[80vh] z-[100004] flex items-center justify-center">
             <button
-              onClick={() => setLightboxIndex(null)}
-              className="absolute top-4 right-4 text-white hover:text-gray-300 z-10"
+              onClick={() => { setLightboxIndex(null); setLightboxImages(null); }}
+              className="absolute top-2 right-2 text-white hover:text-gray-300 z-10 bg-black bg-opacity-30 rounded-full p-1"
+              aria-label="Close image"
             >
-              <X className="w-8 h-8" />
+              <X className="w-7 h-7" />
             </button>
             <img
-              src={selectedReport.images[lightboxIndex]}
-              alt={`Report image ${lightboxIndex + 1}`}
-              className="max-w-full max-h-full object-contain"
+              src={lightboxImages[lightboxIndex!]}
+              alt={`Report image ${lightboxIndex! + 1}`}
+              className="max-w-[90vw] max-h-[80vh] object-contain rounded-md shadow-lg"
+              style={{ display: 'block' }}
             />
-            {selectedReport.images.length > 1 && (
-              <div className="absolute inset-0 flex items-center justify-between p-4">
+            {lightboxImages.length > 1 && (
+              <div className="absolute inset-0 flex items-center justify-between pointer-events-none">
                 <button
-                  onClick={() => setLightboxIndex(lightboxIndex > 0 ? lightboxIndex - 1 : selectedReport.images.length - 1)}
-                  className="text-white hover:text-gray-300 bg-black bg-opacity-50 rounded-full p-2"
+                  onClick={() => setLightboxIndex(lightboxIndex! > 0 ? lightboxIndex! - 1 : lightboxImages.length - 1)}
+                  className="pointer-events-auto ml-2 text-white hover:text-gray-300 bg-black bg-opacity-40 rounded-full p-2"
+                  aria-label="Previous image"
                 >
                   ←
                 </button>
                 <button
-                  onClick={() => setLightboxIndex(lightboxIndex < selectedReport.images.length - 1 ? lightboxIndex + 1 : 0)}
-                  className="text-white hover:text-gray-300 bg-black bg-opacity-50 rounded-full p-2"
+                  onClick={() => setLightboxIndex(lightboxIndex! < lightboxImages.length - 1 ? lightboxIndex! + 1 : 0)}
+                  className="pointer-events-auto mr-2 text-white hover:text-gray-300 bg-black bg-opacity-40 rounded-full p-2"
+                  aria-label="Next image"
                 >
                   →
                 </button>
