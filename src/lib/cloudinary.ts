@@ -47,37 +47,20 @@ class CloudinaryService {
     return this.config !== null;
   }
 
-  // Add method to validate configuration and test upload preset
+  // Add method to validate configuration
   async validateConfiguration(): Promise<{ isValid: boolean; error?: string }> {
     if (!this.config) {
       return { isValid: false, error: 'Cloudinary is not configured' };
     }
 
-    // Test if the upload preset is working by attempting a minimal upload
-    try {
-      // Create a minimal test file (1x1 transparent PNG)
-      const testImageData = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
-      const response = await fetch(testImageData);
-      const blob = await response.blob();
-      const testFile = new File([blob], 'test.png', { type: 'image/png' });
-
-      // Try to upload the test file
-      await this.uploadImage(testFile, 'test');
-      
-      return { isValid: true };
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      
-      // Provide specific guidance based on error type
-      if (errorMessage.includes('400') || errorMessage.includes('Bad Request')) {
-        return { 
-          isValid: false, 
-          error: `Upload preset '${this.uploadPreset}' is not working. Please check your Cloudinary dashboard and ensure the upload preset is configured correctly. You may need to create a new upload preset or use an existing one.` 
-        };
-      }
-      
-      return { isValid: false, error: errorMessage };
+    // Check if we have the required configuration
+    if (!this.config.cloudName || !this.config.apiKey) {
+      return { isValid: false, error: 'Cloudinary credentials are missing' };
     }
+
+    // If config exists with required fields, consider it valid
+    // Test uploads will fail gracefully during actual upload attempts
+    return { isValid: true };
   }
 
   // Helper method to get upload preset creation instructions

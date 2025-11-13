@@ -1466,34 +1466,54 @@ export function ReportDetail() {
                   </div>
                 </div>
                 
+                {/* Average Rating Display - Show if report has ratings */}
+                {typeof (report as any).rating_avg === 'number' && (report as any).rating_count > 0 && (
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-0.5">
+                      {[1,2,3,4,5].map(n => (
+                        <Star
+                          key={n}
+                          className={`w-4 h-4 ${n <= Math.round((report as any).rating_avg) ? 'text-yellow-500 fill-yellow-400' : 'text-gray-300'}`}
+                        />
+                      ))}
+                    </div>
+                    <span className="text-sm font-medium text-gray-700">{(report as any).rating_avg}</span>
+                    <span className="text-xs text-gray-500">({(report as any).rating_count})</span>
+                  </div>
+                )}
+                
                 {/* Rating Stars - Only show if user can rate */}
                 {user?.id && report.status === 'resolved' && (
-                  <div className="flex items-center gap-1">
-                    {[1,2,3,4,5].map(n => (
-                      <button
-                        key={n}
-                        onClick={async () => {
-                          if (isPending) {
-                            try { showToastError('Your account is pending verification. Rating reports is disabled until approval.', 5000); } catch {};
-                            return;
-                          }
-                          if (submittingRating) return;
-                          try {
-                            setSubmittingRating(true);
-                            const saved = await caseService.rateReport(report.id, n as any, null);
-                            setMyRating(saved.stars);
-                          } catch (e) {
-                            alert('Failed to submit rating');
-                          } finally {
-                            setSubmittingRating(false);
-                          }
-                        }}
-                        className={`p-0.5 ${submittingRating ? 'opacity-50' : ''}`}
-                        title={`Rate ${n} star${n>1?'s':''}`}
-                      >
-                        <Star className={`w-5 h-5 ${myRating && n <= myRating ? 'text-yellow-500 fill-yellow-400' : 'text-gray-400'}`} />
-                      </button>
-                    ))}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-500">Rate:</span>
+                    <div className="flex items-center gap-1">
+                      {[1,2,3,4,5].map(n => (
+                        <button
+                          key={n}
+                          onClick={async () => {
+                            if (isPending) {
+                              try { showToastError('Your account is pending verification. Rating reports is disabled until approval.', 5000); } catch {};
+                              return;
+                            }
+                            if (submittingRating) return;
+                            try {
+                              setSubmittingRating(true);
+                              const saved = await caseService.rateReport(report.id, n as any, null);
+                              setMyRating(saved.stars);
+                            } catch (e) {
+                              alert('Failed to submit rating');
+                            } finally {
+                              setSubmittingRating(false);
+                            }
+                          }}
+                          className={`p-0.5 transition-all ${submittingRating ? 'opacity-50' : 'hover:scale-110'}`}
+                          title={`Rate ${n} star${n>1?'s':''}`}
+                          disabled={submittingRating}
+                        >
+                          <Star className={`w-4 h-4 ${myRating && n <= myRating ? 'text-yellow-500 fill-yellow-400' : 'text-gray-400 hover:text-yellow-500'}`} />
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>

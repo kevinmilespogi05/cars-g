@@ -392,7 +392,7 @@ export const reportsService = {
         for (const r of replies) {
           const [{ count: likesCount }, userLikedData] = await Promise.all([
             supabase.from('reply_likes').select('*', { count: 'exact', head: true }).eq('reply_id', r.id),
-            user ? supabase.from('reply_likes').select('id').eq('reply_id', r.id).eq('user_id', user.id) : Promise.resolve({ data: null })
+            user ? supabase.from('reply_likes').select('reply_id,user_id,id').eq('reply_id', r.id).eq('user_id', user.id) : Promise.resolve({ data: null })
           ] as any);
 
           let nested: CommentReply[] | undefined = undefined;
@@ -1857,11 +1857,11 @@ export const reportsService = {
 
           // Get comment IDs to find replies
           const [legacyComments, newComments] = await Promise.all([
-            supabase.from('comments').select('id').eq('report_id', reportId).catch(err => {
+            supabase.from('comments').select('report_id,id').eq('report_id', reportId).catch(err => {
               console.warn('Error fetching legacy comments:', err);
               return { data: [], error: err };
             }),
-            supabase.from('report_comments').select('id').eq('report_id', reportId).catch(err => {
+            supabase.from('report_comments').select('report_id,id').eq('report_id', reportId).catch(err => {
               console.warn('Error fetching report comments:', err);
               return { data: [], error: err };
             })
@@ -1910,11 +1910,11 @@ export const reportsService = {
 
           // Get comment IDs to find replies
           const [legacyComments, newComments] = await Promise.all([
-            supabase.from('comments').select('id').eq('report_id', reportId).catch(err => {
+            supabase.from('comments').select('report_id,id').eq('report_id', reportId).catch(err => {
               console.warn('Error fetching legacy comments:', err);
               return { data: [], error: err };
             }),
-            supabase.from('report_comments').select('id').eq('report_id', reportId).catch(err => {
+            supabase.from('report_comments').select('report_id,id').eq('report_id', reportId).catch(err => {
               console.warn('Error fetching report comments:', err);
               return { data: [], error: err };
             })
@@ -1975,11 +1975,11 @@ export const reportsService = {
 
           // Get comment IDs to find replies
           const [legacyComments, newComments] = await Promise.all([
-            supabase.from('comments').select('id').eq('report_id', reportId).catch(err => {
+            supabase.from('comments').select('report_id,id').eq('report_id', reportId).catch(err => {
               console.warn('Error fetching legacy comments:', err);
               return { data: [], error: err };
             }),
-            supabase.from('report_comments').select('id').eq('report_id', reportId).catch(err => {
+            supabase.from('report_comments').select('report_id,id').eq('report_id', reportId).catch(err => {
               console.warn('Error fetching report comments:', err);
               return { data: [], error: err };
             })
@@ -2040,11 +2040,11 @@ export const reportsService = {
 
           // Get comment IDs to find replies
           const [legacyComments, newComments] = await Promise.all([
-            supabase.from('comments').select('id').eq('report_id', reportId).catch(err => {
+            supabase.from('comments').select('report_id,id').eq('report_id', reportId).catch(err => {
               console.warn('Error fetching legacy comments:', err);
               return { data: [], error: err };
             }),
-            supabase.from('report_comments').select('id').eq('report_id', reportId).catch(err => {
+            supabase.from('report_comments').select('report_id,id').eq('report_id', reportId).catch(err => {
               console.warn('Error fetching report comments:', err);
               return { data: [], error: err };
             })

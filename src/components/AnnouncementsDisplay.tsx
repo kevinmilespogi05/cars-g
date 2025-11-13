@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Filter, Calendar, Clock, AlertCircle, Info, AlertTriangle, Star, Shield, Users, MapPin, RefreshCw } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { useAuthStore } from '../store/authStore';
 import { AnnouncementCard, Announcement } from './AnnouncementCard';
 import { AnnouncementModal } from './AnnouncementModal';
 
@@ -9,6 +10,7 @@ type AudienceFilter = 'all' | 'all' | 'users' | 'patrols' | 'admins';
 type StatusFilter = 'all' | 'active' | 'expired' | 'expiring_soon';
 
 export function AnnouncementsDisplay() {
+  const { user, isAdminLike } = useAuthStore();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -34,7 +36,8 @@ export function AnnouncementsDisplay() {
         query = query.eq('priority', priorityFilter);
       }
 
-      if (audienceFilter !== 'all') {
+      // Audience filter - only show for admins
+      if (isAdminLike() && audienceFilter !== 'all') {
         query = query.eq('target_audience', audienceFilter);
       }
 
@@ -44,6 +47,25 @@ export function AnnouncementsDisplay() {
 
       // Apply client-side filters
       let filteredData = data || [];
+
+      // Filter announcements by user's role (unless they're an admin)
+      if (!isAdminLike() && user) {
+        // Get user's role type
+        const userRole = user.role?.toLowerCase();
+        filteredData = filteredData.filter(announcement => {
+          const targetAudience = announcement.target_audience?.toLowerCase();
+          
+          // Show announcements targeted to "all" users
+          if (targetAudience === 'all') return true;
+          
+          // Show announcements targeted to the user's role
+          if (userRole === 'patrol' && targetAudience === 'patrols') return true;
+          if (userRole === 'user' && targetAudience === 'users') return true;
+          if (userRole === 'admin' && targetAudience === 'admins') return true;
+          
+          return false;
+        });
+      }
 
       // Search filter
       if (search.trim()) {
@@ -112,7 +134,7 @@ export function AnnouncementsDisplay() {
 
   useEffect(() => {
     fetchAnnouncements();
-  }, [priorityFilter, audienceFilter, statusFilter]);
+  }, [priorityFilter, audienceFilter, statusFilter, isAdminLike()]);
 
   // Debounced search
   useEffect(() => {
@@ -163,9 +185,9 @@ export function AnnouncementsDisplay() {
 
       {/* Filters */}
       <div className="bg-white rounded-lg border border-gray-200 p-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className={`grid gap-4 ${isAdminLike() ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-4' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'}`}>
           {/* Search */}
-          <div className="lg:col-span-2">
+          <div className={isAdminLike() ? 'lg:col-span-2' : 'md:col-span-2'}>
             <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
             <div className="relative">
               <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -195,21 +217,23 @@ export function AnnouncementsDisplay() {
             </select>
           </div>
 
-          {/* Audience Filter */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Audience</label>
-            <select
-              value={audienceFilter}
-              onChange={(e) => setAudienceFilter(e.target.value as AudienceFilter)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="all">All Audiences</option>
-              <option value="all">Everyone</option>
-              <option value="users">Users</option>
-              <option value="patrols">Patrols</option>
-              <option value="admins">Admins</option>
-            </select>
-          </div>
+          {/* Audience Filter - Only show to admins */}
+          {isAdminLike() && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Audience</label>
+              <select
+                value={audienceFilter}
+                onChange={(e) => setAudienceFilter(e.target.value as AudienceFilter)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="all">All Audiences</option>
+                <option value="all">Everyone</option>
+                <option value="users">Users</option>
+                <option value="patrols">Patrols</option>
+                <option value="admins">Admins</option>
+              </select>
+            </div>
+          )}
         </div>
 
         {/* Status Filter */}
