@@ -679,6 +679,104 @@ app.post('/api/reports', authenticateToken, async (req, res) => {
   }
 });
 
+// Awards: award achievement to user
+app.post('/api/achievements/award', authenticateToken, async (req, res) => {
+  try {
+    if (!supabaseAdmin) {
+      return res.status(503).json({ error: 'Admin privileges required' });
+    }
+
+    const { userId, achievementId, points } = req.body || {};
+    if (!userId || !achievementId || !points) {
+      return res.status(400).json({ error: 'Missing required fields: userId, achievementId, points' });
+    }
+
+    // Check if achievement already exists for this user
+    const { data: existingAchievement, error: checkError } = await supabaseAdmin
+      .from('user_achievements')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('achievement_id', achievementId)
+      .maybeSingle();
+
+    if (checkError) {
+      console.error('Error checking existing achievement:', checkError);
+      return res.status(500).json({ error: 'Failed to check achievement status' });
+    }
+
+    // If achievement already exists, return success (idempotent)
+    if (existingAchievement) {
+      return res.status(200).json({ 
+        message: 'Achievement already awarded',
+        alreadyExists: true
+      });
+    }
+
+    // Award the achievement
+    const { data: awardedAchievement, error: awardError } = await supabaseAdmin
+      .from('user_achievements')
+      .insert({
+        user_id: userId,
+        achievement_id: achievementId,
+        earned_at: new Date().toISOString()
+      })
+      .select();
+
+    if (awardError) {
+      console.error('Error awarding achievement:', awardError);
+      return res.status(500).json({ error: 'Failed to award achievement' });
+    }
+
+    // Award points to the user
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .select('points')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (profileError) {
+      console.error('Error fetching user profile:', profileError);
+      return res.status(500).json({ error: 'Failed to fetch user profile' });
+    }
+
+    const currentPoints = profile?.points || 0;
+    const newPoints = currentPoints + points;
+
+    const { error: updateError } = await supabaseAdmin
+      .from('profiles')
+      .update({
+        points: newPoints,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', userId);
+
+    if (updateError) {
+      console.error('Error updating user points:', updateError);
+      return res.status(500).json({ error: 'Failed to update user points' });
+    }
+
+    // Also create a points history entry
+    await supabaseAdmin
+      .from('user_points_history')
+      .insert({
+        user_id: userId,
+        points_awarded: points,
+        reason: `ACHIEVEMENT_${achievementId.toUpperCase()}`,
+        created_at: new Date().toISOString()
+      })
+      .select();
+
+    res.json({
+      message: 'Achievement awarded successfully',
+      achievement: awardedAchievement?.[0],
+      newPoints
+    });
+  } catch (e) {
+    console.error('Award achievement error:', e);
+    res.status(500).json({ error: 'Failed to award achievement' });
+  }
+});
+
 // Activities: create via service role (JWT-protected)
 app.post('/api/activities', authenticateToken, async (req, res) => {
   try {

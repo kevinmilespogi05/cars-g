@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { awardCustomPoints } from './points';
+import { getApiUrl } from './config';
 
 export interface Achievement {
   id: string;
@@ -232,7 +233,7 @@ export async function checkAchievements(userId: string): Promise<Achievement[]> 
         
         // Record the achievement via backend API
         try {
-          const response = await fetch('/api/achievements/award', {
+          const response = await fetch(getApiUrl('/api/achievements/award'), {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -245,7 +246,12 @@ export async function checkAchievements(userId: string): Promise<Achievement[]> 
           });
 
           if (!response.ok) {
-            const error = await response.json();
+            let error: any = {};
+            try {
+              error = await response.json();
+            } catch {
+              error = { error: `HTTP ${response.status}` };
+            }
             console.error(`Error recording achievement ${achievement.id}:`, error);
           } else {
             console.log(`Achievement unlocked: ${achievement.title} for user ${userId}`);
