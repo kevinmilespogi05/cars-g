@@ -36,10 +36,13 @@ export function AdminCaseRequests() {
     try {
       const data = await reportsService.getReports({ status: 'verifying', limit: 50 } as any);
       // Also include awaiting_verification if present in schema/UI
-      const { data: awaiting } = await supabase
+      const { data: awaiting, error: awaitingError } = await supabase
         .from('reports')
-        .select(`*, likes:likes(count), comments:comments(count), comment_count:report_comments(count)`) as any;
-      const awaitingList = (awaiting || []).filter((r: any) => r.status === 'awaiting_verification');
+        .select('*, likes:likes(count), comments:comments(count), comment_count:report_comments(count)');
+      const awaitingList = ((awaiting as any) || []).filter((r: any) => r.status === 'awaiting_verification');
+      if (awaitingError) {
+        console.log('Error fetching awaiting_verification reports:', awaitingError);
+      }
       const combined = [...data, ...awaitingList].reduce((acc: Report[], curr: any) => {
         if (!acc.find(x => x.id === curr.id)) acc.push(curr);
         return acc;
@@ -89,7 +92,8 @@ export function AdminCaseRequests() {
       const nextImages = currentImages.length > 0 ? currentImages.slice(0, -1) : [];
 
       // Update: remove proof image and revert status back to pending
-      const { error } = await (supabase.from('reports') as any)
+      const { error } = await (supabase as any)
+        .from('reports')
         .update({ 
           status: 'pending', 
           images: nextImages,
@@ -401,7 +405,7 @@ export function AdminCaseRequests() {
                       <MapPin className="w-4 h-4 text-green-600" />
                       <span>{selectedReport.location_address}</span>
                     </div>
-                    <div className="mt-2 flex gap-2">
+                    <div className="mt-2 flex flex-col sm:flex-row gap-2">
                       <button
                         onClick={() => {
                           const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
@@ -428,7 +432,7 @@ export function AdminCaseRequests() {
                             window.open(navigationUrl, '_blank');
                           }
                         }}
-                        className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700"
+                        className="inline-flex w-full sm:w-auto justify-center items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700"
                       >
                         <Navigation className="w-3 h-3" />
                         Navigate to Location
@@ -449,7 +453,7 @@ export function AdminCaseRequests() {
                             showToast('Unable to determine location coordinates. Please ensure the report has a valid address or coordinates.', 'error');
                           }
                         }}
-                        className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-600 text-white text-xs rounded-lg hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="inline-flex w-full sm:w-auto justify-center items-center gap-2 px-3 py-1.5 bg-gray-600 text-white text-xs rounded-lg hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
                         title={!isValidCoordinates(selectedReport.location_lat, selectedReport.location_lng) && !selectedReport.location_address
                           ? 'Location coordinates are missing. Geocoding will be attempted from address.'
                           : 'Open this report location in the map view'}

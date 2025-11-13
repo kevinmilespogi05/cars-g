@@ -32,12 +32,14 @@ const WARMUP_CONFIG = {
 class WarmupService {
   constructor() {
     this.isProduction = process.env.NODE_ENV === 'production';
-    this.baseUrl = this.isProduction 
-      ? WARMUP_CONFIG.endpoints.production.base 
-      : WARMUP_CONFIG.endpoints.development.base;
-    this.frontendUrl = this.isProduction 
-      ? WARMUP_CONFIG.endpoints.production.frontend 
-      : WARMUP_CONFIG.endpoints.development.frontend;
+    // Allow overriding via environment variables so deployed environments
+    // (Render, Vercel, etc.) can control the warmup targets without editing code.
+    this.baseUrl = process.env.VITE_API_URL || (this.isProduction
+      ? WARMUP_CONFIG.endpoints.production.base
+      : WARMUP_CONFIG.endpoints.development.base);
+    this.frontendUrl = process.env.FRONTEND_URL || (this.isProduction
+      ? WARMUP_CONFIG.endpoints.production.frontend
+      : WARMUP_CONFIG.endpoints.development.frontend);
     
     this.timers = [];
     this.stats = {

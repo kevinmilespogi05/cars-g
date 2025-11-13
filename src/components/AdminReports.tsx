@@ -519,9 +519,9 @@ export function AdminReports() {
         priority: editForm.priority,
         updated_at: new Date().toISOString()
       };
-      const { error } = await ((supabase
-        .from('reports') as any)
-        .update(updateData))
+      const { error } = await (supabase as any)
+        .from('reports')
+        .update(updateData)
         .eq('id', selectedReport.id);
 
       if (error) throw error;
@@ -1387,7 +1387,7 @@ export function AdminReports() {
                       <MapPin className="w-4 h-4 text-green-600" />
                       <span>{selectedReport.location_address}</span>
                     </div>
-                    <div className="mt-2 flex gap-2">
+                    <div className="mt-2 flex flex-col sm:flex-row gap-2">
                       <button
                         onClick={() => {
                           // Detect platform and use appropriate navigation method
@@ -1427,7 +1427,7 @@ export function AdminReports() {
                             window.open(navigationUrl, '_blank');
                           }
                         }}
-                        className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700"
+                        className="inline-flex w-full sm:w-auto justify-center items-center gap-2 px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700"
                       >
                         <Navigation className="w-3 h-3" />
                         Navigate to Location
@@ -1450,7 +1450,7 @@ export function AdminReports() {
                             showToastError('Unable to determine location coordinates. Please ensure the report has a valid address or coordinates.', 5000);
                           }
                         }}
-                        className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-600 text-white text-xs rounded-lg hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="inline-flex w-full sm:w-auto justify-center items-center gap-2 px-3 py-1.5 bg-gray-600 text-white text-xs rounded-lg hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
                         title={!isValidCoordinates(selectedReport.location_lat, selectedReport.location_lng) && !selectedReport.location_address 
                           ? 'Location coordinates are missing. Geocoding will be attempted from address.' 
                           : 'Open this report location in the map view'}

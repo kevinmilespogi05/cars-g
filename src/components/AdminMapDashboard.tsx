@@ -618,8 +618,8 @@ export function AdminMapDashboard() {
       fetchAbortRef.current = new AbortController();
 
       // Fetch only the latest 50 reports
-      // Supabase client types can be strict in this project; treat results as any locally
-      const reportsRes: any = await (supabase.from('reports') as any)
+      const { data: reportsRows, error: reportsError } = await supabase
+        .from('reports')
         .select(`
           id,
           title,
@@ -638,8 +638,7 @@ export function AdminMapDashboard() {
         .order('created_at', { ascending: false })
         .range(0, 49);
 
-      const reportsData: any[] = reportsRes?.data || [];
-      const reportsError = reportsRes?.error;
+      const reportsData: any[] = (reportsRows as any) || [];
       if (reportsError) throw reportsError;
 
       // Try to get usernames for all user_ids and patrol_user_ids from profiles table
@@ -651,14 +650,14 @@ export function AdminMapDashboard() {
       if (userIds.length > 0 || patrolUserIds.length > 0) {
         try {
           const allUserIds = [...userIds, ...patrolUserIds];
-          const profilesRes: any = await (supabase.from('profiles') as any)
+          const { data: profilesData, error: profilesError } = await supabase
+            .from('profiles')
             .select('id, username')
             .in('id', allUserIds);
-          const profilesData: any[] = profilesRes?.data || [];
-          const profilesError = profilesRes?.error;
+          const profilesArr: any[] = (profilesData as any) || [];
 
-          if (!profilesError && profilesData) {
-            profilesData.forEach((profile: any) => {
+          if (!profilesError && profilesArr) {
+            profilesArr.forEach((profile: any) => {
               userMap.set(profile.id, profile.username);
               if (patrolUserIds.includes(profile.id)) {
                 patrolUserMap.set(profile.id, profile.username);
@@ -700,7 +699,7 @@ export function AdminMapDashboard() {
           .eq('role', 'patrol');
 
         if (!patrolError && patrolData) {
-          patrolOfficers = patrolData;
+          patrolOfficers = patrolData as any;
         }
       } catch (error) {
         console.log('Error fetching patrol officers:', error);
@@ -854,15 +853,15 @@ export function AdminMapDashboard() {
       let username = `User ${newReport.user_id?.slice(0, 8) || 'Unknown'}`;
       if (newReport.user_id) {
         try {
-          const profileRes: any = await (supabase.from('profiles') as any)
+          const { data: profileData, error: profileError } = await supabase
+            .from('profiles')
             .select('username')
             .eq('id', newReport.user_id)
             .single();
-          const profileData: any = profileRes?.data;
-          const profileError = profileRes?.error;
+          const profileAny: any = profileData as any;
 
-          if (!profileError && profileData && profileData.username) {
-            username = profileData.username;
+          if (!profileError && profileAny && profileAny.username) {
+            username = profileAny.username;
           }
         } catch (error) {
           // Silently handle the case where profiles table doesn't exist
@@ -1451,7 +1450,8 @@ export function AdminMapDashboard() {
         await giveReporterRewards(currentReport.user_id, reportId, 'REPORT_RESOLVED');
       }
 
-      const { error } = await (supabase.from('reports') as any)
+      const { error } = await (supabase as any)
+        .from('reports')
         .update({ status: newStatus })
         .eq('id', reportId);
 

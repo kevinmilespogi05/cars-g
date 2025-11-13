@@ -96,6 +96,26 @@ export function AdminVerificationDashboard() {
     }
   };
 
+  const openUrlInNewTab = (url?: string) => {
+    if (!url) return;
+    try {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch (e) {
+      console.warn('Failed to open URL in new tab', e);
+    }
+  };
+
+  const copyToClipboard = async (text?: string) => {
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      showToastInfo('Copied to clipboard');
+    } catch (e) {
+      console.warn('Clipboard copy failed', e);
+      showToastError('Failed to copy link');
+    }
+  };
+
   // Reset loading states when modal opens
   useEffect(() => {
     if (showModal && selectedRequest) {
@@ -262,355 +282,460 @@ export function AdminVerificationDashboard() {
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      {/* Header */}
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 p-4 sm:p-6 lg:p-8">
+      {/* Header Section */}
       <div className="mb-8">
-        <div className="flex items-center gap-3 mb-4">
-          <Shield className="h-8 w-8 text-red-800" />
-          <h1 className="text-3xl font-bold text-gray-900">ID Verification Dashboard</h1>
+        <div className="flex items-center gap-3 mb-2">
+          <div className="p-3 bg-gradient-to-br from-blue-600 to-red-600 rounded-xl shadow-lg">
+            <Shield className="h-8 w-8 text-white" />
+          </div>
+          <div>
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-red-600 bg-clip-text text-transparent">ID Verification</h1>
+            <p className="text-slate-600 text-sm mt-1">Review and approve user identity submissions</p>
+          </div>
         </div>
-        <p className="text-gray-600">Review and verify user ID submissions for account approval</p>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="flex items-center">
-            <div className="p-3 bg-yellow-100 rounded-lg">
-              <Clock className="h-6 w-6 text-yellow-600" />
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Pending</p>
-              <p className="text-2xl font-bold text-gray-900">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="bg-white rounded-2xl shadow-md hover:shadow-lg transition-all p-6 border-l-4 border-yellow-500"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-slate-600 text-sm font-medium">Pending Reviews</p>
+              <p className="text-3xl font-bold text-slate-900 mt-2">
                 {requests.filter(r => r.status === 'pending').length}
               </p>
             </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="flex items-center">
-            <div className="p-3 bg-green-100 rounded-lg">
-              <CheckCircle className="h-6 w-6 text-green-600" />
+            <div className="p-3 bg-yellow-100 rounded-xl">
+              <Clock className="h-6 w-6 text-yellow-600" />
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Approved</p>
-              <p className="text-2xl font-bold text-gray-900">
+          </div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="bg-white rounded-2xl shadow-md hover:shadow-lg transition-all p-6 border-l-4 border-green-500"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-slate-600 text-sm font-medium">Approved</p>
+              <p className="text-3xl font-bold text-slate-900 mt-2">
                 {requests.filter(r => r.status === 'approved').length}
               </p>
             </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <div className="flex items-center">
-            <div className="p-3 bg-red-100 rounded-lg">
-              <XCircle className="h-6 w-6 text-red-600" />
+            <div className="p-3 bg-green-100 rounded-xl">
+              <CheckCircle className="h-6 w-6 text-green-600" />
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Declined</p>
-              <p className="text-2xl font-bold text-gray-900">
+          </div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="bg-white rounded-2xl shadow-md hover:shadow-lg transition-all p-6 border-l-4 border-red-500"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-slate-600 text-sm font-medium">Declined</p>
+              <p className="text-3xl font-bold text-slate-900 mt-2">
                 {requests.filter(r => normalizeStatus(r.status) === 'declined').length}
               </p>
             </div>
+            <div className="p-3 bg-red-100 rounded-xl">
+              <XCircle className="h-6 w-6 text-red-600" />
+            </div>
           </div>
-        </div>
-
+        </motion.div>
       </div>
 
-      {/* Filters and Search */}
-      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-        <div className="flex flex-col sm:flex-row gap-4">
+      {/* Search and Filter Section */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4 }}
+        className="bg-white rounded-2xl shadow-md p-6 mb-8"
+      >
+        <div className="flex flex-col lg:flex-row gap-4">
           <div className="flex-1">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-slate-400" />
               <input
                 type="text"
                 placeholder="Search by name, email, or username..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                className="w-full pl-12 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-slate-50 transition-all"
               />
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             {(['all', 'pending', 'approved', 'declined'] as const).map((status) => (
-              <button
+              <motion.button
                 key={status}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
                 onClick={() => setFilter(status)}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                className={`px-4 py-2 rounded-xl font-medium transition-all ${
                   filter === status
-                    ? 'bg-red-800 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    ? 'bg-gradient-to-r from-blue-600 to-red-600 text-white shadow-lg'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                 }`}
               >
                 {status.charAt(0).toUpperCase() + status.slice(1)}
-              </button>
+              </motion.button>
             ))}
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* Requests List */}
-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.5 }}
+        className="bg-white rounded-2xl shadow-md overflow-hidden"
+      >
         {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
-            <span className="ml-2 text-gray-600">Loading verification requests...</span>
+          <div className="flex flex-col items-center justify-center py-16">
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+            >
+              <Loader2 className="h-12 w-12 text-blue-600" />
+            </motion.div>
+            <span className="ml-4 text-slate-600 font-medium mt-4">Loading verification requests...</span>
           </div>
         ) : filteredRequests.length === 0 ? (
-          <div className="text-center py-12">
-            <Shield className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-600 font-medium">No verification requests found</p>
-            <p className="text-sm text-gray-400 mt-1">
+          <div className="text-center py-16 px-4">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-slate-100 rounded-full mb-4">
+              <Shield className="h-8 w-8 text-slate-400" />
+            </div>
+            <p className="text-slate-900 font-semibold text-lg">No verification requests found</p>
+            <p className="text-slate-500 text-sm mt-2">
               {searchTerm || filter !== 'all'
-                ? `No requests match your ${searchTerm ? 'search' : 'filter'} criteria. Try adjusting your filters.`
-                : 'No verification requests available. Users will appear here once they submit their ID documents.'
+                ? `No requests match your ${searchTerm ? 'search' : 'filter'} criteria.`
+                : 'All verification requests have been processed.'
               }
             </p>
             {(searchTerm || filter !== 'all') && (
-              <button
+              <motion.button
+                whileHover={{ scale: 1.05 }}
                 onClick={() => {
                   setSearchTerm('');
                   setFilter('all');
                 }}
-                className="mt-4 px-4 py-2 text-sm text-red-600 hover:text-red-700 underline"
+                className="mt-4 px-6 py-2 text-blue-600 hover:text-blue-700 font-medium underline"
               >
                 Clear filters
-              </button>
+              </motion.button>
             )}
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    User
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Submitted
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50">
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">User</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Submitted</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredRequests.map((request) => {
+              <tbody className="divide-y divide-slate-200">
+                {filteredRequests.map((request, index) => {
                   const normalizedStatus = normalizeStatus(request.status);
                   const statusInfo = getStatusInfo(normalizedStatus);
                   const StatusIcon = statusInfo.icon;
                   
                   return (
-                    <tr key={request.id} className="hover:bg-gray-50">
+                    <motion.tr
+                      key={request.id}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: index * 0.05 }}
+                      className="hover:bg-blue-50 transition-colors"
+                    >
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
-                          <div className="flex-shrink-0 h-10 w-10">
-                            <div className="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
-                              <User className="h-5 w-5 text-gray-600" />
-                            </div>
+                          <div className="h-12 w-12 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center flex-shrink-0">
+                            <span className="text-white font-semibold text-lg">
+                              {request.user_profile?.first_name?.charAt(0).toUpperCase() || 'U'}
+                            </span>
                           </div>
                           <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">
+                            <div className="text-sm font-semibold text-slate-900">
                               {request.user_profile?.first_name} {request.user_profile?.last_name}
                             </div>
-                            <div className="text-sm text-gray-500">{request.user_profile?.email}</div>
+                            <div className="text-sm text-slate-500">{request.user_profile?.email}</div>
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusInfo.bg} ${statusInfo.color}`}>
-                          <StatusIcon className="h-3 w-3 mr-1" />
+                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${statusInfo.bg} ${statusInfo.color}`}>
+                          <StatusIcon className="h-3.5 w-3.5 mr-1.5" />
                           {formatStatus(request.status)}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {new Date(request.created_at).toLocaleDateString()}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
+                        {new Date(request.created_at).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric'
+                        })}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex gap-2">
-                          <button
+                        <div className="flex gap-2 flex-wrap">
+                          <motion.button
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.95 }}
                             onClick={() => {
                               setSelectedRequest(request);
                               setShowModal(true);
                             }}
-                            className="text-red-800 hover:text-red-900 flex items-center gap-1"
+                            className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-3 py-1 rounded-lg transition-all flex items-center gap-1"
                           >
                             <Eye className="h-4 w-4" />
                             Review
-                          </button>
+                          </motion.button>
                           {request.status === 'pending' && (
                             <>
-                              <button
+                              <motion.button
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.95 }}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   confirmVerification(request.id, 'approved', request);
                                 }}
                                 disabled={processing === request.id}
-                                className="text-green-600 hover:text-green-700 flex items-center gap-1 disabled:opacity-50"
+                                className="text-green-600 hover:text-green-700 hover:bg-green-50 px-3 py-1 rounded-lg transition-all flex items-center gap-1 disabled:opacity-50"
                               >
                                 <Check className="h-4 w-4" />
                                 Approve
-                              </button>
-                              <button
+                              </motion.button>
+                              <motion.button
+                                whileHover={{ scale: 1.1 }}
+                                whileTap={{ scale: 0.95 }}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   confirmVerification(request.id, 'declined', request);
                                 }}
                                 disabled={processing === request.id}
-                                className="text-red-600 hover:text-red-700 flex items-center gap-1 disabled:opacity-50"
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50 px-3 py-1 rounded-lg transition-all flex items-center gap-1 disabled:opacity-50"
                               >
                                 <X className="h-4 w-4" />
-                                Declined
-                              </button>
+                                Decline
+                              </motion.button>
                             </>
                           )}
                         </div>
                       </td>
-                    </tr>
+                    </motion.tr>
                   );
                 })}
               </tbody>
             </table>
           </div>
         )}
-      </div>
+      </motion.div>
 
       {/* Review Modal */}
       {showModal && selectedRequest && (
-        <div className="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden"
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col"
           >
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold text-gray-900">Review ID Verification</h2>
-                <button
-                  onClick={() => setShowModal(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <X className="h-6 w-6" />
-                </button>
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-blue-600 to-red-600 px-8 py-6 flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-white">Review ID Verification</h2>
+                <p className="text-blue-100 text-sm mt-1">
+                  {selectedRequest.user_profile?.first_name} {selectedRequest.user_profile?.last_name}
+                </p>
               </div>
+              <motion.button
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setShowModal(false)}
+                className="text-white hover:bg-white/20 rounded-full p-2 transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </motion.button>
             </div>
 
-            <div className="p-6 overflow-y-auto max-h-[70vh]">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* User Information */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-gray-900">User Information</h3>
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3">
-                      <User className="h-5 w-5 text-gray-400" />
-                      <span className="text-sm text-gray-600">
-                        {selectedRequest.user_profile?.first_name} {selectedRequest.user_profile?.last_name}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <Mail className="h-5 w-5 text-gray-400" />
-                      <span className="text-sm text-gray-600">{selectedRequest.user_profile?.email}</span>
-                    </div>
-                    {selectedRequest.user_profile?.phone && (
-                      <div className="flex items-center gap-3">
-                        <Phone className="h-5 w-5 text-gray-400" />
-                        <span className="text-sm text-gray-600">{selectedRequest.user_profile.phone}</span>
+            {/* Modal Content */}
+            <div className="p-8 overflow-y-auto flex-1">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Left: User Information */}
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                      <div className="w-1 h-6 bg-gradient-to-b from-blue-600 to-red-600 rounded"></div>
+                      User Information
+                    </h3>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center pb-3 border-b border-slate-200">
+                        <span className="text-sm font-medium text-slate-600">First Name</span>
+                        <span className="text-sm font-semibold text-slate-900">{selectedRequest.user_profile?.first_name || '—'}</span>
                       </div>
-                    )}
-                    <div className="flex items-center gap-3">
-                      <Calendar className="h-5 w-5 text-gray-400" />
-                      <span className="text-sm text-gray-600">
-                        Submitted: {new Date(selectedRequest.created_at).toLocaleString()}
-                      </span>
+                      <div className="flex justify-between items-center pb-3 border-b border-slate-200">
+                        <span className="text-sm font-medium text-slate-600">Last Name</span>
+                        <span className="text-sm font-semibold text-slate-900">{selectedRequest.user_profile?.last_name || '—'}</span>
+                      </div>
+                      <div className="flex justify-between items-center pb-3 border-b border-slate-200">
+                        <span className="text-sm font-medium text-slate-600">Email</span>
+                        <span className="text-sm font-semibold text-slate-900">{selectedRequest.user_profile?.email}</span>
+                      </div>
+                      <div className="flex justify-between items-center pb-3 border-b border-slate-200">
+                        <span className="text-sm font-medium text-slate-600">Username</span>
+                        <span className="text-sm font-semibold text-slate-900">@{selectedRequest.user_profile?.username || '—'}</span>
+                      </div>
+                      {selectedRequest.user_profile?.phone && (
+                        <div className="flex justify-between items-center pb-3 border-b border-slate-200">
+                          <span className="text-sm font-medium text-slate-600">Phone</span>
+                          <span className="text-sm font-semibold text-slate-900">{selectedRequest.user_profile.phone}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between items-center pb-3 border-b border-slate-200">
+                        <span className="text-sm font-medium text-slate-600">Submitted</span>
+                        <span className="text-sm font-semibold text-slate-900">
+                          {new Date(selectedRequest.created_at).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric'
+                          })}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center pt-3">
+                        <span className="text-sm font-medium text-slate-600">User ID</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-mono text-slate-500 truncate max-w-[150px]">{selectedRequest.user_id}</span>
+                          <motion.button
+                            whileHover={{ scale: 1.1 }}
+                            onClick={() => copyToClipboard(selectedRequest.user_id)}
+                            className="text-xs text-blue-600 hover:text-blue-700 font-medium hover:bg-blue-50 px-2 py-1 rounded transition-all"
+                          >
+                            Copy
+                          </motion.button>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
-
                   {/* No ID Images Warning */}
                   {!selectedRequest.id_front_image_url && !selectedRequest.id_back_image_url && (
-                    <div className="mt-6">
-                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                        <div className="flex items-start gap-3">
-                          <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5" />
-                          <div>
-                            <h4 className="text-sm font-semibold text-amber-800">No ID Images Uploaded</h4>
-                            <p className="text-sm text-amber-700 mt-1">
-                              This user has not uploaded ID images yet. You can still approve their account 
-                              if they have provided sufficient information through other means, or ask them 
-                              to upload their ID images for verification.
-                            </p>
-                          </div>
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="bg-amber-50 border-l-4 border-amber-500 rounded-lg p-4"
+                    >
+                      <div className="flex items-start gap-3">
+                        <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <h4 className="text-sm font-semibold text-amber-900">No ID Images Uploaded</h4>
+                          <p className="text-sm text-amber-800 mt-1">
+                            This user has not uploaded ID images yet.
+                          </p>
                         </div>
                       </div>
-                    </div>
+                    </motion.div>
                   )}
                 </div>
 
-                {/* ID Images */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-gray-900">ID Images</h3>
-                  <div className="space-y-4">
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-700 mb-2">Front of ID</h4>
+                {/* Right: ID Images */}
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                      <div className="w-1 h-6 bg-gradient-to-b from-blue-600 to-red-600 rounded"></div>
+                      ID Documents
+                    </h3>
+                    <div className="space-y-4">
+                      <div>
+                        <h4 className="text-sm font-medium text-gray-700 mb-2">Front of ID</h4>
                       {selectedRequest.id_front_image_url ? (
-                        <div 
-                          className="cursor-pointer group relative bg-white rounded-lg border border-gray-200 group-hover:border-blue-300 transition-colors"
-                          onClick={() => openImageModal(selectedRequest.id_front_image_url, 'Front of ID')}
-                          style={{ height: '192px', width: '100%' }}
-                        >
-                          {imageLoadingStates[`front-${selectedRequest.id}`] && (
-                            <div className="absolute inset-0 bg-gray-100 rounded-lg flex items-center justify-center z-10">
-                              <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                        <>
+                          <div 
+                            className="cursor-pointer group relative bg-white rounded-lg border border-gray-200 group-hover:border-blue-300 transition-colors"
+                            onClick={() => openImageModal(selectedRequest.id_front_image_url, 'Front of ID')}
+                            style={{ height: '192px', width: '100%' }}
+                          >
+                            {imageLoadingStates[`front-${selectedRequest.id}`] && (
+                              <div className="absolute inset-0 bg-gray-100 rounded-lg flex items-center justify-center z-10">
+                                <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                              </div>
+                            )}
+                            <div className="w-full h-full flex items-center justify-center p-2">
+                              <img
+                                src={getImageUrl(selectedRequest.id_front_image_url)}
+                                alt="Front of ID"
+                                className="max-w-full max-h-full object-contain"
+                                style={{ 
+                                  maxWidth: '100%',
+                                  maxHeight: '100%',
+                                  objectFit: 'contain'
+                                }}
+                                onLoadStart={() => {
+                                  setImageLoadingStates(prev => ({...prev, [`front-${selectedRequest.id}`]: true}));
+                                  console.log('🔄 Front image loading started');
+                                }}
+                                onLoad={(e) => {
+                                  setImageLoadingStates(prev => ({...prev, [`front-${selectedRequest.id}`]: false}));
+                                  console.log('✅ Front image loaded successfully');
+                                  console.log('🖼️ Front image dimensions:', e.currentTarget.naturalWidth, 'x', e.currentTarget.naturalHeight);
+                                  console.log('🖼️ Front image display size:', e.currentTarget.offsetWidth, 'x', e.currentTarget.offsetHeight);
+                                }}
+                                onError={(e) => {
+                                  setImageLoadingStates(prev => ({...prev, [`front-${selectedRequest.id}`]: false}));
+                                  console.error('❌ Failed to load front ID image:', selectedRequest.id_front_image_url);
+                                  console.error('❌ Processed URL was:', getImageUrl(selectedRequest.id_front_image_url));
+                                  e.currentTarget.style.display = 'none';
+                                  e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                                }}
+                              />
                             </div>
-                          )}
-                          <div className="w-full h-full flex items-center justify-center p-2">
-                            <img
-                              src={getImageUrl(selectedRequest.id_front_image_url)}
-                              alt="Front of ID"
-                              className="max-w-full max-h-full object-contain"
-                              style={{ 
-                                maxWidth: '100%',
-                                maxHeight: '100%',
-                                objectFit: 'contain'
-                              }}
-                              onLoadStart={() => {
-                                setImageLoadingStates(prev => ({...prev, [`front-${selectedRequest.id}`]: true}));
-                                console.log('🔄 Front image loading started');
-                              }}
-                              onLoad={(e) => {
-                                setImageLoadingStates(prev => ({...prev, [`front-${selectedRequest.id}`]: false}));
-                                console.log('✅ Front image loaded successfully');
-                                console.log('🖼️ Front image dimensions:', e.currentTarget.naturalWidth, 'x', e.currentTarget.naturalHeight);
-                                console.log('🖼️ Front image display size:', e.currentTarget.offsetWidth, 'x', e.currentTarget.offsetHeight);
-                              }}
-                              onError={(e) => {
-                                setImageLoadingStates(prev => ({...prev, [`front-${selectedRequest.id}`]: false}));
-                                console.error('❌ Failed to load front ID image:', selectedRequest.id_front_image_url);
-                                console.error('❌ Processed URL was:', getImageUrl(selectedRequest.id_front_image_url));
-                                e.currentTarget.style.display = 'none';
-                                e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                              }}
-                            />
-                          </div>
-                          <div className="absolute inset-0 bg-transparent group-hover:bg-black group-hover:bg-opacity-10 transition-all rounded-lg flex items-center justify-center pointer-events-none">
-                            <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white bg-opacity-90 px-3 py-1 rounded-full text-sm font-medium pointer-events-auto">
-                              Click to view full size
+                            <div className="absolute inset-0 bg-transparent group-hover:bg-black group-hover:bg-opacity-10 transition-all rounded-lg flex items-center justify-center pointer-events-none">
+                              <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white bg-opacity-90 px-3 py-1 rounded-full text-sm font-medium pointer-events-auto">
+                                Click to view full size
+                              </div>
+                            </div>
+                            {/* Fallback for failed image load */}
+                            <div className="hidden w-full h-48 bg-gray-100 rounded-lg border border-gray-200 items-center justify-center">
+                              <div className="text-center">
+                                <AlertTriangle className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                                <p className="text-sm text-gray-500">Image failed to load</p>
+                                <p className="text-xs text-gray-400 mt-1">Click to try viewing</p>
+                              </div>
                             </div>
                           </div>
-                          {/* Fallback for failed image load */}
-                          <div className="hidden w-full h-48 bg-gray-100 rounded-lg border border-gray-200 items-center justify-center">
-                            <div className="text-center">
-                              <AlertTriangle className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                              <p className="text-sm text-gray-500">Image failed to load</p>
-                              <p className="text-xs text-gray-400 mt-1">Click to try viewing</p>
+
+                          <div className="mt-2 flex items-center justify-between">
+                            <div className="text-xs text-gray-500 truncate max-w-[70%]">{selectedRequest.id_front_image_url}</div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => openUrlInNewTab(getImageUrl(selectedRequest.id_front_image_url))}
+                                className="text-sm text-blue-600 hover:underline"
+                              >
+                                Open
+                              </button>
+                              <button
+                                onClick={() => copyToClipboard(getImageUrl(selectedRequest.id_front_image_url))}
+                                className="text-sm text-gray-600 hover:underline"
+                              >
+                                Copy
+                              </button>
                             </div>
                           </div>
-                        </div>
+                        </>
                       ) : null}
                       {!selectedRequest.id_front_image_url && (
                         <div className="w-full h-48 bg-gray-100 rounded-lg border border-gray-200 flex items-center justify-center">
@@ -624,59 +749,79 @@ export function AdminVerificationDashboard() {
                     <div>
                       <h4 className="text-sm font-medium text-gray-700 mb-2">Back of ID</h4>
                       {selectedRequest.id_back_image_url ? (
-                        <div 
-                          className="cursor-pointer group relative bg-white rounded-lg border border-gray-200 group-hover:border-blue-300 transition-colors"
-                          onClick={() => openImageModal(selectedRequest.id_back_image_url, 'Back of ID')}
-                          style={{ height: '192px', width: '100%' }}
-                        >
-                          {imageLoadingStates[`back-${selectedRequest.id}`] && (
-                            <div className="absolute inset-0 bg-gray-100 rounded-lg flex items-center justify-center z-10">
-                              <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                        <>
+                          <div 
+                            className="cursor-pointer group relative bg-white rounded-lg border border-gray-200 group-hover:border-blue-300 transition-colors"
+                            onClick={() => openImageModal(selectedRequest.id_back_image_url, 'Back of ID')}
+                            style={{ height: '192px', width: '100%' }}
+                          >
+                            {imageLoadingStates[`back-${selectedRequest.id}`] && (
+                              <div className="absolute inset-0 bg-gray-100 rounded-lg flex items-center justify-center z-10">
+                                <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                              </div>
+                            )}
+                            <div className="w-full h-full flex items-center justify-center p-2">
+                              <img
+                                src={getImageUrl(selectedRequest.id_back_image_url)}
+                                alt="Back of ID"
+                                className="max-w-full max-h-full object-contain"
+                                style={{ 
+                                  maxWidth: '100%',
+                                  maxHeight: '100%',
+                                  objectFit: 'contain'
+                                }}
+                                onLoadStart={() => {
+                                  setImageLoadingStates(prev => ({...prev, [`back-${selectedRequest.id}`]: true}));
+                                  console.log('🔄 Back image loading started');
+                                }}
+                                onLoad={(e) => {
+                                  setImageLoadingStates(prev => ({...prev, [`back-${selectedRequest.id}`]: false}));
+                                  console.log('✅ Back image loaded successfully');
+                                  console.log('🖼️ Back image dimensions:', e.currentTarget.naturalWidth, 'x', e.currentTarget.naturalHeight);
+                                  console.log('🖼️ Back image display size:', e.currentTarget.offsetWidth, 'x', e.currentTarget.offsetHeight);
+                                }}
+                                onError={(e) => {
+                                  setImageLoadingStates(prev => ({...prev, [`back-${selectedRequest.id}`]: false}));
+                                  console.error('❌ Failed to load back ID image:', selectedRequest.id_back_image_url);
+                                  console.error('❌ Processed URL was:', getImageUrl(selectedRequest.id_back_image_url));
+                                  e.currentTarget.style.display = 'none';
+                                  e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                                }}
+                              />
                             </div>
-                          )}
-                          <div className="w-full h-full flex items-center justify-center p-2">
-                            <img
-                              src={getImageUrl(selectedRequest.id_back_image_url)}
-                              alt="Back of ID"
-                              className="max-w-full max-h-full object-contain"
-                              style={{ 
-                                maxWidth: '100%',
-                                maxHeight: '100%',
-                                objectFit: 'contain'
-                              }}
-                              onLoadStart={() => {
-                                setImageLoadingStates(prev => ({...prev, [`back-${selectedRequest.id}`]: true}));
-                                console.log('🔄 Back image loading started');
-                              }}
-                              onLoad={(e) => {
-                                setImageLoadingStates(prev => ({...prev, [`back-${selectedRequest.id}`]: false}));
-                                console.log('✅ Back image loaded successfully');
-                                console.log('🖼️ Back image dimensions:', e.currentTarget.naturalWidth, 'x', e.currentTarget.naturalHeight);
-                                console.log('🖼️ Back image display size:', e.currentTarget.offsetWidth, 'x', e.currentTarget.offsetHeight);
-                              }}
-                              onError={(e) => {
-                                setImageLoadingStates(prev => ({...prev, [`back-${selectedRequest.id}`]: false}));
-                                console.error('❌ Failed to load back ID image:', selectedRequest.id_back_image_url);
-                                console.error('❌ Processed URL was:', getImageUrl(selectedRequest.id_back_image_url));
-                                e.currentTarget.style.display = 'none';
-                                e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                              }}
-                            />
-                          </div>
-                          <div className="absolute inset-0 bg-transparent group-hover:bg-black group-hover:bg-opacity-10 transition-all rounded-lg flex items-center justify-center pointer-events-none">
-                            <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white bg-opacity-90 px-3 py-1 rounded-full text-sm font-medium pointer-events-auto">
-                              Click to view full size
+                            <div className="absolute inset-0 bg-transparent group-hover:bg-black group-hover:bg-opacity-10 transition-all rounded-lg flex items-center justify-center pointer-events-none">
+                              <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white bg-opacity-90 px-3 py-1 rounded-full text-sm font-medium pointer-events-auto">
+                                Click to view full size
+                              </div>
+                            </div>
+                            {/* Fallback for failed image load */}
+                            <div className="hidden w-full h-48 bg-gray-100 rounded-lg border border-gray-200 items-center justify-center">
+                              <div className="text-center">
+                                <AlertTriangle className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                                <p className="text-sm text-gray-500">Image failed to load</p>
+                                <p className="text-xs text-gray-400 mt-1">Click to try viewing</p>
+                              </div>
                             </div>
                           </div>
-                          {/* Fallback for failed image load */}
-                          <div className="hidden w-full h-48 bg-gray-100 rounded-lg border border-gray-200 items-center justify-center">
-                            <div className="text-center">
-                              <AlertTriangle className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                              <p className="text-sm text-gray-500">Image failed to load</p>
-                              <p className="text-xs text-gray-400 mt-1">Click to try viewing</p>
+
+                          <div className="mt-2 flex items-center justify-between">
+                            <div className="text-xs text-gray-500 truncate max-w-[70%]">{selectedRequest.id_back_image_url}</div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => openUrlInNewTab(getImageUrl(selectedRequest.id_back_image_url))}
+                                className="text-sm text-blue-600 hover:underline"
+                              >
+                                Open
+                              </button>
+                              <button
+                                onClick={() => copyToClipboard(getImageUrl(selectedRequest.id_back_image_url))}
+                                className="text-sm text-gray-600 hover:underline"
+                              >
+                                Copy
+                              </button>
                             </div>
                           </div>
-                        </div>
+                        </>
                       ) : null}
                       {!selectedRequest.id_back_image_url && (
                         <div className="w-full h-48 bg-gray-100 rounded-lg border border-gray-200 flex items-center justify-center">
@@ -687,40 +832,43 @@ export function AdminVerificationDashboard() {
                         </div>
                       )}
                     </div>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="p-6 border-t border-gray-200 bg-gray-50">
-              <div className="flex justify-between">
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => setShowModal(false)}
-                    className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+            <div className="p-8 border-t border-slate-200 bg-slate-50 flex justify-end gap-3">
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setShowModal(false)}
+                className="px-6 py-3 text-slate-700 bg-white border-2 border-slate-200 rounded-xl hover:border-slate-300 font-semibold transition-all"
+              >
+                Cancel
+              </motion.button>
+              {selectedRequest.status === 'pending' && (
+                <>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => confirmVerification(selectedRequest.id, 'declined', selectedRequest)}
+                    disabled={processing === selectedRequest.id}
+                    className="px-6 py-3 text-white bg-red-500 hover:bg-red-600 rounded-xl font-semibold shadow-lg hover:shadow-xl disabled:opacity-50 transition-all"
                   >
-                    Cancel
-                  </button>
-                  {selectedRequest.status === 'pending' && (
-                    <>
-                      <button
-                        onClick={() => confirmVerification(selectedRequest.id, 'declined', selectedRequest)}
-                        disabled={processing === selectedRequest.id}
-                        className="px-4 py-2 text-red-700 bg-red-100 border border-red-300 rounded-lg hover:bg-red-200 disabled:opacity-50"
-                      >
-                        Decline
-                      </button>
-                      <button
-                        onClick={() => confirmVerification(selectedRequest.id, 'approved', selectedRequest)}
-                        disabled={processing === selectedRequest.id}
-                        className="px-4 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50"
-                      >
-                        Approve
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
+                    Decline
+                  </motion.button>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => confirmVerification(selectedRequest.id, 'approved', selectedRequest)}
+                    disabled={processing === selectedRequest.id}
+                    className="px-6 py-3 text-white bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 rounded-xl font-semibold shadow-lg hover:shadow-xl disabled:opacity-50 transition-all"
+                  >
+                    Approve
+                  </motion.button>
+                </>
+              )}
             </div>
           </motion.div>
         </div>

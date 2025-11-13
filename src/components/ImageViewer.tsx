@@ -33,6 +33,8 @@ export function ImageViewer({
   const lastTouchDistance = useRef<number | null>(null);
   const lastPan = useRef<{ x: number; y: number } | null>(null);
   const lastTap = useRef<number>(0);
+  const isMouseDown = useRef(false);
+  const mouseStart = useRef({ x: 0, y: 0 });
 
   const MIN_SCALE = 1;
   const MAX_SCALE = 4;
@@ -143,14 +145,22 @@ export function ImageViewer({
     imgRef.current.style.transform = `translate(${t.x}px, ${t.y}px) scale(${scale})`;
   };
 
-  // Wheel zoom for desktop
+  // Wheel zoom for desktop and vertical panning
   const handleWheel = (e: React.WheelEvent) => {
-    if (!e.ctrlKey && Math.abs(e.deltaY) === 0) return;
-    e.preventDefault();
-    const delta = -e.deltaY;
-    const zoomFactor = delta > 0 ? 1.1 : 0.9;
-    const nextScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale * zoomFactor));
-    setScale(nextScale);
+    // Ctrl+scroll = zoom
+    if (e.ctrlKey) {
+      e.preventDefault();
+      const delta = -e.deltaY;
+      const zoomFactor = delta > 0 ? 1.1 : 0.9;
+      const nextScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale * zoomFactor));
+      setScale(nextScale);
+    } else if (scale > 1) {
+      // Regular scroll when zoomed = pan vertically
+      e.preventDefault();
+      const panAmount = e.deltaY * 0.8; // Adjust sensitivity
+      translate.current.y -= panAmount;
+      applyTransform();
+    }
   };
 
   // Double-tap to toggle zoom
@@ -162,6 +172,24 @@ export function ImageViewer({
       setScale(next);
     }
     lastTap.current = now;
+  };
+
+  // Mouse drag handlers for panning
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (scale <= 1) return;
+    isMouseDown.current = true;
+    mouseStart.current = { x: e.clientX - translate.current.x, y: e.clientY - translate.current.y };
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isMouseDown.current || scale <= 1) return;
+    translate.current.x = e.clientX - mouseStart.current.x;
+    translate.current.y = e.clientY - mouseStart.current.y;
+    applyTransform();
+  };
+
+  const handleMouseUp = () => {
+    isMouseDown.current = false;
   };
 
   useEffect(() => {
@@ -179,7 +207,7 @@ export function ImageViewer({
       {/* Image Container */}
       <div 
         ref={wrapperRef}
-        className="relative max-w-[95vw] max-h-[95vh] flex items-center justify-center"
+        className="relative max-w-[90vw] max-h-[90vh] flex items-center justify-center p-8"
         onClick={(e) => e.stopPropagation()}
   onTouchStart={(e) => { handleTouchStart(e); handleDoubleTap(); }}
         onTouchMove={handleTouchMove}
@@ -232,11 +260,15 @@ export function ImageViewer({
           ref={imgRef}
           src={imageUrl}
           alt={alt}
-          className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+          className="max-w-full max-h-full object-contain rounded-lg shadow-2xl cursor-grab active:cursor-grabbing"
           style={{ transform: `scale(${scale})` }}
           loading="eager"
           decoding="sync"
           fetchPriority="high"
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
           onError={(e) => {
             console.error('Failed to load image:', imageUrl);
             const imgElement = e.target as HTMLImageElement;
