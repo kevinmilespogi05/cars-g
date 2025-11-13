@@ -51,7 +51,7 @@ export function Register() {
   const [username, setUsername] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [phone, setPhone] = useState('+63');
+  const [phone, setPhone] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -294,15 +294,7 @@ export function Register() {
         throw new Error(data.error || 'Failed to send verification code');
       }
 
-      try {
-        localStorage.setItem('registeredEmail', email);
-        if (data.userId) {
-          localStorage.setItem('registeredUserId', data.userId);
-          setRegisteredUserId(data.userId);
-        }
-      } catch (err) {
-        console.warn('Failed to persist registration info', err);
-      }
+      setRegisteredUserId(data.userId || null);
 
       setOtpSent(true);
       setOtpSuccess('Verification code sent. Please check your email.');
@@ -355,13 +347,7 @@ export function Register() {
       setIsEmailVerified(true);
       setOtpSuccess('Email verified successfully! Continue to create your account.');
       setOtp('');
-      try {
-        localStorage.setItem('registeredEmail', email);
-        localStorage.setItem('emailVerified', email);
-        localStorage.removeItem('registeredUserId');
-      } catch (err) {
-        console.warn('Failed to persist email verification status', err);
-      }
+      setRegisteredUserId(null);
       setRegisteredUserId(null);
       setResendDisabled(false);
       setResendCountdown(0);
@@ -401,12 +387,6 @@ export function Register() {
       const data = await response.json();
       if (!response.ok) {
         throw new Error(data.error || 'Failed to resend verification code');
-      }
-
-      try {
-        localStorage.setItem('registeredEmail', email);
-      } catch (err) {
-        console.warn(err);
       }
 
       setOtpSuccess('A new verification code was sent to your email.');
@@ -681,6 +661,7 @@ export function Register() {
                         <input
                           type="email"
                           id="registrationEmail"
+                          autoComplete="off"
                           value={email}
                           onChange={(e) => {
                             const value = e.target.value;
@@ -715,7 +696,7 @@ export function Register() {
                               setGmailError('');
                             }
                           }}
-                          placeholder="your.name@gmail.com"
+                          placeholder=""
                           className={`w-full pl-11 pr-11 py-3 bg-white border rounded-lg text-gray-900 placeholder-gray-400 focus:ring-2 transition-all duration-200 outline-none ${
                             isEmailVerified ? 'opacity-70 cursor-not-allowed' : ''
                           } ${
@@ -814,11 +795,12 @@ export function Register() {
                         <input
                           type="text"
                           id="registrationOtp"
+                          autoComplete="one-time-code"
                           inputMode="numeric"
                           maxLength={6}
                           value={otp}
                           onChange={(e) => setOtp(e.target.value.replace(/[^0-9]/g, ''))}
-                          placeholder="123456"
+                          placeholder=""
                           className="w-full text-center text-2xl tracking-[0.5em] px-4 py-3 border border-gray-300 rounded-lg bg-white focus:border-red-800 focus:ring-2 focus:ring-red-800/20 transition-all duration-200 outline-none"
                         />
                         <p className="mt-2 text-xs text-gray-500 text-center">
@@ -895,11 +877,12 @@ export function Register() {
                         <input
                           type="text"
                           id="firstName"
+                          autoComplete="off"
                           value={firstName}
                           onChange={(e) => setFirstName(e.target.value)}
                           required
                           className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:border-red-800 focus:ring-2 focus:ring-red-800/20 transition-all duration-200 outline-none"
-                          placeholder="John"
+                          placeholder=""
                         />
                       </div>
                       <div>
@@ -909,11 +892,12 @@ export function Register() {
                         <input
                           type="text"
                           id="lastName"
+                          autoComplete="off"
                           value={lastName}
                           onChange={(e) => setLastName(e.target.value)}
                           required
                           className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:border-red-800 focus:ring-2 focus:ring-red-800/20 transition-all duration-200 outline-none"
-                          placeholder="Doe"
+                          placeholder=""
                         />
                       </div>
                     </div>
@@ -929,6 +913,7 @@ export function Register() {
                         <input
                           type="email"
                           id="email"
+                          autoComplete="off"
                           value={email}
                           onChange={(e) => {
                             const value = e.target.value;
@@ -962,7 +947,7 @@ export function Register() {
                               ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20'
                               : 'border-gray-300 focus:border-red-800 focus:ring-red-800/20'
                           }`}
-                          placeholder="your.name@gmail.com"
+                          placeholder=""
                         />
                         <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
                           {emailCheck.isChecking && (
@@ -1002,6 +987,7 @@ export function Register() {
                         <input
                           type="text"
                           id="username"
+                          autoComplete="off"
                           value={username}
                           onChange={(e) => setUsername(e.target.value)}
                           required
@@ -1014,7 +1000,7 @@ export function Register() {
                               ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20'
                               : 'border-gray-300 focus:border-red-800 focus:ring-red-800/20'
                           }`}
-                          placeholder="johndoe"
+                          placeholder=""
                         />
                         <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
                           {usernameCheck.isChecking && (
@@ -1046,34 +1032,30 @@ export function Register() {
                         <input
                           type="tel"
                           id="phone"
+                          autoComplete="off"
                           value={phone}
                           onChange={(e) => {
-                            const value = e.target.value;
-                            
-                            if (!value.startsWith('+63')) {
-                              setPhone('+63');
+                            const rawValue = e.target.value;
+                            const digitsOnly = rawValue.replace(/\D/g, '');
+
+                            if (!digitsOnly) {
+                              setPhone('');
                               return;
                             }
-                            
-                            const digits = value.slice(3).replace(/\D/g, '');
-                            
-                            if (digits.length <= 10) {
-                              setPhone('+63' + digits);
+
+                            let normalized = digitsOnly;
+                            if (normalized.startsWith('63')) {
+                              normalized = normalized.slice(2);
+                            } else if (normalized.startsWith('0')) {
+                              normalized = normalized.slice(1);
                             }
-                          }}
-                          onFocus={() => {
-                            if (phone === '' || phone === '+') {
-                              setPhone('+63');
-                            }
-                          }}
-                          onKeyDown={(e) => {
-                            const cursorPosition = e.currentTarget.selectionStart || 0;
-                            if ((e.key === 'Backspace' || e.key === 'Delete') && cursorPosition <= 3) {
-                              e.preventDefault();
-                            }
+
+                            normalized = normalized.slice(0, 10);
+
+                            setPhone(normalized ? `+63${normalized}` : '');
                           }}
                           className="w-full pl-11 pr-4 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:border-red-800 focus:ring-2 focus:ring-red-800/20 transition-all duration-200 outline-none"
-                          placeholder="+63 9XX XXX XXXX"
+                          placeholder=""
                           maxLength={13}
                         />
                       </div>
@@ -1092,11 +1074,12 @@ export function Register() {
                         <input
                           type={showPassword ? 'text' : 'password'}
                           id="password"
+                          autoComplete="new-password"
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
                           required
                           className="w-full pl-11 pr-11 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:border-red-800 focus:ring-2 focus:ring-red-800/20 transition-all duration-200 outline-none"
-                          placeholder="••••••••"
+                          placeholder=""
                         />
                         <button
                           type="button"
@@ -1133,11 +1116,12 @@ export function Register() {
                         <input
                           type={showConfirmPassword ? 'text' : 'password'}
                           id="confirmPassword"
+                          autoComplete="new-password"
                           value={confirmPassword}
                           onChange={(e) => setConfirmPassword(e.target.value)}
                           required
                           className="w-full pl-11 pr-11 py-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-400 focus:border-red-800 focus:ring-2 focus:ring-red-800/20 transition-all duration-200 outline-none"
-                          placeholder="••••••••"
+                          placeholder=""
                         />
                         <button
                           type="button"
