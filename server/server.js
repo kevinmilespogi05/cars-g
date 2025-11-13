@@ -149,9 +149,11 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", 'https:'],
+      // Allow the app and trusted Google/Firebase CDNs for scripts used by FCM
+      scriptSrc: ["'self'", "'unsafe-inline'", 'https://www.gstatic.com', 'https://www.googleapis.com', 'https:'],
       styleSrc: ["'self'", "'unsafe-inline'", 'https:'],
-      connectSrc: ["'self'", 'https:'],
+      // Allow connections to Google APIs and FCM endpoints
+      connectSrc: ["'self'", 'https://www.googleapis.com', 'https://fcm.googleapis.com', 'https:'],
       imgSrc: ["'self'", 'data:', 'https:'],
       fontSrc: ["'self'", 'https://r2cdn.perplexity.ai', 'https://fonts.gstatic.com', 'https://fonts.googleapis.com', 'data:'],
       manifestSrc: ["'self'"],
@@ -3664,9 +3666,13 @@ const startServer = async () => {
   try {
     await testSupabaseConnection();
     
+    // Debug: show normalized frontend URL and allowed origins
+    console.log('Normalized FRONTEND_URL:', normalizedFrontendUrl);
+    console.log('Allowed CORS origins:', allowedOrigins);
+
     server.listen(PORT, () => {
       console.log(`🚀 Server running on port ${PORT}`);
-      console.log(`🌐 Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:5173'}`);
+      console.log(`🌐 Frontend URL: ${normalizedFrontendUrl || process.env.FRONTEND_URL || 'http://localhost:5173'}`);
       console.log(`📊 Health check: http://localhost:${PORT}/health`);
       console.log('\n✅ Server is ready!');
     });
