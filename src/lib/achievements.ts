@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 import { awardCustomPoints } from './points';
 import { getApiUrl } from './config';
+import { getStoredTokens } from './jwt';
 
 export interface Achievement {
   id: string;
@@ -22,7 +23,7 @@ export const ACHIEVEMENTS: Achievement[] = [
     points: 25,
     icon: '📝',
     requirement: {
-      type: 'reports_submitted',
+      type: 'reports_verified',
       count: 1
     }
   },
@@ -90,12 +91,12 @@ export async function getUserStatsWithCache(userId: string) {
       .select('*', { count: 'exact', head: true })
       .eq('user_id', userId),
     
-    // Reports verified (status = 'in_progress' or 'verified')
+    // Reports verified (status = 'verified') - count only after admin verification
     supabase
       .from('reports')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', userId)
-      .in('status', ['in_progress', 'verified']),
+      .eq('status', 'verified'),
     
     // Reports resolved
     supabase
@@ -233,11 +234,19 @@ export async function checkAchievements(userId: string): Promise<Achievement[]> 
         
         // Record the achievement via backend API
         try {
+          const tokens = getStoredTokens();
+          const headers: HeadersInit = {
+            'Content-Type': 'application/json',
+          };
+          
+          // Add authorization header if token exists
+          if (tokens?.accessToken) {
+            headers['Authorization'] = `Bearer ${tokens.accessToken}`;
+          }
+          
           const response = await fetch(getApiUrl('/api/achievements/award'), {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
+            headers,
             body: JSON.stringify({
               userId,
               achievementId: achievement.id,

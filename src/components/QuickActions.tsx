@@ -124,7 +124,7 @@ export function QuickActions({ hideEmergencyActions = false, variant = 'default'
   // For desktop view, filter out mobileOnly items
   // For sidebar (compact) variant, hide items that don't belong in the quick-actions sidebar
   const visibleQuickActions = variant === 'sidebar'
-    ? quickActions.filter(a => a.id !== 'view-reports' && a.id !== 'leaderboard')
+    ? quickActions.filter(a => !a.mobileOnly && a.id !== 'view-reports' && a.id !== 'leaderboard')
     : quickActions.filter(a => !a.mobileOnly);
 
   return (

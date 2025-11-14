@@ -147,6 +147,12 @@ function AppContentInner() {
   // Check if we're on any admin page
   const isAdminPage = location.pathname.startsWith('/admin');
 
+  // Check if we're on pages that should not show footer
+  const isNoFooterPage = location.pathname === '/reports' || 
+                         location.pathname === '/announcements' || 
+                         location.pathname === '/emergency-contacts' || 
+                         location.pathname === '/leaderboard';
+
   // Show welcome guide for new users
   useEffect(() => {
     if (isAuthenticated && user) {
@@ -287,8 +293,8 @@ function AppContentInner() {
             </Suspense>
           </main>
           
-          {/* Footer - only show on non-landing pages and non-auth pages and non-admin pages and when image viewer is not open */}
-          {!isLandingPage && !isAuthPage && !isAdminPage && !isImageViewerOpen && <Footer />}
+          {/* Footer - only show on non-landing pages and non-auth pages and non-admin pages and when image viewer is not open and not on no-footer pages */}
+          {!isLandingPage && !isAuthPage && !isAdminPage && !isImageViewerOpen && !isNoFooterPage && <Footer />}
           
           {/* Network Status Indicator */}
           {!isOnline && (

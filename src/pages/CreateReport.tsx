@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 // Analytics (vercel) removed — provide a safe no-op tracker to avoid build-time errors
 import { useNavigate } from 'react-router-dom';
 import { Camera, MapPin, Loader2, AlertCircle, X, CheckCircle, Upload, Bot, Sparkles, Trophy, Construction, Shield, Leaf, Building2, HelpCircle, ChevronRight, EyeOff, Eye } from 'lucide-react';
@@ -239,6 +239,8 @@ export function CreateReport() {
     setImagePreviewUrls(prev => [...prev, ...newPreviewUrls]);
   };
 
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
   // Map raw errors to user-friendly messages
   const mapFriendlyError = (error: unknown): string => {
     const msg = error instanceof Error ? error.message : String(error || 'Unknown error');
@@ -440,18 +442,15 @@ export function CreateReport() {
             <Camera className="h-4 w-4" />
             <span>Capture</span>
           </button>
-          <label className={`flex-1 ${remainingSlots <= 0 ? 'bg-gray-400 cursor-not-allowed' : 'bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 cursor-pointer'} text-white px-4 py-2.5 rounded-lg transition-all duration-200 flex items-center justify-center space-x-2 text-sm font-semibold shadow-sm`}>
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={remainingSlots <= 0}
+            className={`flex-1 ${remainingSlots <= 0 ? 'bg-gray-400 cursor-not-allowed' : 'bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800'} text-white px-4 py-2.5 rounded-lg transition-all duration-200 flex items-center justify-center space-x-2 text-sm font-semibold shadow-sm`}
+          >
             <Upload className="h-4 w-4" />
-            <span>Upload</span>
-            <input
-              type="file"
-              multiple
-              accept="image/*"
-              onChange={handleImageUpload}
-              className="hidden"
-              disabled={remainingSlots <= 0}
-            />
-          </label>
+            <span>Choose from Gallery</span>
+          </button>
         </div>
 
         {/* Photo count indicator */}
@@ -878,7 +877,7 @@ export function CreateReport() {
                           </>
                         ) : (
                           <>
-                            Your name and profile will be visible with this report. You'll earn {POINTS_FOR_REPORT} points for your contribution.
+                            Your name and profile will be visible with this report. Points (<span className="font-semibold">{POINTS_FOR_REPORT}</span>) are awarded after an admin verifies the report.
                           </>
                         )}
                       </p>
@@ -910,7 +909,7 @@ export function CreateReport() {
                       {/* Compact Message */}
                       <div className="flex-1 min-w-0">
                         <p className="text-sm sm:text-base font-bold text-gray-900">
-                          Earn <span className="text-amber-600">{POINTS_FOR_REPORT} points</span> for your report!
+                          Points: <span className="text-amber-600">{POINTS_FOR_REPORT} points</span> — awarded after admin verification
                         </p>
                         <p className="text-xs text-amber-800 mt-0.5">
                           Help improve your community
@@ -951,6 +950,17 @@ export function CreateReport() {
             </form>
           </div>
         </div>
+
+        {/* Hidden file input used for gallery selection */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept="image/*"
+          onChange={handleImageUpload}
+          className="hidden"
+          aria-hidden="true"
+        />
 
         {/* Photo Capture Modal */}
         {showPhotoCapture && (
