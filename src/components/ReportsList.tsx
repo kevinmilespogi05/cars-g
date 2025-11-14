@@ -219,83 +219,76 @@ export function ReportsList({
   };
 
   return (
-    <div className="space-y-5">
-      {/* Search and Filters Section */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-semibold text-text-primary">Reports</h2>
-          <span className="text-xs text-gray-500 bg-gray-50 px-2.5 py-1 rounded-full">
-            {filteredReports.length} report{filteredReports.length !== 1 ? 's' : ''}
-          </span>
-        </div>
-        <div className="flex items-center gap-2 text-xs text-text-secondary mb-4">
-          <span>Showing {startIndex + 1}-{Math.min(endIndex, filteredReports.length)} of {filteredReports.length}</span>
-          {totalPages > 1 && <span>• Page {currentPage} of {totalPages}</span>}
-        </div>
-        
-        <div className="flex flex-col sm:flex-row gap-4">
-          {/* Search */}
-          <div className="flex-1">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <input
-                type="text"
-                placeholder="Search reports by title or description..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white transition-colors"
-                aria-label="Search reports"
-              />
-            </div>
+    <div className="space-y-4">
+      {/* Search and Filters Section - Compact */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        {/* Search Bar */}
+        <div className="flex items-center gap-2 mb-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <input
+              type="text"
+              placeholder="Search reports..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white transition-colors"
+              aria-label="Search reports"
+            />
           </div>
+        </div>
 
-          {/* Filters */}
-          <div className="flex flex-wrap gap-3">
-            <select
-              value={filters.category}
-              onChange={(e) => setFilters(prev => ({ ...prev, category: e.target.value }))}
-              className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white transition-colors"
-              aria-label="Filter by category"
+        {/* Filters Row */}
+        <div className="flex flex-col sm:flex-row gap-2">
+          <select
+            value={filters.category}
+            onChange={(e) => setFilters(prev => ({ ...prev, category: e.target.value }))}
+            className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white transition-colors"
+            aria-label="Filter by category"
+          >
+            {CATEGORIES.map(category => (
+              <option key={category} value={category}>{category}</option>
+            ))}
+          </select>
+
+          <select
+            value={filters.status}
+            onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
+            className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white transition-colors"
+            aria-label="Filter by status"
+          >
+            {STATUSES.map(status => (
+              <option key={status} value={status}>{status}</option>
+            ))}
+          </select>
+
+          <select
+            value={filters.priority}
+            onChange={(e) => setFilters(prev => ({ ...prev, priority: e.target.value }))}
+            className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white transition-colors"
+            aria-label="Filter by priority"
+          >
+            {PRIORITIES.map(priority => (
+              <option key={priority} value={priority}>{priority}</option>
+            ))}
+          </select>
+
+          {/* Clear Filters Button */}
+          {(searchTerm || filters.category !== 'All' || filters.status !== 'All' || filters.priority !== 'All') && (
+            <button
+              onClick={clearFilters}
+              className="flex items-center justify-center gap-1.5 px-3 py-2 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-lg transition-colors whitespace-nowrap"
+              aria-label="Clear all filters"
             >
-              {CATEGORIES.map(category => (
-                <option key={category} value={category}>{category}</option>
-              ))}
-            </select>
+              <X className="h-4 w-4" />
+              Clear
+            </button>
+          )}
+        </div>
 
-            <select
-              value={filters.status}
-              onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
-              className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white transition-colors"
-              aria-label="Filter by status"
-            >
-              {STATUSES.map(status => (
-                <option key={status} value={status}>{status}</option>
-              ))}
-            </select>
-
-            <select
-              value={filters.priority}
-              onChange={(e) => setFilters(prev => ({ ...prev, priority: e.target.value }))}
-              className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 bg-white transition-colors"
-              aria-label="Filter by priority"
-            >
-              {PRIORITIES.map(priority => (
-                <option key={priority} value={priority}>{priority}</option>
-              ))}
-            </select>
-
-            {/* Clear Filters Button */}
-            {(searchTerm || filters.category !== 'All' || filters.status !== 'All' || filters.priority !== 'All') && (
-              <button
-                onClick={clearFilters}
-                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-lg transition-colors"
-                aria-label="Clear all filters"
-              >
-                <X className="h-4 w-4" />
-                Clear Filters
-              </button>
-            )}
-          </div>
+        {/* Results Info */}
+        <div className="mt-3 text-xs text-gray-600 flex items-center justify-between">
+          <span>{filteredReports.length} report{filteredReports.length !== 1 ? 's' : ''} found</span>
+          {totalPages > 1 && <span>Page {currentPage} of {totalPages}</span>}
         </div>
       </div>
 
@@ -642,35 +635,33 @@ export function ReportsList({
         </motion.div>
       )}
 
-      {/* Pagination Controls */}
+      {/* Pagination Controls - Cleaner */}
       {filteredReports.length > 0 && totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 mt-8">
+        <div className="flex items-center justify-center gap-2 mt-6 pb-4">
           <button
             onClick={prevPage}
             disabled={currentPage === 1}
-            className={`px-4 py-2 rounded-lg font-medium transition-all ${
+            className={`px-3 py-2 text-sm rounded-lg font-medium transition-all ${
               currentPage === 1
                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300 hover:border-gray-400'
+                : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'
             }`}
             aria-label="Previous page"
           >
-            ← Previous
+            ← Prev
           </button>
 
           <div className="flex items-center gap-1">
             {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
-              // Show first page, last page, current page, and pages around current
               const showPage =
                 page === 1 ||
                 page === totalPages ||
                 (page >= currentPage - 1 && page <= currentPage + 1);
 
               if (!showPage) {
-                // Show ellipsis
                 if (page === currentPage - 2 || page === currentPage + 2) {
                   return (
-                    <span key={page} className="px-2 text-gray-400">
+                    <span key={page} className="px-2 text-gray-400 text-sm">
                       ...
                     </span>
                   );
@@ -682,10 +673,10 @@ export function ReportsList({
                 <button
                   key={page}
                   onClick={() => goToPage(page)}
-                  className={`w-10 h-10 rounded-lg font-medium transition-all ${
+                  className={`w-9 h-9 rounded-lg text-sm font-semibold transition-all ${
                     currentPage === page
-                      ? 'bg-accent-500 text-white shadow-md'
-                      : 'bg-white text-text-primary hover:bg-gray-50 border border-gray-300 hover:border-gray-400'
+                      ? 'bg-green-600 text-white shadow-md'
+                      : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'
                   }`}
                   aria-label={`Go to page ${page}`}
                   aria-current={currentPage === page ? 'page' : undefined}
@@ -699,10 +690,10 @@ export function ReportsList({
           <button
             onClick={nextPage}
             disabled={currentPage === totalPages}
-            className={`px-4 py-2 rounded-lg font-medium transition-all ${
+            className={`px-3 py-2 text-sm rounded-lg font-medium transition-all ${
               currentPage === totalPages
                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300 hover:border-gray-400'
+                : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'
             }`}
             aria-label="Next page"
           >

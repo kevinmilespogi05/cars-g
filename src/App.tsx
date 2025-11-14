@@ -10,6 +10,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { publicRoutes, protectedRoutes, adminRoutes, patrolRoutes } from './routes/routes';
 import { PWAPrompt } from './components/PWAPrompt';
 import { NetworkStatus } from './components/NetworkStatus';
+import { QuickActions } from './components/QuickActions';
 import { WelcomeGuide } from './components/WelcomeGuide';
 import { VerificationPendingBanner } from './components/VerificationPendingBanner';
 
@@ -251,10 +252,6 @@ function AppContentInner() {
           {/* Only show SidebarNavigation on non-landing and non-auth pages */}
           {!isLandingPage && !isAuthPage && <SidebarNavigation />}
           
-          {/* Mobile Menu Button - only show on mobile when sidebar is collapsed */}
-          {!isLandingPage && !isAuthPage && (
-            <MobileMenuButton />
-          )}
           
           <main 
             className={isLandingPage ? 'pt-0' : isAuthPage ? 'relative min-h-screen' : 'relative min-h-screen'}
@@ -322,6 +319,13 @@ function AppContentInner() {
 
           {/* Toast Notifications */}
           <ToastContainer />
+
+          {/* Mobile Floating Quick Actions (bottom-left) - use app-level placement so fixed positioning is reliable */}
+          {!isLandingPage && !isAuthPage && (
+            <div className="lg:hidden">
+              <QuickActions hideEmergencyActions />
+            </div>
+          )}
           
           {/* Analytics removed (Vercel analytics not installed) */}
         </div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { FileText, Award, User, LogOut, Shield, Menu, X, ChevronDown, MapPin, Megaphone, MessageCircle } from 'lucide-react';
+import { FileText, Award, User, LogOut, Shield, ChevronDown, MapPin, Megaphone, MessageCircle } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { supabase } from '../lib/supabase';
 import { ChatButton } from './ChatButton';
@@ -11,7 +11,6 @@ export function Navigation() {
   const navigate = useNavigate();
   const { user, signOut, isAdminLike } = useAuthStore();
   const [isScrolled, setIsScrolled] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
 
@@ -107,33 +106,14 @@ export function Navigation() {
             <div className="hidden md:flex md:items-center md:space-x-1">
               {navItems.map(({ path, icon: Icon, label }) => (
                 <Link
-                  key={path}
-                  to={path}
-                  className={`
-                    inline-flex items-center px-4 py-2.5 rounded-xl text-sm font-medium 
-                    transition-all duration-200 relative group
-                    ${isActive(path)
-                      ? 'text-white shadow-sm border border-white/30' 
-                      : 'text-white hover:text-white'
-                    }
-                  `}
-                  style={isActive(path) ? {backgroundColor: '#660000'} : undefined}
-                >
-                  <Icon className={`h-4 w-4 mr-2 transition-colors duration-200 ${
-                    isActive(path) ? 'text-white' : 'text-white'
-                  }`} />
-                  {label}
-                  {isActive(path) && (
-                    <div className="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-white rounded-full"></div>
                   )}
-                </Link>
-              ))}
-              
-              {/* Chat Button - only for regular users (not admin or patrol) on desktop */}
-              {!isAdminLike() && user?.role !== 'patrol' && (
-                <ChatButton 
-                  adminId="admin" // This should be the actual admin user ID
-                  className="ml-2"
+
+                  {/* Mobile menu intentionally removed: use Quick Actions (+) instead */}
+                </div>
+              </div>
+            </nav>
+          );
+        }
                 />
               )}
               
@@ -206,95 +186,8 @@ export function Navigation() {
             </div>
           )}
 
-          {/* Mobile Menu Button */}
-          {user && (
-            <button
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="md:hidden p-2.5 rounded-xl text-white transition-all duration-200 shadow-sm border border-transparent min-h-[44px] min-w-[44px] flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-white/50 focus:ring-offset-2 focus:ring-offset-[#800000]"
-              aria-label={isMobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
-              aria-expanded={isMobileMenuOpen}
-            >
-              {isMobileMenuOpen ? (
-                <X className="h-5 w-5" aria-hidden="true" />
-              ) : (
-                <Menu className="h-5 w-5" aria-hidden="true" />
-              )}
-            </button>
-          )}
-
-          {!user && (
-            <div className="flex items-center space-x-3">
-              <Link to="/login" className="text-white hover:text-white transition-colors px-4 py-2.5 rounded-xl font-medium shadow-sm border border-transparent">
-                Sign In
-              </Link>
-              <Link 
-                to="/register" 
-                className="text-white px-6 py-2.5 rounded-xl transition-all duration-200 font-semibold shadow-md hover:shadow-lg hover:scale-105 border border-white/30"
-                style={{backgroundColor: '#660000'}}
-                onMouseEnter={(e) => (e.currentTarget as HTMLElement).style.backgroundColor = '#550000'}
-                onMouseLeave={(e) => (e.currentTarget as HTMLElement).style.backgroundColor = '#660000'}
-              >
-                Get Started
-              </Link>
-            </div>
-          )}
-        </div>
-
-        {/* Mobile Menu */}
-        {user && isMobileMenuOpen && (
-          <div className="md:hidden border-t border-white/20 mt-3" style={{backgroundColor: '#660000'}}>
-            <div className="px-4 py-4 border-b border-white/20">
-              <Link 
-                to="/profile" 
-                className="flex items-center space-x-3 group" 
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                <div className="relative">
-                  <img src={user.avatar_url || '/images/default-avatar.png'} alt="Profile" className="h-12 w-12 rounded-full object-cover ring-2 ring-white/30 group-hover:ring-white/50 transition-all duration-200" />
-                  <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
-                </div>
-                <div>
-                  <div className="text-white font-medium">{user.username}</div>
-                  <div className="text-white/70 text-sm capitalize">{user.role} • View Profile</div>
-                </div>
-              </Link>
-            </div>
-
-            <div className="px-2 py-3 space-y-1">
-              {navItems.map(({ path, icon: Icon, label }) => (
-                <Link
-                  key={path}
-                  to={path}
-                  className={`flex items-center px-4 py-3.5 rounded-xl text-base font-medium transition-all duration-200 ${
-                    isActive(path) 
-                      ? 'text-white border border-white/30 shadow-sm' 
-                      : 'text-white hover:text-white'
-                  }`}
-                  style={isActive(path) ? {backgroundColor: '#550000'} : undefined}
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  <Icon className={`h-5 w-5 mr-3 transition-colors duration-200 ${
-                    isActive(path) ? 'text-white' : 'text-white'
-                  }`} />
-                  {label}
-                </Link>
-              ))}
-
-
-              
-
-              <div className="border-t border-white/20 my-2"></div>
-              
-              <button 
-                onClick={() => { setIsMobileMenuOpen(false); handleLogout(); }} 
-                className="flex items-center w-full px-4 py-3.5 rounded-xl text-base font-medium text-red-200 hover:bg-red-900/50 hover:text-white transition-all duration-200 hover:shadow-sm"
-              >
-                <LogOut className="h-5 w-5 mr-3" />
-                Sign Out
-              </button>
-            </div>
-          </div>
-        )}
+          {/* Mobile menu intentionally removed: use Quick Actions (+) instead */}
+        {/* Mobile navigation removed - QuickActions (+) now provides mobile access to announcements/contacts/profile links. */}
       </div>
     </nav>
   );

@@ -378,28 +378,24 @@ export function Reports() {
           
           {/* MAIN CONTENT: Reports Section */}
           <main className="max-w-7xl mx-auto">
-            {/* Reports Section Header - Enhanced */}
-            <div className="mb-8 pb-6 border-b-2 border-gray-200">
-              <div className="flex items-start justify-between">
+            {/* Reports Section Header - Clean & Minimal */}
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-gray-900 mb-3 flex items-center gap-3 animate-fade-in">
-                    <div className="p-2 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-lg">
-                      <FileText className="h-8 w-8 sm:h-10 sm:w-10 text-white" />
-                    </div>
-                    Reports Dashboard
+                  <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 flex items-center gap-2">
+                    <FileText className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600" />
+                    Community Reports
                   </h1>
-                  <p className="text-base sm:text-lg text-gray-600 ml-1">
-                    View, manage, and track all community reports
-                  </p>
                 </div>
-                {/* Quick Stats Badge */}
-                <div className="hidden sm:block">
-                  <div className="px-4 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border-2 border-blue-200 shadow-sm">
-                    <div className="text-xs text-gray-600 font-medium">Total Reports</div>
-                    <div className="text-2xl font-bold text-blue-600">{reports.length}</div>
-                  </div>
+                {/* Quick Stats Badge - Compact */}
+                <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-blue-50 rounded-lg border border-blue-200">
+                  <span className="text-xs text-gray-600 font-medium">Total:</span>
+                  <span className="text-lg font-bold text-blue-600">{reports.length}</span>
                 </div>
               </div>
+              <p className="text-sm text-gray-600">
+                Browse and interact with reports from your community
+              </p>
             </div>
 
             {/* Reports List with Search & Filters */}
@@ -440,10 +436,6 @@ export function Reports() {
         </div>
       </div>
 
-      {/* Mobile Floating Quick Actions Button - Always visible on mobile */}
-      <div className="lg:hidden">
-        <QuickActions hideEmergencyActions />
-      </div>
 
       {/* Image Modal */}
       {selectedImage && (

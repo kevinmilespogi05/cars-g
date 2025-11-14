@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
   Plus, 
@@ -10,7 +10,9 @@ import {
   Camera,
   AlertTriangle,
   X,
-  MessageCircle
+  MessageCircle,
+  User,
+  LogOut
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { ChatWindow } from './ChatWindow';
@@ -31,9 +33,20 @@ interface QuickActionsProps {
 }
 
 export function QuickActions({ hideEmergencyActions = false, variant = 'default' }: QuickActionsProps) {
-  const { user, isAdminLike } = useAuthStore();
+  const navigate = useNavigate();
+  const { user, isAdminLike, signOut } = useAuthStore();
   const [isOpen, setIsOpen] = React.useState(false);
   const [isChatOpen, setIsChatOpen] = React.useState(false);
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      navigate('/login');
+    } catch (error) {
+      console.error('Error signing out:', error);
+      navigate('/login');
+    }
+  };
 
   const getQuickActions = (): QuickAction[] => {
     if (isAdminLike(user?.role)) {
@@ -72,15 +85,24 @@ export function QuickActions({ hideEmergencyActions = false, variant = 'default'
           color: 'text-red-600',
           bgColor: 'bg-red-100'
         },
-        {
-          id: 'view-reports',
-          title: 'My Reports',
-          description: 'Track your reports',
-          icon: FileText,
-          path: '/profile',
-          color: 'text-blue-600',
-          bgColor: 'bg-blue-100'
-        },
+          {
+            id: 'announcements',
+            title: 'Announcements',
+            description: 'Latest community announcements',
+            icon: Bell,
+            path: '/announcements',
+            color: 'text-indigo-600',
+            bgColor: 'bg-indigo-100'
+          },
+          {
+            id: 'contacts',
+            title: 'Contacts',
+            description: 'Emergency contacts',
+            icon: MapPin,
+            path: '/emergency-contacts',
+            color: 'text-teal-600',
+            bgColor: 'bg-teal-100'
+          },
         {
           id: 'leaderboard',
           title: 'Leaderboard',
@@ -254,6 +276,48 @@ export function QuickActions({ hideEmergencyActions = false, variant = 'default'
                         </div>
                         <span className="text-sm font-medium text-red-700 whitespace-nowrap">Report Emergency</span>
                       </Link>
+                    </motion.div>
+                  </div>
+                )}
+
+                {/* Profile & Sign Out (mobile) */}
+                {user && (
+                  <div className="mt-1 pt-1 border-t border-gray-200">
+                    <motion.div
+                      initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      transition={{ duration: 0.2, delay: (quickActions.length + 1) * 0.05 }}
+                    >
+                      <Link
+                        to="/profile"
+                        className="flex items-center gap-3 pl-3 pr-3 py-2 rounded-full bg-white border border-gray-200 shadow-md hover:shadow-lg active:scale-95 transition-all"
+                        onClick={() => setIsOpen(false)}
+                      >
+                        <div className="h-9 w-9 bg-purple-100 rounded-full flex items-center justify-center">
+                          <User className="h-5 w-5 text-purple-600" />
+                        </div>
+                        <span className="text-sm font-medium text-gray-900 whitespace-nowrap">Profile Settings</span>
+                      </Link>
+                    </motion.div>
+                    <motion.div
+                      initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      transition={{ duration: 0.2, delay: (quickActions.length + 2) * 0.05 }}
+                      className="mt-1"
+                    >
+                      <button
+                        type="button"
+                        className="flex items-center gap-3 pl-3 pr-3 py-2 rounded-full bg-white border border-red-200 shadow-md hover:shadow-lg active:scale-95 transition-all w-full"
+                        onClick={() => {
+                          setIsOpen(false);
+                          handleSignOut();
+                        }}
+                      >
+                        <div className="h-9 w-9 bg-red-100 rounded-full flex items-center justify-center">
+                          <LogOut className="h-5 w-5 text-red-600" />
+                        </div>
+                        <span className="text-sm font-medium text-red-700 whitespace-nowrap">Sign Out</span>
+                      </button>
                     </motion.div>
                   </div>
                 )}

@@ -737,88 +737,68 @@ export function PatrolDashboard() {
 
       <div className="w-full px-4 sm:px-6 lg:px-8 py-8">
         {/* Announcements Section removed from Patrol Dashboard */}
-        {/* Stats Overview (clickable filters) */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5 mb-8">
+        {/* Stats Overview (clickable filters) - Horizontal Layout */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-8">
           <button
             onClick={() => setFilterStatus('all')}
-            className={`text-left bg-white/90 backdrop-blur rounded-xl p-5 shadow-sm border transition-all ${
-              filterStatus === 'all' ? 'border-emerald-300 ring-2 ring-emerald-200' : 'border-gray-200 hover:border-gray-300 hover:shadow'
+            className={`text-left bg-white/90 backdrop-blur rounded-lg p-4 shadow-sm border transition-all ${
+              filterStatus === 'all' ? 'border-emerald-300 ring-2 ring-emerald-200 bg-emerald-50' : 'border-gray-200 hover:border-gray-300 hover:shadow'
             }`}
           >
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <Activity className="h-7 w-7 text-emerald-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Total Active</p>
-                <p className="text-2xl font-bold text-gray-900 tracking-tight">{totals.total}</p>
-              </div>
+            <div className="flex flex-col items-start">
+              <Activity className="h-6 w-6 text-emerald-600 mb-2" />
+              <p className="text-xs font-medium text-gray-500">Total Active</p>
+              <p className="text-xl font-bold text-gray-900 tracking-tight">{totals.total}</p>
             </div>
           </button>
           
           <button
             onClick={() => setFilterStatus('pending')}
-            className={`text-left bg-white/90 backdrop-blur rounded-xl p-5 shadow-sm border transition-all ${
-              filterStatus === 'pending' ? 'border-amber-300 ring-2 ring-amber-200' : 'border-gray-200 hover:border-gray-300 hover:shadow'
+            className={`text-left bg-white/90 backdrop-blur rounded-lg p-4 shadow-sm border transition-all ${
+              filterStatus === 'pending' ? 'border-amber-300 ring-2 ring-amber-200 bg-amber-50' : 'border-gray-200 hover:border-gray-300 hover:shadow'
             }`}
           >
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <AlertTriangle className="h-7 w-7 text-amber-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Pending</p>
-                <p className="text-2xl font-bold text-gray-900 tracking-tight">{totals.pending}</p>
-              </div>
+            <div className="flex flex-col items-start">
+              <AlertTriangle className="h-6 w-6 text-amber-600 mb-2" />
+              <p className="text-xs font-medium text-gray-500">Pending</p>
+              <p className="text-xl font-bold text-gray-900 tracking-tight">{totals.pending}</p>
             </div>
           </button>
           
           <button
             onClick={() => setFilterStatus('in_progress')}
-            className={`text-left bg-white/90 backdrop-blur rounded-xl p-5 shadow-sm border transition-all ${
-              filterStatus === 'in_progress' ? 'border-blue-300 ring-2 ring-blue-200' : 'border-gray-200 hover:border-gray-300 hover:shadow'
+            className={`text-left bg-white/90 backdrop-blur rounded-lg p-4 shadow-sm border transition-all ${
+              filterStatus === 'in_progress' ? 'border-blue-300 ring-2 ring-blue-200 bg-blue-50' : 'border-gray-200 hover:border-gray-300 hover:shadow'
             }`}
           >
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <Clock className="h-7 w-7 text-blue-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">In Progress</p>
-                <p className="text-2xl font-bold text-gray-900 tracking-tight">{totals.inProgress}</p>
-              </div>
+            <div className="flex flex-col items-start">
+              <Clock className="h-6 w-6 text-blue-600 mb-2" />
+              <p className="text-xs font-medium text-gray-500">In Progress</p>
+              <p className="text-xl font-bold text-gray-900 tracking-tight">{totals.inProgress}</p>
             </div>
           </button>
           
           <button
             onClick={() => setFilterStatus('awaiting_verification')}
-            className={`text-left bg-white/90 backdrop-blur rounded-xl p-5 shadow-sm border transition-all ${
-              filterStatus === 'awaiting_verification' ? 'border-orange-300 ring-2 ring-orange-200' : 'border-gray-200 hover:border-gray-300 hover:shadow'
+            className={`text-left bg-white/90 backdrop-blur rounded-lg p-4 shadow-sm border transition-all ${
+              filterStatus === 'awaiting_verification' ? 'border-orange-300 ring-2 ring-orange-200 bg-orange-50' : 'border-gray-200 hover:border-gray-300 hover:shadow'
             }`}
           >
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <ShieldCheck className="h-7 w-7 text-orange-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Awaiting Verification</p>
-                <p className="text-2xl font-bold text-gray-900 tracking-tight">{totals.awaitingVerification}</p>
-              </div>
+            <div className="flex flex-col items-start">
+              <ShieldCheck className="h-6 w-6 text-orange-600 mb-2" />
+              <p className="text-xs font-medium text-gray-500">Verifying</p>
+              <p className="text-xl font-bold text-gray-900 tracking-tight">{totals.awaitingVerification}</p>
             </div>
           </button>
           
           <button
             onClick={() => navigate('/profile')}
-            className="text-left bg-white/90 backdrop-blur rounded-xl p-5 shadow-sm border border-gray-200 hover:border-gray-300 hover:shadow transition-all"
+            className="text-left bg-white/90 backdrop-blur rounded-lg p-4 shadow-sm border border-gray-200 hover:border-gray-300 hover:shadow transition-all hover:bg-emerald-50"
           >
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <CheckCircle2 className="h-7 w-7 text-emerald-600" />
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">My Resolved</p>
-                <p className="text-2xl font-bold text-gray-900 tracking-tight">{totals.myResolved}</p>
-              </div>
+            <div className="flex flex-col items-start">
+              <CheckCircle2 className="h-6 w-6 text-emerald-600 mb-2" />
+              <p className="text-xs font-medium text-gray-500">My Resolved</p>
+              <p className="text-xl font-bold text-gray-900 tracking-tight">{totals.myResolved}</p>
             </div>
           </button>
         </div>
@@ -916,7 +896,7 @@ export function PatrolDashboard() {
               <p className="mt-2 text-gray-500">Try adjusting your search or filter criteria.</p>
             </div>
           ) : (
-            <div className="px-4 py-6">
+            <div className="space-y-3 px-4 py-6">
               {filtered.map((report) => {
                 const firstMeta = (report as any)?.image_dimensions?.[0] || (report as any)?.images_meta?.[0] || (report as any)?.image_sizes?.[0] || null;
                 const aspectStyle = firstMeta && firstMeta.width && firstMeta.height ? { aspectRatio: `${firstMeta.width}/${firstMeta.height}` } : undefined;
@@ -927,42 +907,55 @@ export function PatrolDashboard() {
                   role="button"
                   tabIndex={0}
                   onKeyDown={(e) => { if (e.key === 'Enter') setSelectedReport(report); }}
-                  className={`p-4 bg-white rounded-lg mb-4 shadow-sm hover:shadow-md transition-all cursor-pointer ${
-                    report.priority === 'high' ? 'border-l-4 border-red-500' : report.priority === 'medium' ? 'border-l-4 border-amber-400' : 'border-l-4 border-emerald-400'
-                  }`}
+                  className={`p-3 bg-gradient-to-r rounded-lg shadow-sm hover:shadow-md transition-all cursor-pointer border-l-4 group ${
+                    report.priority === 'high' ? 'border-l-red-500 hover:bg-red-50' : report.priority === 'medium' ? 'border-l-amber-400 hover:bg-amber-50' : 'border-l-emerald-400 hover:bg-emerald-50'
+                  } from-white to-gray-50`}
                 >
-                  <div className="flex items-start justify-between gap-4">
-                    {/* Thumbnail */}
+                  <div className="flex items-start gap-3">
+                    {/* Compact Thumbnail */}
                     {Array.isArray(report.images) && report.images.length > 0 ? (
-                      <div className="relative flex-shrink-0 w-36 h-24 sm:w-44 sm:h-28 overflow-hidden rounded-lg bg-gray-100" style={aspectStyle}>
+                      <div className="relative flex-shrink-0 w-20 h-20 overflow-hidden rounded-md bg-gray-100" style={aspectStyle}>
                         <img
                           src={report.images[0]}
                           alt={report.title}
                           loading="lazy"
                           width={firstMeta?.width}
                           height={firstMeta?.height}
-                          className="w-full h-full object-contain bg-white cursor-pointer"
-                            onClick={(e) => { e.stopPropagation(); setLightboxImages(report.images || []); setLightboxIndex(0); /* don't open report modal */ }}
+                          className="w-full h-full object-cover cursor-pointer group-hover:scale-105 transition-transform"
+                          onClick={(e) => { e.stopPropagation(); setLightboxImages(report.images || []); setLightboxIndex(0); }}
                           style={{ display: 'block' }}
                         />
                         {report.images.length > 1 && (
-                          <div className="absolute top-2 right-2 bg-black/70 text-white px-2 py-0.5 rounded-full text-xs font-semibold backdrop-blur-sm">
-                            {report.images.length} photos
+                          <div className="absolute top-0.5 right-0.5 bg-black/70 text-white px-1 py-0 rounded text-xs font-semibold backdrop-blur-sm">
+                            +{report.images.length}
                           </div>
                         )}
                       </div>
                     ) : (
-                      <div className="flex-shrink-0 w-36 h-24 sm:w-44 sm:h-28 overflow-hidden rounded-lg bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center text-gray-400" style={aspectStyle}>
-                        <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="flex-shrink-0 w-20 h-20 overflow-hidden rounded-md bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center text-gray-400" style={aspectStyle}>
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
                       </div>
                     )}
 
+                    {/* Content */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center space-x-3 mb-2">
-                        <h3 className="text-lg font-semibold text-gray-900 truncate">{report.title}</h3>
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      <div className="flex items-start justify-between mb-1.5 gap-2">
+                        <h3 className="text-sm font-semibold text-gray-900 line-clamp-1">{report.title}</h3>
+                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold flex-shrink-0 whitespace-nowrap ${
+                          report.priority === 'high' ? 'bg-red-100 text-red-800' :
+                          report.priority === 'medium' ? 'bg-amber-100 text-amber-800' :
+                          'bg-emerald-100 text-emerald-800'
+                        }`}>
+                          {report.priority}
+                        </span>
+                      </div>
+                      
+                      <p className="text-xs text-gray-600 line-clamp-1 mb-1.5">{report.description}</p>
+                      
+                      <div className="flex items-center flex-wrap gap-1.5 text-xs text-gray-600">
+                        <div className={`inline-flex items-center px-1.5 py-0.5 rounded font-medium ${
                           report.status === 'pending' ? 'bg-amber-100 text-amber-800' :
                           report.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
                           report.status === 'awaiting_verification' ? 'bg-orange-100 text-orange-800' :
@@ -970,72 +963,48 @@ export function PatrolDashboard() {
                           'bg-red-100 text-red-800'
                         }`}>
                           {statusLabel(report.status)}
-                        </span>
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          report.priority === 'high' ? 'bg-red-100 text-red-800' :
-                          report.priority === 'medium' ? 'bg-amber-100 text-amber-800' :
-                          'bg-emerald-100 text-emerald-800'
-                        }`}>
-                          {report.priority}
-                        </span>
-                        {report.case_number && (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                            <Hash className="h-3 w-3 mr-1" />
-                            {report.case_number}
-                          </span>
-                        )}
-                        {(() => {
-                          const lvl = getEffectiveLevel(report);
-                          return typeof lvl === 'number' ? (
-                            <span title={getServiceLevelText(lvl)} className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              lvl >= 5 ? 'bg-red-100 text-red-800' :
-                              lvl >= 4 ? 'bg-orange-100 text-orange-800' :
-                              lvl >= 3 ? 'bg-yellow-100 text-yellow-800' :
-                              lvl >= 2 ? 'bg-blue-100 text-blue-800' :
-                              'bg-green-100 text-green-800'
-                            }`}>
-                              Level {lvl} · {getServiceLevelText(lvl)}
-                            </span>
-                          ) : null;
-                        })()}
-                      </div>
-                      
-                      <p className="text-gray-600 mb-3 line-clamp-2">{report.description}</p>
-                      
-                      <div className="flex items-center space-x-4 text-sm text-gray-500">
+                        </div>
+                        
                         {report.location_address && (
-                          <div className="flex items-center space-x-1">
-                            <MapPin className="h-4 w-4" />
-                            <span className="truncate max-w-xs">{report.location_address}</span>
+                          <div className="flex items-center gap-0.5 min-w-0">
+                            <MapPin className="h-3 w-3 flex-shrink-0" />
+                            <span className="truncate">{report.location_address}</span>
                           </div>
                         )}
+                        
+                        {report.case_number && (
+                          <div className="flex items-center gap-0.5 bg-gray-100 px-1 rounded">
+                            <Hash className="h-2.5 w-2.5" />
+                            <span className="font-medium">{report.case_number}</span>
+                          </div>
+                        )}
+                        
                         {report.patrol_user_id && (
-                          <div className={`flex items-center space-x-1 ${
-                            report.patrol_user_id === user?.id ? 'text-green-600' : 'text-orange-600'
+                          <div className={`flex items-center gap-0.5 px-1 rounded ${
+                            report.patrol_user_id === user?.id ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
                           }`}>
-                            <ShieldCheck className="h-4 w-4" />
-                            <span>{report.patrol_user_id === user?.id ? 'Assigned to you' : 'Assigned'}</span>
+                            <ShieldCheck className="h-2.5 w-2.5" />
+                            <span className="font-medium">{report.patrol_user_id === user?.id ? 'Your Job' : 'Assigned'}</span>
                           </div>
                         )}
                       </div>
                     </div>
                     
-                    <div className="flex items-center space-x-2 ml-4">
+                    {/* Action Buttons */}
+                    <div className="flex items-center gap-0.5 flex-shrink-0 ml-2">
                       <button
                         onClick={(e) => { e.stopPropagation(); handleOpenCaseInfo(report); }}
-                        className="inline-flex items-center px-3 py-2 border border-gray-100 rounded-md text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-700 transition"
+                        className="inline-flex items-center p-1.5 rounded text-gray-600 hover:bg-blue-100 hover:text-blue-700 transition"
                         title="View Case Details"
                       >
-                        <Hash className="h-4 w-4 mr-2" />
-                        Details
+                        <Hash className="h-3.5 w-3.5" />
                       </button>
                       <button
                         onClick={(e) => { e.stopPropagation(); openWaypointNavigation(report); }}
-                        className="inline-flex items-center px-3 py-2 border border-gray-100 rounded-md text-sm text-gray-600 hover:bg-emerald-50 hover:text-emerald-700 transition"
+                        className="inline-flex items-center p-1.5 rounded text-gray-600 hover:bg-emerald-100 hover:text-emerald-700 transition"
                         title="Navigate to Location"
                       >
-                        <Navigation className="h-4 w-4 mr-2" />
-                        Navigate
+                        <Navigation className="h-3.5 w-3.5" />
                       </button>
                       <button
                         onClick={async (e) => {
@@ -1050,11 +1019,10 @@ export function PatrolDashboard() {
                           }
                           window.open(url, '_blank', 'noopener,noreferrer');
                         }}
-                        className="inline-flex items-center px-3 py-2 border border-gray-100 rounded-md text-sm text-gray-600 hover:bg-white hover:text-emerald-700 transition"
-                        title="Open in Maps"
+                        className="inline-flex items-center p-1.5 rounded text-gray-600 hover:bg-purple-100 hover:text-purple-700 transition"
+                        title="Open in Google Maps"
                       >
-                        <MapPin className="h-4 w-4 mr-2" />
-                        Maps
+                        <MapPin className="h-3.5 w-3.5" />
                       </button>
                     </div>
                   </div>
@@ -1134,6 +1102,38 @@ export function PatrolDashboard() {
               </div>
               
               <div className="px-6 py-4 max-h-[70vh] overflow-y-auto">
+                {/* Primary Image */}
+                {selectedReport.images && selectedReport.images.length > 0 && (
+                  <div className="mb-6">
+                    <div
+                      className="relative rounded-xl overflow-hidden bg-gray-100 border border-gray-200 cursor-pointer hover:shadow-lg transition-shadow group"
+                      style={{ aspectRatio: '16 / 10', maxHeight: '400px' }}
+                      onClick={() => {
+                        setLightboxImages(selectedReport.images);
+                        setLightboxIndex(0);
+                        setSelectedReport(null);
+                      }}
+                    >
+                      <img
+                        src={selectedReport.images[0]}
+                        alt="Report primary image"
+                        className="w-full h-full object-contain"
+                        loading="lazy"
+                      />
+                      {selectedReport.images.length > 1 && (
+                        <div className="absolute top-3 right-3 bg-black/70 text-white px-3 py-1 rounded-full text-sm font-semibold backdrop-blur-sm group-hover:bg-black/80 transition-colors">
+                          {selectedReport.images.length} photos
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors flex items-center justify-center">
+                        <div className="opacity-0 group-hover:opacity-100 transition-opacity text-white text-sm font-medium">
+                          Click to view
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Description */}
                 <div className="mb-6">
                   <h4 className="text-sm font-semibold text-gray-900 mb-2">Description</h4>
