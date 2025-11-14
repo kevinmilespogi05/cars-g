@@ -16,6 +16,7 @@ interface UsePWAReturn {
   installPrompt: BeforeInstallPromptEvent | null;
   isInstalled: boolean;
   isOnline: boolean;
+  isIos: boolean;
   handleInstall: () => Promise<void>;
   handleUpdate: () => void;
   checkConnection: () => Promise<boolean>;
@@ -28,6 +29,11 @@ export function usePWA(): UsePWAReturn {
   
   // Use the improved network status hook
   const { isOnline, checkConnection } = useNetworkStatus();
+
+  // Detect iOS Safari so the UI can show manual "Add to Home Screen" instructions
+  const isIos = typeof navigator !== 'undefined'
+    && /iphone|ipad|ipod/i.test(navigator.userAgent)
+    && !/crios|fxios|opera mini/i.test(navigator.userAgent);
 
   useEffect(() => {
     // Use vite-plugin-pwa's registerSW function
@@ -163,6 +169,7 @@ export function usePWA(): UsePWAReturn {
     installPrompt,
     isInstalled,
     isOnline,
+    isIos,
     handleInstall,
     handleUpdate,
     dismissUpdate,

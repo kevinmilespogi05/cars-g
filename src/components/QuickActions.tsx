@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { ChatWindow } from './ChatWindow';
+import { PWAInstallButton } from './PWAInstallButton';
 
 interface QuickAction {
   id: string;
@@ -258,6 +259,16 @@ export function QuickActions({ hideEmergencyActions = false, variant = 'default'
                   </motion.div>
                 )}
                 
+                {/* PWA Install CTA (mobile) */}
+                <motion.div
+                  initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ duration: 0.2, delay: (quickActions.length + 1) * 0.05 }}
+                >
+                  <div className="px-1">
+                    <PWAInstallButton className="w-full justify-start" />
+                  </div>
+                </motion.div>
                 {/* Emergency actions (mobile) */}
                 {!isAdminLike(user?.role) && !hideEmergencyActions && (
                   <div className="mt-1 pt-1 border-t border-gray-200">
