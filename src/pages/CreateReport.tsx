@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Camera, MapPin, Loader2, AlertCircle, X, CheckCircle, Upload, Bot, Sparkles, Trophy, Construction, Shield, Leaf, Building2, HelpCircle, ChevronRight, EyeOff, Eye } from 'lucide-react';
 import { MapPicker } from '../components/MapPicker';
+import { MobileBackToReports } from '../components/MobileBackToReports';
 import { useAuthStore } from '../store/authStore';
 import { uploadMultipleImages } from '../lib/cloudinaryStorage';
 import { awardPoints } from '../lib/points';
@@ -541,7 +542,9 @@ export function CreateReport() {
   ];
 
   return (
-    <div className="min-h-[100dvh] bg-gradient-to-br from-blue-50 via-gray-50 to-purple-50 py-4 sm:py-6">
+    <>
+      <MobileBackToReports />
+      <div className="min-h-[100dvh] bg-gradient-to-br from-blue-50 via-gray-50 to-purple-50 py-4 sm:py-6">
       <div className="w-full max-w-5xl mx-auto px-3 sm:px-4 lg:px-6">
         <div className="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden">
           {/* Header */}
@@ -1040,6 +1043,7 @@ export function CreateReport() {
           </div>
         )}
       </div>
-    </div>
+      </div>
+    </>
   );
 }

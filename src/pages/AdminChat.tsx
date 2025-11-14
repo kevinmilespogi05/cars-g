@@ -61,7 +61,7 @@ export const AdminChat: React.FC = () => {
   return (
     <div
       className="fixed top-0 right-0 bottom-0 bg-white flex flex-col transition-all duration-300"
-      style={{ paddingTop: '80px', left: `${effectiveLeft}px` }}
+      style={{ paddingTop: '0px', left: `${effectiveLeft}px` }}
     >
       {/* Header - Messenger Style */}
       <div className="bg-white border-b border-gray-200 flex-shrink-0 z-10">

@@ -5,6 +5,7 @@ import { AchievementsPanel } from '../components/AchievementsPanel';
 import { AvatarSelector } from '../components/AvatarSelector';
 import { ProfileSettingsTabs } from '../components/ProfileSettingsTabs';
 import { ProfileTabContent } from '../components/ProfileTabContent';
+import { MobileBackToReports } from '../components/MobileBackToReports';
 import { supabase } from '../lib/supabase';
 import { motion } from 'framer-motion';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -517,7 +518,9 @@ export function Profile({ softBlocked = false }: { softBlocked?: boolean }) {
   };
 
   return (
-    <div className="min-h-screen w-full relative z-10">
+    <>
+      <MobileBackToReports />
+      <div className="min-h-screen w-full relative z-10">
       <div className="w-full">
         <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
         {/* Go Back Button - Positioned at top */}
@@ -1006,6 +1009,7 @@ export function Profile({ softBlocked = false }: { softBlocked?: boolean }) {
       )}
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

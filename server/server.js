@@ -932,7 +932,7 @@ app.get('/api/test/chat-messages', async (req, res) => {
       .from('chat_messages')
       .select(`
         *,
-        sender:profiles!sender_id(id, username, avatar_url, role),
+        sender:profiles!sender_id(id, username, avatar_url, role, is_banned),
         receiver:profiles!receiver_id(id, username, avatar_url, role)
       `)
       .eq('receiver_id', adminId)
@@ -1312,7 +1312,7 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
     // Get user profile from Supabase
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('id, email, username, first_name, last_name, role, points, avatar_url, phone, verification_status')
+      .select('id, email, username, first_name, last_name, role, points, avatar_url, phone, verification_status, is_banned')
       .eq('id', authData.user.id)
       .single();
 
@@ -1321,6 +1321,15 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
         success: false,
         error: 'Failed to fetch user profile',
         code: 'PROFILE_ERROR'
+      });
+    }
+
+    // Check if user is banned
+    if (profile.is_banned) {
+      return res.status(403).json({
+        success: false,
+        error: 'You have been banned from the system.',
+        code: 'USER_BANNED'
       });
     }
 
@@ -1360,7 +1369,8 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
         role: profile.role || 'user',
         points: profile.points || 0,
         avatar_url: profile.avatar_url,
-        phone: profile.phone || null
+        phone: profile.phone || null,
+        is_banned: profile.is_banned || false
       },
       tokens
     });
@@ -1462,7 +1472,7 @@ app.get('/api/auth/me', authenticateToken, async (req, res) => {
   try {
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('id, email, username, first_name, last_name, role, points, avatar_url')
+      .select('id, email, username, first_name, last_name, role, points, avatar_url, is_banned')
       .eq('id', req.user.id)
       .single();
 
@@ -1485,7 +1495,8 @@ app.get('/api/auth/me', authenticateToken, async (req, res) => {
         role: profile.role || 'user',
         points: profile.points || 0,
         avatar_url: profile.avatar_url,
-        phone: profile.phone || null
+        phone: profile.phone || null,
+        is_banned: profile.is_banned || false
       }
     });
 

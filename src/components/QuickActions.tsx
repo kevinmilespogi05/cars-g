@@ -9,7 +9,6 @@ import {
   Bell,
   Camera,
   AlertTriangle,
-  X,
   MessageCircle,
   User,
   LogOut
@@ -26,6 +25,7 @@ interface QuickAction {
   path: string;
   color: string;
   bgColor: string;
+  mobileOnly?: boolean;
 }
 
 interface QuickActionsProps {
@@ -86,24 +86,26 @@ export function QuickActions({ hideEmergencyActions = false, variant = 'default'
           color: 'text-red-600',
           bgColor: 'bg-red-100'
         },
-          {
-            id: 'announcements',
-            title: 'Announcements',
-            description: 'Latest community announcements',
-            icon: Bell,
-            path: '/announcements',
-            color: 'text-indigo-600',
-            bgColor: 'bg-indigo-100'
-          },
-          {
-            id: 'contacts',
-            title: 'Contacts',
-            description: 'Emergency contacts',
-            icon: MapPin,
-            path: '/emergency-contacts',
-            color: 'text-teal-600',
-            bgColor: 'bg-teal-100'
-          },
+        {
+          id: 'announcements',
+          title: 'Announcements',
+          description: 'Latest community announcements',
+          icon: Bell,
+          path: '/announcements',
+          color: 'text-indigo-600',
+          bgColor: 'bg-indigo-100',
+          mobileOnly: true
+        },
+        {
+          id: 'contacts',
+          title: 'Contacts',
+          description: 'Emergency contacts',
+          icon: MapPin,
+          path: '/emergency-contacts',
+          color: 'text-teal-600',
+          bgColor: 'bg-teal-100',
+          mobileOnly: true
+        },
         {
           id: 'leaderboard',
           title: 'Leaderboard',
@@ -119,10 +121,11 @@ export function QuickActions({ hideEmergencyActions = false, variant = 'default'
 
 
   const quickActions = getQuickActions();
+  // For desktop view, filter out mobileOnly items
   // For sidebar (compact) variant, hide items that don't belong in the quick-actions sidebar
   const visibleQuickActions = variant === 'sidebar'
     ? quickActions.filter(a => a.id !== 'view-reports' && a.id !== 'leaderboard')
-    : quickActions;
+    : quickActions.filter(a => !a.mobileOnly);
 
   return (
     <>
@@ -219,7 +222,7 @@ export function QuickActions({ hideEmergencyActions = false, variant = 'default'
           <div className="flex flex-col items-start mb-3">
                 {isOpen && (
               <div className="flex flex-col items-stretch gap-2 mb-2">
-                {visibleQuickActions.map((action, index) => (
+                {quickActions.map((action, index) => (
                   <motion.div
                     key={action.id}
                     initial={{ opacity: 0, y: 10, scale: 0.98 }}

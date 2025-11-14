@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { getLeaderboard } from '../lib/points';
 import { Trophy, Medal, Award, User, Search, ChevronLeft, ChevronRight, ArrowUpDown, TrendingUp, Shield, Crown } from 'lucide-react';
 import ProfileLinkGuarded from '../components/ProfileLinkGuarded';
+import { MobileBackToReports } from '../components/MobileBackToReports';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '../store/authStore';
 import { useVerificationStatus } from '../hooks/useVerificationStatus';
@@ -170,7 +171,9 @@ export function LeaderboardPage() {
   );
 
   return (
-    <div className="min-h-screen">
+    <>
+      <MobileBackToReports />
+      <div className="min-h-screen">
       {/* Clean Header - Full Width Edge-to-Edge */}
       <div className="border-b border-gray-200 relative z-10" style={{ backgroundColor: '#800000' }}>
         <div className="w-full px-4 sm:px-6 lg:px-8 py-12">
@@ -665,6 +668,7 @@ export function LeaderboardPage() {
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+      </div>
+    </>
   );
 }

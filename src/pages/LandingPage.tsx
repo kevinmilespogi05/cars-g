@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { Footer } from '../components/Footer';
 import { motion } from 'framer-motion';
 import { 
   Shield, 
@@ -682,57 +683,7 @@ export function LandingPage() {
         </motion.div>
       </section>
 
-      {/* Stats Section */}
-      <section id="stats" className="py-20 relative z-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-            className="text-center mb-16"
-          >
-            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
-              Trusted by Communities Everywhere
-            </h2>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Join thousands of community members who are already making their neighborhoods safer.
-            </p>
-          </motion.div>
-
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
-            {stats.map((stat, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
-                className="text-center group"
-              >
-                <div className="relative z-20 bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 group-hover:-translate-y-2 border border-gray-100">
-                  <div className="h-16 w-16 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300 relative" style={{backgroundColor: '#800000'}}>
-                    <stat.icon className="h-8 w-8 text-white" />
-                    {stat.isLive && !loadingUsers && !loadingReports && (
-                      <div className="absolute -top-1 -right-1 flex items-center">
-                        <span className="relative flex h-3 w-3">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="text-3xl sm:text-4xl font-bold mb-2 flex items-center justify-center gap-2" style={{color: '#800000'}}>
-                    {stat.number}
-                    {stat.isLive && !loadingUsers && !loadingReports && (
-                      <span className="text-xs font-normal text-green-600 bg-green-50 px-2 py-1 rounded-full">LIVE</span>
-                    )}
-                  </div>
-                  <div className="text-gray-600 font-medium">{stat.label}</div>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* Stats section removed per request */}
 
       {/* Features Section */}
       <section id="features" className="py-24 relative z-10">
@@ -958,143 +909,7 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer
-        className="relative z-20 bg-gray-900 text-white py-6"
-        style={{
-          marginLeft: 'var(--app-left-offset, 0)',
-          width: 'calc(100% - var(--app-left-offset, 0))',
-          transition: 'margin-left .25s ease, width .25s ease'
-        }}
-      >
-        <div className="w-full px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            {/* Brand Section */}
-            <div className="lg:col-span-1">
-              <div className="flex items-center space-x-3 mb-4">
-                <div className="h-12 w-12 rounded-xl flex items-center justify-center" style={{backgroundColor: '#800000'}}>
-                  <img src="/images/logo.jpg" alt="CARS-G Logo" className="h-7 w-7 rounded object-cover" loading="lazy" />
-                </div>
-            <div>
-                  <span className="text-2xl font-bold">CARS-G</span>
-                  <p className="text-sm text-gray-400">Community Safety</p>
-                </div>
-              </div>
-              <p className="text-gray-400 mb-4 leading-relaxed text-sm">
-                Making communities safer, more connected, and better places to live.
-              </p>
-              <div className="flex space-x-4">
-                <div className="h-10 w-10 bg-gray-800 rounded-lg flex items-center justify-center hover:bg-gray-700 transition-colors cursor-pointer">
-                  <Globe className="h-5 w-5" />
-                </div>
-                <div className="h-10 w-10 bg-gray-800 rounded-lg flex items-center justify-center hover:bg-gray-700 transition-colors cursor-pointer">
-                  <Users className="h-5 w-5" />
-                </div>
-              </div>
-            </div>
-
-            {/* Quick Links */}
-            <div>
-              <h3 className="text-base font-bold mb-4">Quick Links</h3>
-              <ul className="space-y-2">
-                <li>
-                  <Link to="/login" className="text-gray-400 hover:text-white transition-colors flex items-center space-x-2">
-                    <ArrowRight className="h-4 w-4" />
-                    <span>Sign In</span>
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/register" className="text-gray-400 hover:text-white transition-colors flex items-center space-x-2">
-                    <ArrowRight className="h-4 w-4" />
-                    <span>Get Started</span>
-                  </Link>
-                </li>
-                <li>
-                  <Link to="/privacy-policy" className="text-gray-400 hover:text-white transition-colors flex items-center space-x-2">
-                    <ArrowRight className="h-4 w-4" />
-                    <span>Privacy Policy</span>
-                  </Link>
-                </li>
-                <li>
-                  <a href="#features" className="text-gray-400 hover:text-white transition-colors flex items-center space-x-2">
-                    <ArrowRight className="h-4 w-4" />
-                    <span>Features</span>
-                  </a>
-                </li>
-              </ul>
-            </div>
-
-            {/* Features */}
-            <div>
-              <h3 className="text-base font-bold mb-4">Features</h3>
-              <ul className="space-y-2">
-                <li className="text-gray-400 flex items-center space-x-2">
-                  <CheckCircle className="h-4 w-4 text-green-400" />
-                  <span>Issue Reporting</span>
-                </li>
-                <li className="text-gray-400 flex items-center space-x-2">
-                  <CheckCircle className="h-4 w-4 text-green-400" />
-                  <span>Patrol Coordination</span>
-                </li>
-                <li className="text-gray-400 flex items-center space-x-2">
-                  <CheckCircle className="h-4 w-4 text-green-400" />
-                  <span>Progress Tracking</span>
-                </li>
-                <li className="text-gray-400 flex items-center space-x-2">
-                  <CheckCircle className="h-4 w-4 text-green-400" />
-                  <span>Mobile App</span>
-                </li>
-              </ul>
-            </div>
-
-            {/* Support */}
-            <div>
-              <h3 className="text-base font-bold mb-4">Support</h3>
-              <ul className="space-y-2">
-                <li>
-                  <a href="#" className="text-gray-400 hover:text-white transition-colors flex items-center space-x-2">
-                    <ArrowRight className="h-4 w-4" />
-                    <span>Help Center</span>
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="text-gray-400 hover:text-white transition-colors flex items-center space-x-2">
-                    <ArrowRight className="h-4 w-4" />
-                    <span>Contact Us</span>
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="text-gray-400 hover:text-white transition-colors flex items-center space-x-2">
-                    <ArrowRight className="h-4 w-4" />
-                    <span>Community Guidelines</span>
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="text-gray-400 hover:text-white transition-colors flex items-center space-x-2">
-                    <ArrowRight className="h-4 w-4" />
-                    <span>API Documentation</span>
-                  </a>
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          {/* Bottom Section */}
-          <div className="border-t border-gray-800 mt-6 pt-4">
-            <div className="flex flex-col md:flex-row justify-between items-center space-y-3 md:space-y-0">
-              <div className="text-gray-400 text-center md:text-left">
-            <p className="text-sm">&copy; 2024 CARS-G. All rights reserved.</p>
-                <p className="text-xs mt-1">Making communities safer, one report at a time.</p>
-              </div>
-              <div className="flex items-center space-x-4 text-xs text-gray-400">
-                <a href="#" className="hover:text-white transition-colors">Terms of Service</a>
-                <a href="#" className="hover:text-white transition-colors">Privacy Policy</a>
-                <a href="#" className="hover:text-white transition-colors">Cookie Policy</a>
-              </div>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

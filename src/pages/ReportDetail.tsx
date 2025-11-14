@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { MapPin, Heart, MessageCircle, Send, Loader2, ChevronLeft, ChevronRight, ArrowLeft, X, Reply, Hash, User, Users, ShieldCheck, ChevronDown, ChevronUp, Star } from 'lucide-react';
 import { getStatusColor as badgeStatusColor, getPriorityColor as badgePriorityColor, formatStatusForDisplay } from '../lib/badges';
+import { MobileBackToReports } from '../components/MobileBackToReports';
 import { motion } from 'framer-motion';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
@@ -768,7 +769,9 @@ export function ReportDetail() {
   }
 
   return (
-    <div className="w-full max-w-screen-2xl mx-auto px-3 sm:px-4 py-6 sm:py-8">
+    <>
+      <MobileBackToReports />
+      <div className="w-full max-w-screen-2xl mx-auto px-3 sm:px-4 py-6 sm:py-8">
       {/* Breadcrumb / Actions */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
         <div className="flex items-center gap-2 text-sm text-gray-500">
@@ -1637,6 +1640,7 @@ export function ReportDetail() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 } 

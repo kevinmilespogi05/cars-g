@@ -210,6 +210,7 @@ export interface AdminChat {
     username: string;
     avatar_url: string | null;
     email: string;
+    is_banned?: boolean;
   };
   admin?: {
     id: string;

@@ -434,6 +434,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   if (fullProfileError) throw fullProfileError;
 
+  // Check if user is banned
+  if (fullProfile?.is_banned) {
+    throw new Error('You have been banned from the system.');
+  }
+
   // Check verification status
   await checkVerificationStatus(fullProfile as any);
 
@@ -539,6 +544,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           
 
   if (fullProfileError) throw fullProfileError;
+
+  // Check if user is banned
+  if (fullProfile?.is_banned) {
+    throw new Error('You have been banned from the system.');
+  }
 
   // Check verification status
   await checkVerificationStatus(fullProfile as any);
@@ -752,6 +762,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const response = await authenticateWithJWT(email, password);
       
       if (response.success) {
+        // Check if user is banned
+        if (response.user?.is_banned) {
+          throw new Error('You have been banned from the system.');
+        }
+
         set({ 
           user: response.user,
           isAuthenticated: true,

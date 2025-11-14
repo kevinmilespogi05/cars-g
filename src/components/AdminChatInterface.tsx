@@ -6,15 +6,12 @@ import { AdminChat, ChatMessage } from '../types';
 import { formatDistanceToNow, format } from 'date-fns';
 import { supabase } from '../lib/supabase';
 import { getApiUrl } from '../lib/config';
-import EmojiPicker, { EmojiClickData, Theme } from 'emoji-picker-react';
 import { 
   MessageCircle, 
   X, 
   Search, 
   MoreVertical, 
   Send, 
-  Paperclip, 
-  Smile,
   Users,
   Clock,
   Check,
@@ -22,11 +19,7 @@ import {
   Wifi,
   WifiOff,
   Loader2,
-  Phone,
-  Video,
-  Info,
   ArrowLeft,
-  Image as ImageIcon,
   ThumbsUp,
   Menu
 } from 'lucide-react';
@@ -42,6 +35,7 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
 }) => {
   const { user, isAuthenticated, isAdminLike } = useAuthStore();
   const [chats, setChats] = useState<AdminChat[]>([]);
+  const [allUsers, setAllUsers] = useState<any[]>([]);
   const [selectedChat, setSelectedChat] = useState<AdminChat | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isConnected, setIsConnected] = useState(false);
@@ -53,12 +47,10 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
   const [seenMessageIds, setSeenMessageIds] = useState<Set<string>>(new Set());
   const seenTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [messageInput, setMessageInput] = useState('');
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isTyping, setIsTyping] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const emojiPickerRef = useRef<HTMLDivElement>(null);
   const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
 
   const scrollToBottom = () => {
@@ -110,6 +102,8 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
           const senderId = msg.sender_id;
           console.log('Processing message from sender:', senderId, 'sender info:', msg.sender);
           if (!chatMap.has(senderId)) {
+            const isBanned = msg.sender?.is_banned || msg.sender?.banned || false;
+            console.log(`User ${msg.sender?.username} banned status:`, isBanned);
             chatMap.set(senderId, {
               id: `chat_${senderId}`,
               user_id: senderId,
@@ -124,7 +118,8 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
                 id: senderId,
                 username: msg.sender?.username || 'User',
                 avatar_url: msg.sender?.avatar_url || null,
-                email: msg.sender?.email || null
+                email: msg.sender?.email || null,
+                is_banned: isBanned
               }
             });
           } else {
@@ -143,6 +138,18 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
         .sort((a, b) => new Date(b.last_message_at).getTime() - new Date(a.last_message_at).getTime());
       console.log('Loaded chats (sorted by newest first):', chatList);
       setChats(chatList);
+      
+      // Also load all users for search functionality
+      const { data: users, error: usersError } = await supabase
+        .from('profiles')
+        .select('id, username, email, avatar_url, is_banned')
+        .eq('role', 'user')
+        .order('username', { ascending: true });
+
+      if (!usersError && users) {
+        console.log('Loaded all users for search:', users);
+        setAllUsers(users);
+      }
       
     } catch (error) {
       console.error('Error loading existing chats:', error);
@@ -326,9 +333,16 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
   const handleChatSelect = (chat: AdminChat) => {
     setSelectedChat(chat);
     setMessages([]); // Clear messages first
-    setChats(prev => prev.map(c => 
-      c.id === chat.id ? { ...c, unread_count: 0 } : c
-    ));
+    
+    // If this is a new chat (not in existing chats), add it to the list
+    if (!chats.find(c => c.id === chat.id)) {
+      setChats(prev => [chat, ...prev]);
+    } else {
+      // Mark messages as read for existing chats
+      setChats(prev => prev.map(c => 
+        c.id === chat.id ? { ...c, unread_count: 0 } : c
+      ));
+    }
     
     // Load messages for this chat
     loadMessagesForChat(chat.user_id);
@@ -371,15 +385,15 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
 
   const handleSendMessage = (message: string = messageInput) => {
     if (!message.trim() || !selectedChat || !socketManager.isConnected()) return;
+    
+    // Prevent sending messages to banned users
+    if (selectedChat.user?.is_banned) {
+      setError('Cannot send messages to banned users');
+      return;
+    }
 
     socketManager.sendMessage(message.trim(), selectedChat.user_id);
     setMessageInput('');
-    setShowEmojiPicker(false);
-    inputRef.current?.focus();
-  };
-
-  const handleEmojiClick = (emojiData: EmojiClickData) => {
-    setMessageInput(prev => prev + emojiData.emoji);
     inputRef.current?.focus();
   };
 
@@ -399,26 +413,43 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
     }
   }, [messageInput]);
 
-  // Close emoji picker when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
-        setShowEmojiPicker(false);
-      }
-    };
-
-    if (showEmojiPicker) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }
-  }, [showEmojiPicker]);
-
-  // Filter chats based on search query
-  const filteredChats = chats.filter(chat => 
-    chat.user?.username?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    chat.user?.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    chat.last_message?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Filter chats based on search query for users
+  const filteredChats = searchQuery.trim() ? 
+    // When searching, show existing chats + users without conversations
+    [
+      ...chats.filter(chat => 
+        chat.user?.username?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        chat.user?.email?.toLowerCase().includes(searchQuery.toLowerCase())
+      ),
+      ...allUsers
+        .filter(user => 
+          !chats.find(chat => chat.user_id === user.id) && (
+            user.username?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            user.email?.toLowerCase().includes(searchQuery.toLowerCase())
+          )
+        )
+        .map(user => ({
+          id: `chat_${user.id}`,
+          user_id: user.id,
+          admin_id: 'c5e7d75b-3f1b-4f85-b5a5-6b3786daea48',
+          last_message: '',
+          last_message_at: new Date().toISOString(),
+          unread_count: 0,
+          is_active: true,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          user: {
+            id: user.id,
+            username: user.username,
+            avatar_url: user.avatar_url,
+            email: user.email,
+            is_banned: user.is_banned || false
+          }
+        } as AdminChat))
+    ]
+    : 
+    // When not searching, show only existing chats
+    chats;
 
   // Keyboard navigation for chats
   useEffect(() => {
@@ -435,14 +466,12 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
         e.preventDefault();
         const nextIndex = currentIndex < filteredChats.length - 1 ? currentIndex + 1 : 0;
         handleChatSelect(filteredChats[nextIndex]);
-      } else if (e.key === 'Escape' && showEmojiPicker) {
-        setShowEmojiPicker(false);
       }
     };
 
     document.addEventListener('keydown', handleKeyboardNavigation);
     return () => document.removeEventListener('keydown', handleKeyboardNavigation);
-  }, [selectedChat, filteredChats, showEmojiPicker]);
+  }, [selectedChat, filteredChats]);
 
   // Auto-mark messages as seen when chat is selected
   useEffect(() => {
@@ -564,7 +593,7 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search conversations"
+                placeholder="Search users"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-10 pr-4 py-2.5 bg-gray-100 rounded-full text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
@@ -603,10 +632,10 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
                   <MessageCircle className="w-8 h-8 text-gray-400" />
                 </div>
                 <p className="text-base font-semibold text-gray-700">
-                  {searchQuery ? 'No results found' : 'No conversations yet'}
+                  {searchQuery ? 'No users found' : 'No conversations yet'}
                 </p>
                 <p className="text-sm text-gray-500 mt-1">
-                  {searchQuery ? 'Try a different search' : 'New messages will appear here'}
+                  {searchQuery ? 'Try a different username or email' : 'New messages will appear here'}
                 </p>
               </div>
             ) : (
@@ -648,11 +677,19 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
                     
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-1">
-                        <p className={`text-base truncate ${
-                          chat.unread_count > 0 ? 'font-bold text-gray-900' : 'font-semibold text-gray-900'
-                        }`}>
-                          {chat.user?.username || 'Unknown User'}
-                        </p>
+                        <div className="flex items-center gap-2 min-w-0">
+                          <p className={`text-base truncate ${
+                            chat.unread_count > 0 ? 'font-bold text-gray-900' : 'font-semibold text-gray-900'
+                          }`}>
+                            {chat.user?.username || 'Unknown User'}
+                          </p>
+                          {chat.user?.is_banned && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-700 text-xs font-semibold rounded-full flex-shrink-0">
+                              <span className="w-1.5 h-1.5 bg-red-600 rounded-full"></span>
+                              Banned
+                            </span>
+                          )}
+                        </div>
                         <span className="text-sm text-gray-500 ml-2 flex-shrink-0 font-medium">
                           {formatTime(chat.last_message_at)}
                         </span>
@@ -714,9 +751,17 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
                     </div>
                     
                     <div>
-                      <p className="text-base font-semibold text-gray-900">
-                        {selectedChat.user?.username || 'Unknown User'}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-base font-semibold text-gray-900">
+                          {selectedChat.user?.username || 'Unknown User'}
+                        </p>
+                        {selectedChat.user?.is_banned && (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 text-xs font-semibold rounded-full">
+                            <span className="w-1.5 h-1.5 bg-red-600 rounded-full"></span>
+                            Banned
+                          </span>
+                        )}
+                      </div>
                       <div className="flex items-center gap-1">
                         {onlineUsers.has(selectedChat.user_id) ? (
                           <>
@@ -728,19 +773,6 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
                         )}
                       </div>
                     </div>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="flex items-center gap-1">
-                    <button className="p-2 hover:bg-gray-100 rounded-full transition-colors" title="Call">
-                      <Phone className="w-5 h-5 text-blue-500" />
-                    </button>
-                    <button className="p-2 hover:bg-gray-100 rounded-full transition-colors" title="Video call">
-                      <Video className="w-5 h-5 text-blue-500" />
-                    </button>
-                    <button className="p-2 hover:bg-gray-100 rounded-full transition-colors" title="Conversation info">
-                      <Info className="w-5 h-5 text-blue-500" />
-                    </button>
                   </div>
                 </div>
               </div>
@@ -925,79 +957,26 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
               {/* Message Input - Messenger Style */}
               <div className="p-3 border-t border-gray-200 bg-white flex-shrink-0">
                 <div className="flex items-end gap-2">
-                  {/* Action buttons */}
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      className="p-2 text-blue-500 hover:bg-gray-100 rounded-full transition-colors"
-                      title="Add image"
-                    >
-                      <ImageIcon className="w-5 h-5" />
-                    </button>
-                    <button
-                      type="button"
-                      className="p-2 text-blue-500 hover:bg-gray-100 rounded-full transition-colors"
-                      title="Attach file"
-                    >
-                      <Paperclip className="w-5 h-5" />
-                    </button>
-                  </div>
-
                   {/* Input container */}
                   <div className="flex-1 relative">
-                    <div className="relative bg-gray-100 rounded-3xl focus-within:bg-gray-200 transition-all">
+                    <div className={`relative rounded-3xl focus-within:bg-gray-200 transition-all ${
+                      selectedChat?.user?.is_banned ? 'bg-gray-200' : 'bg-gray-100 focus-within:bg-gray-200'
+                    }`}>
                       <textarea
                         ref={inputRef}
                         value={messageInput}
                         onChange={(e) => setMessageInput(e.target.value)}
                         onKeyDown={handleKeyDown}
-                        placeholder="Type a message..."
+                        placeholder={selectedChat?.user?.is_banned ? "Cannot message banned users" : "Type a message..."}
                         rows={1}
-                        className="w-full px-4 py-3 pr-10 bg-transparent rounded-3xl focus:outline-none resize-none text-base text-gray-900 placeholder-gray-500 max-h-32"
+                        disabled={selectedChat?.user?.is_banned}
+                        className="w-full px-4 py-3 pr-10 bg-transparent rounded-3xl focus:outline-none resize-none text-base text-gray-900 placeholder-gray-500 max-h-32 disabled:opacity-60 disabled:cursor-not-allowed"
                         style={{
                           minHeight: '44px',
                           maxHeight: '120px'
                         }}
                       />
-                      
-                      {/* Emoji button */}
-                      <div className="absolute right-2 bottom-2">
-                        <button
-                          type="button"
-                          onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                          className={`p-1.5 rounded-full transition-colors ${
-                            showEmojiPicker 
-                              ? 'text-blue-500 bg-blue-50' 
-                              : 'text-gray-500 hover:bg-gray-200'
-                          }`}
-                          title="Add emoji"
-                        >
-                          <Smile className="w-5 h-5" />
-                        </button>
-                      </div>
                     </div>
-
-                    {/* Emoji Picker */}
-                    <AnimatePresence>
-                      {showEmojiPicker && (
-                        <motion.div
-                          ref={emojiPickerRef}
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: 10 }}
-                          className="absolute bottom-full right-0 mb-2 z-50 shadow-2xl rounded-lg overflow-hidden"
-                        >
-                          <EmojiPicker
-                            onEmojiClick={handleEmojiClick}
-                            theme={Theme.LIGHT}
-                            width={320}
-                            height={400}
-                            searchPlaceHolder="Search emoji"
-                            previewConfig={{ showPreview: false }}
-                          />
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
                   </div>
                   
                   {/* Send button or Like button */}
@@ -1005,7 +984,8 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
                     <button
                       type="button"
                       onClick={() => handleSendMessage()}
-                      className="p-2 text-blue-500 hover:bg-gray-100 rounded-full transition-colors flex-shrink-0"
+                      disabled={selectedChat?.user?.is_banned}
+                      className="p-2 text-blue-500 hover:bg-gray-100 rounded-full transition-colors flex-shrink-0 disabled:text-gray-300 disabled:cursor-not-allowed"
                       title="Send message"
                     >
                       <Send className="w-5 h-5" />
@@ -1013,7 +993,8 @@ export const AdminChatInterface: React.FC<AdminChatInterfaceProps> = ({
                   ) : (
                     <button
                       type="button"
-                      className="p-2 text-blue-500 hover:bg-gray-100 rounded-full transition-colors flex-shrink-0"
+                      disabled={selectedChat?.user?.is_banned}
+                      className="p-2 text-blue-500 hover:bg-gray-100 rounded-full transition-colors flex-shrink-0 disabled:text-gray-300 disabled:cursor-not-allowed"
                       title="Send like"
                     >
                       <ThumbsUp className="w-5 h-5" />
