@@ -823,13 +823,13 @@ export function ProfileTabContent({
                 </button>
               )}
             </div>
-          
-          {/* Results Count */}
-          <div className="mt-3 sm:mt-4 text-sm text-gray-600 font-medium">
-            Showing {patrolFilteredReports.length} of {reportsToShow.length} reports
+            
+            {/* Results Count */}
+            <div className="mt-3 sm:mt-4 text-sm text-gray-600 font-medium">
+              Showing {patrolFilteredReports.length} of {reportsToShow.length} reports
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
       {/* Reports Grid */}
       {loadingMyReports ? (
