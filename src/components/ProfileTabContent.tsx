@@ -810,20 +810,19 @@ export function ProfileTabContent({
                     <option value="awaiting_verification">Awaiting Verification</option>
                   </select>
                 </div>
-                
+              </div>
+              
+              {/* Clear Filters Button */}
+              {(searchQuery || statusFilter) && (
+                <button
+                  onClick={clearFilters}
+                  className="inline-flex items-center gap-2 px-3 sm:px-4 py-2.5 sm:py-3 text-sm font-medium text-gray-600 hover:text-gray-800 bg-white/80 hover:bg-white border border-gray-200 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md"
+                >
+                  <XIcon className="h-4 w-4" />
+                  Clear Filters
+                </button>
+              )}
             </div>
-            
-            {/* Clear Filters Button */}
-            {(searchQuery || statusFilter) && (
-              <button
-                onClick={clearFilters}
-                className="inline-flex items-center gap-2 px-3 sm:px-4 py-2.5 sm:py-3 text-sm font-medium text-gray-600 hover:text-gray-800 bg-white/80 hover:bg-white border border-gray-200 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md"
-              >
-                <XIcon className="h-4 w-4" />
-                Clear Filters
-              </button>
-            )}
-          </div>
           
           {/* Results Count */}
           <div className="mt-3 sm:mt-4 text-sm text-gray-600 font-medium">
