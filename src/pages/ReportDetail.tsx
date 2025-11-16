@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { MapPin, Heart, MessageCircle, Send, Loader2, ChevronLeft, ChevronRight, ArrowLeft, X, Reply, Hash, User, Users, ShieldCheck, ChevronDown, ChevronUp, Star } from 'lucide-react';
-import { getStatusColor as badgeStatusColor, getPriorityColor as badgePriorityColor, formatStatusForDisplay } from '../lib/badges';
+import { getStatusColor as badgeStatusColor, formatStatusForDisplay } from '../lib/badges';
 import { MobileBackToReports } from '../components/MobileBackToReports';
 import { motion } from 'framer-motion';
 import { supabase } from '../lib/supabase';
@@ -707,7 +707,6 @@ export function ReportDetail() {
 
   const getStatusColor = (status: string) => badgeStatusColor(status);
 
-  const getPriorityColor = (priority: string) => badgePriorityColor(priority);
 
   const getServiceLevelText = (level: number) => {
     switch (level) {
@@ -1329,7 +1328,6 @@ export function ReportDetail() {
               <span>Reported by <span className="font-medium text-gray-700">{report.is_anonymous ? 'Anonymous Reporter' : report.user.username}</span></span>
               <span>• {new Date(report.created_at).toLocaleString()}</span>
               <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${getStatusColor(report.status)}`}>{formatStatusForDisplay(report.status)}</span>
-              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${getPriorityColor(report.priority)}`}>{capitalize(report.priority)}</span>
               {(() => { const lvl = getEffectiveLevel(report); return typeof lvl === 'number' ? (
                 <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${lvl >= 5 ? 'bg-red-100 text-red-800' : lvl >= 4 ? 'bg-orange-100 text-orange-800' : lvl >= 3 ? 'bg-yellow-100 text-yellow-800' : lvl >= 2 ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}`} title={getServiceLevelText(lvl)}>
                   Level {lvl} · {getServiceLevelText(lvl)}

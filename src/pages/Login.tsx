@@ -14,6 +14,8 @@ import {
   Loader2
 } from 'lucide-react';
 import { useToastContext } from '../contexts/ToastContext';
+import { getApiUrl } from '../lib/config';
+import { supabase } from '../lib/supabase';
 
 export function Login() {
   const navigate = useNavigate();
@@ -23,6 +25,7 @@ export function Login() {
   const [emailOrUsername, setEmailOrUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [showVerifyActions, setShowVerifyActions] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSocialLoading, setIsSocialLoading] = useState<'google' | null>(null);
   const [showPassword, setShowPassword] = useState(false);
@@ -60,6 +63,34 @@ export function Login() {
       showToastSuccess('Successfully signed in!', 2000);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to sign in';
+      // If the server returned an email-not-verified error code, show quick actions
+      if ((err as any)?.code === 'EMAIL_NOT_VERIFIED' || errorMessage.toLowerCase().includes('not verified')) {
+        setShowVerifyActions(true);
+        // Store the email so the verify page can use it. If the user entered
+        // a username, try to look up the email from the public profiles table.
+        try {
+          if (emailOrUsername.includes('@')) {
+            localStorage.setItem('registeredEmail', emailOrUsername);
+          } else {
+            // Try to look up email by username (frontend anon key must allow this)
+            try {
+              const { data: profile, error: profileError } = await supabase
+                .from('profiles')
+                .select('email')
+                .eq('username', emailOrUsername)
+                .maybeSingle();
+
+              if (!profileError && profile?.email) {
+                localStorage.setItem('registeredEmail', profile.email);
+              } else {
+                localStorage.setItem('registeredEmail', '');
+              }
+            } catch (lookupErr) {
+              localStorage.setItem('registeredEmail', '');
+            }
+          }
+        } catch (e) {}
+      }
       setError(errorMessage);
       showToastError(errorMessage, 5000);
     } finally {
@@ -227,6 +258,53 @@ export function Login() {
                   </>
                 )}
               </button>
+
+                {/* Quick verify actions if email is not verified */}
+                {showVerifyActions && (
+                  <div className="mt-3 flex flex-col gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        // Navigate to email verification (registeredEmail was set earlier on error)
+                        navigate('/verify-email');
+                      }}
+                      className="w-full bg-white text-red-900 border border-red-900 py-2 rounded-lg font-medium"
+                    >
+                      Verify email
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          setIsLoading(true);
+                          const emailToSend = emailOrUsername.includes('@')
+                            ? emailOrUsername
+                            : (localStorage.getItem('registeredEmail') || '');
+                          if (!emailToSend) {
+                            showToastError('Please provide your email to resend verification code', 4000);
+                            return;
+                          }
+                          const response = await fetch(getApiUrl('/api/auth/start-email-verification'), {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ email: emailToSend })
+                          });
+                          const result = await response.json();
+                          if (!response.ok) throw new Error(result.error || 'Failed to resend code');
+                          showToastSuccess('Verification code resent to your email.', 4000);
+                          setShowVerifyActions(false);
+                        } catch (e: any) {
+                          showToastError(e.message || 'Failed to resend verification code', 4000);
+                        } finally {
+                          setIsLoading(false);
+                        }
+                      }}
+                      className="w-full bg-gray-100 text-gray-700 py-2 rounded-lg font-medium"
+                    >
+                      Resend verification code
+                    </button>
+                  </div>
+                )}
 
               {/* Divider */}
               <div className="relative py-4">

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, CheckCircle2, XCircle, Wrench, RefreshCw, Eye, Trash2, User2, Calendar, MapPin, X, Navigation, Hash, FileText, Download, HelpCircle, Edit2 } from 'lucide-react';
+import { Search, CheckCircle2, XCircle, Wrench, RefreshCw, Eye, Trash2, User2, Calendar, MapPin, X, Navigation, Hash, FileText, Download, HelpCircle, Edit2, ChevronUp, ChevronDown, ChevronsUpDown, Archive } from 'lucide-react';
 import { ImageViewer } from './ImageViewer';
 import { getStatusColor as badgeStatusColor, formatStatusForDisplay } from '../lib/badges';
 import { reportsService } from '../services/reportsService';
@@ -14,12 +14,14 @@ import { Notification } from './Notification';
 import { useToastContext } from '../contexts/ToastContext';
 import { getReportCoordinates, isValidCoordinates } from '../lib/geocoding';
 import { pdfReportService } from '../services/pdfReportService';
+import { useAuthStore } from '../store/authStore';
 
 type StatusFilter = 'All' | 'pending' | 'in_progress' | 'resolved' | 'declined';
 
 export function AdminReports() {
   const navigate = useNavigate();
   const { error: showToastError, info: showToastInfo } = useToastContext();
+  const { user } = useAuthStore();
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,13 +31,21 @@ export function AdminReports() {
   const loadingRef = React.useRef(false);
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' | 'warning' } | null>(null);
   const [notificationQueue, setNotificationQueue] = useState<Array<{ id: string; message: string; type: 'success' | 'error' | 'warning' }>>([]);
-  const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; reportId: string | null; reportTitle: string }>({ isOpen: false, reportId: null, reportTitle: '' });
+  const [archiveConfirm, setArchiveConfirm] = useState<{ isOpen: boolean; reportId: string | null; reportTitle: string; archiveReason: string }>({ isOpen: false, reportId: null, reportTitle: '', archiveReason: '' });
   const [statusUpdateLoading, setStatusUpdateLoading] = useState<Record<string, boolean>>({});
   const [isEditing, setIsEditing] = useState(false);
-  const [editForm, setEditForm] = useState<{ title: string; description: string; category: string; priority: 'low' | 'medium' | 'high' }>({ title: '', description: '', category: '', priority: 'medium' });
+  const [editForm, setEditForm] = useState<{ title: string; description: string; category: string }>({ title: '', description: '', category: '' });
   const [editFormErrors, setEditFormErrors] = useState<{ title?: string; description?: string; category?: string }>({});
   const [saving, setSaving] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  
+  // Table sorting and pagination
+  type SortField = 'case_number' | 'title' | 'status' | 'category' | 'created_at' | 'location_address';
+  type SortDirection = 'asc' | 'desc';
+  const [sortField, setSortField] = useState<SortField>('created_at');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(20);
 
   // Notification queue management
   const showNotification = (message: string, type: 'success' | 'error' | 'warning') => {
@@ -56,12 +66,16 @@ export function AdminReports() {
     loadingRef.current = true;
     setError(null);
     try {
-      // Instant paint from cache if available
+      // Instant paint from cache if available (but filter out archived reports)
       try {
         const raw = sessionStorage.getItem('admin_map_reports_v1');
         if (raw) {
           const cached = JSON.parse(raw);
-          if (Array.isArray(cached?.data)) setReports(cached.data);
+          if (Array.isArray(cached?.data)) {
+            // Filter out archived reports from cache
+            const filteredCache = cached.data.filter((r: Report) => !r.is_archived);
+            setReports(filteredCache);
+          }
         }
       } catch {}
 
@@ -141,9 +155,81 @@ export function AdminReports() {
   }, [status]);
 
   const filtered = useMemo(() => {
-    // Exclude verifying status reports from all views
-    return reports.filter(r => r.status !== 'verifying');
+    // Exclude verifying status reports and archived reports from all views
+    return reports.filter(r => r.status !== 'verifying' && !r.is_archived);
   }, [reports]);
+
+  // Sorted and paginated reports
+  const sortedAndPaginated = useMemo(() => {
+    let sorted = [...filtered];
+    
+    // Apply sorting
+    sorted.sort((a, b) => {
+      let aValue: any;
+      let bValue: any;
+      
+      switch (sortField) {
+        case 'case_number':
+          aValue = a.case_number || '';
+          bValue = b.case_number || '';
+          break;
+        case 'title':
+          aValue = a.title.toLowerCase();
+          bValue = b.title.toLowerCase();
+          break;
+        case 'status':
+          aValue = a.status;
+          bValue = b.status;
+          break;
+        case 'category':
+          aValue = a.category.toLowerCase();
+          bValue = b.category.toLowerCase();
+          break;
+        case 'created_at':
+          aValue = new Date(a.created_at).getTime();
+          bValue = new Date(b.created_at).getTime();
+          break;
+        case 'location_address':
+          aValue = (a.location_address || '').toLowerCase();
+          bValue = (b.location_address || '').toLowerCase();
+          break;
+        default:
+          return 0;
+      }
+      
+      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+    
+    // Apply pagination
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return {
+      data: sorted.slice(startIndex, endIndex),
+      total: sorted.length,
+      totalPages: Math.ceil(sorted.length / itemsPerPage)
+    };
+  }, [filtered, sortField, sortDirection, currentPage, itemsPerPage]);
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+    setCurrentPage(1); // Reset to first page when sorting changes
+  };
+
+  const getSortIcon = (field: SortField) => {
+    if (sortField !== field) {
+      return <ChevronsUpDown className="w-4 h-4 text-gray-400" />;
+    }
+    return sortDirection === 'asc' 
+      ? <ChevronUp className="w-4 h-4 text-blue-600" />
+      : <ChevronDown className="w-4 h-4 text-blue-600" />;
+  };
 
   // Calculate summary statistics
   const summaryStats = useMemo(() => {
@@ -154,11 +240,6 @@ export function AdminReports() {
       acc[r.status] = (acc[r.status] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
-    const byPriority = nonVerifyingReports.reduce((acc, r) => {
-      if (r.priority) acc[r.priority] = (acc[r.priority] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-    const highPriority = byPriority.high || 0;
     const inProgress = byStatus.in_progress || 0;
     const pending = byStatus.pending || 0;
     const resolved = byStatus.resolved || 0;
@@ -168,9 +249,7 @@ export function AdminReports() {
       pending,
       inProgress,
       resolved,
-      highPriority,
-      byStatus,
-      byPriority
+      byStatus
     };
   }, [filtered]);
 
@@ -213,12 +292,87 @@ export function AdminReports() {
   const now = new Date();
   const [showMonthPicker, setShowMonthPicker] = useState(false);
   const [showYearPicker, setShowYearPicker] = useState(false);
+  const [showMonthPreview, setShowMonthPreview] = useState(false);
+  const [showYearPreview, setShowYearPreview] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewTitle, setPreviewTitle] = useState('');
   const [monthValue, setMonthValue] = useState<string>(() => {
     const y = now.getFullYear();
     const m = String(now.getMonth() + 1).padStart(2, '0');
     return `${y}-${m}`;
   });
   const [yearValue, setYearValue] = useState<number>(() => now.getFullYear());
+
+  const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
+
+  // Preview data fetching functions
+  const fetchMonthlyPreview = async (year: number, month: number) => {
+    setPreviewLoading(true);
+    try {
+      const all = await caseService.getMonthlyCases(year, month, status);
+      if (!all || all.length === 0) {
+        showNotification(
+          `No reports found for ${new Date(year, month - 1, 1).toLocaleString('en-US', { month: 'long' })} ${year}.`,
+          'warning'
+        );
+        setPreviewLoading(false);
+        return;
+      }
+      const stats = calculateStats(all);
+      const monthName = new Date(year, month - 1, 1).toLocaleString('en-US', { month: 'long' });
+      setPreviewTitle(`${monthName} ${year} - Preview`);
+      
+      // Generate PDF and get blob URL
+      const pdfUrl = await pdfReportService.generateMonthlyPDFPreview(all as any, year, month, stats);
+      setPreviewPdfUrl(pdfUrl);
+      setShowMonthPreview(true);
+    } catch (e: any) {
+      showNotification(
+        e?.message || 'Failed to generate preview. Please try again.',
+        'error'
+      );
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const fetchYearlyPreview = async (year: number) => {
+    setPreviewLoading(true);
+    try {
+      const all = await caseService.getYearlyCases(year, status);
+      if (!all || all.length === 0) {
+        showNotification(
+          `No reports found for year ${year}.`,
+          'warning'
+        );
+        setPreviewLoading(false);
+        return;
+      }
+      const stats = calculateStats(all);
+      setPreviewTitle(`${year} Annual Report - Preview`);
+      
+      // Generate PDF and get blob URL
+      const pdfUrl = await pdfReportService.generateYearlyPDFPreview(all as any, year, stats);
+      setPreviewPdfUrl(pdfUrl);
+      setShowYearPreview(true);
+    } catch (e: any) {
+      showNotification(
+        e?.message || 'Failed to generate preview. Please try again.',
+        'error'
+      );
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  // Cleanup PDF URL when modal closes
+  useEffect(() => {
+    return () => {
+      if (previewPdfUrl) {
+        URL.revokeObjectURL(previewPdfUrl);
+      }
+    };
+  }, [previewPdfUrl]);
 
   // Calculate statistics for reports
   const calculateStats = (items: Report[]) => {
@@ -228,15 +382,12 @@ export function AdminReports() {
       inProgress: items.filter(r => r.status === 'in_progress').length,
       resolved: items.filter(r => r.status === 'resolved').length,
       declined: items.filter(r => r.status === 'declined').length,
-      highPriority: items.filter(r => r.priority === 'high').length,
       byCategory: {} as Record<string, number>,
-      byPriority: {} as Record<string, number>,
       byStatus: {} as Record<string, number>,
     };
 
     items.forEach(r => {
       stats.byCategory[r.category] = (stats.byCategory[r.category] || 0) + 1;
-      stats.byPriority[r.priority || 'medium'] = (stats.byPriority[r.priority || 'medium'] || 0) + 1;
       stats.byStatus[r.status] = (stats.byStatus[r.status] || 0) + 1;
     });
 
@@ -437,7 +588,6 @@ export function AdminReports() {
         title: selectedReport.title,
         description: selectedReport.description,
         category: selectedReport.category,
-        priority: selectedReport.priority || 'medium'
       });
     }
   };
@@ -450,7 +600,6 @@ export function AdminReports() {
         title: selectedReport.title,
         description: selectedReport.description,
         category: selectedReport.category,
-        priority: selectedReport.priority || 'medium'
       });
     }
   };
@@ -504,7 +653,6 @@ export function AdminReports() {
         title: editForm.title.trim(),
         description: editForm.description.trim(),
         category: editForm.category.trim(),
-        priority: editForm.priority,
         updated_at: new Date().toISOString()
       };
       const { error } = await (supabase as any)
@@ -517,7 +665,7 @@ export function AdminReports() {
       // Update local state
       setReports(prev => prev.map(r => 
         r.id === selectedReport.id 
-          ? { ...r, title: editForm.title.trim(), description: editForm.description.trim(), category: editForm.category.trim(), priority: editForm.priority }
+          ? { ...r, title: editForm.title.trim(), description: editForm.description.trim(), category: editForm.category.trim() }
           : r
       ));
       
@@ -550,28 +698,39 @@ export function AdminReports() {
     }
   };
 
-  const handleDeleteClick = (reportId: string, reportTitle: string) => {
-    setDeleteConfirm({ isOpen: true, reportId, reportTitle });
+  const handleArchiveClick = (reportId: string, reportTitle: string) => {
+    setArchiveConfirm({ isOpen: true, reportId, reportTitle, archiveReason: '' });
   };
 
-  const handleDelete = async () => {
-    if (!deleteConfirm.reportId) return;
-    const reportId = deleteConfirm.reportId;
-    const reportTitle = deleteConfirm.reportTitle;
+  const handleArchive = async () => {
+    if (!archiveConfirm.reportId || !user) return;
+    const reportId = archiveConfirm.reportId;
+    const reportTitle = archiveConfirm.reportTitle;
+    const archiveReason = archiveConfirm.archiveReason.trim() || null;
     
     try {
-      // Store deleted report for potential rollback
-      const deletedReport = reports.find(r => r.id === reportId);
+      // Store report for potential rollback
+      const reportToArchive = reports.find(r => r.id === reportId);
       
       // Optimistically remove from UI (immediate feedback)
       setReports(prev => prev.filter(r => r.id !== reportId));
       
-      // Delete from database
-      const { error } = await supabase.from('reports').delete().eq('id', reportId);
+      // Archive the report (set is_archived = true)
+      const { error } = await supabase
+        .from('reports')
+        .update({
+          is_archived: true,
+          archived_at: new Date().toISOString(),
+          archived_by: user.id,
+          archive_reason: archiveReason,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', reportId);
+        
       if (error) {
         // Rollback optimistic update on error
-        if (deletedReport) {
-          setReports(prev => [...prev, deletedReport].sort((a, b) => 
+        if (reportToArchive) {
+          setReports(prev => [...prev, reportToArchive].sort((a, b) => 
             new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
           ));
         }
@@ -579,11 +738,11 @@ export function AdminReports() {
       }
       
       showNotification(
-        `Report "${reportTitle}" deleted successfully.`,
+        `Report "${reportTitle}" archived successfully. You can view and restore it from the Archive page.`,
         'success'
       );
       
-      setDeleteConfirm({ isOpen: false, reportId: null, reportTitle: '' });
+      setArchiveConfirm({ isOpen: false, reportId: null, reportTitle: '', archiveReason: '' });
       
       // Refresh reports to update statistics
       await loadReports();
@@ -591,10 +750,10 @@ export function AdminReports() {
       // Rollback optimistic update on error (already handled above, but refresh to ensure consistency)
       await loadReports();
       showNotification(
-        e?.message || 'Failed to delete report. Please try again.',
+        e?.message || 'Failed to archive report. Please try again.',
         'error'
       );
-      setDeleteConfirm({ isOpen: false, reportId: null, reportTitle: '' });
+      setArchiveConfirm({ isOpen: false, reportId: null, reportTitle: '', archiveReason: '' });
     }
   };
 
@@ -707,6 +866,17 @@ export function AdminReports() {
                     const [yStr, mStr] = (monthValue || '').split('-');
                     const year = Number(yStr || now.getFullYear());
                     const month = Number((mStr || String(now.getMonth() + 1)).padStart(2, '0'));
+                    await fetchMonthlyPreview(year, month);
+                  }}
+                  className="px-3 py-1.5 text-sm rounded bg-blue-600 text-white hover:bg-blue-700"
+                >
+                  Preview
+                </button>
+                <button
+                  onClick={async () => {
+                    const [yStr, mStr] = (monthValue || '').split('-');
+                    const year = Number(yStr || now.getFullYear());
+                    const month = Number((mStr || String(now.getMonth() + 1)).padStart(2, '0'));
                     try {
                       const all = await caseService.getMonthlyCases(year, month, status);
                       if (!all || all.length === 0) {
@@ -760,6 +930,15 @@ export function AdminReports() {
                 <button
                   onClick={async () => {
                     const year = yearValue || now.getFullYear();
+                    await fetchYearlyPreview(year);
+                  }}
+                  className="px-3 py-1.5 text-sm rounded bg-blue-600 text-white hover:bg-blue-700"
+                >
+                  Preview
+                </button>
+                <button
+                  onClick={async () => {
+                    const year = yearValue || now.getFullYear();
                     try {
                       const all = await caseService.getYearlyCases(year, status);
                       if (!all || all.length === 0) {
@@ -791,13 +970,87 @@ export function AdminReports() {
         </div>
       )}
 
+      {/* Preview Modal */}
+      {(showMonthPreview || showYearPreview) && (
+        <div className="fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/40" onClick={() => { 
+            setShowMonthPreview(false); 
+            setShowYearPreview(false);
+            if (previewPdfUrl) {
+              URL.revokeObjectURL(previewPdfUrl);
+              setPreviewPdfUrl(null);
+            }
+          }} />
+          <div className="absolute inset-0 px-4 flex items-center justify-center py-8 overflow-y-auto">
+            <div className="w-full max-w-6xl bg-white rounded-xl shadow-2xl border border-gray-200 p-6 max-h-[95vh] flex flex-col">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">{previewTitle}</h3>
+                <button
+                  onClick={() => { 
+                    setShowMonthPreview(false); 
+                    setShowYearPreview(false);
+                    if (previewPdfUrl) {
+                      URL.revokeObjectURL(previewPdfUrl);
+                      setPreviewPdfUrl(null);
+                    }
+                  }}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {previewLoading ? (
+                <div className="flex items-center justify-center py-12 flex-1">
+                  <RefreshCw className="w-8 h-8 animate-spin text-indigo-600" />
+                  <span className="ml-3 text-gray-600">Generating PDF preview...</span>
+                </div>
+              ) : previewPdfUrl ? (
+                <div className="flex-1 border border-gray-300 rounded-lg overflow-hidden bg-gray-100">
+                  <iframe
+                    src={previewPdfUrl}
+                    className="w-full h-full min-h-[600px]"
+                    title="PDF Preview"
+                    style={{ border: 'none' }}
+                  />
+                </div>
+              ) : (
+                <div className="text-center py-12 flex-1 flex items-center justify-center">
+                  <div>
+                    <FileText className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+                    <p className="text-gray-600">No preview available.</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Footer */}
+              <div className="mt-4 flex items-center justify-end">
+                <button
+                  onClick={() => { 
+                    setShowMonthPreview(false); 
+                    setShowYearPreview(false);
+                    if (previewPdfUrl) {
+                      URL.revokeObjectURL(previewPdfUrl);
+                      setPreviewPdfUrl(null);
+                    }
+                  }}
+                  className="px-4 py-2 text-sm rounded bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {error && (
         <div className="p-3 bg-red-50 text-red-700 border border-red-200 rounded">{error}</div>
       )}
 
       {/* Summary Statistics */}
       {!loading && filtered.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4 mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6">
           <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm relative group cursor-help">
             <div className="text-2xl font-bold text-gray-900">{summaryStats.total}</div>
             <div className="text-xs sm:text-sm text-gray-600 mt-1 flex items-center gap-1">
@@ -850,19 +1103,6 @@ export function AdminReports() {
               </div>
             </div>
           </div>
-          <div className="bg-red-50 rounded-lg border border-red-200 p-4 shadow-sm relative group cursor-help">
-            <div className="text-2xl font-bold text-red-700">{summaryStats.highPriority}</div>
-            <div className="text-xs sm:text-sm text-red-600 mt-1 flex items-center gap-1">
-              High Priority
-              <HelpCircle className="w-3 h-3 text-red-400" />
-            </div>
-            <div className="absolute bottom-full left-0 mb-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
-              <div className="bg-gray-900 text-white text-xs rounded py-1 px-2 whitespace-nowrap shadow-lg">
-                High priority reports requiring urgent attention
-                <div className="absolute top-full left-4 border-4 border-transparent border-t-gray-900"></div>
-              </div>
-            </div>
-          </div>
         </div>
       )}
 
@@ -895,266 +1135,253 @@ export function AdminReports() {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-          {filtered.map((r) => {
-            // Truncate description for card view
-            const truncatedDescription = r.description.length > 150 
-              ? r.description.substring(0, 150) + '...' 
-              : r.description;
-            
-            return (
-              <div key={r.id} className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden flex flex-col">
-                {/* Image Gallery - Professional Display */}
-                {Array.isArray(r.images) && r.images.length > 0 ? (
-                    <div className="relative w-full bg-gray-100 overflow-hidden group aspect-[16/7]">
-                      {/* Primary Image - keep aspect ratio and avoid distortion; object-cover will crop but not stretch */}
-                      <img
-                        src={r.images[0]}
-                        alt={r.title}
-                        loading="lazy"
-                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 cursor-pointer"
-                        onClick={() => {
-                          setSelectedReport(r);
-                          setSelectedImage(r.images?.[0] || null);
-                        }}
-                        style={{ display: 'block' }}
-                      />
-                    
-                    {/* Image Badge - Multiple Images Indicator */}
-                    {r.images.length > 1 && (
-                      <div className="absolute bottom-3 right-3 bg-black/70 text-white px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 backdrop-blur-sm">
-                        <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
-                          <path d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4.5-4.5 3 3 4-4 2.5 2.5V5z" />
-                        </svg>
-                        {r.images.length} photos
-                      </div>
-                    )}
-                    
-                    {/* View Photos Overlay */}
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors duration-200 flex items-center justify-center opacity-0 group-hover:opacity-100">
-                      <button
-                        onClick={() => {
-                          setSelectedReport(r);
-                          setSelectedImage(r.images?.[0] || null);
-                        }}
-                        className="bg-white text-gray-900 px-4 py-2 rounded-lg font-medium text-sm flex items-center gap-2 shadow-lg"
-                      >
-                        <Eye className="w-4 h-4" />
-                        View Photos
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  /* No Image Placeholder */
-                  <div className="w-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center aspect-[16/7]">
-                    <div className="text-center">
-                      <svg className="w-12 h-12 mx-auto text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                      <p className="text-xs sm:text-sm text-gray-500 font-medium">No Image</p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Card Header */}
-                <div className="p-4 sm:p-5 border-b border-gray-100">
-                  <div className="flex items-start justify-between gap-3 mb-3">
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-gray-900 text-base sm:text-lg mb-2 line-clamp-2">
-                        {r.title}
-                      </h3>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {/* Status Badge */}
-                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${badgeStatusColor(r.status)}`}>
-                          {formatStatusForDisplay(r.status)}
-                        </span>
-                        {/* Priority Badge */}
-                        {r.priority && (
-                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                            r.priority === 'high' 
-                              ? 'bg-red-100 text-red-800 border border-red-200' 
-                              : r.priority === 'medium' 
-                              ? 'bg-yellow-100 text-yellow-800 border border-yellow-200' 
-                              : 'bg-green-100 text-green-800 border border-green-200'
-                          }`}>
-                            {r.priority === 'high' && '🔴 '}
-                            {r.priority === 'medium' && '🟡 '}
-                            {r.priority === 'low' && '🟢 '}
-                            {r.priority} Priority
-                          </span>
-                        )}
-                        {/* Case Number */}
-                        {r.case_number && (
-                          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200">
-                            <Hash className="h-3 w-3 mr-1" />
-                            {r.case_number}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Description */}
-                  <p className="text-sm text-gray-700 leading-relaxed line-clamp-2">
-                    {truncatedDescription}
-                  </p>
-                </div>
-
-                {/* Card Body - Meta Information Grid */}
-                <div className="p-4 sm:p-5 bg-gray-50 border-b border-gray-100">
-                  <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                    {/* Reporter */}
-                    <div className="flex items-center gap-2 min-w-0">
-                      {r.user_profile?.avatar_url ? (
-                        <img 
-                          src={r.user_profile.avatar_url} 
-                          alt={r.user_profile.username || 'User'} 
-                          className="w-7 h-7 rounded-full object-cover flex-shrink-0 border border-gray-200" 
-                        />
-                      ) : (
-                        <div className="w-7 h-7 rounded-full bg-blue-200 flex items-center justify-center flex-shrink-0 text-xs font-semibold text-blue-900">
-                          {(r.user_profile?.username || 'U').charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <div className="text-xs text-gray-500 font-medium">Reporter</div>
-                        <div className="text-xs font-semibold text-gray-900 truncate">
-                          {r.user_profile?.username || 'Unknown'}
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* Date */}
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Calendar className="w-5 h-5 text-gray-400 flex-shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <div className="text-xs text-gray-500 font-medium">Reported</div>
-                        <div className="text-xs font-semibold text-gray-900">
-                          {new Date(r.created_at).toLocaleDateString('en-US', { 
-                            month: 'short', 
-                            day: 'numeric'
-                          })}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Category */}
-                    <div className="flex items-center gap-2 min-w-0">
-                      <FileText className="w-5 h-5 text-gray-400 flex-shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <div className="text-xs text-gray-500 font-medium">Category</div>
-                        <div className="text-xs font-semibold text-gray-900 truncate">
-                          {r.category}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Location */}
-                    {r.location_address && (
-                      <div className="flex items-center gap-2 min-w-0">
-                        <MapPin className="w-5 h-5 text-green-600 flex-shrink-0" />
-                        <div className="min-w-0 flex-1">
-                          <div className="text-xs text-gray-500 font-medium">Location</div>
-                          <div className="text-xs font-semibold text-gray-900 truncate" title={r.location_address}>
-                            {r.location_address.length > 20 
-                              ? r.location_address.substring(0, 20) + '...' 
-                              : r.location_address}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Assigned Group / Patroller */}
-                    {(r.assigned_group || r.assigned_patroller_name) && (
-                      <div className="col-span-2 flex items-center gap-2 min-w-0">
-                        <User2 className="w-5 h-5 text-blue-500 flex-shrink-0" />
-                        <div className="min-w-0 flex-1">
-                          <div className="text-xs text-gray-500 font-medium">Assigned To</div>
-                          <div className="text-xs font-semibold text-blue-700 truncate">
-                            {r.assigned_group ? r.assigned_group : r.assigned_patroller_name}
-                            {r.assigned_group && r.assigned_patroller_name && ` • ${r.assigned_patroller_name}`}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Card Footer - Quick Actions */}
-                <div className="p-4 sm:p-5 bg-white">
-                  <div className="flex items-center justify-between gap-2 flex-wrap">
-                    {/* Status Actions */}
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      {(['pending','in_progress','resolved','declined'] as const)
-                        .filter(target => {
-                          if (target === r.status) return false;
-                          const validTransitions: Record<Report['status'], Report['status'][]> = {
-                            'verifying': ['pending', 'declined'],
-                            'pending': ['in_progress', 'declined', 'verifying'],
-                            'in_progress': ['resolved', 'pending', 'declined'],
-                            'resolved': ['in_progress', 'pending'],
-                            'declined': ['pending', 'verifying'],
-                            'awaiting_verification': ['pending', 'declined'],
-                            'cancelled': ['pending', 'verifying']
-                          };
-                          const allowedTransitions = validTransitions[r.status] || [];
-                          return allowedTransitions.includes(target);
-                        })
-                        .slice(0, 2)
-                        .map(target => (
-                          <button
-                            key={target}
-                            onClick={() => updateStatus(r.id, target)}
-                            disabled={statusUpdateLoading[r.id]}
-                            className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
-                              target === 'pending'
-                                ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border border-yellow-300'
-                                : target === 'in_progress'
-                                ? 'bg-blue-100 text-blue-800 hover:bg-blue-200 border border-blue-300'
-                                : target === 'resolved'
-                                ? 'bg-green-100 text-green-800 hover:bg-green-200 border border-green-300'
-                                : 'bg-red-100 text-red-800 hover:bg-red-200 border border-red-300'
-                            }`}
-                            title={`Mark as ${target.replace('_', ' ')}`}
-                          >
-                            {statusUpdateLoading[r.id] ? (
-                              <RefreshCw className="w-3 h-3 animate-spin" />
-                            ) : target === 'resolved' ? (
-                              <CheckCircle2 className="w-3 h-3" />
-                            ) : target === 'declined' ? (
-                              <XCircle className="w-3 h-3" />
-                            ) : (
-                              <Wrench className="w-3 h-3" />
-                            )}
-                            <span className="hidden sm:inline">{target === 'pending' ? 'Pending' : target === 'in_progress' ? 'In Progress' : target === 'resolved' ? 'Resolve' : 'Decline'}</span>
-                          </button>
-                        ))}
-                    </div>
-
-                    {/* View & Delete Actions */}
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+          {/* Table Container - Responsive with horizontal scroll on mobile */}
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[800px]">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th 
+                    className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                    onClick={() => handleSort('case_number')}
+                  >
                     <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleView(r)}
-                        className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-blue-600 text-white hover:bg-blue-700 rounded-md text-xs font-semibold transition-colors"
-                        title="View Full Details"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                        <span className="hidden sm:inline">View</span>
-                      </button>
-                      <button
-                        onClick={() => handleDeleteClick(r.id, r.title)}
-                        className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-red-600 text-white hover:bg-red-700 rounded-md text-xs font-semibold transition-colors"
-                        title="Delete Report"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        <span className="hidden sm:inline">Delete</span>
-                      </button>
+                      <span>Report ID</span>
+                      {getSortIcon('case_number')}
                     </div>
-                  </div>
+                  </th>
+                  <th 
+                    className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                    onClick={() => handleSort('title')}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span>Title</span>
+                      {getSortIcon('title')}
+                    </div>
+                  </th>
+                  <th 
+                    className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                    onClick={() => handleSort('status')}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span>Status</span>
+                      {getSortIcon('status')}
+                    </div>
+                  </th>
+                  <th 
+                    className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors hidden lg:table-cell"
+                    onClick={() => handleSort('category')}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span>Category</span>
+                      {getSortIcon('category')}
+                    </div>
+                  </th>
+                  <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider hidden sm:table-cell">
+                    Reporter
+                  </th>
+                  <th 
+                    className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                    onClick={() => handleSort('created_at')}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="hidden sm:inline">Date Reported</span>
+                      <span className="sm:hidden">Date</span>
+                      {getSortIcon('created_at')}
+                    </div>
+                  </th>
+                  <th 
+                    className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors hidden lg:table-cell"
+                    onClick={() => handleSort('location_address')}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span>Location</span>
+                      {getSortIcon('location_address')}
+                    </div>
+                  </th>
+                  <th className="px-3 sm:px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {sortedAndPaginated.data.map((r) => (
+                  <tr key={r.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-3 sm:px-4 py-3 whitespace-nowrap">
+                      {r.case_number ? (
+                        <span className="inline-flex items-center gap-1 text-sm font-medium text-gray-900">
+                          <Hash className="w-3.5 h-3.5 text-gray-500" />
+                          {r.case_number}
+                        </span>
+                      ) : (
+                        <span className="text-sm text-gray-400">—</span>
+                      )}
+                    </td>
+                    <td className="px-3 sm:px-4 py-3">
+                      <div className="text-sm font-medium text-gray-900 max-w-xs truncate" title={r.title}>
+                        {r.title}
+                      </div>
+                    </td>
+                    <td className="px-3 sm:px-4 py-3 whitespace-nowrap">
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${badgeStatusColor(r.status)}`}>
+                        {formatStatusForDisplay(r.status)}
+                      </span>
+                    </td>
+                    <td className="px-3 sm:px-4 py-3 whitespace-nowrap hidden lg:table-cell">
+                      <span className="text-sm text-gray-900 capitalize">{r.category}</span>
+                    </td>
+                    <td className="px-3 sm:px-4 py-3 whitespace-nowrap hidden sm:table-cell">
+                      <div className="flex items-center gap-2">
+                        {r.user_profile?.avatar_url ? (
+                          <img 
+                            src={r.user_profile.avatar_url} 
+                            alt={r.user_profile.username || 'User'} 
+                            className="w-6 h-6 rounded-full object-cover border border-gray-200" 
+                          />
+                        ) : (
+                          <div className="w-6 h-6 rounded-full bg-blue-200 flex items-center justify-center text-xs font-semibold text-blue-900">
+                            {(r.user_profile?.username || 'U').charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <span className="text-sm text-gray-900">
+                          {r.is_anonymous ? 'Anonymous' : (r.user_profile?.username || 'Unknown')}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-3 sm:px-4 py-3 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">
+                        {new Date(r.created_at).toLocaleDateString('en-US', { 
+                          month: 'short', 
+                          day: 'numeric',
+                          year: 'numeric'
+                        })}
+                      </div>
+                    </td>
+                    <td className="px-3 sm:px-4 py-3 hidden lg:table-cell">
+                      <div className="text-sm text-gray-900 max-w-xs truncate" title={r.location_address || ''}>
+                        {r.location_address ? (
+                          r.location_address.length > 30 
+                            ? r.location_address.substring(0, 30) + '...' 
+                            : r.location_address
+                        ) : (
+                          <span className="text-gray-400">—</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-3 sm:px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
+                      <div className="flex items-center justify-end gap-1 sm:gap-2 flex-wrap">
+                        {/* Status Update Actions */}
+                        {(['pending','in_progress','resolved','declined'] as const)
+                          .filter(target => {
+                            if (target === r.status) return false;
+                            const validTransitions: Record<Report['status'], Report['status'][]> = {
+                              'verifying': ['pending', 'declined'],
+                              'pending': ['in_progress', 'declined', 'verifying'],
+                              'in_progress': ['resolved', 'pending', 'declined'],
+                              'resolved': ['in_progress', 'pending'],
+                              'declined': ['pending', 'verifying'],
+                              'awaiting_verification': ['pending', 'declined'],
+                              'cancelled': ['pending', 'verifying']
+                            };
+                            const allowedTransitions = validTransitions[r.status] || [];
+                            return allowedTransitions.includes(target);
+                          })
+                          .slice(0, 2)
+                          .map(target => (
+                            <button
+                              key={target}
+                              onClick={() => updateStatus(r.id, target)}
+                              disabled={statusUpdateLoading[r.id]}
+                              className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+                                target === 'pending'
+                                  ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border border-yellow-300'
+                                  : target === 'in_progress'
+                                  ? 'bg-blue-100 text-blue-800 hover:bg-blue-200 border border-blue-300'
+                                  : target === 'resolved'
+                                  ? 'bg-green-100 text-green-800 hover:bg-green-200 border border-green-300'
+                                  : 'bg-red-100 text-red-800 hover:bg-red-200 border border-red-300'
+                              }`}
+                              title={`Mark as ${target.replace('_', ' ')}`}
+                            >
+                              {statusUpdateLoading[r.id] ? (
+                                <RefreshCw className="w-3 h-3 animate-spin" />
+                              ) : target === 'resolved' ? (
+                                <CheckCircle2 className="w-3 h-3" />
+                              ) : target === 'declined' ? (
+                                <XCircle className="w-3 h-3" />
+                              ) : (
+                                <Wrench className="w-3 h-3" />
+                              )}
+                            </button>
+                          ))}
+                        <button
+                          onClick={() => handleView(r)}
+                          className="inline-flex items-center gap-1 px-2 py-1 bg-blue-600 text-white hover:bg-blue-700 rounded text-xs font-semibold transition-colors"
+                          title="View Full Details"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleArchiveClick(r.id, r.title)}
+                          className="inline-flex items-center gap-1 px-2 py-1 bg-gray-600 text-white hover:bg-gray-700 rounded text-xs font-semibold transition-colors"
+                          title="Archive Report"
+                        >
+                          <Archive className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination */}
+          {sortedAndPaginated.totalPages > 1 && (
+            <div className="bg-gray-50 px-3 sm:px-4 py-3 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-700">Show</span>
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => {
+                    setItemsPerPage(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="px-2 py-1 border border-gray-300 rounded text-sm text-gray-900 focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+                <span className="text-sm text-gray-700">per page</span>
+              </div>
+              <div className="flex flex-col sm:flex-row items-center gap-2">
+                <span className="text-sm text-gray-700 text-center sm:text-left">
+                  Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, sortedAndPaginated.total)} of {sortedAndPaginated.total} reports
+                </span>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Previous
+                  </button>
+                  <span className="px-3 py-1 text-sm text-gray-700">
+                    Page {currentPage} of {sortedAndPaginated.totalPages}
+                  </span>
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(sortedAndPaginated.totalPages, prev + 1))}
+                    disabled={currentPage === sortedAndPaginated.totalPages}
+                    className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Next
+                  </button>
                 </div>
               </div>
-            );
-          })}
+            </div>
+          )}
         </div>
       )}
 
@@ -1333,18 +1560,6 @@ export function AdminReports() {
                           {editForm.category.length} / 100 characters
                         </p>
                       </div>
-                      <div>
-                        <label className="block text-xs uppercase tracking-wide text-gray-500 mb-2">Priority</label>
-                        <select
-                          value={editForm.priority}
-                          onChange={(e) => setEditForm(prev => ({ ...prev, priority: e.target.value as 'low' | 'medium' | 'high' }))}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                        >
-                          <option value="low">Low</option>
-                          <option value="medium">Medium</option>
-                          <option value="high">High</option>
-                        </select>
-                      </div>
                     </div>
                   </div>
                 ) : (
@@ -1362,11 +1577,6 @@ export function AdminReports() {
                         <div className="mt-1 text-sm text-gray-800">{selectedReport.category}</div>
                       </div>
                       <div>
-                        <div className="text-xs uppercase tracking-wide text-gray-500">Priority</div>
-                        <div className="mt-1">
-                          <span className={`${selectedReport.priority === 'high' ? 'bg-red-100 text-red-800' : selectedReport.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'} text-xs px-2 py-0.5 rounded-full`}>{selectedReport.priority}</span>
-                        </div>
-                      </div>
                   <div>
                     <div className="text-xs uppercase tracking-wide text-gray-500">Status</div>
                     <div className="mt-1">
@@ -1398,7 +1608,8 @@ export function AdminReports() {
                       </div>
                     </div>
                   </div>
-                </div>
+                      </div>
+                    </div>
                   </>
                 )}
 
@@ -1491,9 +1702,8 @@ export function AdminReports() {
                     <div className="text-xs uppercase tracking-wide text-gray-500 mb-2">Images</div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {selectedReport.images.map((src, idx) => (
-                        <div className="w-full flex items-center justify-center">
+                        <div key={idx} className="w-full flex items-center justify-center">
                           <img
-                            key={idx}
                             src={src}
                             alt={`Report image ${idx+1}`}
                             loading="lazy"
@@ -1590,14 +1800,13 @@ export function AdminReports() {
                 <button
                   onClick={() => {
                     if (selectedReport) {
-                      handleDeleteClick(selectedReport.id, selectedReport.title);
-                      setSelectedReport(null);
+                      handleArchiveClick(selectedReport.id, selectedReport.title);
                     }
                   }}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
                 >
-                  <Trash2 className="w-4 h-4" />
-                  Delete Report
+                  <Archive className="w-4 h-4" />
+                  Archive Report
                 </button>
                 <button
                   onClick={() => setSelectedReport(null)}
@@ -1612,17 +1821,55 @@ export function AdminReports() {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
-      <ConfirmationModal
-        isOpen={deleteConfirm.isOpen}
-        onClose={() => setDeleteConfirm({ isOpen: false, reportId: null, reportTitle: '' })}
-        onConfirm={handleDelete}
-        title="Delete Report"
-        message={`Are you sure you want to delete "${deleteConfirm.reportTitle}"? This action cannot be undone and will permanently remove the report from the system.`}
-        confirmText="Delete"
-        cancelText="Cancel"
-        type="danger"
-      />
+      {/* Archive Confirmation Modal */}
+      {archiveConfirm.isOpen && (
+        <div className="fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setArchiveConfirm({ isOpen: false, reportId: null, reportTitle: '', archiveReason: '' })} />
+          <div className="absolute inset-0 px-4 flex items-center justify-center py-8">
+            <div className="w-full max-w-md bg-white rounded-xl shadow-2xl border border-gray-200">
+              <div className="px-6 py-5 border-b border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900">Archive Report</h3>
+              </div>
+              <div className="px-6 py-5">
+                <p className="text-sm text-gray-700 mb-4">
+                  Are you sure you want to archive <strong>"{archiveConfirm.reportTitle}"</strong>? Archived reports can be viewed and restored from the Archive page.
+                </p>
+                <div className="mb-4">
+                  <label htmlFor="archive-reason" className="block text-sm font-medium text-gray-700 mb-2">
+                    Archive Reason (Optional)
+                  </label>
+                  <textarea
+                    id="archive-reason"
+                    value={archiveConfirm.archiveReason}
+                    onChange={(e) => setArchiveConfirm({ ...archiveConfirm, archiveReason: e.target.value })}
+                    placeholder="Enter a reason for archiving this report..."
+                    rows={3}
+                    maxLength={500}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-gray-500 focus:border-gray-500 resize-none"
+                  />
+                  <div className="mt-1 text-xs text-gray-500 text-right">
+                    {archiveConfirm.archiveReason.length}/500 characters
+                  </div>
+                </div>
+              </div>
+              <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-end gap-3">
+                <button
+                  onClick={() => setArchiveConfirm({ isOpen: false, reportId: null, reportTitle: '', archiveReason: '' })}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleArchive}
+                  className="px-4 py-2 text-sm font-medium text-white bg-gray-600 rounded-lg hover:bg-gray-700 transition-colors"
+                >
+                  Archive Report
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Notification Stack */}
       {notification && (

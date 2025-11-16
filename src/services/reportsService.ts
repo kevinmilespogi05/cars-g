@@ -239,7 +239,7 @@ export const reportsService = {
       const { data, error } = await supabase
         .from('reports')
         .insert([payload])
-        .select('id, user_id, title, description, category, priority, status, location, location_address, images, is_anonymous, created_at, updated_at, case_number, priority_level, assigned_group, assigned_patroller_name, can_cancel')
+        .select('id, user_id, title, description, category, priority, status, location, location_address, images, is_anonymous, user_notes_to_admin, created_at, updated_at, case_number, priority_level, assigned_group, assigned_patroller_name, can_cancel')
         .single();
 
       if (error) {
@@ -1099,6 +1099,7 @@ export const reportsService = {
       let query = supabase
         .from('reports')
         .select('*')
+        .eq('is_archived', false) // Exclude archived reports from admin view
         .order('case_number', { ascending: true });
       if (filters?.limit && Number.isFinite(filters.limit)) {
         const end = Math.max(0, Math.floor(filters.limit) - 1);
@@ -1354,6 +1355,7 @@ export const reportsService = {
       let query = supabase
         .from('reports')
         .select('*')
+        .eq('is_archived', false) // Exclude archived reports by default
         .order('created_at', { ascending: false });
       if (filters?.limit && Number.isFinite(filters.limit)) {
         const end = Math.max(0, Math.floor(filters.limit) - 1);

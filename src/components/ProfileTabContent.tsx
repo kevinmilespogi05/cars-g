@@ -48,8 +48,6 @@ interface ProfileTabContentProps {
   setSearchQuery?: (query: string) => void;
   statusFilter?: string;
   setStatusFilter?: (filter: string) => void;
-  priorityFilter?: string;
-  setPriorityFilter?: (filter: string) => void;
   clearFilters?: () => void;
   filteredReports?: Report[];
   setDeleteTarget?: (report: Report | null) => void;
@@ -70,8 +68,6 @@ export function ProfileTabContent({
   setSearchQuery = () => {},
   statusFilter = '',
   setStatusFilter = () => {},
-  priorityFilter = '',
-  setPriorityFilter = () => {},
   clearFilters = () => {},
   filteredReports = [],
   setDeleteTarget = () => {},
@@ -546,18 +542,6 @@ export function ProfileTabContent({
     }
   };
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'high':
-        return 'bg-red-100 text-red-800';
-      case 'medium':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'low':
-        return 'bg-green-100 text-green-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
 
   const formatDate = (dateString: string | undefined) => {
     if (!dateString) return 'Not available';
@@ -771,10 +755,6 @@ export function ProfileTabContent({
         filtered = filtered.filter(report => report.status === statusFilter);
       }
 
-      // Apply priority filter
-      if (priorityFilter) {
-        filtered = filtered.filter(report => report.priority === priorityFilter);
-      }
 
       return filtered;
     })() : filteredReports;
@@ -831,21 +811,10 @@ export function ProfileTabContent({
                   </select>
                 </div>
                 
-                <select
-                  value={priorityFilter}
-                  onChange={(e) => setPriorityFilter(e.target.value)}
-                  className="px-3 sm:px-4 py-2.5 sm:py-3 bg-white/80 backdrop-blur-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 shadow-sm hover:shadow-md min-w-[120px] sm:min-w-[140px]"
-                >
-                  <option value="">All Priorities</option>
-                  <option value="high">High</option>
-                  <option value="medium">Medium</option>
-                  <option value="low">Low</option>
-                </select>
-              </div>
             </div>
             
             {/* Clear Filters Button */}
-            {(searchQuery || statusFilter || priorityFilter) && (
+            {(searchQuery || statusFilter) && (
               <button
                 onClick={clearFilters}
                 className="inline-flex items-center gap-2 px-3 sm:px-4 py-2.5 sm:py-3 text-sm font-medium text-gray-600 hover:text-gray-800 bg-white/80 hover:bg-white border border-gray-200 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md"
@@ -970,11 +939,6 @@ export function ProfileTabContent({
                     }`}>
                       {isPatrolUser ? '✓ Resolved' : ((report.status === 'declined' || report.status === 'rejected') ? 'Declined' : report.status.replace('_', ' '))}
                     </span>
-                    {report.priority && (
-                      <span className={`inline-flex items-center px-3 py-1.5 rounded-xl text-xs font-semibold shadow-sm ${getPriorityColor(report.priority)}`}>
-                        {report.priority}
-                      </span>
-                    )}
                   </div>
                   <span className="inline-flex items-center gap-1 text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-lg">
                     <Calendar className="h-3 w-3" />

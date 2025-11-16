@@ -523,6 +523,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         await get().signInWithJWT(email, password);
         return; // Success with JWT, exit early
       } catch (jwtError) {
+        // If the server explicitly indicates email not verified or ID verification
+        // is pending, do not fall back to Supabase as it will not provide more
+        // useful information (Supabase returns a generic credentials error).
+        if ((jwtError as any).code === 'EMAIL_NOT_VERIFIED' || (jwtError as any).code === 'VERIFICATION_PENDING') {
+          throw jwtError;
+        }
+
         console.log('JWT authentication failed, falling back to Supabase:', jwtError);
         // Fall back to Supabase authentication
       }
@@ -787,6 +794,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         );
       }
       
+      // Let specific server-side verification or policy errors bubble up so
+      // the UI can present helpful instructions to the user.
+      if ((error as any).code === 'EMAIL_NOT_VERIFIED' ||
+          (error as any).code === 'VERIFICATION_PENDING' ||
+          (error as any).code === 'VERIFICATION_DECLINED' ||
+          (error as any).code === 'USER_BANNED') {
+        throw error;
+      }
+
       // Handle authentication errors
       if (error.message?.includes('Invalid') || error.message?.includes('credentials')) {
         throw new Error('Invalid email or password. Please try again.');

@@ -191,3 +191,48 @@ export function requireSuperAdmin(req, res, next) {
 export function requirePatrolOrAdmin(req, res, next) {
   return requireRole(['patrol', 'admin'])(req, res, next);
 }
+
+/**
+ * Require verified middleware
+ * Ensures the user's profile has an active verification status.
+ * @param {object} supabaseClient - Supabase admin or client instance
+ */
+export function requireVerified(supabaseClient) {
+  return async (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ success: false, error: 'Authentication required', code: 'AUTH_REQUIRED' });
+    }
+
+    try {
+      const client = supabaseClient;
+      if (!client) {
+        // If no admin client provided, allow (cannot enforce)
+        return next();
+      }
+
+      const { data: profile, error } = await client
+        .from('profiles')
+        .select('verification_status')
+        .eq('id', req.user.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error('requireVerified: failed to fetch profile', error);
+        return res.status(500).json({ success: false, error: 'Failed to validate verification status', code: 'PROFILE_ERROR' });
+      }
+
+      const status = (profile && profile.verification_status) ? profile.verification_status : 'pending';
+
+      // Allow only explicitly active/verified statuses
+      const allowed = ['active', 'verified', 'ai_verified'];
+      if (!allowed.includes(status)) {
+        return res.status(403).json({ success: false, error: 'Account verification required to access this resource', code: 'VERIFICATION_REQUIRED', verification_status: status });
+      }
+
+      return next();
+    } catch (e) {
+      console.error('requireVerified error', e);
+      return res.status(500).json({ success: false, error: 'Internal server error', code: 'INTERNAL_ERROR' });
+    }
+  };
+}

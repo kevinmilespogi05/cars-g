@@ -944,9 +944,6 @@ export function PatrolDashboard() {
                           'bg-red-100 text-red-800'
                         }`}>{statusLabel(report.status)}</span>
                       </div>
-                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-semibold ${
-                        report.priority === 'high' ? 'bg-red-100 text-red-800' : report.priority === 'medium' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
-                      }`}>{report.priority}</span>
                     </div>
 
                     <h4 className="text-sm font-medium text-gray-900 truncate mb-1">{report.title}</h4>
@@ -988,13 +985,6 @@ export function PatrolDashboard() {
                         'bg-red-100 text-red-800'
                       }`}>
                         {statusLabel(selectedReport.status)}
-                      </span>
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full font-medium ${
-                        selectedReport.priority === 'high' ? 'bg-red-100 text-red-800' :
-                        selectedReport.priority === 'medium' ? 'bg-amber-100 text-amber-800' :
-                        'bg-emerald-100 text-emerald-800'
-                      }`}>
-                        Priority: {selectedReport.priority}
                       </span>
                       {selectedReport.case_number && (
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full font-medium bg-gray-100 text-gray-800">
@@ -1075,13 +1065,6 @@ export function PatrolDashboard() {
                   <div className="bg-white border border-gray-200 rounded-xl p-4">
                     <p className="text-xs font-medium text-gray-500">Case Level</p>
                     <div className="mt-1 flex flex-col gap-1">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        selectedReport.priority === 'high' ? 'bg-red-100 text-red-800' :
-                        selectedReport.priority === 'medium' ? 'bg-amber-100 text-amber-800' :
-                        'bg-emerald-100 text-emerald-800'
-                      }`}>
-                        {capitalize(selectedReport.priority)}
-                      </span>
                       {(() => {
                         const lvl = getEffectiveLevel(selectedReport);
                         return typeof lvl === 'number' ? (
@@ -1094,7 +1077,9 @@ export function PatrolDashboard() {
                           }`}>
                             Level {lvl} · {getServiceLevelText(lvl)}
                           </span>
-                        ) : null;
+                        ) : (
+                          <div className="text-sm text-gray-500 italic">Not set</div>
+                        );
                       })()}
                     </div>
                   </div>
@@ -1149,20 +1134,11 @@ export function PatrolDashboard() {
                       )}
                       {(() => {
                         const lvl = getEffectiveLevel(selectedReport);
-                        if (typeof lvl !== 'number' && !selectedReport.priority) return null;
+                        if (typeof lvl !== 'number') return null;
                         return (
                           <div>
                             <p className="text-sm font-medium text-gray-500">Case Level</p>
                             <div className="flex flex-col gap-1">
-                              {selectedReport.priority && (
-                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                  selectedReport.priority === 'high' ? 'bg-red-100 text-red-800' :
-                                  selectedReport.priority === 'medium' ? 'bg-amber-100 text-amber-800' :
-                                  'bg-emerald-100 text-emerald-800'
-                                }`}>
-                                  {capitalize(selectedReport.priority)}
-                                </span>
-                              )}
                               {typeof lvl === 'number' && (
                                 <span title={getServiceLevelText(lvl)} className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                                   lvl >= 5 ? 'bg-red-100 text-red-800' :

@@ -15,6 +15,7 @@ import { Report } from '../types';
 import { deleteMultipleImages } from '../lib/cloudinaryStorage';
 import { ConfirmationDialog } from '../components/ConfirmationDialog';
 import { getUserStatsWithCache } from '../lib/achievements';
+import { VerifiedBadge, isUserVerified } from '../components/VerifiedBadge';
 
 interface UserStats {
   reports_submitted: number;
@@ -79,7 +80,6 @@ export function Profile({ softBlocked = false }: { softBlocked?: boolean }) {
   // Search and filter state
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [priorityFilter, setPriorityFilter] = useState('');
 
   const getStatusColor = useCallback((status: string) => {
     const normalizedStatus = status?.toLowerCase();
@@ -140,19 +140,13 @@ export function Profile({ softBlocked = false }: { softBlocked?: boolean }) {
       }
     }
 
-    // Apply priority filter
-    if (priorityFilter) {
-      filtered = filtered.filter(report => report.priority === priorityFilter);
-    }
-
     return filtered;
-  }, [myReports, searchQuery, statusFilter, priorityFilter]);
+  }, [myReports, searchQuery, statusFilter]);
 
   // Clear all filters
   const clearFilters = useCallback(() => {
     setSearchQuery('');
     setStatusFilter('');
-    setPriorityFilter('');
   }, []);
 
   useEffect(() => {
@@ -265,7 +259,8 @@ export function Profile({ softBlocked = false }: { softBlocked?: boolean }) {
           currentUser.avatar_url !== data.avatar_url ||
           currentUser.role !== data.role ||
           currentUser.points !== data.points ||
-          currentUser.created_at !== data.created_at
+          currentUser.created_at !== data.created_at ||
+          currentUser.verification_status !== data.verification_status
         );
         if (shouldUpdate) {
           setUser({ ...currentUser, ...data });
@@ -636,17 +631,25 @@ export function Profile({ softBlocked = false }: { softBlocked?: boolean }) {
                     </div>
                   ) : (
                     <div className="flex items-center gap-2 lg:gap-3 mb-1 lg:mb-2 min-w-0">
-                      <h1 className="text-2xl lg:text-4xl font-bold text-white drop-shadow-lg truncate">
-                        {(user?.first_name || user?.last_name)
-                          ? `${user?.first_name ?? ''} ${user?.last_name ?? ''}`.trim()
-                          : (user?.username || 'Not set')}
-                      </h1>
-                      {user?.role === 'patrol' && patrolGroup && (
-                        <span className="inline-flex items-center px-2 lg:px-3 py-0.5 lg:py-1 rounded-full text-[10px] lg:text-xs font-semibold bg-emerald-400/20 text-emerald-100 border border-emerald-300/30 whitespace-nowrap">
-                          Group: {patrolGroup}
-                        </span>
-                      )}
-                    </div>
+                        <h1 className="text-2xl lg:text-4xl font-bold text-white drop-shadow-lg truncate">
+                          {(user?.first_name || user?.last_name)
+                            ? `${user?.first_name ?? ''} ${user?.last_name ?? ''}`.trim()
+                            : (user?.username || 'Not set')}
+                        </h1>
+
+                        {/* Verification badge */}
+                        <VerifiedBadge 
+                          isVerified={isUserVerified(user?.verification_status)} 
+                          size="md"
+                          className="flex-shrink-0"
+                        />
+
+                        {user?.role === 'patrol' && patrolGroup && (
+                          <span className="inline-flex items-center px-2 lg:px-3 py-0.5 lg:py-1 rounded-full text-[10px] lg:text-xs font-semibold bg-emerald-400/20 text-emerald-100 border border-emerald-300/30 whitespace-nowrap">
+                            Group: {patrolGroup}
+                          </span>
+                        )}
+                      </div>
                   )}
                   
                   <div className="flex items-center gap-3 lg:gap-4 text-white/90 mt-1 flex-wrap">
@@ -724,8 +727,6 @@ export function Profile({ softBlocked = false }: { softBlocked?: boolean }) {
               setSearchQuery={setSearchQuery}
               statusFilter={statusFilter}
               setStatusFilter={setStatusFilter}
-              priorityFilter={priorityFilter}
-              setPriorityFilter={setPriorityFilter}
               clearFilters={clearFilters}
               filteredReports={filteredReports}
               setDeleteTarget={setDeleteTarget}

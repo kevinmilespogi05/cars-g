@@ -35,7 +35,7 @@ import { formatStatusForDisplay } from '../lib/badges';
  * 
  * Customization:
  * - Adjust grid columns via grid-cols-* classes
- * - Modify filter options via CATEGORIES, STATUSES, PRIORITIES constants
+ * - Modify filter options via CATEGORIES, STATUSES constants
  * - Update card styling and animations
  * - Customize empty state illustration
  */
@@ -43,7 +43,6 @@ import { formatStatusForDisplay } from '../lib/badges';
 // Filter options
 const CATEGORIES = ['All', 'Infrastructure', 'Safety', 'Environmental', 'Public Services', 'Other'];
 const STATUSES = ['All', 'Pending', 'In Progress', 'Resolved'];
-const PRIORITIES = ['All', 'Low', 'Medium', 'High'];
 
 interface ReportsListProps {
   reports: Report[];
@@ -53,12 +52,10 @@ interface ReportsListProps {
   filters: {
     category: string;
     status: string;
-    priority: string;
   };
   setFilters: React.Dispatch<React.SetStateAction<{
     category: string;
     status: string;
-    priority: string;
   }>>;
   handleLike: (reportId: string) => void;
   likeLoading: { [key: string]: boolean };
@@ -68,7 +65,6 @@ interface ReportsListProps {
   handleImageError: (reportId: string) => void;
   getStatusColor: (status: string) => string;
   getStatusIcon: (status: string) => React.ReactNode;
-  getPriorityColor: (priority: string) => string;
   mobileListRef: React.RefObject<HTMLDivElement>;
   isRefreshing: boolean;
   afterSearchContent?: React.ReactNode;
@@ -103,7 +99,6 @@ export function ReportsList({
   handleImageError,
   getStatusColor,
   getStatusIcon,
-  getPriorityColor,
   mobileListRef,
   isRefreshing,
   afterSearchContent
@@ -166,16 +161,12 @@ export function ReportsList({
         ? (report.status?.toLowerCase() === 'declined' || report.status?.toLowerCase() === 'rejected')
         : (report.status || '').toLowerCase() === filters.status.toLowerCase().replace(/\s+/g, '_'));
     
-    // Priority filter
-    const priorityMatch = filters.priority === 'All' || 
-      (report.priority || '').toLowerCase() === filters.priority.toLowerCase();
-    
     // Search term filter
     const searchMatch = !searchTerm || 
       (report.title || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
       (report.description || '').toLowerCase().includes(searchTerm.toLowerCase());
     
-    return categoryMatch && statusMatch && priorityMatch && searchMatch;
+    return categoryMatch && statusMatch && searchMatch;
   });
 
   // Clear filters function
@@ -184,7 +175,6 @@ export function ReportsList({
     setFilters({
       category: 'All',
       status: 'All',
-      priority: 'All',
     });
     setCurrentPage(1);
   };
@@ -192,7 +182,7 @@ export function ReportsList({
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, filters.category, filters.status, filters.priority]);
+  }, [searchTerm, filters.category, filters.status]);
 
   // Calculate pagination
   const totalPages = Math.ceil(filteredReports.length / reportsPerPage);
@@ -261,19 +251,8 @@ export function ReportsList({
             ))}
           </select>
 
-          <select
-            value={filters.priority}
-            onChange={(e) => setFilters(prev => ({ ...prev, priority: e.target.value }))}
-            className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white transition-colors"
-            aria-label="Filter by priority"
-          >
-            {PRIORITIES.map(priority => (
-              <option key={priority} value={priority}>{priority}</option>
-            ))}
-          </select>
-
           {/* Clear Filters Button */}
-          {(searchTerm || filters.category !== 'All' || filters.status !== 'All' || filters.priority !== 'All') && (
+          {(searchTerm || filters.category !== 'All' || filters.status !== 'All') && (
             <button
               onClick={clearFilters}
               className="flex items-center justify-center gap-1.5 px-3 py-2 text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-lg transition-colors whitespace-nowrap"
@@ -354,9 +333,6 @@ export function ReportsList({
                   <div className="flex items-center justify-between">
                     <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-semibold ${getStatusColor(report.status)}`}>
                       {report.status.replace('_',' ')}
-                    </span>
-                    <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-semibold ${getPriorityColor(report.priority)}`}>
-                      {report.priority}
                     </span>
                   </div>
                 </div>
@@ -530,9 +506,6 @@ export function ReportsList({
                   <span className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold ${getStatusColor(report.status)}`}>
                     {getStatusIcon(report.status)}
                     <span className="ml-1.5">{formatStatusForDisplay(report.status)}</span>
-                  </span>
-                  <span className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold ${getPriorityColor(report.priority)}`}>
-                    {report.priority}
                   </span>
                 </div>
 

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
-import { CheckCircle2, XCircle, Eye, RefreshCw, Hash, User2, Calendar, MapPin, X, Navigation } from 'lucide-react';
+import { CheckCircle2, XCircle, Eye, RefreshCw, Hash, User2, Calendar, MapPin, X, Navigation, EyeOff, HelpCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getReportCoordinates, isValidCoordinates } from '../lib/geocoding';
 import { ImageViewer } from './ImageViewer';
@@ -63,6 +63,20 @@ export function AdminCaseRequests() {
       const newStatus = report?.status === 'awaiting_verification' ? 'resolved' : 'pending';
       const message = newStatus === 'resolved' ? 'Report marked as resolved' : 'Report marked as pending';
       
+      // Clear user notes to admin when report is accepted
+      const { error: updateError } = await (supabase as any)
+        .from('reports')
+        .update({ 
+          user_notes_to_admin: null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', reportId);
+      
+      if (updateError) {
+        console.error('Error clearing user notes:', updateError);
+        // Continue with acceptance even if clearing notes fails
+      }
+      
       // Award points to reporter when report is verified/accepted
       if (report?.user_id) {
         try {
@@ -108,6 +122,47 @@ export function AdminCaseRequests() {
     } catch (e) {
       await load();
       showToast('Failed to decline and revert report', 'error');
+    }
+  };
+
+  const toggleHideIdentity = async (reportId: string) => {
+    try {
+      const report = reports.find(r => r.id === reportId);
+      if (!report) return;
+
+      const newAnonymousState = !report.is_anonymous;
+
+      const { error } = await (supabase as any)
+        .from('reports')
+        .update({ 
+          is_anonymous: newAnonymousState,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', reportId);
+
+      if (error) throw error;
+
+      // Update local state
+      setReports(prev => prev.map(r => 
+        r.id === reportId 
+          ? { ...r, is_anonymous: newAnonymousState }
+          : r
+      ));
+
+      // Update selected report if it's the one being modified
+      if (selectedReport?.id === reportId) {
+        setSelectedReport({ ...selectedReport, is_anonymous: newAnonymousState });
+      }
+
+      showToast(
+        newAnonymousState 
+          ? 'Reporter identity hidden from public view' 
+          : 'Reporter identity visible to public',
+        'success'
+      );
+    } catch (e: any) {
+      showToast('Failed to update identity visibility', 'error');
+      console.error('Error toggling hide identity:', e);
     }
   };
 
@@ -294,8 +349,29 @@ export function AdminCaseRequests() {
                       </button>
                     </div>
 
-                    {/* Accept & Decline Buttons */}
+                    {/* Hide Identity, Accept & Decline Buttons */}
                     <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        onClick={() => toggleHideIdentity(r.id)}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
+                          r.is_anonymous
+                            ? 'bg-purple-50 text-purple-700 hover:bg-purple-100 border-purple-200'
+                            : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border-gray-200'
+                        }`}
+                        title={r.is_anonymous ? 'Show Identity' : 'Hide Identity'}
+                      >
+                        {r.is_anonymous ? (
+                          <>
+                            <EyeOff className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">Show Identity</span>
+                          </>
+                        ) : (
+                          <>
+                            <Eye className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">Hide Identity</span>
+                          </>
+                        )}
+                      </button>
                       <button
                         onClick={() => setConfirm({ open: true, action: 'accept', reportId: r.id })}
                         className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 hover:bg-green-100 rounded-lg border border-green-200 text-xs font-medium transition-colors"
@@ -353,6 +429,18 @@ export function AdminCaseRequests() {
                   <p className="text-base text-gray-800 leading-relaxed">{selectedReport.description}</p>
                 </div>
 
+                {/* User Notes to Admin */}
+                {selectedReport.user_notes_to_admin && (
+                  <div className="bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-200 rounded-lg p-4 shadow-sm">
+                    <div className="flex items-center gap-2 mb-2">
+                      <HelpCircle className="w-4 h-4 text-amber-600" />
+                      <div className="text-xs uppercase tracking-wide text-amber-700 font-semibold">Notes from Reporter</div>
+                    </div>
+                    <p className="text-sm text-amber-900 leading-relaxed whitespace-pre-wrap">{selectedReport.user_notes_to_admin}</p>
+                    <p className="text-xs text-amber-700 mt-2 italic">These notes will be removed once the report is accepted.</p>
+                  </div>
+                )}
+
                 {/* Two-column info */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                   <div>
@@ -368,7 +456,7 @@ export function AdminCaseRequests() {
                     </div>
                   </div>
                   <div>
-                    <div className="text-xs uppercase tracking-wide text-gray-500">Reported By</div>
+                    <div className="text-xs uppercase tracking-wide text-gray-500 mb-1">Reported By</div>
                     <div className="mt-1 flex items-center gap-2 text-sm text-gray-800">
                       {selectedReport.user_profile?.avatar_url ? (
                         <img src={selectedReport.user_profile.avatar_url} alt={selectedReport.user_profile.username || 'User'} className="w-8 h-8 rounded-full object-cover" />
@@ -377,10 +465,41 @@ export function AdminCaseRequests() {
                           {(selectedReport.user_profile?.username || 'U').slice(0,1).toUpperCase()}
                         </div>
                       )}
-                      <div>
-                        <div>{selectedReport.user_profile?.username || 'Unknown'}</div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span>{selectedReport.user_profile?.username || 'Unknown'}</span>
+                          {selectedReport.is_anonymous && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700 border border-purple-200">
+                              <EyeOff className="w-3 h-3" />
+                              Hidden from public
+                            </span>
+                          )}
+                        </div>
                         <div className="text-xs text-gray-500">{new Date(selectedReport.created_at).toLocaleString()}</div>
                       </div>
+                    </div>
+                    <div className="mt-2">
+                      <button
+                        onClick={() => toggleHideIdentity(selectedReport.id)}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
+                          selectedReport.is_anonymous
+                            ? 'bg-purple-50 text-purple-700 hover:bg-purple-100 border-purple-200'
+                            : 'bg-gray-50 text-gray-700 hover:bg-gray-100 border-gray-200'
+                        }`}
+                        title={selectedReport.is_anonymous ? 'Show Identity to Public' : 'Hide Identity from Public'}
+                      >
+                        {selectedReport.is_anonymous ? (
+                          <>
+                            <EyeOff className="w-3.5 h-3.5" />
+                            <span>Show Identity</span>
+                          </>
+                        ) : (
+                          <>
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>Hide Identity</span>
+                          </>
+                        )}
+                      </button>
                     </div>
                   </div>
                   <div>

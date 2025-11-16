@@ -18,14 +18,16 @@ import { AnnouncementManagement } from '../components/AnnouncementManagement';
 import { AdminCaseRequests } from '../components/AdminCaseRequests';
 import { AdminDutySchedule } from '../components/AdminDutySchedule';
 import { AdminVerificationDashboard } from '../components/AdminVerificationDashboard';
+import { AdminArchive } from '../components/AdminArchive';
+import { AdminDashboardOverview } from '../components/AdminDashboardOverview';
 
 export function AdminDashboard() {
   const { user } = useAuthStore();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   
-  // Get active section from URL query params, default to 'reports'
-  const activeSection = (searchParams.get('section') || 'reports') as 'reports' | 'requests' | 'duty' | 'users' | 'stats' | 'settings' | 'announcements' | 'verification';
+  // Get active section from URL query params, default to 'dashboard'
+  const activeSection = (searchParams.get('section') || 'dashboard') as 'dashboard' | 'reports' | 'archive' | 'requests' | 'duty' | 'users' | 'stats' | 'settings' | 'announcements' | 'verification';
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [showInfo, setShowInfo] = useState<boolean>(false);
 
@@ -75,9 +77,19 @@ export function AdminDashboard() {
       {/* Main Content */}
       <main className="flex-1 overflow-hidden">
         <div className="relative w-full px-4 py-4">
+          {activeSection === 'dashboard' && (
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3 md:p-4">
+              <AdminDashboardOverview />
+            </div>
+          )}
           {activeSection === 'reports' && (
             <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3 md:p-4">
               <AdminReports />
+            </div>
+          )}
+          {activeSection === 'archive' && (
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3 md:p-4">
+              <AdminArchive />
             </div>
           )}
           {activeSection === 'requests' && (
@@ -120,6 +132,16 @@ export function AdminDashboard() {
             <h3 className="text-sm font-semibold text-gray-900">Section Info</h3>
             <button onClick={() => setShowInfo(false)} className="px-2 py-1 text-sm rounded-md border border-gray-200 hover:bg-gray-50">Close</button>
           </div>
+          {activeSection === 'dashboard' && (
+            <div>
+              <p className="text-sm text-gray-700 mb-2">Your main dashboard with key metrics and insights.</p>
+              <ul className="list-disc pl-5 text-sm text-gray-600 space-y-1">
+                <li>View KPI cards for quick overview.</li>
+                <li>Analyze reports by status, category, and time.</li>
+                <li>Monitor recent activity and trends.</li>
+              </ul>
+            </div>
+          )}
           {activeSection === 'reports' && (
             <div>
               <p className="text-sm text-gray-700 mb-2">Manage all citizen reports here.</p>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { X, Shield, FileText } from 'lucide-react';
-import { getStatusColor as badgeStatusColor, getStatusIcon as badgeStatusIcon, getPriorityColor as badgePriorityColor } from '../lib/badges';
+import { getStatusColor as badgeStatusColor, getStatusIcon as badgeStatusIcon } from '../lib/badges';
 import { useAuthStore } from '../store/authStore';
 import { useVerificationStatus } from '../hooks/useVerificationStatus';
 import { useToastContext } from '../contexts/ToastContext';
@@ -25,7 +25,6 @@ export function Reports() {
   const [filters, setFilters] = useState({
     category: 'All',
     status: 'All',
-    priority: 'All',
   });
   const [selectedImage, setSelectedImage] = useState<{ url: string; index: number } | null>(null);
   const [imageErrors, setImageErrors] = useState<{ [key: string]: boolean }>({}); // Track image loading errors
@@ -90,9 +89,8 @@ export function Reports() {
         (normalizedFilterStatus === 'declined' 
           ? (reportStatus === 'declined' || reportStatus === 'rejected')
           : reportStatus === normalizedFilterStatus);
-      const priorityOk = filters.priority === 'All' || (r.priority || '').toLowerCase() === filters.priority.toLowerCase();
       const searchOk = !searchTerm || ((r.title || '').toLowerCase().includes(searchTerm.toLowerCase()) || (r.description || '').toLowerCase().includes(searchTerm.toLowerCase()));
-      return categoryOk && statusOk && priorityOk && searchOk;
+      return categoryOk && statusOk && searchOk;
     };
     
     // Subscribe to new reports
@@ -311,7 +309,6 @@ export function Reports() {
 
   const getStatusColor = (status: string) => badgeStatusColor(status);
 
-  const getPriorityColor = (priority: string) => badgePriorityColor(priority);
 
   // Loading state
   if (loading && reports.length === 0) {
@@ -427,7 +424,6 @@ export function Reports() {
               handleImageError={handleImageError}
               getStatusColor={getStatusColor}
               getStatusIcon={getStatusIcon}
-              getPriorityColor={getPriorityColor}
               mobileListRef={mobileListRef}
               isRefreshing={isRefreshing}
             />

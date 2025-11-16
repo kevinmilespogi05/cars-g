@@ -16,15 +16,32 @@ interface ReportStats {
 }
 
 const COLORS = {
-  primary: [51, 65, 85],
-  maroon: [128, 0, 0],
-  accent: [59, 130, 246],
-  success: [34, 197, 94],
-  warning: [245, 158, 11],
-  danger: [239, 68, 68],
-  light: [243, 244, 246],
-  lightGray: [229, 231, 235],
-  darkGray: [107, 114, 128],
+  // Brand colors
+  brandRed: [139, 0, 0], // #8B0000
+  primaryText: [26, 26, 26], // #1a1a1a
+  secondaryText: [102, 102, 102], // #666666
+  lightText: [153, 153, 153], // #999999
+  bodyText: [51, 51, 51], // #333333
+  
+  // Stat colors
+  statBlue: [59, 130, 246], // #3b82f6
+  statAmber: [245, 158, 11], // #f59e0b
+  statPurple: [139, 91, 246], // #8b5cf6
+  statGreen: [16, 185, 129], // #10b981
+  
+  // Chart colors
+  chartAmber: [251, 191, 36], // #fbbf24
+  chartPurple: [167, 139, 250], // #a78bfa
+  chartGreen: [134, 239, 172], // #86efac
+  chartRed: [248, 113, 113], // #f87171
+  
+  // Background colors
+  bgLight: [248, 249, 250], // #f8f9fa
+  bgOffWhite: [250, 250, 250], // #fafafa
+  bgSection: [249, 250, 251], // #f9fafb
+  borderLight: [224, 224, 224], // #e0e0e0
+  white: [255, 255, 255],
+  tableHeader: [26, 26, 26], // #1a1a1a
 };
 
 export const pdfReportService = {
@@ -38,40 +55,113 @@ export const pdfReportService = {
     const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
     const pw = pdf.internal.pageSize.getWidth();
     const ph = pdf.internal.pageSize.getHeight();
-    const margin = 14;
+    // Convert pixels to mm: 20px ≈ 5.3mm, 25px ≈ 6.6mm
+    const margin = 7; // ~20px equivalent
+    const topMargin = 7; // ~25px equivalent
     const cw = pw - 2 * margin;
 
     // PAGE 1: Cover + Metrics + Pie Chart
-    this.addGradientHeader(pdf, `Monthly Report - ${this.getMonthName(month)} ${year}`, pw);
-    this.addKeyMetricsCards(pdf, stats, 50, margin, cw);
-    this.addPieChart(pdf, stats, 95, margin, cw);
+    this.addGradientHeader(pdf, `Monthly Report - ${this.getMonthName(month)} ${year}`, pw, month, year);
+    let currentY = 45; // After header
+    this.addKeyMetricsCards(pdf, stats, currentY, margin, cw);
+    currentY += 35; // After cards
+    this.addPieChart(pdf, stats, currentY, margin, cw);
 
     // PAGE 2: Executive Summary + Key Findings
     pdf.addPage();
-    this.addSectionTitle(pdf, 'Executive Summary', 15, margin);
+    currentY = topMargin;
+    this.addSectionTitle(pdf, 'Executive Summary', currentY, margin);
+    currentY += 8;
     const summaryText = this.generateSummaryText(stats, month, year, 'monthly');
-    this.addParagraph(pdf, summaryText, 25, margin, cw);
+    this.addParagraph(pdf, summaryText, currentY, margin, cw);
+    currentY += 25;
 
-    this.addSectionTitle(pdf, 'Key Findings & Metrics', 70, margin);
-    this.addKeyFindings(pdf, stats, 80, margin, cw);
+    this.addSectionTitle(pdf, 'Key Findings & Metrics', currentY, margin);
+    currentY += 8;
+    this.addKeyFindings(pdf, stats, currentY, margin, cw);
 
     // PAGE 3: Status & Category Breakdown
     pdf.addPage();
-    this.addSectionTitle(pdf, 'Status Overview', 15, margin);
-    this.addStatusChart(pdf, stats, 25, margin, cw);
+    currentY = topMargin;
+    this.addSectionTitle(pdf, 'Status Overview', currentY, margin);
+    currentY += 8;
+    this.addStatusChart(pdf, stats, currentY, margin, cw);
+    currentY += 35;
 
-    this.addSectionTitle(pdf, 'Reports by Category', 70, margin);
-    this.addCategoryChart(pdf, stats, 80, margin, cw);
+    this.addSectionTitle(pdf, 'Reports by Category', currentY, margin);
+    currentY += 8;
+    this.addCategoryChart(pdf, stats, currentY, margin, cw);
 
     // PAGE 4+: Detailed Table
     if (reports.length > 0) {
       pdf.addPage();
-      this.addSectionTitle(pdf, 'Detailed Report Listing', 15, margin);
-      this.addDetailTable(pdf, reports, 25, margin, cw, ph);
+      currentY = topMargin;
+      this.addSectionTitle(pdf, 'Detailed Report Listing', currentY, margin);
+      currentY += 8;
+      this.addDetailTable(pdf, reports, currentY, margin, cw, ph);
     }
 
     this.addFooter(pdf, month, year);
     pdf.save(filename);
+  },
+
+  async generateMonthlyPDFPreview(
+    reports: Report[],
+    year: number,
+    month: number,
+    stats: ReportStats
+  ): Promise<string> {
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const pw = pdf.internal.pageSize.getWidth();
+    const ph = pdf.internal.pageSize.getHeight();
+    const margin = 7;
+    const topMargin = 7;
+    const cw = pw - 2 * margin;
+
+    // PAGE 1: Cover + Metrics + Pie Chart
+    this.addGradientHeader(pdf, `Monthly Report - ${this.getMonthName(month)} ${year}`, pw, month, year);
+    let currentY = 45;
+    this.addKeyMetricsCards(pdf, stats, currentY, margin, cw);
+    currentY += 35;
+    this.addPieChart(pdf, stats, currentY, margin, cw);
+
+    // PAGE 2: Executive Summary + Key Findings
+    pdf.addPage();
+    currentY = topMargin;
+    this.addSectionTitle(pdf, 'Executive Summary', currentY, margin);
+    currentY += 8;
+    const summaryText = this.generateSummaryText(stats, month, year, 'monthly');
+    this.addParagraph(pdf, summaryText, currentY, margin, cw);
+    currentY += 25;
+
+    this.addSectionTitle(pdf, 'Key Findings & Metrics', currentY, margin);
+    currentY += 8;
+    this.addKeyFindings(pdf, stats, currentY, margin, cw);
+
+    // PAGE 3: Status & Category Breakdown
+    pdf.addPage();
+    currentY = topMargin;
+    this.addSectionTitle(pdf, 'Status Overview', currentY, margin);
+    currentY += 8;
+    this.addStatusChart(pdf, stats, currentY, margin, cw);
+    currentY += 35;
+
+    this.addSectionTitle(pdf, 'Reports by Category', currentY, margin);
+    currentY += 8;
+    this.addCategoryChart(pdf, stats, currentY, margin, cw);
+
+    // PAGE 4+: Detailed Table
+    if (reports.length > 0) {
+      pdf.addPage();
+      currentY = topMargin;
+      this.addSectionTitle(pdf, 'Detailed Report Listing', currentY, margin);
+      currentY += 8;
+      this.addDetailTable(pdf, reports, currentY, margin, cw, ph);
+    }
+
+    this.addFooter(pdf, month, year);
+    const blob = pdf.output('blob');
+    return URL.createObjectURL(blob);
   },
 
   async generateYearlyPDF(
@@ -83,170 +173,285 @@ export const pdfReportService = {
     const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
     const pw = pdf.internal.pageSize.getWidth();
     const ph = pdf.internal.pageSize.getHeight();
-    const margin = 14;
+    const margin = 7;
+    const topMargin = 7;
     const cw = pw - 2 * margin;
 
     // PAGE 1: Cover + Metrics + Pie Chart
-    this.addGradientHeader(pdf, `Annual Report - ${year}`, pw);
-    this.addKeyMetricsCards(pdf, stats, 50, margin, cw);
-    this.addPieChart(pdf, stats, 95, margin, cw);
+    this.addGradientHeader(pdf, `Annual Report - ${year}`, pw, 0, year);
+    let currentY = 45;
+    this.addKeyMetricsCards(pdf, stats, currentY, margin, cw);
+    currentY += 35;
+    this.addPieChart(pdf, stats, currentY, margin, cw);
 
     // PAGE 2: Executive Summary
     pdf.addPage();
-    this.addSectionTitle(pdf, 'Executive Summary', 15, margin);
+    currentY = topMargin;
+    this.addSectionTitle(pdf, 'Executive Summary', currentY, margin);
+    currentY += 8;
     const summaryText = this.generateSummaryText(stats, 0, year, 'yearly');
-    this.addParagraph(pdf, summaryText, 25, margin, cw);
+    this.addParagraph(pdf, summaryText, currentY, margin, cw);
+    currentY += 25;
     
-    this.addSectionTitle(pdf, 'Key Findings & Analysis', 70, margin);
-    this.addKeyFindings(pdf, stats, 80, margin, cw);
+    this.addSectionTitle(pdf, 'Key Findings & Analysis', currentY, margin);
+    currentY += 8;
+    this.addKeyFindings(pdf, stats, currentY, margin, cw);
 
     // PAGE 3: Resolution & Priority Distribution
     pdf.addPage();
-    this.addSectionTitle(pdf, 'Resolution Summary', 15, margin);
-    this.addStatusChart(pdf, stats, 25, margin, cw);
+    currentY = topMargin;
+    this.addSectionTitle(pdf, 'Resolution Summary', currentY, margin);
+    currentY += 8;
+    this.addStatusChart(pdf, stats, currentY, margin, cw);
+    currentY += 35;
 
-    this.addSectionTitle(pdf, 'Priority Distribution', 70, margin);
-    this.addPriorityChart(pdf, stats, 80, margin, cw);
+    this.addSectionTitle(pdf, 'Priority Distribution', currentY, margin);
+    currentY += 8;
+    this.addPriorityChart(pdf, stats, currentY, margin, cw);
 
     // PAGE 4: Category Analysis
     pdf.addPage();
-    this.addSectionTitle(pdf, 'Top Categories by Report Count', 15, margin);
-    this.addCategoryChart(pdf, stats, 25, margin, cw);
+    currentY = topMargin;
+    this.addSectionTitle(pdf, 'Top Categories by Report Count', currentY, margin);
+    currentY += 8;
+    this.addCategoryChart(pdf, stats, currentY, margin, cw);
 
     // PAGE 5+: Detailed Table
     if (reports.length > 0) {
       pdf.addPage();
-      this.addSectionTitle(pdf, 'Complete Report Listing', 15, margin);
-      this.addDetailedReportTable(pdf, reports, 25, margin, cw, ph);
+      currentY = topMargin;
+      this.addSectionTitle(pdf, 'Complete Report Listing', currentY, margin);
+      currentY += 8;
+      this.addDetailedReportTable(pdf, reports, currentY, margin, cw, ph);
     }
 
     this.addFooter(pdf, 0, year);
     pdf.save(filename);
   },
 
-  addGradientHeader(pdf: jsPDF, title: string, pageWidth: number): void {
-    // Dark gradient background
-    pdf.setFillColor(30, 30, 40);
-    pdf.rect(0, 0, pageWidth, 50, 'F');
+  async generateYearlyPDFPreview(
+    reports: Report[],
+    year: number,
+    stats: ReportStats
+  ): Promise<string> {
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const pw = pdf.internal.pageSize.getWidth();
+    const ph = pdf.internal.pageSize.getHeight();
+    const margin = 7;
+    const topMargin = 7;
+    const cw = pw - 2 * margin;
 
-    // Maroon accent bar
-    pdf.setFillColor(128, 0, 0);
-    pdf.rect(0, 40, pageWidth, 10, 'F');
+    // PAGE 1: Cover + Metrics + Pie Chart
+    this.addGradientHeader(pdf, `Annual Report - ${year}`, pw, 0, year);
+    let currentY = 45;
+    this.addKeyMetricsCards(pdf, stats, currentY, margin, cw);
+    currentY += 35;
+    this.addPieChart(pdf, stats, currentY, margin, cw);
 
-    // Main title
-    pdf.setFontSize(28);
+    // PAGE 2: Executive Summary
+    pdf.addPage();
+    currentY = topMargin;
+    this.addSectionTitle(pdf, 'Executive Summary', currentY, margin);
+    currentY += 8;
+    const summaryText = this.generateSummaryText(stats, 0, year, 'yearly');
+    this.addParagraph(pdf, summaryText, currentY, margin, cw);
+    currentY += 25;
+    
+    this.addSectionTitle(pdf, 'Key Findings & Analysis', currentY, margin);
+    currentY += 8;
+    this.addKeyFindings(pdf, stats, currentY, margin, cw);
+
+    // PAGE 3: Resolution & Priority Distribution
+    pdf.addPage();
+    currentY = topMargin;
+    this.addSectionTitle(pdf, 'Resolution Summary', currentY, margin);
+    currentY += 8;
+    this.addStatusChart(pdf, stats, currentY, margin, cw);
+    currentY += 35;
+
+    this.addSectionTitle(pdf, 'Priority Distribution', currentY, margin);
+    currentY += 8;
+    this.addPriorityChart(pdf, stats, currentY, margin, cw);
+
+    // PAGE 4: Category Analysis
+    pdf.addPage();
+    currentY = topMargin;
+    this.addSectionTitle(pdf, 'Top Categories by Report Count', currentY, margin);
+    currentY += 8;
+    this.addCategoryChart(pdf, stats, currentY, margin, cw);
+
+    // PAGE 5+: Detailed Table
+    if (reports.length > 0) {
+      pdf.addPage();
+      currentY = topMargin;
+      this.addSectionTitle(pdf, 'Complete Report Listing', currentY, margin);
+      currentY += 8;
+      this.addDetailedReportTable(pdf, reports, currentY, margin, cw, ph);
+    }
+
+    this.addFooter(pdf, 0, year);
+    const blob = pdf.output('blob');
+    return URL.createObjectURL(blob);
+  },
+
+  addGradientHeader(pdf: jsPDF, title: string, pageWidth: number, month?: number, year?: number): void {
+    const margin = 7;
+    const topMargin = 7;
+    let yPos = topMargin + 16; // ~60px from top
+
+    // Main title - 48px equivalent (≈12.7mm)
+    pdf.setFontSize(12.7);
     pdf.setFont('Helvetica', 'bold');
-    pdf.setTextColor(255, 255, 255);
-    pdf.text(title, pageWidth / 2, 20, { align: 'center' });
+    pdf.setTextColor(COLORS.primaryText[0], COLORS.primaryText[1], COLORS.primaryText[2]);
+    pdf.text(title, pageWidth / 2, yPos, { align: 'center' });
+    yPos += 2.6; // 10px margin
 
-    // Subtitle
-    pdf.setFontSize(10);
-    pdf.setTextColor(200, 200, 200);
+    // Subtitle - 18px equivalent (≈4.8mm)
+    pdf.setFontSize(4.8);
     pdf.setFont('Helvetica', 'normal');
-    pdf.text('Community Reports Dashboard', pageWidth / 2, 32, { align: 'center' });
+    pdf.setTextColor(COLORS.secondaryText[0], COLORS.secondaryText[1], COLORS.secondaryText[2]);
+    pdf.text('Community Reports Dashboard', pageWidth / 2, yPos, { align: 'center' });
+    yPos += 7.9; // 30px margin
 
-    // Date
-    pdf.setFontSize(8);
-    pdf.setTextColor(150, 150, 150);
-    pdf.text(`Generated: ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}`, pageWidth / 2, 45, { align: 'center' });
+    // Red accent line - 4px height (≈1mm)
+    pdf.setFillColor(COLORS.brandRed[0], COLORS.brandRed[1], COLORS.brandRed[2]);
+    pdf.rect(margin, yPos, pageWidth - 2 * margin, 1, 'F');
+    yPos += 5.3; // 20px margin below line
+
+    // Footer information - 12px equivalent (≈3.2mm)
+    pdf.setFontSize(3.2);
+    pdf.setTextColor(COLORS.lightText[0], COLORS.lightText[1], COLORS.lightText[2]);
+    const genDate = new Date();
+    const dateStr = genDate.toLocaleDateString('en-US', { 
+      month: '2-digit',
+      day: '2-digit',
+      year: 'numeric'
+    });
+    const timeStr = genDate.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+    const periodStr = month && year 
+      ? `${this.getMonthName(month)} ${year}`
+      : year ? `${year} Annual Report` : '';
+    pdf.text(`Generated: ${dateStr} at ${timeStr} | Time Period: ${periodStr}`, pageWidth / 2, yPos, { align: 'center' });
   },
 
   addKeyMetricsCards(pdf: jsPDF, stats: ReportStats, yPos: number, margin: number, cWidth: number): void {
+    // Add top border line
+    pdf.setDrawColor(COLORS.borderLight[0], COLORS.borderLight[1], COLORS.borderLight[2]);
+    pdf.setLineWidth(0.3);
+    pdf.line(margin, yPos - 0.5, margin + cWidth, yPos - 0.5);
+    yPos += 7.9; // 30px top margin
+
     const metrics = [
-      { label: 'Total Reports', value: stats.total, color: COLORS.accent },
-      { label: 'Resolved', value: stats.resolved, color: COLORS.success },
-      { label: 'In Progress', value: stats.inProgress, color: COLORS.accent },
-      { label: 'Pending', value: stats.pending, color: COLORS.warning },
-      { label: 'High Priority', value: stats.highPriority, color: COLORS.danger },
+      { label: 'Total Reports', value: stats.total, color: COLORS.statBlue },
+      { label: 'Pending', value: stats.pending, color: COLORS.statAmber },
+      { label: 'In Progress', value: stats.inProgress, color: COLORS.statPurple },
+      { label: 'Resolved', value: stats.resolved, color: COLORS.statGreen },
     ];
 
-    const cw = (cWidth - 16) / 2.4;
-    const ch = 18;
+    // 4-column grid with spacing
+    const cardSpacing = 2.6; // 10px equivalent
+    const cw = (cWidth - (cardSpacing * 3)) / 4;
+    const ch = 18; // Card height
+    const padding = 5.3; // 20px internal padding
     let x = margin;
     let y = yPos;
 
-    metrics.forEach((m, i) => {
-      if (i > 0 && i % 2 === 0) {
-        y += ch + 5;
-        x = margin;
-      }
-
-      // Card shadow effect
-      pdf.setFillColor(220, 220, 220);
-      pdf.rect(x + 0.5, y + 0.5, cw, ch, 'F');
+    metrics.forEach((m) => {
+      // Card shadow (subtle)
+      pdf.setFillColor(240, 240, 240);
+      pdf.rect(x + 0.3, y + 0.3, cw, ch, 'F');
 
       // Card background
-      pdf.setFillColor(255, 255, 255);
-      pdf.setDrawColor(200, 200, 200);
+      pdf.setFillColor(COLORS.bgLight[0], COLORS.bgLight[1], COLORS.bgLight[2]);
+      pdf.setDrawColor(COLORS.borderLight[0], COLORS.borderLight[1], COLORS.borderLight[2]);
       pdf.setLineWidth(0.3);
-      pdf.rect(x, y, cw, ch, 'FD');
+      pdf.roundedRect(x, y, cw, ch, 2.1, 2.1, 'FD'); // 8px border-radius
 
-      // Color bar on left
-      pdf.setFillColor(m.color[0], m.color[1], m.color[2]);
-      pdf.rect(x, y, 2, ch, 'F');
-
-      // Value
-      pdf.setFontSize(16);
+      // Number - 36px equivalent (≈9.5mm)
+      pdf.setFontSize(9.5);
       pdf.setFont('Helvetica', 'bold');
       pdf.setTextColor(m.color[0], m.color[1], m.color[2]);
-      pdf.text(String(m.value), x + cw - 8, y + 8, { align: 'right' });
+      pdf.text(String(m.value), x + cw - padding, y + 7, { align: 'right' });
 
-      // Label
-      pdf.setFontSize(8);
+      // Label - 13px equivalent (≈3.4mm)
+      pdf.setFontSize(3.4);
       pdf.setFont('Helvetica', 'normal');
-      pdf.setTextColor(107, 114, 128);
-      pdf.text(m.label, x + 5, y + 15);
+      pdf.setTextColor(COLORS.secondaryText[0], COLORS.secondaryText[1], COLORS.secondaryText[2]);
+      pdf.text(m.label, x + padding, y + 12);
 
-      x += cw + 5;
+      x += cw + cardSpacing;
     });
+
+    // Bottom margin
+    yPos += ch + 6.6; // 25px bottom margin
   },
 
-  addPieChart(pdf: jsPDF, stats: ReportStats, yPos: number, margin: number, _cWidth: number): void {
-    const radius = 15;
-    const cx = margin + 25;
-    const cy = yPos + 18;
+  addPieChart(pdf: jsPDF, stats: ReportStats, yPos: number, margin: number, cWidth: number): void {
+    yPos += 3.8; // 15px top margin
+
+    // Section title with border-bottom
+    pdf.setFontSize(5.3); // 20px equivalent
+    pdf.setFont('Helvetica', 'bold');
+    pdf.setTextColor(COLORS.primaryText[0], COLORS.primaryText[1], COLORS.primaryText[2]);
+    pdf.text('Status Distribution', margin, yPos);
+    
+    // Border below title
+    pdf.setDrawColor(COLORS.borderLight[0], COLORS.borderLight[1], COLORS.borderLight[2]);
+    pdf.setLineWidth(0.3);
+    pdf.line(margin, yPos + 1, margin + cWidth, yPos + 1);
+    yPos += 3.8; // 15px margin below title
+
+    // Chart container background
+    const containerHeight = 74; // ~280px min-height
+    pdf.setFillColor(COLORS.bgOffWhite[0], COLORS.bgOffWhite[1], COLORS.bgOffWhite[2]);
+    pdf.setDrawColor(COLORS.borderLight[0], COLORS.borderLight[1], COLORS.borderLight[2]);
+    pdf.setLineWidth(0.3);
+    pdf.roundedRect(margin, yPos, cWidth, containerHeight, 2.1, 2.1, 'FD'); // 8px border-radius
+
+    const padding = 5.3; // 20px padding
+    const radius = 25; // 200px diameter = 100px radius ≈ 26.5mm, using 25mm
+    const chartX = margin + padding + radius;
+    const chartY = yPos + padding + radius;
+    const legendX = chartX + radius + 7.6; // 30px gap (≈7.6mm)
 
     const slices = [
-      { label: 'Pending', value: stats.pending, color: COLORS.warning },
-      { label: 'In Progress', value: stats.inProgress, color: COLORS.accent },
-      { label: 'Resolved', value: stats.resolved, color: COLORS.success },
-      { label: 'Declined', value: stats.declined, color: COLORS.danger },
+      { label: 'Pending', value: stats.pending, color: COLORS.chartAmber },
+      { label: 'In Progress', value: stats.inProgress, color: COLORS.chartPurple },
+      { label: 'Resolved', value: stats.resolved, color: COLORS.chartGreen },
+      { label: 'Declined', value: stats.declined, color: COLORS.chartRed },
     ];
 
     const total = Math.max(stats.total, 1);
     let startAngle = 0;
 
+    // Draw pie slices
     slices.forEach((s) => {
       const percentage = (s.value / total) * 100;
       const angle = (percentage / 100) * 360;
-      this.drawPieSlice(pdf, cx, cy, radius, startAngle, startAngle + angle, s.color);
+      this.drawPieSlice(pdf, chartX, chartY, radius, startAngle, startAngle + angle, s.color);
       startAngle += angle;
     });
 
-    // Legend
-    let lx = margin + 50;
-    let ly = yPos + 2;
+    // Legend on the right
+    let legendY = yPos + padding;
+    pdf.setFontSize(3.2); // 12px equivalent
+    pdf.setFont('Helvetica', 'normal');
+    pdf.setTextColor(COLORS.bodyText[0], COLORS.bodyText[1], COLORS.bodyText[2]);
 
-    pdf.setFontSize(9);
-    pdf.setFont('Helvetica', 'bold');
-    pdf.setTextColor(51, 65, 85);
-    pdf.text('Status Distribution', lx, ly);
-
-    ly += 6;
     slices.forEach((s) => {
       const pct = ((s.value / total) * 100).toFixed(1);
-
-      // Color box
+      
+      // Bullet (circle)
       pdf.setFillColor(s.color[0], s.color[1], s.color[2]);
-      pdf.rect(lx, ly - 2.8, 3, 3, 'F');
+      pdf.circle(legendX, legendY - 0.8, 1, 'F');
 
-      // Label
-      pdf.setFontSize(8);
-      pdf.setFont('Helvetica', 'normal');
-      pdf.setTextColor(60, 60, 60);
-      pdf.text(`${s.label}: ${s.value} (${pct}%)`, lx + 5, ly);
-
-      ly += 5;
+      // Label text
+      pdf.text(`${s.label} (${pct}%)`, legendX + 2.5, legendY);
+      legendY += 5.7; // 24px line-height (≈5.7mm)
     });
   },
 
@@ -294,19 +499,22 @@ export const pdfReportService = {
   },
 
   addSectionTitle(pdf: jsPDF, title: string, yPos: number, margin: number): void {
-    // Accent line
-    pdf.setDrawColor(128, 0, 0);
-    pdf.setLineWidth(1.5);
-    pdf.line(margin, yPos - 2, margin + 25, yPos - 2);
+    yPos += 7.1; // 30px top margin
 
-    // Title
-    pdf.setFontSize(14);
+    // Left border accent (4px = 1mm)
+    pdf.setFillColor(COLORS.brandRed[0], COLORS.brandRed[1], COLORS.brandRed[2]);
+    pdf.rect(margin, yPos - 2, 1, 4, 'F');
+
+    // Title - 18px equivalent (≈4.8mm)
+    pdf.setFontSize(4.8);
     pdf.setFont('Helvetica', 'bold');
-    pdf.setTextColor(51, 65, 85);
-    pdf.text(title, margin + 30, yPos);
+    pdf.setTextColor(COLORS.primaryText[0], COLORS.primaryText[1], COLORS.primaryText[2]);
+    pdf.text(title, margin + 3.2, yPos); // 12px padding-left (≈3.2mm)
   },
 
   addKeyFindings(pdf: jsPDF, stats: ReportStats, yPos: number, margin: number, cWidth: number): void {
+    yPos += 3.8; // 15px margin below section title
+
     const total = Math.max(stats.total, 1);
     const resolutionRate = Math.round((stats.resolved / total) * 100);
     const pendingRate = Math.round((stats.pending / total) * 100);
@@ -314,21 +522,42 @@ export const pdfReportService = {
     const highPriorityRate = Math.round((stats.highPriority / total) * 100);
 
     const findings = [
-      `• Overall Resolution Rate: ${resolutionRate}% (${stats.resolved} of ${total} reports)`,
-      `• Pending Reports: ${pendingRate}% (${stats.pending} reports awaiting action)`,
-      `• In Progress: ${inProgressRate}% (${stats.inProgress} reports being handled)`,
-      `• High Priority Cases: ${highPriorityRate}% (${stats.highPriority} reports)`,
+      { label: 'Overall Resolution Rate', value: `${resolutionRate}%`, detail: `(${stats.resolved} of ${total} reports)` },
+      { label: 'Pending Reports', value: `${pendingRate}%`, detail: `(${stats.pending} reports awaiting action)` },
+      { label: 'In Progress', value: `${inProgressRate}%`, detail: `(${stats.inProgress} reports being handled)` },
+      { label: 'High Priority Cases', value: `${highPriorityRate}%`, detail: `(${stats.highPriority} reports)` },
     ];
 
     let y = yPos;
-    pdf.setFontSize(9);
+    const indent = 5.7; // 24px padding-left
+    const lineHeight = 4.6; // 1.8 line-height
+    const itemSpacing = 2.6; // 10px between items
+
+    pdf.setFontSize(3.4); // 13px equivalent
     pdf.setFont('Helvetica', 'normal');
-    pdf.setTextColor(75, 85, 99);
+    pdf.setTextColor(COLORS.bodyText[0], COLORS.bodyText[1], COLORS.bodyText[2]);
 
     findings.forEach((finding) => {
-      const lines = pdf.splitTextToSize(finding, cWidth - 6);
-      pdf.text(lines, margin + 5, y);
-      y += lines.length * 4 + 2;
+      // Bullet point (disc)
+      pdf.setFillColor(COLORS.bodyText[0], COLORS.bodyText[1], COLORS.bodyText[2]);
+      pdf.circle(margin + indent / 2, y - 0.5, 0.8, 'F');
+
+      // Format: "Label: Value (Detail)"
+      const text = `${finding.label}: ${finding.value} ${finding.detail}`;
+      const lines = pdf.splitTextToSize(text, cWidth - indent - 2);
+      
+      // Bold the label and value
+      pdf.setFont('Helvetica', 'bold');
+      pdf.text(`${finding.label}: ${finding.value}`, margin + indent, y);
+      
+      // Normal weight for detail
+      pdf.setFont('Helvetica', 'normal');
+      if (lines.length > 1) {
+        pdf.text(finding.detail, margin + indent, y + lineHeight);
+        y += lineHeight * 2 + itemSpacing;
+      } else {
+        y += lineHeight + itemSpacing;
+      }
     });
   },
 
@@ -337,29 +566,41 @@ export const pdfReportService = {
   },
 
   addParagraph(pdf: jsPDF, text: string, yPos: number, margin: number, cWidth: number): void {
-    pdf.setFontSize(9);
-    pdf.setFont('Helvetica', 'normal');
-    pdf.setTextColor(75, 85, 99);
+    yPos += 3.8; // 15px margin below section title
 
-    // Background box
-    const lines = pdf.splitTextToSize(text, cWidth - 6);
-    const boxHeight = lines.length * 4 + 6;
+    // Background container
+    const lines = pdf.splitTextToSize(text, cWidth - 6.4); // Account for padding
+    const lineHeight = 4.6; // 1.8 line-height for 13px font (≈4.6mm)
+    const padding = 3.8; // 15px padding
+    const boxHeight = lines.length * lineHeight + padding * 2;
 
-    pdf.setFillColor(245, 245, 250);
-    pdf.setDrawColor(200, 200, 220);
+    pdf.setFillColor(COLORS.bgSection[0], COLORS.bgSection[1], COLORS.bgSection[2]);
+    pdf.setDrawColor(COLORS.brandRed[0], COLORS.brandRed[1], COLORS.brandRed[2]);
     pdf.setLineWidth(0.3);
     pdf.rect(margin, yPos, cWidth, boxHeight, 'FD');
+    
+    // Left border accent
+    pdf.setFillColor(COLORS.brandRed[0], COLORS.brandRed[1], COLORS.brandRed[2]);
+    pdf.rect(margin, yPos, 1, boxHeight, 'F');
 
-    // Text
-    pdf.text(lines, margin + 3, yPos + 4);
+    // Text - 13px equivalent (≈3.4mm)
+    pdf.setFontSize(3.4);
+    pdf.setFont('Helvetica', 'normal');
+    pdf.setTextColor(COLORS.bodyText[0], COLORS.bodyText[1], COLORS.bodyText[2]);
+    
+    let currentY = yPos + padding;
+    lines.forEach((line: string) => {
+      pdf.text(line, margin + padding, currentY);
+      currentY += lineHeight;
+    });
   },
 
   addStatusChart(pdf: jsPDF, stats: ReportStats, yPos: number, margin: number, cWidth: number): number {
     const items = [
-      { label: 'Resolved', value: stats.resolved, color: COLORS.success },
-      { label: 'In Progress', value: stats.inProgress, color: COLORS.accent },
-      { label: 'Pending', value: stats.pending, color: COLORS.warning },
-      { label: 'Declined', value: stats.declined, color: COLORS.danger },
+      { label: 'Resolved', value: stats.resolved, color: COLORS.statGreen },
+      { label: 'In Progress', value: stats.inProgress, color: COLORS.statPurple },
+      { label: 'Pending', value: stats.pending, color: COLORS.statAmber },
+      { label: 'Declined', value: stats.declined, color: COLORS.chartRed },
     ];
 
     const total = Math.max(stats.total, 1);
@@ -398,9 +639,9 @@ export const pdfReportService = {
 
   addPriorityChart(pdf: jsPDF, stats: ReportStats, yPos: number, margin: number, cWidth: number): number {
     const items = [
-      { label: 'High Priority', key: 'high', color: COLORS.danger },
-      { label: 'Medium Priority', key: 'medium', color: COLORS.warning },
-      { label: 'Low Priority', key: 'low', color: COLORS.success },
+      { label: 'High Priority', key: 'high', color: COLORS.chartRed },
+      { label: 'Medium Priority', key: 'medium', color: COLORS.statAmber },
+      { label: 'Low Priority', key: 'low', color: COLORS.statGreen },
     ];
 
     const total = Math.max(stats.total, 1);
@@ -485,83 +726,99 @@ export const pdfReportService = {
   },
 
   addDetailTable(pdf: jsPDF, reports: Report[], yPos: number, margin: number, cWidth: number, pageHeight: number): void {
+    yPos += 6.6; // 25px top margin
+
     const cols = [
-      { header: '#', key: 'case_number', width: 8 },
-      { header: 'Title', key: 'title', width: 48 },
-      { header: 'Status', key: 'status', width: 16 },
-      { header: 'Priority', key: 'priority', width: 14 },
-      { header: 'Category', key: 'category', width: 24 },
+      { header: '#', key: 'case_number', width: 12 },
+      { header: 'Title', key: 'title', width: 60 },
+      { header: 'Status', key: 'status', width: 25 },
+      { header: 'Category', key: 'category', width: 30 },
     ];
 
-    const headerHeight = 6;
-    const rowHeight = 6;
+    const headerHeight = 8.5; // ~32px
+    const rowHeight = 8.5; // ~32px
     let y = yPos;
 
     const drawHeader = () => {
-      pdf.setFillColor(128, 0, 0);
-      pdf.setTextColor(255, 255, 255);
-      pdf.setFontSize(7.5);
+      pdf.setFillColor(COLORS.tableHeader[0], COLORS.tableHeader[1], COLORS.tableHeader[2]);
+      pdf.setTextColor(COLORS.white[0], COLORS.white[1], COLORS.white[2]);
+      pdf.setFontSize(3.2); // 12px equivalent
       pdf.setFont('Helvetica', 'bold');
-      pdf.setDrawColor(100, 0, 0);
-      pdf.setLineWidth(0.2);
+      pdf.setDrawColor(COLORS.brandRed[0], COLORS.brandRed[1], COLORS.brandRed[2]);
+      pdf.setLineWidth(0.5); // 2px border-bottom
 
       let x = margin;
       cols.forEach((col) => {
         pdf.rect(x, y, col.width, headerHeight, 'FD');
-        pdf.text(col.header, x + col.width / 2, y + 4.2, { align: 'center', maxWidth: col.width - 1 });
+        pdf.text(col.header, x + col.width / 2, y + 5.3, { align: 'center', maxWidth: col.width - 2 });
         x += col.width;
       });
+
+      // Bottom border
+      pdf.setDrawColor(COLORS.brandRed[0], COLORS.brandRed[1], COLORS.brandRed[2]);
+      pdf.setLineWidth(0.5);
+      pdf.line(margin, y + headerHeight, margin + cWidth, y + headerHeight);
 
       y += headerHeight;
     };
 
     drawHeader();
 
-    pdf.setTextColor(60, 60, 60);
+    pdf.setTextColor(COLORS.bodyText[0], COLORS.bodyText[1], COLORS.bodyText[2]);
     pdf.setFont('Helvetica', 'normal');
-    pdf.setFontSize(7);
+    pdf.setFontSize(3.2); // 12px equivalent
 
     reports.forEach((r, idx) => {
-      if (y > pageHeight - 15) {
+      if (y > pageHeight - 20) {
         pdf.addPage();
-        y = 15;
+        y = 20;
         drawHeader();
+        
+        // Add continuation notice
+        pdf.setFontSize(2.6);
+        pdf.setTextColor(COLORS.lightText[0], COLORS.lightText[1], COLORS.lightText[2]);
+        pdf.setFont('Helvetica', 'italic');
+        pdf.text('(Continued from previous page...)', margin, y - 2);
+        y += 3;
       }
 
-      // Alternating row background
+      // Zebra striping - even rows
       if (idx % 2 === 0) {
-        pdf.setFillColor(248, 250, 252);
+        pdf.setFillColor(COLORS.bgSection[0], COLORS.bgSection[1], COLORS.bgSection[2]);
         pdf.rect(margin, y, cWidth, rowHeight, 'F');
       }
 
       let x = margin;
+      const cellPadding = 2.6; // 10px
       cols.forEach((col) => {
         let val = (r as any)[col.key] || '';
         if (typeof val === 'object') val = JSON.stringify(val);
         
         // Normalize the value for consistent display
-        if (col.key === 'status' || col.key === 'priority' || col.key === 'category') {
+        if (col.key === 'status' || col.key === 'category') {
           val = this.normalizeValue(String(val));
         }
         
-        // Truncate long text but show full meaningful content
-        const maxLen = col.key === 'title' ? 40 : 14;
+        // Truncate long text
+        const maxLen = col.key === 'title' ? 50 : 20;
         val = String(val).substring(0, maxLen);
+        if (col.key === 'title' && String((r as any)[col.key] || '').length > maxLen) {
+          val += '...';
+        }
 
-        pdf.setTextColor(60, 60, 60);
-        pdf.text(val, x + 1, y + 4, { maxWidth: col.width - 2 });
+        pdf.text(val, x + cellPadding, y + 5.3, { maxWidth: col.width - cellPadding * 2 });
 
         // Column divider
-        pdf.setDrawColor(220, 220, 225);
-        pdf.setLineWidth(0.15);
+        pdf.setDrawColor(COLORS.borderLight[0], COLORS.borderLight[1], COLORS.borderLight[2]);
+        pdf.setLineWidth(0.3);
         pdf.line(x + col.width, y, x + col.width, y + rowHeight);
 
         x += col.width;
       });
 
       // Row border
-      pdf.setDrawColor(220, 220, 225);
-      pdf.setLineWidth(0.15);
+      pdf.setDrawColor(COLORS.borderLight[0], COLORS.borderLight[1], COLORS.borderLight[2]);
+      pdf.setLineWidth(0.3);
       pdf.line(margin, y + rowHeight, margin + cWidth, y + rowHeight);
 
       y += rowHeight;
@@ -595,27 +852,38 @@ export const pdfReportService = {
     const pCount = pdf.getNumberOfPages();
     const pw = pdf.internal.pageSize.getWidth();
     const ph = pdf.internal.pageSize.getHeight();
+    const margin = 7;
+    const footerHeight = 10; // ~30px
+    const topPadding = 3.2; // 12px
 
     for (let i = 1; i <= pCount; i++) {
       pdf.setPage(i);
 
-      // Footer background
-      pdf.setFillColor(248, 250, 252);
-      pdf.rect(0, ph - 12, pw, 12, 'F');
-
       // Top border
-      pdf.setDrawColor(128, 0, 0);
-      pdf.setLineWidth(0.8);
-      pdf.line(10, ph - 12, pw - 10, ph - 12);
+      pdf.setDrawColor(COLORS.borderLight[0], COLORS.borderLight[1], COLORS.borderLight[2]);
+      pdf.setLineWidth(0.3);
+      pdf.line(margin, ph - footerHeight, pw - margin, ph - footerHeight);
 
-      pdf.setFontSize(7);
+      pdf.setFontSize(2.6); // 10px equivalent
       pdf.setFont('Helvetica', 'normal');
-      pdf.setTextColor(107, 114, 128);
+      pdf.setTextColor(COLORS.lightText[0], COLORS.lightText[1], COLORS.lightText[2]);
 
-      const reportName = month ? `${this.getMonthName(month)} ${year}` : String(year);
-      pdf.text(reportName, 14, ph - 7.5);
-      pdf.text(`Page ${i} of ${pCount}`, pw - 20, ph - 7.5);
-      pdf.text(`${new Date().toLocaleDateString()}`, pw / 2, ph - 7.5, { align: 'center' });
+      // Left: Report name
+      const reportName = month ? `${this.getMonthName(month)} ${year}` : `${year} Annual Report`;
+      pdf.text('Cars-G Community Reports', margin, ph - topPadding);
+      
+      // Center: Page numbers
+      pdf.setFont('Helvetica', 'bold');
+      pdf.text(`Page ${i} of ${pCount}`, pw / 2, ph - topPadding, { align: 'center' });
+      
+      // Right: Current date
+      pdf.setFont('Helvetica', 'normal');
+      const genDate = new Date().toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'short', 
+        day: 'numeric' 
+      });
+      pdf.text(genDate, pw - margin, ph - topPadding, { align: 'right' });
     }
   },
 

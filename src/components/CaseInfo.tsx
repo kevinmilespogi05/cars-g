@@ -258,31 +258,17 @@ export function CaseInfo({ report, onUpdate, onClose, isPatrolView = false }: Ca
                     <label className="text-sm font-semibold text-gray-700 mb-2 block">Case Level</label>
                     {(() => {
                       const lvl = getEffectiveLevel(report);
-                      if (typeof lvl !== 'number' && !report.priority) {
+                      if (typeof lvl !== 'number') {
                         return <div className="text-sm text-gray-500 italic">Not set</div>;
                       }
                       return (
                         <div className="flex flex-col gap-2">
-                          {report.priority && (
-                            <div
-                              className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold ${
-                                report.priority === 'high'
-                                  ? 'bg-red-100 text-red-800 border border-red-200'
-                                  : report.priority === 'medium'
-                                    ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                                    : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                              }`}
-                            >
-                              <AlertTriangle className="h-3 w-3 mr-1.5" />
-                              {capitalize(report.priority)}
-                            </div>
-                          )}
                           {typeof lvl === 'number' && (
                             <div
                               className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold border ${getPriorityColor(lvl)}`}
                               title={getServiceLevelText(lvl)}
                             >
-                              Level {lvl} Â· {getServiceLevelText(lvl)}
+                              Level {lvl} · {getServiceLevelText(lvl)}
                             </div>
                           )}
                         </div>

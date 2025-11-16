@@ -296,25 +296,11 @@ export function CaseDetailsPage() {
                     <label className="text-sm font-semibold text-gray-700 mb-3 block">Case Level</label>
                     {(() => {
                       const lvl = getEffectiveLevel(report);
-                      if (typeof lvl !== 'number' && !report.priority) {
+                      if (typeof lvl !== 'number') {
                         return <div className="text-sm text-gray-500 italic">Not set</div>;
                       }
                       return (
                         <div className="flex flex-col gap-3">
-                          {report.priority && (
-                            <div
-                              className={`inline-flex items-center px-4 py-2 rounded-lg text-sm font-semibold ${
-                                report.priority === 'high'
-                                  ? 'bg-red-50 text-red-700 border border-red-200'
-                                  : report.priority === 'medium'
-                                    ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                                    : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                              }`}
-                            >
-                              <AlertTriangle className="h-4 w-4 mr-2" />
-                              {capitalize(report.priority)}
-                            </div>
-                          )}
                           {typeof lvl === 'number' && (
                             <div
                               className={`inline-flex items-center px-4 py-2 rounded-lg text-sm font-semibold border ${getPriorityColor(lvl)}`}

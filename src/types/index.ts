@@ -33,6 +33,12 @@ export interface Report {
   patrol_profile?: { username: string; avatar_url: string | null };
   is_liked?: boolean;
   is_anonymous?: boolean; // When true, reporter identity is hidden from public view
+  user_notes_to_admin?: string | null; // Private notes from reporter to admins, cleared when report is accepted
+  // Archive system fields
+  is_archived?: boolean; // Whether the report has been archived
+  archived_at?: string | null; // Timestamp when the report was archived
+  archived_by?: string | null; // Admin user ID who archived the report
+  archive_reason?: string | null; // Optional reason/note provided by admin when archiving
   // Ticketing system fields
   case_number?: string;
   priority_level?: number; // 1-5 scale, 5 = highest

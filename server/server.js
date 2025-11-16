@@ -16,7 +16,7 @@ import FormData from 'form-data';
 import { GoogleAuth } from 'google-auth-library';
 import multer from 'multer';
 import { generateTokenPair, verifyToken, extractTokenFromHeader } from './lib/jwt.js';
-import { authenticateToken, requireRole } from './middleware/auth.js';
+import { authenticateToken, requireRole, requireVerified } from './middleware/auth.js';
 import WarmupService from './warmup.js';
 import { sendMail } from './utils/smtpService.js';
 import { setOtpForEmail, getOtpEntry, incrementAttempts, clearOtp } from './utils/inMemoryOtpStore.js';
@@ -505,7 +505,7 @@ async function handleCreateRating(req, res) {
 }
 
 // Primary route
-app.post('/api/reports/:reportId/ratings', handleCreateRating);
+app.post('/api/reports/:reportId/ratings', requireVerified(supabaseAdmin), handleCreateRating);
 // Alias route (in case reverse proxy strips /api)
 app.post('/reports/:reportId/ratings', handleCreateRating);
 
@@ -604,11 +604,11 @@ async function handleCreateReportCommentReply(req, res) {
 }
 
 // Comment reply endpoints
-app.post('/api/comments/:commentId/replies', authenticateToken, handleCreateCommentReply);
-app.post('/api/reports/:reportId/replies', authenticateToken, handleCreateReportCommentReply);
+app.post('/api/comments/:commentId/replies', authenticateToken, requireVerified(supabaseAdmin), handleCreateCommentReply);
+app.post('/api/reports/:reportId/replies', authenticateToken, requireVerified(supabaseAdmin), handleCreateReportCommentReply);
 
 // Reports: create via service role to avoid client RLS/session issues
-app.post('/api/reports', authenticateToken, async (req, res) => {
+app.post('/api/reports', authenticateToken, requireVerified(supabaseAdmin), async (req, res) => {
   try {
     if (!supabaseAdmin) {
       return res.status(503).json({ error: 'Admin privileges required' });
@@ -630,6 +630,7 @@ app.post('/api/reports', authenticateToken, async (req, res) => {
       location_address,
       images,
       is_anonymous,
+      user_notes_to_admin,
       assigned_group,
       can_cancel
     } = req.body || {};
@@ -657,6 +658,7 @@ app.post('/api/reports', authenticateToken, async (req, res) => {
       location_address: location_address || `${location_lat}, ${location_lng}`,
       images: Array.isArray(images) ? images : [],
       is_anonymous: Boolean(is_anonymous || false), // Anonymous reporting flag
+      user_notes_to_admin: user_notes_to_admin || null, // Private notes from reporter to admins
       priority_level: Number.isFinite(priority_level) ? priority_level : (priority === 'high' ? 5 : priority === 'medium' ? 3 : 1),
       assigned_group: assigned_group || null,
       can_cancel: can_cancel !== false
@@ -665,7 +667,7 @@ app.post('/api/reports', authenticateToken, async (req, res) => {
     const { data, error } = await supabaseAdmin
       .from('reports')
       .insert([payload])
-      .select('id, user_id, title, description, category, priority, status, location, location_address, images, is_anonymous, created_at, updated_at, case_number, priority_level, assigned_group, assigned_patroller_name, can_cancel')
+      .select('id, user_id, title, description, category, priority, status, location, location_address, images, is_anonymous, user_notes_to_admin, created_at, updated_at, case_number, priority_level, assigned_group, assigned_patroller_name, can_cancel')
       .single();
 
     if (error) {
@@ -680,7 +682,7 @@ app.post('/api/reports', authenticateToken, async (req, res) => {
 });
 
 // Awards: award achievement to user
-app.post('/api/achievements/award', authenticateToken, async (req, res) => {
+app.post('/api/achievements/award', authenticateToken, requireVerified(supabaseAdmin), async (req, res) => {
   try {
     if (!supabaseAdmin) {
       return res.status(503).json({ error: 'Admin privileges required' });
@@ -778,7 +780,7 @@ app.post('/api/achievements/award', authenticateToken, async (req, res) => {
 });
 
 // Activities: create via service role (JWT-protected)
-app.post('/api/activities', authenticateToken, async (req, res) => {
+app.post('/api/activities', authenticateToken, requireVerified(supabaseAdmin), async (req, res) => {
   try {
     if (!supabaseAdmin) {
       return res.status(503).json({ error: 'Admin privileges required' });
@@ -1301,6 +1303,32 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
     });
 
     if (authError || !authData.user) {
+      // If we have admin privileges, try to give a more helpful error when
+      // the user's email exists but hasn't been confirmed. Otherwise, return
+      // the generic message to avoid enumeration.
+      if (supabaseAdmin) {
+        try {
+          // List users and check if the provided email exists and is unconfirmed
+          const { data: listData, error: listErr } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+          if (!listErr && listData?.users) {
+            const found = listData.users.find(u => u.email === String(email).toLowerCase());
+            if (found) {
+              // Supabase returns email_confirmed_at when email is confirmed
+              const emailConfirmed = !!found.email_confirmed_at;
+              if (!emailConfirmed) {
+                return res.status(403).json({
+                  success: false,
+                  error: 'Email not verified. Please check your email for a verification link or request a new one.',
+                  code: 'EMAIL_NOT_VERIFIED'
+                });
+              }
+            }
+          }
+        } catch (listErr) {
+          console.warn('Could not check admin user list for email confirmation:', listErr);
+        }
+      }
+
       // Generic error message to prevent account enumeration
       return res.status(401).json({
         success: false,
@@ -1333,15 +1361,9 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
       });
     }
 
-    // Check verification status
-    if (profile.verification_status === 'pending') {
-      return res.status(403).json({
-        success: false,
-        error: 'Your account is pending ID verification. Please wait for admin approval before signing in.',
-        code: 'VERIFICATION_PENDING'
-      });
-    }
-    
+    // Do not block users whose verification_status is 'pending'.
+    // Pending users are allowed to sign in but should have limited access
+    // enforced client-side or via RLS/policies. We still block declined users.
     if (profile.verification_status === 'declined') {
       return res.status(403).json({
         success: false,
@@ -1370,7 +1392,8 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
         points: profile.points || 0,
         avatar_url: profile.avatar_url,
         phone: profile.phone || null,
-        is_banned: profile.is_banned || false
+        is_banned: profile.is_banned || false,
+        verification_status: profile.verification_status || 'pending'
       },
       tokens
     });

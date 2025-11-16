@@ -155,7 +155,10 @@ export async function authenticateWithJWT(email: string, password: string): Prom
   const data = await response.json();
 
   if (!response.ok) {
-    throw new Error(data.error || 'Authentication failed');
+    // Attach the code to the thrown error so callers can handle specific cases
+    const err: any = new Error(data.error || 'Authentication failed');
+    err.code = data?.code || null;
+    throw err;
   }
 
   if (data.success) {

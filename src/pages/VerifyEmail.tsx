@@ -32,12 +32,12 @@ export default function VerifyEmail() {
 
     setLoading(true);
     try {
-      const response = await fetch(getApiUrl('/api/auth/verify-email'), {
+      const response = await fetch(getApiUrl('/api/auth/verify-email-otp'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email,
-          code
+          otp: code
         })
       });
 

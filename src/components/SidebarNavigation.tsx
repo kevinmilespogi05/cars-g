@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { FileText, Award, User, LogOut, Shield, Menu, X, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, MapPin, Megaphone, MessageCircle, Clock, Phone, BarChart3, ClipboardList, ShieldCheck, LayoutDashboard } from 'lucide-react';
+import { FileText, Award, User, LogOut, Shield, Menu, X, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, MapPin, Megaphone, MessageCircle, Clock, Phone, BarChart3, ClipboardList, ShieldCheck, LayoutDashboard, Archive } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { supabase } from '../lib/supabase';
 import { ChatButton } from './ChatButton';
 import { PhilippinesDateTime } from './PhilippinesDateTime';
 import { QuickActions } from './QuickActions';
 import { useSidebarContext } from '../contexts/SidebarContext';
+import { VerifiedBadge, isUserVerified } from './VerifiedBadge';
 
 export function SidebarNavigation() {
   const location = useLocation();
@@ -93,9 +94,10 @@ export function SidebarNavigation() {
     };
   }, [location.pathname, isCollapsed, user?.role, isDashboardOpen]);
 
-  // Dashboard submenu items for admin
+  // Dashboard submenu items for admin (excluding Dashboard itself)
   const dashboardSubmenuItems = [
     { section: 'reports', icon: FileText, label: 'Reports' },
+    { section: 'archive', icon: Archive, label: 'Archive' },
     { section: 'requests', icon: ClipboardList, label: 'Requests' },
     { section: 'duty', icon: Clock, label: 'Duty' },
     { section: 'users', icon: User, label: 'Users' },
@@ -149,7 +151,9 @@ export function SidebarNavigation() {
   const isDashboardSubmenuActive = (section: string) => {
     if (location.pathname !== '/admin') return false;
     const urlParams = new URLSearchParams(location.search);
-    const activeSection = urlParams.get('section') || 'reports';
+    const activeSection = urlParams.get('section');
+    // Only highlight submenu items if there's an explicit section parameter
+    // If no section, we're on the dashboard overview, so no submenu should be active
     return activeSection === section;
   };
 
@@ -291,10 +295,10 @@ export function SidebarNavigation() {
                         }
                         ${isActive('/admin') && isCollapsed ? 'bg-[#660000]' : ''}
                         ${!isActive('/admin') ? 'hover:bg-white/15' : ''}
-                        ${isDashboardOpen && !isCollapsed ? 'bg-[#660000]' : ''}
+                        ${isDashboardOpen && !isCollapsed && isActive('/admin') ? 'bg-[#660000]' : ''}
                       `}
                       style={
-                        (isActive('/admin') || (isDashboardOpen && !isCollapsed)) && !isCollapsed 
+                        isActive('/admin') && !isCollapsed 
                           ? {
                               backgroundColor: '#660000',
                               borderLeft: isDashboardOpen ? '3px solid #ffffff' : undefined
@@ -502,7 +506,13 @@ export function SidebarNavigation() {
                   {!isCollapsed && (
                     <>
                       <div className="ml-3 flex-1 text-left min-w-0">
-                        <div className="text-sm font-medium truncate">{user.username}</div>
+                        <div className="flex items-center gap-2">
+                          <div className="text-sm font-medium truncate">{user.username}</div>
+                          <VerifiedBadge 
+                            isVerified={isUserVerified(user?.verification_status)} 
+                            size="sm"
+                          />
+                        </div>
                         <div className="text-xs text-white/70 capitalize">{user.role}</div>
                       </div>
                       <ChevronDown className={`h-4 w-4 flex-shrink-0 transition-transform duration-200 ${isProfileMenuOpen ? 'rotate-180' : ''}`} />
@@ -527,7 +537,13 @@ export function SidebarNavigation() {
                           loading="lazy"
                         />
                         <div>
-                          <div className="text-sm font-medium text-gray-900">{user.username}</div>
+                          <div className="flex items-center gap-2">
+                            <div className="text-sm font-medium text-gray-900">{user.username}</div>
+                            <VerifiedBadge 
+                              isVerified={isUserVerified(user?.verification_status)} 
+                              size="sm"
+                            />
+                          </div>
                           <div className="text-xs text-gray-700 capitalize">{user.role}</div>
                         </div>
                       </div>

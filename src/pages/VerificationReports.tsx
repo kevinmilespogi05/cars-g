@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Filter, MapPin, Calendar, User, Heart, MessageCircle, Eye, Clock, CheckCircle, XCircle, AlertTriangle, Loader2, X, Shield, Trash2 } from 'lucide-react';
-import { getPriorityColor as badgePriorityColor, getStatusColor as badgeStatusColor, formatStatusForDisplay } from '../lib/badges';
+import { getStatusColor as badgeStatusColor, formatStatusForDisplay } from '../lib/badges';
 import { useAuthStore } from '../store/authStore';
 import { useVerificationStatus } from '../hooks/useVerificationStatus';
 import { useToastContext } from '../contexts/ToastContext';
@@ -12,7 +12,6 @@ import { ConfirmationModal } from '../components/ConfirmationModal';
 import { ImageViewer } from '../components/ImageViewer';
 
 const CATEGORIES = ['All', 'Infrastructure', 'Safety', 'Environmental', 'Public Services', 'Other'];
-const PRIORITIES = ['All', 'Low', 'Medium', 'High'];
 
 export function VerificationReports() {
   const navigate = useNavigate();
@@ -30,7 +29,6 @@ export function VerificationReports() {
   const [filters, setFilters] = useState({
     category: 'All',
     status: 'All',
-    priority: 'All',
   });
   const [selectedImage, setSelectedImage] = useState<{ url: string; index: number } | null>(null);
   const [imageErrors, setImageErrors] = useState<{ [key: string]: boolean }>({});
@@ -104,14 +102,11 @@ export function VerificationReports() {
       const statusOk = !filters.status || filters.status === 'All' || 
         (r.status && r.status.toLowerCase() === (filters.status || '').toLowerCase().replace(/\s+/g, '_'));
       
-      const priorityOk = !filters.priority || filters.priority === 'All' || 
-        (r.priority && r.priority.toLowerCase() === (filters.priority || '').toLowerCase());
-      
       const searchOk = !searchTerm || 
         (r.title && r.title.toLowerCase().includes(searchTerm.toLowerCase())) || 
         (r.description && r.description.toLowerCase().includes(searchTerm.toLowerCase()));
       
-      return categoryOk && statusOk && priorityOk && searchOk;
+      return categoryOk && statusOk && searchOk;
     };
     
     const reportsSubscription = reportsService.subscribeToReports((newReport) => {
@@ -228,7 +223,6 @@ export function VerificationReports() {
         reportsService.getReports({
           category: filters.category,
           status: 'verifying',
-          priority: filters.priority,
           search: searchTerm,
           limit: 40,
           user_id: user?.id // Only get current user's reports
@@ -236,7 +230,6 @@ export function VerificationReports() {
         reportsService.getReports({
           category: filters.category,
           status: 'awaiting_verification',
-          priority: filters.priority,
           search: searchTerm,
           limit: 40,
           user_id: user?.id // Only get current user's reports
@@ -244,7 +237,6 @@ export function VerificationReports() {
         reportsService.getReports({
           category: filters.category,
           status: 'cancelled',
-          priority: filters.priority,
           search: searchTerm,
           limit: 40,
           user_id: user?.id // Only get current user's reports
@@ -386,18 +378,6 @@ export function VerificationReports() {
     }
   };
 
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'high':
-        return 'bg-red-100 text-red-800';
-      case 'medium':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'low':
-        return 'bg-green-100 text-green-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
 
   // Filter reports based on current filters and search
   const filteredReports = reports.filter(report => {
@@ -411,14 +391,11 @@ export function VerificationReports() {
     const statusOk = !filters.status || filters.status === 'All' || 
       (report.status && report.status.toLowerCase() === (filters.status || '').toLowerCase().replace(/\s+/g, '_'));
     
-    const priorityOk = !filters.priority || filters.priority === 'All' || 
-      (report.priority && report.priority.toLowerCase() === (filters.priority || '').toLowerCase());
-    
     const searchOk = !searchTerm || 
       (report.title && report.title.toLowerCase().includes(searchTerm.toLowerCase())) || 
       (report.description && report.description.toLowerCase().includes(searchTerm.toLowerCase()));
     
-    return categoryOk && statusOk && priorityOk && searchOk;
+      return categoryOk && statusOk && searchOk;
   });
 
   if (loading && reports.length === 0) {
@@ -514,15 +491,6 @@ export function VerificationReports() {
                 <option value="cancelled">Cancelled</option>
               </select>
 
-              <select
-                value={filters.priority}
-                onChange={(e) => setFilters(prev => ({ ...prev, priority: e.target.value }))}
-                className="px-2.5 py-2 text-sm border border-gray-200 rounded-md focus:ring-2 focus:ring-orange-500 focus:border-transparent bg-white"
-              >
-                {PRIORITIES.map(priority => (
-                  <option key={priority} value={priority}>{priority}</option>
-                ))}
-              </select>
             </div>
           </div>
         </div>
@@ -535,7 +503,7 @@ export function VerificationReports() {
             </div>
             <h3 className="text-base font-medium text-gray-900 mb-2">No verification reports found</h3>
             <p className="text-sm text-gray-500">
-              {searchTerm || filters.category !== 'All' || filters.status !== 'All' || filters.priority !== 'All'
+              {searchTerm || filters.category !== 'All' || filters.status !== 'All'
                 ? 'Try adjusting your search or filters'
                 : 'All reports have been verified or are in progress!'
               }
@@ -588,11 +556,8 @@ export function VerificationReports() {
                     {report.description}
                   </p>
 
-                  {/* Priority and Status Badges */}
+                  {/* Status Badge */}
                   <div className="flex items-center gap-1.5 mb-2.5">
-                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium ${badgePriorityColor(report.priority)}`}>
-                      {report.priority}
-                    </span>
                     <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium ${badgeStatusColor(report.status)}`}>
                       {report.status === 'verifying' ? 'Verifying' : 
                        report.status === 'awaiting_verification' ? 'Awaiting Verification' :
