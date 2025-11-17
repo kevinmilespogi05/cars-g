@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { Search, RefreshCw, Eye, Trash2, RotateCcw, Archive, Hash, Calendar, MapPin, FileText, User2, ChevronUp, ChevronDown, ChevronsUpDown, X, HelpCircle } from 'lucide-react';
+import { Search, RefreshCw, Eye, Trash2, RotateCcw, Archive, Hash, ChevronUp, ChevronDown, ChevronsUpDown, X } from 'lucide-react';
 import { getStatusColor as badgeStatusColor, formatStatusForDisplay } from '../lib/badges';
-import { reportsService } from '../services/reportsService';
 import type { Report } from '../types';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
@@ -161,11 +160,12 @@ export function AdminArchive() {
           aValue = a.status;
           bValue = b.status;
           break;
-        case 'priority':
+        case 'priority': {
           const priorityOrder = { high: 3, medium: 2, low: 1 };
           aValue = priorityOrder[a.priority as keyof typeof priorityOrder] || 0;
           bValue = priorityOrder[b.priority as keyof typeof priorityOrder] || 0;
           break;
+        }
         case 'category':
           aValue = a.category.toLowerCase();
           bValue = b.category.toLowerCase();

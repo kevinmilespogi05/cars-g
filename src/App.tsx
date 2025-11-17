@@ -5,7 +5,6 @@ import { useAuthStore } from './store/authStore';
 import { useImageViewerStore } from './store/imageViewerStore';
 import { initializeAchievements } from './lib/initAchievements';
 import { Providers } from './components/Providers';
-import { motion } from 'framer-motion';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { publicRoutes, protectedRoutes, adminRoutes, patrolRoutes } from './routes/routes';
 import { PWAPrompt } from './components/PWAPrompt';
@@ -17,35 +16,9 @@ import { VerificationPendingBanner } from './components/VerificationPendingBanne
 import { usePushNotifications } from './hooks/usePushNotifications';
 import { useAchievementNotifications, AchievementNotification } from './components/AchievementNotification';
 import { Footer } from './components/Footer';
-import { useReducedMotion } from './hooks/useReducedMotion';
 import { ToastContainer } from './components/ToastContainer';
 import { useSidebarContext } from './contexts/SidebarContext';
 import { MobileOptimizationsProvider } from './components/MobileOptimizationsProvider';
-
-
-// Configure future flags for React Router v7
-const routerConfig = {
-  future: {
-    v7_startTransition: true,
-    v7_relativeSplatPath: true
-  }
-};
-
-const PageTransition = ({ children }: { children: React.ReactNode }) => {
-  const shouldReduceMotion = useReducedMotion();
-  
-  return (
-    <motion.div
-      initial={shouldReduceMotion ? {} : { opacity: 0, y: 20 }}
-      animate={shouldReduceMotion ? {} : { opacity: 1, y: 0 }}
-      exit={shouldReduceMotion ? {} : { opacity: 0, y: -20 }}
-      transition={shouldReduceMotion ? { duration: 0 } : { duration: 0.3 }}
-    >
-      {children}
-    </motion.div>
-  );
-};
-
 const LoadingSpinner = () => (
   <div className="min-h-screen flex items-center justify-center bg-gray-50">
     <div className="text-center">
@@ -54,64 +27,6 @@ const LoadingSpinner = () => (
     </div>
   </div>
 );
-
-const ErrorFallback = ({ error, resetErrorBoundary }: { error: Error; resetErrorBoundary: () => void }) => (
-  <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-    <div className="text-center p-8 bg-white rounded-lg shadow-lg max-w-md w-full">
-      <div className="text-red-500 text-6xl mb-4">⚠️</div>
-      <h2 className="text-2xl font-bold text-red-600 mb-4">Something went wrong</h2>
-      <p className="text-sm text-gray-600 mb-6">We encountered an error while loading the app.</p>
-      <pre className="text-xs text-gray-700 mb-6 bg-gray-100 p-3 rounded overflow-auto max-h-32">
-        {error.message}
-      </pre>
-      <div className="space-y-3">
-        <button
-          onClick={resetErrorBoundary}
-          className="w-full px-4 py-2 bg-primary-color text-white rounded hover:bg-primary-dark transition-colors"
-        >
-          Try again
-        </button>
-        <button
-          onClick={() => window.location.reload()}
-          className="w-full px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors"
-        >
-          Reload page
-        </button>
-      </div>
-    </div>
-  </div>
-);
-
-// Mobile menu button component
-function MobileMenuButton() {
-  const { toggleSidebar, isCollapsed } = useSidebarContext();
-  
-  return (
-    <button
-      onClick={toggleSidebar}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          toggleSidebar();
-        }
-      }}
-      className="fixed top-4 left-4 z-menuButton lg:hidden p-2 rounded-lg bg-white/90 backdrop-blur-sm shadow-lg border border-gray-200 hover:bg-white transition-all duration-200 min-h-[44px] min-w-[44px] flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 group"
-      aria-label="Toggle navigation menu"
-      aria-expanded={!isCollapsed}
-      title={isCollapsed ? 'Open menu' : 'Close menu'}
-    >
-      <svg 
-        className="h-6 w-6 text-gray-700 transition-transform duration-200 group-hover:scale-110" 
-        fill="none" 
-        viewBox="0 0 24 24" 
-        stroke="currentColor" 
-        aria-hidden="true"
-      >
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-      </svg>
-    </button>
-  );
-}
 
 // Inner content component that uses sidebar context
 function AppContentInner() {
@@ -187,7 +102,12 @@ function AppContentInner() {
         console.warn('Too many refreshes while offline on mobile; redirecting to fix page');
         // Clear volatile state only
         sessionStorage.clear();
-        try { localStorage.removeItem('supabase.auth.token'); } catch {}
+        try { 
+          localStorage.removeItem('supabase.auth.token'); 
+        } catch (error) {
+          // Silently handle localStorage errors (may fail in private browsing)
+          console.warn('Failed to remove auth token from localStorage:', error);
+        }
 
         if (window.location.pathname !== '/fix-offline.html') {
           window.location.href = '/fix-offline.html';

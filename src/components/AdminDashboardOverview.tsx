@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { useAuthStore } from '../store/authStore';
 import { 
   FileText, 
   Clock, 
@@ -13,8 +12,6 @@ import {
   TrendingDown,
   Minus,
   Eye,
-  Calendar,
-  Download,
   Filter
 } from 'lucide-react';
 import {
@@ -71,7 +68,6 @@ interface DashboardStats {
 
 export function AdminDashboardOverview() {
   const navigate = useNavigate();
-  const { user } = useAuthStore();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());

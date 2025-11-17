@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, CheckCircle2, XCircle, Wrench, RefreshCw, Eye, Trash2, User2, Calendar, MapPin, X, Navigation, Hash, FileText, Download, HelpCircle, Edit2, ChevronUp, ChevronDown, ChevronsUpDown, Archive } from 'lucide-react';
+import { Search, CheckCircle2, XCircle, Wrench, RefreshCw, Eye, MapPin, X, Navigation, Hash, FileText, Download, HelpCircle, Edit2, ChevronUp, ChevronDown, ChevronsUpDown, Archive } from 'lucide-react';
 import { ImageViewer } from './ImageViewer';
 import { getStatusColor as badgeStatusColor, formatStatusForDisplay } from '../lib/badges';
 import { reportsService } from '../services/reportsService';
@@ -9,7 +9,6 @@ import { supabase } from '../lib/supabase';
 import { FocusTrap } from './FocusTrap';
 import { awardPoints, awardCustomPoints } from '../lib/points';
 import { caseService } from '../services/caseService';
-import { ConfirmationModal } from './ConfirmationModal';
 import { Notification } from './Notification';
 import { useToastContext } from '../contexts/ToastContext';
 import { getReportCoordinates, isValidCoordinates } from '../lib/geocoding';
@@ -77,7 +76,10 @@ export function AdminReports() {
             setReports(filteredCache);
           }
         }
-      } catch {}
+      } catch (error) {
+        // Silently handle cache errors
+        console.warn('Error loading cached reports:', error);
+      }
 
       const data = await reportsService.getAdminReports({
         search: search || undefined,
@@ -793,7 +795,12 @@ export function AdminReports() {
         <div className="flex gap-2">
           <button
             onClick={() => {
-              try { sessionStorage.removeItem('admin_map_reports_v1'); } catch {}
+              try { 
+                sessionStorage.removeItem('admin_map_reports_v1'); 
+              } catch (error) {
+                // Silently handle storage errors
+                console.warn('Error removing cache:', error);
+              }
               loadReports();
             }}
             className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"

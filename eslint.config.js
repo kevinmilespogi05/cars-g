@@ -1,9 +1,28 @@
 import js from '@eslint/js';
 import globals from 'globals';
+import tsParser from '@typescript-eslint/parser';
 
 export default [
   { ignores: ['dist', 'dev-dist'] },
   js.configs.recommended,
+  {
+    files: ['**/*.ts', '**/*.tsx'],
+    languageOptions: {
+      parser: tsParser,
+      parserOptions: {
+        ecmaVersion: 2020,
+        sourceType: 'module',
+      },
+      globals: {
+        ...globals.browser,
+        ...globals.es2020,
+        ...globals.node,
+        React: 'readonly',
+        JSX: 'readonly',
+        global: 'readonly',
+      },
+    },
+  },
   {
     languageOptions: {
       ecmaVersion: 2020,
