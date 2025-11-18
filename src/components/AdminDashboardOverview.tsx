@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { useVisitCounter } from '../hooks/useVisitCounter';
 import { 
   FileText, 
   Clock, 
@@ -12,7 +13,8 @@ import {
   TrendingDown,
   Minus,
   Eye,
-  Filter
+  Filter,
+  Globe
 } from 'lucide-react';
 import {
   Chart as ChartJS,
@@ -64,6 +66,7 @@ interface DashboardStats {
   reportsByDay: Array<{ day: string; count: number }>;
   reportsByMonth: Array<{ month: string; count: number }>;
   recentReports: Report[];
+  uniqueVisitors: number;
 }
 
 export function AdminDashboardOverview() {
@@ -72,6 +75,7 @@ export function AdminDashboardOverview() {
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [timeRange, setTimeRange] = useState<TimeRange>('7days');
+  const { count: uniqueVisitorsCount, loading: loadingVisitors } = useVisitCounter({ autoTrack: false });
   const [stats, setStats] = useState<DashboardStats>({
     totalReports: 0,
     pendingReports: 0,
@@ -89,7 +93,8 @@ export function AdminDashboardOverview() {
     reportsByTime: [],
     reportsByDay: [],
     reportsByMonth: [],
-    recentReports: []
+    recentReports: [],
+    uniqueVisitors: 0
   });
 
   const calculateDateRange = (range: TimeRange): { start: Date; end: Date } => {
@@ -265,7 +270,8 @@ export function AdminDashboardOverview() {
         reportsByTime,
         reportsByDay,
         reportsByMonth,
-        recentReports
+        recentReports,
+        uniqueVisitors: uniqueVisitorsCount
       });
 
       setLastUpdated(new Date());
@@ -299,6 +305,14 @@ export function AdminDashboardOverview() {
     const usersChange = calculatePercentageChange(stats.totalUsers, stats.previousTotalUsers);
 
     return [
+      {
+        title: 'Unique Visitors',
+        value: loadingVisitors ? 0 : stats.uniqueVisitors,
+        change: { value: 0, trend: 'neutral' as const },
+        icon: Globe,
+        color: 'indigo',
+        link: '/admin'
+      },
       {
         title: 'Total Reports',
         value: stats.totalReports,
@@ -340,7 +354,7 @@ export function AdminDashboardOverview() {
         link: '/admin?section=reports'
       }
     ];
-  }, [stats]);
+  }, [stats, loadingVisitors, uniqueVisitorsCount]);
 
   // Chart data
   const statusChartData = useMemo(() => {

@@ -882,6 +882,132 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Track unique website visitor
+app.post('/api/visits/track', async (req, res) => {
+  try {
+    if (!supabaseAdmin) {
+      return res.status(503).json({ error: 'Database connection unavailable' });
+    }
+
+    const { visitorId, ipHash, userAgent } = req.body;
+
+    if (!visitorId) {
+      return res.status(400).json({ error: 'visitorId is required' });
+    }
+
+    // Check if visitor already exists
+    const { data: existingVisitor, error: checkError } = await supabaseAdmin
+      .from('site_visits')
+      .select('id, visit_count, last_visit_at')
+      .eq('visitor_id', visitorId)
+      .single();
+
+    if (checkError && checkError.code !== 'PGRST116') { // PGRST116 = no rows returned
+      console.error('Error checking visitor:', checkError);
+      return res.status(500).json({ error: 'Database error', details: checkError.message });
+    }
+
+    let totalCount;
+    
+    if (existingVisitor) {
+      // Update existing visitor
+      const { data: updated, error: updateError } = await supabaseAdmin
+        .from('site_visits')
+        .update({
+          last_visit_at: new Date().toISOString(),
+          visit_count: existingVisitor.visit_count + 1,
+          updated_at: new Date().toISOString()
+        })
+        .eq('visitor_id', visitorId)
+        .select()
+        .single();
+
+      if (updateError) {
+        console.error('Error updating visitor:', updateError);
+        return res.status(500).json({ error: 'Failed to update visitor', details: updateError.message });
+      }
+
+      // Get total count
+      const { count, error: countError } = await supabaseAdmin
+        .from('site_visits')
+        .select('*', { count: 'exact', head: true });
+
+      if (countError) {
+        console.error('Error getting count:', countError);
+        return res.status(500).json({ error: 'Failed to get count', details: countError.message });
+      }
+
+      totalCount = count || 0;
+    } else {
+      // Insert new visitor
+      const { data: newVisitor, error: insertError } = await supabaseAdmin
+        .from('site_visits')
+        .insert({
+          visitor_id: visitorId,
+          ip_hash: ipHash || null,
+          user_agent: userAgent || null,
+          first_visit_at: new Date().toISOString(),
+          last_visit_at: new Date().toISOString(),
+          visit_count: 1
+        })
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error('Error inserting visitor:', insertError);
+        return res.status(500).json({ error: 'Failed to insert visitor', details: insertError.message });
+      }
+
+      // Get total count
+      const { count, error: countError } = await supabaseAdmin
+        .from('site_visits')
+        .select('*', { count: 'exact', head: true });
+
+      if (countError) {
+        console.error('Error getting count:', countError);
+        return res.status(500).json({ error: 'Failed to get count', details: countError.message });
+      }
+
+      totalCount = count || 0;
+    }
+
+    res.json({
+      success: true,
+      isNewVisitor: !existingVisitor,
+      totalUniqueVisitors: totalCount
+    });
+  } catch (error) {
+    console.error('Visit tracking error:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+});
+
+// Get unique visitor count
+app.get('/api/visits/count', async (req, res) => {
+  try {
+    if (!supabaseAdmin) {
+      return res.status(503).json({ error: 'Database connection unavailable' });
+    }
+
+    const { count, error } = await supabaseAdmin
+      .from('site_visits')
+      .select('*', { count: 'exact', head: true });
+
+    if (error) {
+      console.error('Error getting visit count:', error);
+      return res.status(500).json({ error: 'Failed to get visit count', details: error.message });
+    }
+
+    res.json({
+      success: true,
+      totalUniqueVisitors: count || 0
+    });
+  } catch (error) {
+    console.error('Get visit count error:', error);
+    res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+});
+
 // Test email configuration endpoint
 app.get('/api/test/email', async (req, res) => {
   try {

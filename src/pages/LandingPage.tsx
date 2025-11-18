@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { useActiveUsers } from '../hooks/useActiveUsers';
 import { useResolvedReports } from '../hooks/useResolvedReports';
+import { useVisitCounter } from '../hooks/useVisitCounter';
 
 export function LandingPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -37,6 +38,7 @@ export function LandingPage() {
   // Fetch real-time data
   const { count: activeUsersCount, loading: loadingUsers } = useActiveUsers();
   const { count: resolvedReportsCount, loading: loadingReports } = useResolvedReports();
+  const { count: uniqueVisitorsCount, loading: loadingVisitors } = useVisitCounter({ autoTrack: true, trackOnMount: true });
 
   // Rotating text animation effect
   useEffect(() => {
@@ -146,6 +148,12 @@ export function LandingPage() {
 
   const stats = [
     { 
+      number: loadingVisitors ? "Loading..." : formatNumber(uniqueVisitorsCount), 
+      label: "Unique Visitors", 
+      icon: Globe,
+      isLive: true 
+    },
+    { 
       number: loadingUsers ? "Loading..." : formatNumber(activeUsersCount), 
       label: "Active Users", 
       icon: Users,
@@ -157,8 +165,7 @@ export function LandingPage() {
       icon: CheckCircle,
       isLive: true 
     },
-    { number: "24/7", label: "Support Available", icon: Clock },
-    { number: "98%", label: "User Satisfaction", icon: Heart }
+    { number: "24/7", label: "Support Available", icon: Clock }
   ];
 
   const steps = [
@@ -683,7 +690,69 @@ export function LandingPage() {
         </motion.div>
       </section>
 
-      {/* Stats section removed per request */}
+      {/* Stats Section */}
+      <section id="stats" className="py-24 relative z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            className="text-center mb-16"
+          >
+            <h2 className="text-4xl sm:text-5xl font-bold text-gray-900 mb-4">
+              Our Impact in Numbers
+            </h2>
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+              Real-time statistics showing the growth and engagement of our community
+            </p>
+          </motion.div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
+            {stats.map((stat, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: index * 0.1 }}
+                className="group relative"
+              >
+                <div className="relative z-20 bg-white p-8 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 group-hover:-translate-y-2 border border-gray-100 h-full">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className={`h-14 w-14 rounded-xl flex items-center justify-center ${
+                      stat.isLive 
+                        ? 'bg-gradient-to-br from-red-600 to-red-800' 
+                        : 'bg-gradient-to-br from-gray-400 to-gray-600'
+                    } shadow-lg group-hover:scale-110 transition-transform duration-300`}>
+                      <stat.icon className="h-7 w-7 text-white" />
+                    </div>
+                    {stat.isLive && (
+                      <div className="flex items-center space-x-1">
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                        </span>
+                        <span className="text-xs font-semibold text-red-600">LIVE</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="mt-4">
+                    <div className="text-3xl sm:text-4xl font-black text-gray-900 mb-2">
+                      {stat.number}
+                    </div>
+                    <div className="text-sm font-semibold text-gray-600 uppercase tracking-wide">
+                      {stat.label}
+                    </div>
+                  </div>
+
+                  {/* Hover Effect */}
+                  <div className="absolute inset-0 bg-gradient-to-br from-red-50 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 -z-10"></div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
 
       {/* Features Section */}
       <section id="features" className="py-24 relative z-10">

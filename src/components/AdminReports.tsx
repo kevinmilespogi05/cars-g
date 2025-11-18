@@ -384,13 +384,18 @@ export function AdminReports() {
       inProgress: items.filter(r => r.status === 'in_progress').length,
       resolved: items.filter(r => r.status === 'resolved').length,
       declined: items.filter(r => r.status === 'declined').length,
+      highPriority: items.filter(r => r.priority === 'high').length,
       byCategory: {} as Record<string, number>,
       byStatus: {} as Record<string, number>,
+      byPriority: {} as Record<string, number>,
     };
 
     items.forEach(r => {
       stats.byCategory[r.category] = (stats.byCategory[r.category] || 0) + 1;
       stats.byStatus[r.status] = (stats.byStatus[r.status] || 0) + 1;
+      if (r.priority) {
+        stats.byPriority[r.priority] = (stats.byPriority[r.priority] || 0) + 1;
+      }
     });
 
     return stats;
