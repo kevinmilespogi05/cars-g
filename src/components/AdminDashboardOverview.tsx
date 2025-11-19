@@ -253,7 +253,7 @@ export function AdminDashboardOverview() {
       const previousResolvedReports = (previousReportsData || []).filter(r => r.status === 'resolved').length;
       const previousTotalUsers = usersData?.length || 0;
 
-      setStats({
+      setStats(prevStats => ({
         totalReports: reportsData?.length || 0,
         pendingReports: (reportsData || []).filter(r => r.status === 'pending').length,
         resolvedReports: (reportsData || []).filter(r => r.status === 'resolved').length,
@@ -271,8 +271,9 @@ export function AdminDashboardOverview() {
         reportsByDay,
         reportsByMonth,
         recentReports,
-        uniqueVisitors: uniqueVisitorsCount
-      });
+        // Only update uniqueVisitors if hook has finished loading, otherwise keep previous value
+        uniqueVisitors: !loadingVisitors ? uniqueVisitorsCount : prevStats.uniqueVisitors
+      }));
 
       setLastUpdated(new Date());
     } catch (error: any) {
@@ -286,6 +287,16 @@ export function AdminDashboardOverview() {
   useEffect(() => {
     fetchDashboardData();
   }, [timeRange]);
+
+  // Update unique visitors count when it changes from the hook
+  useEffect(() => {
+    if (!loadingVisitors && uniqueVisitorsCount !== stats.uniqueVisitors) {
+      setStats(prevStats => ({
+        ...prevStats,
+        uniqueVisitors: uniqueVisitorsCount
+      }));
+    }
+  }, [uniqueVisitorsCount, loadingVisitors, stats.uniqueVisitors]);
 
   const calculatePercentageChange = (current: number, previous: number): { value: number; trend: 'up' | 'down' | 'neutral' } => {
     if (previous === 0) {

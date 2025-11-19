@@ -1,5 +1,13 @@
 name: 🔥 CARS-G Warmup Service
 
+# Email notifications disabled for this workflow
+# To disable email notifications for workflow runs:
+# 1. Go to your GitHub repository Settings
+# 2. Navigate to Notifications > Actions
+# 3. Uncheck "Email" for workflow runs
+# Alternatively, go to your GitHub account Settings > Notifications > Actions
+# and uncheck "Email" to disable for all repositories
+
 on:
   schedule:
     # Run every 4 minutes during active hours (9 AM - 11 PM UTC)
