@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, CheckCircle2, XCircle, Wrench, RefreshCw, Eye, MapPin, X, Navigation, Hash, FileText, Download, HelpCircle, Edit2, ChevronUp, ChevronDown, ChevronsUpDown, Archive } from 'lucide-react';
+import { Search, CheckCircle2, XCircle, Wrench, RefreshCw, Eye, MapPin, X, Navigation, Hash, FileText, Download, HelpCircle, Edit2, ChevronUp, ChevronDown, ChevronsUpDown, Archive, Filter } from 'lucide-react';
 import { ImageViewer } from './ImageViewer';
 import { getStatusColor as badgeStatusColor, formatStatusForDisplay } from '../lib/badges';
 import { reportsService } from '../services/reportsService';
@@ -14,6 +14,7 @@ import { useToastContext } from '../contexts/ToastContext';
 import { getReportCoordinates, isValidCoordinates } from '../lib/geocoding';
 import { pdfReportService } from '../services/pdfReportService';
 import { useAuthStore } from '../store/authStore';
+import { AdvancedFilters, type FilterOptions } from './ui/AdvancedFilters';
 
 type StatusFilter = 'All' | 'pending' | 'in_progress' | 'resolved' | 'declined';
 
@@ -33,10 +34,20 @@ export function AdminReports() {
   const [archiveConfirm, setArchiveConfirm] = useState<{ isOpen: boolean; reportId: string | null; reportTitle: string; archiveReason: string }>({ isOpen: false, reportId: null, reportTitle: '', archiveReason: '' });
   const [statusUpdateLoading, setStatusUpdateLoading] = useState<Record<string, boolean>>({});
   const [isEditing, setIsEditing] = useState(false);
-  const [editForm, setEditForm] = useState<{ title: string; description: string; category: string }>({ title: '', description: '', category: '' });
+  const [editForm, setEditForm] = useState<{ title: string; description: string; category: string; priority?: string }>({ title: '', description: '', category: '' });
   const [editFormErrors, setEditFormErrors] = useState<{ title?: string; description?: string; category?: string }>({});
   const [saving, setSaving] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [advancedFilters, setAdvancedFilters] = useState<FilterOptions>({
+    dateRange: { start: '', end: '' },
+    statuses: [],
+    categories: [],
+    priorities: [],
+    reporters: [],
+    locations: [],
+    searchTerm: ''
+  });
   
   // Table sorting and pagination
   type SortField = 'case_number' | 'title' | 'status' | 'category' | 'created_at' | 'location_address';
@@ -158,8 +169,38 @@ export function AdminReports() {
 
   const filtered = useMemo(() => {
     // Exclude verifying status reports and archived reports from all views
-    return reports.filter(r => r.status !== 'verifying' && !r.is_archived);
-  }, [reports]);
+    let filteredReports = reports.filter(r => r.status !== 'verifying' && !r.is_archived);
+    
+    // Apply advanced filters
+    if (advancedFilters.dateRange.start) {
+      const startDate = new Date(advancedFilters.dateRange.start);
+      filteredReports = filteredReports.filter(r => new Date(r.created_at) >= startDate);
+    }
+    if (advancedFilters.dateRange.end) {
+      const endDate = new Date(advancedFilters.dateRange.end);
+      endDate.setHours(23, 59, 59, 999); // End of day
+      filteredReports = filteredReports.filter(r => new Date(r.created_at) <= endDate);
+    }
+    if (advancedFilters.statuses.length > 0) {
+      filteredReports = filteredReports.filter(r => advancedFilters.statuses.includes(r.status));
+    }
+    if (advancedFilters.categories.length > 0) {
+      filteredReports = filteredReports.filter(r => advancedFilters.categories.includes(r.category));
+    }
+    if (advancedFilters.priorities.length > 0) {
+      filteredReports = filteredReports.filter(r => advancedFilters.priorities.includes(r.priority || 'medium'));
+    }
+    if (advancedFilters.searchTerm) {
+      const term = advancedFilters.searchTerm.toLowerCase();
+      filteredReports = filteredReports.filter(r => 
+        r.title.toLowerCase().includes(term) ||
+        r.description.toLowerCase().includes(term) ||
+        (r.user_profile?.username && r.user_profile.username.toLowerCase().includes(term))
+      );
+    }
+    
+    return filteredReports;
+  }, [reports, advancedFilters]);
 
   // Sorted and paginated reports
   const sortedAndPaginated = useMemo(() => {
@@ -662,8 +703,8 @@ export function AdminReports() {
         category: editForm.category.trim(),
         updated_at: new Date().toISOString()
       };
-      const { error } = await (supabase as any)
-        .from('reports')
+      const reportsTable = supabase.from('reports') as any;
+      const { error } = await reportsTable
         .update(updateData)
         .eq('id', selectedReport.id);
 
@@ -681,7 +722,7 @@ export function AdminReports() {
         title: editForm.title.trim(),
         description: editForm.description.trim(),
         category: editForm.category.trim(),
-        priority: editForm.priority
+        priority: (editForm.priority || 'medium') as 'low' | 'medium' | 'high'
       });
 
       setIsEditing(false);
@@ -723,8 +764,8 @@ export function AdminReports() {
       setReports(prev => prev.filter(r => r.id !== reportId));
       
       // Archive the report (set is_archived = true)
-      const { error } = await supabase
-        .from('reports')
+      const reportsTable = supabase.from('reports') as any;
+      const { error } = await reportsTable
         .update({
           is_archived: true,
           archived_at: new Date().toISOString(),
@@ -798,6 +839,15 @@ export function AdminReports() {
           </select>
         </div>
         <div className="flex gap-2">
+          <button
+            onClick={() => setShowAdvancedFilters(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+            title="Advanced Filters"
+            aria-label="Open advanced filters"
+          >
+            <Filter className="w-4 h-4" />
+            <span className="hidden sm:inline">Filters</span>
+          </button>
           <button
             onClick={() => {
               try { 
@@ -982,6 +1032,26 @@ export function AdminReports() {
         </div>
       )}
 
+      {/* Advanced Filters Modal */}
+      <AdvancedFilters
+        isOpen={showAdvancedFilters}
+        onClose={() => setShowAdvancedFilters(false)}
+        filters={advancedFilters}
+        onFiltersChange={setAdvancedFilters}
+        onApply={() => {
+          setShowAdvancedFilters(false);
+          loadReports();
+        }}
+        onReset={() => {
+          setSearch('');
+          setStatus('All');
+          loadReports();
+        }}
+        availableStatuses={['pending', 'in_progress', 'resolved', 'declined', 'awaiting_verification']}
+        availableCategories={['infrastructure', 'safety', 'environmental', 'public services', 'other']}
+        availablePriorities={['high', 'medium', 'low']}
+      />
+
       {/* Preview Modal */}
       {(showMonthPreview || showYearPreview) && (
         <div className="fixed inset-0 z-50">
@@ -1149,13 +1219,16 @@ export function AdminReports() {
       ) : (
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
           {/* Table Container - Responsive with horizontal scroll on mobile */}
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[800px]">
+          <div className="overflow-x-auto" role="region" aria-label="Reports table">
+            <table className="w-full min-w-[800px]" role="table" aria-label="Reports">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   <th 
                     className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
                     onClick={() => handleSort('case_number')}
+                    scope="col"
+                    aria-sort={sortField === 'case_number' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
+                    aria-label="Sort by Report ID"
                   >
                     <div className="flex items-center gap-2">
                       <span>Report ID</span>
@@ -1165,6 +1238,8 @@ export function AdminReports() {
                   <th 
                     className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
                     onClick={() => handleSort('title')}
+                    scope="col"
+                    aria-sort={sortField === 'title' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
                   >
                     <div className="flex items-center gap-2">
                       <span>Title</span>
@@ -1174,6 +1249,8 @@ export function AdminReports() {
                   <th 
                     className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
                     onClick={() => handleSort('status')}
+                    scope="col"
+                    aria-sort={sortField === 'status' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
                   >
                     <div className="flex items-center gap-2">
                       <span>Status</span>
@@ -1183,18 +1260,22 @@ export function AdminReports() {
                   <th 
                     className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors hidden lg:table-cell"
                     onClick={() => handleSort('category')}
+                    scope="col"
+                    aria-sort={sortField === 'category' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
                   >
                     <div className="flex items-center gap-2">
                       <span>Category</span>
                       {getSortIcon('category')}
                     </div>
                   </th>
-                  <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider hidden sm:table-cell">
+                  <th className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider hidden sm:table-cell" scope="col">
                     Reporter
                   </th>
                   <th 
                     className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
                     onClick={() => handleSort('created_at')}
+                    scope="col"
+                    aria-sort={sortField === 'created_at' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
                   >
                     <div className="flex items-center gap-2">
                       <span className="hidden sm:inline">Date Reported</span>
@@ -1205,21 +1286,23 @@ export function AdminReports() {
                   <th 
                     className="px-3 sm:px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors hidden lg:table-cell"
                     onClick={() => handleSort('location_address')}
+                    scope="col"
+                    aria-sort={sortField === 'location_address' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
                   >
                     <div className="flex items-center gap-2">
                       <span>Location</span>
                       {getSortIcon('location_address')}
                     </div>
                   </th>
-                  <th className="px-3 sm:px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                  <th className="px-3 sm:px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider" scope="col">
                     Actions
                   </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {sortedAndPaginated.data.map((r) => (
-                  <tr key={r.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-3 sm:px-4 py-3 whitespace-nowrap">
+                  <tr key={r.id} className="hover:bg-gray-50 transition-colors" role="row">
+                    <td className="px-3 sm:px-4 py-3 whitespace-nowrap" role="gridcell">
                       {r.case_number ? (
                         <span className="inline-flex items-center gap-1 text-sm font-medium text-gray-900">
                           <Hash className="w-3.5 h-3.5 text-gray-500" />
@@ -1229,20 +1312,20 @@ export function AdminReports() {
                         <span className="text-sm text-gray-400">—</span>
                       )}
                     </td>
-                    <td className="px-3 sm:px-4 py-3">
+                    <td className="px-3 sm:px-4 py-3" role="gridcell">
                       <div className="text-sm font-medium text-gray-900 max-w-xs truncate" title={r.title}>
                         {r.title}
                       </div>
                     </td>
-                    <td className="px-3 sm:px-4 py-3 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${badgeStatusColor(r.status)}`}>
+                    <td className="px-3 sm:px-4 py-3 whitespace-nowrap" role="gridcell">
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${badgeStatusColor(r.status)}`} aria-label={`Status: ${formatStatusForDisplay(r.status)}`}>
                         {formatStatusForDisplay(r.status)}
                       </span>
                     </td>
-                    <td className="px-3 sm:px-4 py-3 whitespace-nowrap hidden lg:table-cell">
+                    <td className="px-3 sm:px-4 py-3 whitespace-nowrap hidden lg:table-cell" role="gridcell">
                       <span className="text-sm text-gray-900 capitalize">{r.category}</span>
                     </td>
-                    <td className="px-3 sm:px-4 py-3 whitespace-nowrap hidden sm:table-cell">
+                    <td className="px-3 sm:px-4 py-3 whitespace-nowrap hidden sm:table-cell" role="gridcell">
                       <div className="flex items-center gap-2">
                         {r.user_profile?.avatar_url ? (
                           <img 
@@ -1260,27 +1343,29 @@ export function AdminReports() {
                         </span>
                       </div>
                     </td>
-                    <td className="px-3 sm:px-4 py-3 whitespace-nowrap">
+                    <td className="px-3 sm:px-4 py-3 whitespace-nowrap" role="gridcell">
                       <div className="text-sm text-gray-900">
-                        {new Date(r.created_at).toLocaleDateString('en-US', { 
-                          month: 'short', 
-                          day: 'numeric',
-                          year: 'numeric'
-                        })}
+                        <time dateTime={r.created_at}>
+                          {new Date(r.created_at).toLocaleDateString('en-US', { 
+                            month: 'short', 
+                            day: 'numeric',
+                            year: 'numeric'
+                          })}
+                        </time>
                       </div>
                     </td>
-                    <td className="px-3 sm:px-4 py-3 hidden lg:table-cell">
+                    <td className="px-3 sm:px-4 py-3 hidden lg:table-cell" role="gridcell">
                       <div className="text-sm text-gray-900 max-w-xs truncate" title={r.location_address || ''}>
                         {r.location_address ? (
                           r.location_address.length > 30 
                             ? r.location_address.substring(0, 30) + '...' 
                             : r.location_address
                         ) : (
-                          <span className="text-gray-400">—</span>
+                          <span className="text-gray-400" aria-label="No location">—</span>
                         )}
                       </div>
                     </td>
-                    <td className="px-3 sm:px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
+                    <td className="px-3 sm:px-4 py-3 whitespace-nowrap text-right text-sm font-medium" role="gridcell">
                       <div className="flex items-center justify-end gap-1 sm:gap-2 flex-wrap">
                         {/* Status Update Actions */}
                         {(['pending','in_progress','resolved','declined'] as const)
@@ -1328,17 +1413,21 @@ export function AdminReports() {
                           ))}
                         <button
                           onClick={() => handleView(r)}
-                          className="inline-flex items-center gap-1 px-2 py-1 bg-blue-600 text-white hover:bg-blue-700 rounded text-xs font-semibold transition-colors"
+                          className="inline-flex items-center gap-1 px-2 py-1 bg-blue-600 text-white hover:bg-blue-700 rounded text-xs font-semibold transition-colors min-h-[32px] min-w-[32px]"
                           title="View Full Details"
+                          aria-label={`View details for report ${r.case_number || r.id.slice(0, 8)}`}
                         >
-                          <Eye className="w-3.5 h-3.5" />
+                          <Eye className="w-3.5 h-3.5" aria-hidden="true" />
+                          <span className="sr-only">View</span>
                         </button>
                         <button
                           onClick={() => handleArchiveClick(r.id, r.title)}
-                          className="inline-flex items-center gap-1 px-2 py-1 bg-gray-600 text-white hover:bg-gray-700 rounded text-xs font-semibold transition-colors"
+                          className="inline-flex items-center gap-1 px-2 py-1 bg-gray-600 text-white hover:bg-gray-700 rounded text-xs font-semibold transition-colors min-h-[32px] min-w-[32px]"
                           title="Archive Report"
+                          aria-label={`Archive report ${r.case_number || r.id.slice(0, 8)}`}
                         >
-                          <Archive className="w-3.5 h-3.5" />
+                          <Archive className="w-3.5 h-3.5" aria-hidden="true" />
+                          <span className="sr-only">Archive</span>
                         </button>
                       </div>
                     </td>

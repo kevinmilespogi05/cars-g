@@ -17,6 +17,7 @@ import { activityService } from '../services/activityService';
 import { enqueueReport, flushQueuedReports } from '../lib/offlineQueue';
 import { FocusTrap } from '../components/FocusTrap';
 import { PhotoCapture } from '../components/PhotoCapture';
+import { FormProgress } from '../components/ui';
 
 const CATEGORIES = [
   { 
@@ -535,13 +536,45 @@ export function CreateReport() {
 
   // Success modal is rendered inline below when submitSuccess is true
 
-  // Step progress indicator
-  const steps = [
-    { number: 1, title: 'Details', completed: formData.title && formData.category && formData.description },
-    { number: 2, title: 'Location', completed: location !== null },
-    { number: 3, title: 'Photos', completed: imagePreviewUrls.length > 0 },
-    { number: 4, title: 'Review', completed: false }
+  // Enhanced step progress indicator with validation
+  const formSteps = [
+    { 
+      id: 'details', 
+      label: 'Details', 
+      completed: !!(formData.title.trim() && formData.category && formData.description.trim().length >= 10),
+      active: activeFormStep === 1
+    },
+    { 
+      id: 'location', 
+      label: 'Location', 
+      completed: location !== null && typeof location.lat === 'number' && typeof location.lng === 'number',
+      active: activeFormStep === 2
+    },
+    { 
+      id: 'photos', 
+      label: 'Photos', 
+      completed: imagePreviewUrls.length > 0,
+      active: activeFormStep === 3
+    },
+    { 
+      id: 'review', 
+      label: 'Review', 
+      completed: false,
+      active: activeFormStep === 4
+    }
   ];
+
+  // Calculate current step based on completion
+  const currentStepNumber = React.useMemo(() => {
+    const detailsComplete = !!(formData.title.trim() && formData.category && formData.description.trim().length >= 10);
+    const locationComplete = location !== null && typeof location.lat === 'number' && typeof location.lng === 'number';
+    const photosComplete = imagePreviewUrls.length > 0;
+    
+    if (detailsComplete && locationComplete && photosComplete) return 4;
+    if (detailsComplete && locationComplete) return 3;
+    if (detailsComplete) return 2;
+    return 1;
+  }, [formData.title, formData.category, formData.description, location, imagePreviewUrls.length]);
 
   return (
     <>
@@ -555,35 +588,9 @@ export function CreateReport() {
             <p className="text-blue-100 text-sm sm:text-base">Help improve your community by reporting civic issues</p>
           </div>
 
-          {/* Step Progress Indicator */}
-          <div className="bg-gray-50 px-4 sm:px-6 py-4 border-b border-gray-200">
-            <div className="flex items-center justify-between max-w-3xl mx-auto">
-              {steps.map((step, index) => (
-                <React.Fragment key={step.number}>
-                  <div className="flex flex-col items-center flex-1">
-                    <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center font-semibold text-xs sm:text-sm transition-all duration-300 ${
-                      step.completed 
-                        ? 'bg-green-500 text-white shadow-md' 
-                        : activeFormStep >= step.number 
-                          ? 'bg-blue-600 text-white shadow-sm' 
-                          : 'bg-gray-200 text-gray-500'
-                    }`}>
-                      {step.completed ? <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5" /> : step.number}
-                    </div>
-                    <span className={`mt-1.5 text-xs font-medium hidden sm:block ${
-                      activeFormStep >= step.number ? 'text-gray-900' : 'text-gray-500'
-                    }`}>
-                      {step.title}
-                    </span>
-                  </div>
-                  {index < steps.length - 1 && (
-                    <div className={`flex-1 h-0.5 mx-1 sm:mx-2 rounded transition-all duration-300 ${
-                      step.completed ? 'bg-green-500' : 'bg-gray-200'
-                    }`} />
-                  )}
-                </React.Fragment>
-              ))}
-            </div>
+          {/* Enhanced Step Progress Indicator */}
+          <div className="bg-gray-50 px-4 sm:px-6 py-6 border-b border-gray-200">
+            <FormProgress steps={formSteps} currentStep={currentStepNumber} />
           </div>
 
           {/* Form Content - Two Column Layout */}

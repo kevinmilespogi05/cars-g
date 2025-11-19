@@ -9,15 +9,15 @@ export const getStatusColor = (status: ReportStatus): string => {
   
   switch (normalizedStatus) {
     case 'verifying':
-      return 'bg-secondary-100 text-primary-700 border border-secondary-200';
+      return 'bg-blue-50 text-blue-700 border border-blue-200';
     case 'awaiting_verification':
-      return 'bg-warning-50 text-warning-800 border border-warning-200';
+      return 'bg-amber-50 text-amber-800 border border-amber-200';
     case 'pending':
       return 'bg-gray-100 text-gray-700 border border-gray-200';
     case 'in_progress':
-      return 'bg-warning-50 text-warning-800 border border-warning-200';
+      return 'bg-blue-50 text-blue-800 border border-blue-200';
     case 'resolved':
-      return 'bg-teal-50 text-teal-700 border border-teal-200';
+      return 'bg-green-50 text-green-700 border border-green-200';
     case 'declined':
     case 'rejected': // Backward compatibility
       return 'bg-red-50 text-red-700 border border-red-200';
@@ -55,11 +55,11 @@ export const getStatusIcon = (status: ReportStatus): React.ReactNode => {
 export const getPriorityColor = (priority: ReportPriority): string => {
   switch (priority) {
     case 'high':
-      return 'bg-red-50 text-red-700 border border-red-200';
+      return 'bg-red-50 text-red-800 border border-red-200';
     case 'medium':
-      return 'bg-warning-50 text-warning-800 border border-warning-200';
+      return 'bg-amber-50 text-amber-800 border border-amber-200';
     case 'low':
-      return 'bg-info-50 text-info-700 border border-info-200';
+      return 'bg-green-50 text-green-800 border border-green-200';
     default:
       return 'bg-gray-100 text-gray-600 border border-gray-200';
   }

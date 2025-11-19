@@ -19,6 +19,9 @@ import { Footer } from './components/Footer';
 import { ToastContainer } from './components/ToastContainer';
 import { useSidebarContext } from './contexts/SidebarContext';
 import { MobileOptimizationsProvider } from './components/MobileOptimizationsProvider';
+import { SkipLink, OnboardingFlow, defaultOnboardingSteps } from './components/ui';
+import { supabase } from './lib/supabase';
+import { NotificationBell } from './components/ui/NotificationBell';
 const LoadingSpinner = () => (
   <div className="min-h-screen flex items-center justify-center bg-gray-50">
     <div className="text-center">
@@ -36,6 +39,7 @@ function AppContentInner() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const { notifications, removeNotification } = useAchievementNotifications();
   const [showWelcomeGuide, setShowWelcomeGuide] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const { isCollapsed, sidebarWidth, collapsedWidth } = useSidebarContext();
   const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
   
@@ -68,16 +72,61 @@ function AppContentInner() {
                          location.pathname === '/emergency-contacts' || 
                          location.pathname === '/leaderboard';
 
-  // Show welcome guide for new users
+  // Show welcome guide only for truly new users (created in last 24 hours)
   useEffect(() => {
     if (isAuthenticated && user) {
-      const hasSeenWelcome = localStorage.getItem('hasSeenWelcome');
-      if (!hasSeenWelcome) {
-        setShowWelcomeGuide(true);
-        localStorage.setItem('hasSeenWelcome', 'true');
-      }
+      const checkIfNewUser = async () => {
+        try {
+          const { data } = await supabase
+            .from('profiles')
+            .select('created_at')
+            .eq('id', user.id)
+            .single();
+          
+          if (data?.created_at) {
+            const accountAge = Date.now() - new Date(data.created_at).getTime();
+            const isNewUser = accountAge < 24 * 60 * 60 * 1000; // Less than 24 hours old
+            
+            // Also check if user has seen welcome before (per-user, not per-browser)
+            const welcomeKey = `hasSeenWelcome_${user.id}`;
+            const hasSeenWelcome = localStorage.getItem(welcomeKey);
+            
+            if (isNewUser && !hasSeenWelcome) {
+              setShowWelcomeGuide(true);
+              localStorage.setItem(welcomeKey, 'true');
+            }
+          }
+        } catch (error) {
+          console.error('Error checking if user is new:', error);
+          // Don't show welcome guide if we can't verify
+        }
+      };
+      
+      checkIfNewUser();
     }
   }, [isAuthenticated, user]);
+
+  // Check onboarding status
+  useEffect(() => {
+    if (isAuthenticated && user && !isAuthPage && !isLandingPage) {
+      const checkOnboarding = async () => {
+        try {
+          const { data } = await supabase
+            .from('profiles')
+            .select('onboarding_completed')
+            .eq('id', user.id)
+            .single();
+          
+          if (!data?.onboarding_completed) {
+            setShowOnboarding(true);
+          }
+        } catch (error) {
+          console.error('Error checking onboarding status:', error);
+        }
+      };
+      checkOnboarding();
+    }
+  }, [isAuthenticated, user, isAuthPage, isLandingPage]);
 
   // Mobile-specific fixes to prevent refresh loops (prod only and when offline)
   useEffect(() => {
@@ -178,13 +227,25 @@ function AppContentInner() {
           {/* Only show SidebarNavigation on non-landing and non-auth pages */}
           {!isLandingPage && !isAuthPage && <SidebarNavigation />}
           
+          {/* Floating Notification Bell */}
+          {!isLandingPage && !isAuthPage && isAuthenticated && user && (
+            <div className="fixed top-4 right-4 z-[3000] sm:top-6 sm:right-6">
+              <NotificationBell />
+            </div>
+          )}
+          
+          {/* Skip to main content link for accessibility */}
+          {!isLandingPage && !isAuthPage && <SkipLink />}
           
           <main 
+            id="main-content"
+            role="main"
             className={isLandingPage ? 'pt-0' : isAuthPage ? 'relative min-h-screen' : 'relative min-h-screen'}
             style={!isLandingPage && !isAuthPage ? ({
               marginLeft: isDesktop ? 'var(--app-left-offset)' : undefined,
               transition: 'margin-left 250ms cubic-bezier(0.4, 0, 0.2, 1)'
             } as React.CSSProperties) : undefined}
+            tabIndex={-1}
           >
             <Suspense fallback={<LoadingSpinner />}>
               <Routes>
@@ -242,6 +303,15 @@ function AppContentInner() {
             onClose={() => setShowWelcomeGuide(false)}
             userRole={user?.role}
           />
+
+          {/* Onboarding Flow */}
+          {isAuthenticated && user && showOnboarding && (
+            <OnboardingFlow
+              steps={defaultOnboardingSteps}
+              onComplete={() => setShowOnboarding(false)}
+              onSkip={() => setShowOnboarding(false)}
+            />
+          )}
 
           {/* Toast Notifications */}
           <ToastContainer />

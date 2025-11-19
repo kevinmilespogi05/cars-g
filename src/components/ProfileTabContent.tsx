@@ -33,6 +33,8 @@ import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../store/authStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { authenticatedRequest } from '../lib/jwt';
+import { NotificationPreferences } from './ui/NotificationPreferences';
+import { AnalyticsDashboard } from './ui/AnalyticsDashboard';
 
 interface ProfileTabContentProps {
   activeTab: string;
@@ -978,90 +980,26 @@ export function ProfileTabContent({
     );
   };
 
-  const renderNotifications = () => (
-    <div className="p-4 sm:p-8">
-      <div className="flex items-center gap-4 mb-6 sm:mb-8">
-        <div className="p-3 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl shadow-lg">
-          <Bell className="w-6 h-6 text-white" />
+  const renderNotifications = () => {
+    // Use the new NotificationPreferences component for better UX
+    if (isOwnProfile) {
+      return (
+        <div className="p-4 sm:p-6 lg:p-8">
+          <NotificationPreferences />
         </div>
-        <div className="flex-1">
-          <h3 className="text-xl sm:text-2xl font-bold text-gray-900">Notification Settings</h3>
-          <p className="text-sm sm:text-base text-gray-600">Control how you receive updates and notifications</p>
-        </div>
-      </div>
-
-      {/* Visual Divider */}
-      <div className="h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent mb-6 sm:mb-8"></div>
-
-      <div className="space-y-6">
-        <div className="bg-blue-50 rounded-2xl p-6 border border-blue-100 shadow-sm hover:shadow-md transition-all duration-200">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-4 flex-1 min-w-0">
-              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0">
-                <Mail className="h-6 w-6 text-white" />
-              </div>
-              <div className="min-w-0">
-                <label className="block text-base sm:text-lg font-semibold text-blue-900">Email Notifications</label>
-                <p className="text-sm text-blue-700">Receive updates via email</p>
-              </div>
-            </div>
-            <button
-              onClick={() => onNotificationToggle('email')}
-              className={`relative inline-flex h-8 w-14 items-center rounded-full transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 flex-shrink-0 ${
-                notificationSettings.email ? 'bg-gradient-to-r from-blue-500 to-blue-600' : 'bg-gray-300'
-              }`}
-              aria-label={`${notificationSettings.email ? 'Disable' : 'Enable'} email notifications`}
-              role="switch"
-              aria-checked={notificationSettings.email}
-            >
-              <span
-                className={`inline-block h-6 w-6 transform rounded-full bg-white transition-all duration-200 shadow-md ${
-                  notificationSettings.email ? 'translate-x-7' : 'translate-x-1'
-                }`}
-              >
-                {notificationSettings.email && (
-                  <CheckCircle className="w-6 h-6 text-blue-600 p-0.5" />
-                )}
-              </span>
-            </button>
-          </div>
-        </div>
-        
-        <div className="bg-purple-50 rounded-2xl p-6 border border-purple-100 shadow-sm hover:shadow-md transition-all duration-200">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-4 flex-1 min-w-0">
-              <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0">
-                <Bell className="h-6 w-6 text-white" />
-              </div>
-              <div className="min-w-0">
-                <label className="block text-base sm:text-lg font-semibold text-purple-900">Push Notifications</label>
-                <p className="text-sm text-purple-700">Receive instant push notifications</p>
-              </div>
-            </div>
-            <button
-              onClick={() => onNotificationToggle('push')}
-              className={`relative inline-flex h-8 w-14 items-center rounded-full transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 active:scale-95 flex-shrink-0 ${
-                notificationSettings.push ? 'bg-gradient-to-r from-purple-500 to-purple-600' : 'bg-gray-300'
-              }`}
-              aria-label={`${notificationSettings.push ? 'Disable' : 'Enable'} push notifications`}
-              role="switch"
-              aria-checked={notificationSettings.push}
-            >
-              <span
-                className={`inline-block h-6 w-6 transform rounded-full bg-white transition-all duration-200 shadow-md ${
-                  notificationSettings.push ? 'translate-x-7' : 'translate-x-1'
-                }`}
-              >
-                {notificationSettings.push && (
-                  <CheckCircle className="w-6 h-6 text-purple-600 p-0.5" />
-                )}
-              </span>
-            </button>
-          </div>
+      );
+    }
+    
+    // Fallback for viewing other users' profiles
+    return (
+      <div className="p-4 sm:p-8">
+        <div className="text-center py-8 text-gray-500">
+          <Bell className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+          <p>Notification settings are only available for your own profile.</p>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderAccount = () => (
     <div className="p-4 sm:p-8">
@@ -1131,18 +1069,29 @@ export function ProfileTabContent({
     </div>
   );
 
-  const renderStatistics = () => (
-    <div className="p-4 sm:p-8">
-      <div className="flex items-center gap-4 mb-6 sm:mb-8">
-        <div className="p-3 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-xl shadow-lg">
-          <BarChart3 className="w-6 h-6 text-white" />
+  const renderStatistics = () => {
+    // Use AnalyticsDashboard for own profile, show basic stats for others
+    if (isOwnProfile) {
+      return (
+        <div className="p-4 sm:p-6 lg:p-8">
+          <AnalyticsDashboard userId={user?.id} timeRange="month" />
         </div>
-        <div className="flex-1">
-          <div className="flex items-center gap-3">
-            <h3 className="text-xl sm:text-2xl font-bold text-gray-900">
-              {user?.role === 'patrol' ? 'Patrol Statistics' : 'Activity Statistics'}
-            </h3>
-            <div className="relative">
+      );
+    }
+    
+    // Fallback view for other users' profiles
+    return (
+      <div className="p-4 sm:p-8">
+        <div className="flex items-center gap-4 mb-6 sm:mb-8">
+          <div className="p-3 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-xl shadow-lg">
+            <BarChart3 className="w-6 h-6 text-white" />
+          </div>
+          <div className="flex-1">
+            <div className="flex items-center gap-3">
+              <h3 className="text-xl sm:text-2xl font-bold text-gray-900">
+                {user?.role === 'patrol' ? 'Patrol Statistics' : 'Activity Statistics'}
+              </h3>
+              <div className="relative">
               <button
                 onClick={() => setShowTooltip(showTooltip === 'statistics-info' ? null : 'statistics-info')}
                 className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
@@ -1170,18 +1119,18 @@ export function ProfileTabContent({
                   </motion.div>
                 )}
               </AnimatePresence>
+              </div>
             </div>
+            <p className="text-sm sm:text-base text-gray-600 mt-1">
+              {user?.role === 'patrol' ? 'Track your patrol performance' : 'Monitor your contribution to the community'}
+            </p>
           </div>
-          <p className="text-sm sm:text-base text-gray-600 mt-1">
-            {user?.role === 'patrol' ? 'Track your patrol performance' : 'Monitor your contribution to the community'}
-          </p>
         </div>
-      </div>
 
-      {/* Visual Divider */}
-      <div className="h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent mb-6 sm:mb-8"></div>
+        {/* Visual Divider */}
+        <div className="h-px bg-gradient-to-r from-transparent via-gray-300 to-transparent mb-6 sm:mb-8"></div>
 
-      <div className="grid grid-cols-2 gap-6">
+        <div className="grid grid-cols-2 gap-6">
         {user?.role === 'patrol' ? (
           // Patrol-specific stats
           <>
@@ -1247,9 +1196,10 @@ export function ProfileTabContent({
             </div>
           </>
         )}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   // Render content based on active tab
   let content;

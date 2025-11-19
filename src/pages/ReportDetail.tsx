@@ -16,6 +16,7 @@ import { ReplyThread } from '../components/ReplyThread';
 import { caseService } from '../services/caseService';
 import { ImageViewer } from '../components/ImageViewer';
 import { getReportCoordinates } from '../lib/geocoding';
+import { StatusTimeline, TimelineEvent } from '../components/ui/StatusTimeline';
 
 interface Report {
   id: string;
@@ -1336,6 +1337,69 @@ export function ReportDetail() {
             </div>
 
             <p className="text-gray-700 mb-4 whitespace-pre-wrap">{report.description}</p>
+            
+            {/* Status Timeline */}
+            {(() => {
+              // Build timeline events from report comments and report creation
+              const timelineEvents: TimelineEvent[] = [];
+              
+              // Add initial creation event
+              timelineEvents.push({
+                id: `created-${report.id}`,
+                status: 'pending',
+                timestamp: report.created_at,
+                actor: report.is_anonymous ? undefined : {
+                  name: report.user.username,
+                  avatar_url: report.user.avatar_url || undefined
+                },
+                note: 'Report created'
+              });
+
+              // Add events from status_update, assignment, and resolution comments
+              reportComments
+                .filter(c => ['status_update', 'assignment', 'resolution'].includes(c.comment_type))
+                .forEach(comment => {
+                  let status = report.status;
+                  if (comment.comment_type === 'status_update') {
+                    // Try to extract status from comment text or use current status
+                    const statusMatch = comment.comment.match(/status[:\s]+(\w+)/i);
+                    if (statusMatch) {
+                      status = statusMatch[1] as any;
+                    }
+                  } else if (comment.comment_type === 'assignment') {
+                    status = 'in_progress';
+                  } else if (comment.comment_type === 'resolution') {
+                    status = 'resolved';
+                  }
+
+                  timelineEvents.push({
+                    id: comment.id,
+                    status: status,
+                    timestamp: comment.created_at,
+                    actor: comment.user_profile ? {
+                      name: comment.user_profile.username,
+                      avatar_url: comment.user_profile.avatar_url || undefined,
+                      role: comment.comment_type === 'assignment' ? 'Patrol Officer' : 'Administrator'
+                    } : undefined,
+                    note: comment.comment
+                  });
+                });
+
+              // Sort by timestamp (newest first for display, but we'll reverse it)
+              timelineEvents.sort((a, b) => 
+                new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+              );
+
+              return timelineEvents.length > 1 ? (
+                <div className="mb-6">
+                  <StatusTimeline 
+                    events={timelineEvents} 
+                    currentStatus={report.status}
+                  />
+                </div>
+              ) : null;
+            })()}
+            
             <div className="flex items-center text-sm text-gray-700 mb-6">
               <MapPin className="h-4 w-4 mr-1.5 flex-shrink-0 text-gray-700" />
               <button

@@ -20,6 +20,7 @@ import { AdminDutySchedule } from '../components/AdminDutySchedule';
 import { AdminVerificationDashboard } from '../components/AdminVerificationDashboard';
 import { AdminArchive } from '../components/AdminArchive';
 import { AdminDashboardOverview } from '../components/AdminDashboardOverview';
+import { Breadcrumb } from '../components/ui';
 
 export function AdminDashboard() {
   const { user } = useAuthStore();
@@ -77,6 +78,18 @@ export function AdminDashboard() {
       {/* Main Content */}
       <main className="flex-1 overflow-hidden">
         <div className="relative w-full px-4 py-4">
+          {/* Breadcrumb Navigation */}
+          <div className="mb-4">
+            <Breadcrumb 
+              items={[
+                { label: 'Admin', path: '/admin', icon: <LayoutDashboard className="h-4 w-4" /> },
+                ...(activeSection !== 'dashboard' ? [{ 
+                  label: activeSection.charAt(0).toUpperCase() + activeSection.slice(1).replace('_', ' '),
+                  path: undefined
+                }] : [])
+              ]}
+            />
+          </div>
           {activeSection === 'dashboard' && (
             <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3 md:p-4">
               <AdminDashboardOverview />

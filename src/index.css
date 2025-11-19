@@ -358,9 +358,48 @@ select:focus {
     @apply text-blue-600 hover:text-blue-700 transition-all duration-200;
   }
   
-  /* Modern focus styles */
+  /* Modern focus styles - Enhanced for accessibility */
   *:focus-visible {
     @apply outline-none ring-2 ring-blue-500 ring-offset-2 ring-offset-white;
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+  }
+
+  /* Skip link styles - hidden by default, visible on focus */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+
+  .sr-only:focus {
+    position: fixed;
+    width: auto;
+    height: auto;
+    padding: 0.5rem 1rem;
+    margin: 0;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
+    z-index: 9999;
+  }
+
+  .focus\:not-sr-only:focus {
+    position: fixed;
+    width: auto;
+    height: auto;
+    padding: 0.5rem 1rem;
+    margin: 0;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
+    z-index: 9999;
   }
   
   /* Smooth transitions for all interactive elements */

@@ -94,16 +94,31 @@ export function SidebarNavigation() {
     };
   }, [location.pathname, isCollapsed, user?.role, isDashboardOpen]);
 
-  // Dashboard submenu items for admin (excluding Dashboard itself)
-  const dashboardSubmenuItems = [
-    { section: 'reports', icon: FileText, label: 'Reports' },
-    { section: 'archive', icon: Archive, label: 'Archive' },
-    { section: 'requests', icon: ClipboardList, label: 'Requests' },
-    { section: 'duty', icon: Clock, label: 'Duty' },
-    { section: 'users', icon: User, label: 'Users' },
-    { section: 'verification', icon: ShieldCheck, label: 'Verification' },
-    { section: 'stats', icon: BarChart3, label: 'Statistics' },
-    { section: 'announcements', icon: Megaphone, label: 'Announcements' }
+  // Dashboard submenu items for admin - Grouped by function
+  const dashboardSubmenuGroups = [
+    {
+      groupName: 'Report Management',
+      items: [
+        { section: 'reports', icon: FileText, label: 'Reports' },
+        { section: 'archive', icon: Archive, label: 'Archive' },
+        { section: 'requests', icon: ClipboardList, label: 'Requests' }
+      ]
+    },
+    {
+      groupName: 'User Management',
+      items: [
+        { section: 'users', icon: User, label: 'Users' },
+        { section: 'verification', icon: ShieldCheck, label: 'Verification' },
+        { section: 'duty', icon: Clock, label: 'Duty Schedule' }
+      ]
+    },
+    {
+      groupName: 'Content & Analytics',
+      items: [
+        { section: 'announcements', icon: Megaphone, label: 'Announcements' },
+        { section: 'stats', icon: BarChart3, label: 'Statistics' }
+      ]
+    }
   ];
 
   // Handle dashboard dropdown toggle
@@ -346,11 +361,11 @@ export function SidebarNavigation() {
                       )}
                     </div>
 
-                    {/* Dashboard Submenu */}
+                    {/* Dashboard Submenu - Grouped Navigation */}
                     {!isCollapsed && (
                       <div 
                         className={`overflow-hidden transition-all duration-300 ease-in-out ${
-                          isDashboardOpen ? 'max-h-[500px] opacity-100 visible' : 'max-h-0 opacity-0 invisible'
+                          isDashboardOpen ? 'max-h-[600px] opacity-100 visible' : 'max-h-0 opacity-0 invisible'
                         }`}
                         style={{
                           transitionProperty: 'max-height, opacity, visibility',
@@ -359,32 +374,43 @@ export function SidebarNavigation() {
                         }}
                         aria-hidden={!isDashboardOpen}
                       >
-                        <div className="ml-4 mt-1 mb-1 space-y-1 border-l-2 border-white/20 pl-3">
-                          {dashboardSubmenuItems.map(({ section, icon: Icon, label }) => {
-                            const isSubmenuActive = isDashboardSubmenuActive(section);
-                            return (
-                              <button
-                                key={section}
-                                onClick={() => navigateToDashboardSection(section)}
-                                className={`
-                                  w-full flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ease-in-out
-                                  ${isSubmenuActive
-                                    ? 'bg-white/25 text-white shadow-sm'
-                                    : 'text-white/80 hover:bg-white/10 hover:text-white'
-                                  }
-                                `}
-                                style={{
-                                  fontSize: '14px'
-                                }}
-                              >
-                                <Icon className="h-4 w-4 mr-3 flex-shrink-0" />
-                                <span className="flex-1 text-left">{label}</span>
-                                {isSubmenuActive && (
-                                  <div className="w-1.5 h-1.5 bg-white rounded-full ml-2"></div>
-                                )}
-                              </button>
-                            );
-                          })}
+                        <div className="ml-4 mt-1 mb-1 space-y-3 border-l-2 border-white/20 pl-3">
+                          {dashboardSubmenuGroups.map((group, groupIndex) => (
+                            <div key={group.groupName} className={groupIndex > 0 ? 'pt-2 border-t border-white/10' : ''}>
+                              <div className="px-2 mb-1.5">
+                                <span className="text-xs font-semibold text-white/60 uppercase tracking-wider">
+                                  {group.groupName}
+                                </span>
+                              </div>
+                              <div className="space-y-1">
+                                {group.items.map(({ section, icon: Icon, label }) => {
+                                  const isSubmenuActive = isDashboardSubmenuActive(section);
+                                  return (
+                                    <button
+                                      key={section}
+                                      onClick={() => navigateToDashboardSection(section)}
+                                      className={`
+                                        w-full flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ease-in-out
+                                        ${isSubmenuActive
+                                          ? 'bg-white/25 text-white shadow-sm'
+                                          : 'text-white/80 hover:bg-white/10 hover:text-white'
+                                        }
+                                      `}
+                                      style={{
+                                        fontSize: '14px'
+                                      }}
+                                    >
+                                      <Icon className="h-4 w-4 mr-3 flex-shrink-0" />
+                                      <span className="flex-1 text-left">{label}</span>
+                                      {isSubmenuActive && (
+                                        <div className="w-1.5 h-1.5 bg-white rounded-full ml-2"></div>
+                                      )}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       </div>
                     )}

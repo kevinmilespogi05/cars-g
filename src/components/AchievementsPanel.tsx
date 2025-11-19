@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Trophy, CheckCircle2, RefreshCw } from 'lucide-react';
 import { getUserAchievementProgress, clearUserStatsCache } from '../lib/achievements';
+import { AchievementBadge } from './ui/AchievementBadge';
 
 interface Props { 
   userId: string; 
@@ -100,60 +101,25 @@ export function AchievementsPanel({ userId, onAchievementUnlocked }: Props) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {achievementProgress.achievements.map((achievement) => (
-          <div 
-            key={achievement.id} 
-            className={`rounded-lg border p-4 transition-all duration-200 ${
-              achievement.unlocked 
-                ? 'border-green-200 bg-green-50 shadow-sm' 
-                : 'border-gray-200 bg-white hover:shadow-sm'
-            }`}
-          >
-            <div className="flex items-start gap-3">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${
-                achievement.unlocked ? 'bg-green-100' : 'bg-gray-100'
-              }`}>
-                {achievement.icon ? (
-                  <span className="text-lg" role="img" aria-label="icon">{achievement.icon}</span>
-                ) : (
-                  <Trophy className={`w-5 h-5 ${achievement.unlocked ? 'text-green-600' : 'text-gray-500'}`} />
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-medium text-gray-900 truncate">{achievement.title}</h4>
-                  <span className="ml-2 text-xs text-gray-500">{achievement.points} pts</span>
-                </div>
-                <p className="text-sm text-gray-600 mt-0.5 line-clamp-2">{achievement.description}</p>
-                <div className="mt-3">
-                  <div className="flex justify-between text-xs text-gray-500 mb-1">
-                    <span>Progress</span>
-                    <span>{achievement.currentValue} / {achievement.requirement.count}</span>
-                  </div>
-                  <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                    <div 
-                      className={`h-full transition-all duration-300 ${
-                        achievement.unlocked ? 'bg-green-500' : 'bg-blue-500'
-                      }`} 
-                      style={{ width: `${achievement.progress}%` }} 
-                    />
-                  </div>
-                  {achievement.unlocked && (
-                    <div className="mt-2 flex items-center gap-1 text-xs text-green-700">
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span>Unlocked!</span>
-                    </div>
-                  )}
-                  {!achievement.unlocked && achievement.progress > 0 && (
-                    <div className="mt-1 text-xs text-gray-500">
-                      {achievement.progress}% complete
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
+          <AchievementBadge
+            key={achievement.id}
+            achievement={{
+              id: achievement.id,
+              title: achievement.title,
+              description: achievement.description,
+              icon: achievement.icon,
+              points: achievement.points,
+              unlocked: achievement.unlocked,
+              progress: achievement.progress,
+              currentValue: achievement.currentValue,
+              requirement: achievement.requirement
+            }}
+            size="md"
+            showProgress={!achievement.unlocked}
+            className="h-full"
+          />
         ))}
       </div>
 

@@ -19,35 +19,35 @@ export default {
         'imageViewer': '5000',
       },
       colors: {
-        // Professional Cars-G Color Palette
+        // Professional Cars-G Color Palette - Industry Standard Design System
         primary: {
           50: '#f7f9fb',   // Soft Off-White background
           100: '#e8f2ff',  // Light blue tint
-          500: '#1a73e8',  // Google Blue (Primary Accent)
-          600: '#1557b0',  // Darker blue for hover states
-          700: '#0f4c8c',  // Even darker for active states
+          500: '#1E40AF',  // Primary Blue (Industry Standard)
+          600: '#1E40AF',  // Primary Blue (matches spec)
+          700: '#1e3a8a',  // Darker blue for active states
         },
         secondary: {
           100: '#e3f2fd',  // Light sky blue background
-          500: '#69a1f4',  // Sky Blue (Secondary Accent)
-          600: '#4285f4',  // Medium blue
+          500: '#64748B',  // Secondary Gray (Industry Standard)
+          600: '#475569',  // Darker gray
         },
         accent: {
-          500: '#1e8e3e',  // Trustworthy Green for buttons/highlights
-          600: '#1b7c37',  // Darker green for hover
+          500: '#10B981',  // Success Green (Industry Standard)
+          600: '#059669',   // Darker green for hover
         },
         text: {
           primary: '#232937',   // Almost Black for main text
           secondary: '#607080', // Muted Gray-Blue for secondary text
         },
-        // Status colors for reports
+        // Status colors for reports - Industry Standard
         status: {
-          resolved: '#00897b',    // Teal
-          'in-progress': '#fbc02d', // Golden Yellow
-          pending: '#636e72',     // Muted Charcoal
-          high: '#d32f2f',        // Vivid Red for high priority
-          medium: '#fbc02d',      // Golden Yellow for medium
-          low: '#0984e3',         // Soft Blue for low
+          resolved: '#10B981',    // Success Green
+          'in-progress': '#F59E0B', // Warning Amber
+          pending: '#64748B',     // Secondary Gray
+          high: '#EF4444',        // Danger Red for high priority
+          medium: '#F59E0B',      // Warning Amber for medium
+          low: '#10B981',         // Success Green for low
         },
         // Emergency colors
         emergency: {
@@ -56,26 +56,26 @@ export default {
           text: '#c62828',     // Strong Red for emergency numbers
           hover: '#e57373',    // Soft Red for hover states
         },
-        // Keep existing colors for compatibility
+        // Industry Standard Color System
         success: {
-          DEFAULT: '#00897b',  // Updated to teal
-          light: '#4db6ac',
-          dark: '#00695c',
+          DEFAULT: '#10B981',  // Success Green
+          light: '#34d399',
+          dark: '#059669',
         },
         danger: {
-          DEFAULT: '#d32f2f',  // Updated to vivid red
-          light: '#ef5350',
-          dark: '#c62828',
+          DEFAULT: '#EF4444',  // Danger Red
+          light: '#f87171',
+          dark: '#dc2626',
         },
         warning: {
-          DEFAULT: '#fbc02d',  // Updated to golden yellow
-          light: '#ffeb3b',
-          dark: '#f57f17',
+          DEFAULT: '#F59E0B',  // Warning Amber
+          light: '#fbbf24',
+          dark: '#d97706',
         },
         info: {
-          DEFAULT: '#0984e3',  // Updated to soft blue
-          light: '#29b6f6',
-          dark: '#0277bd',
+          DEFAULT: '#06B6D4',  // Info Cyan
+          light: '#22d3ee',
+          dark: '#0891b2',
         },
         gray: {
           50: '#f7f9fb',   // Updated to match primary-50
@@ -97,11 +97,19 @@ export default {
         'xl': '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
       },
       borderRadius: {
-        'sm': '0.25rem',
-        'md': '0.375rem',
-        'lg': '0.5rem',
-        'xl': '0.75rem',
-        '2xl': '1rem',
+        'sm': '0.25rem',   // 4px
+        'md': '0.375rem',  // 6px
+        'lg': '0.5rem',    // 8px
+        'xl': '0.75rem',   // 12px
+        '2xl': '1rem',     // 16px
+      },
+      spacing: {
+        'xs': '0.25rem',   // 4px
+        'sm': '0.5rem',    // 8px
+        'md': '1rem',      // 16px
+        'lg': '1.5rem',    // 24px
+        'xl': '2rem',      // 32px
+        '2xl': '3rem',     // 48px
       },
       animation: {
         'fade-in': 'fadeIn 0.5s ease-in-out',
