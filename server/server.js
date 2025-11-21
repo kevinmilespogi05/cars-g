@@ -86,6 +86,7 @@ const allowedOrigins = [
   normalizedFrontendUrl || 'http://localhost:5173',
   'http://localhost:5173',
   'http://localhost:3000',
+  'https://bantay-sp.netlify.app',
   'https://cars-g.vercel.app',
   'https://cars-g.onrender.com',
   'https://cars-g-git-main-kevinmccarthy.vercel.app',
@@ -192,11 +193,17 @@ const upload = multer({
 
 // Handle CORS preflight requests
 app.options('*', (req, res) => {
-  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.sendStatus(200);
+  const origin = req.headers.origin;
+  // Check if origin is in allowed origins list
+  if (origin && allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.sendStatus(200);
+  } else {
+    res.sendStatus(403);
+  }
 });
 
 
