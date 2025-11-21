@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Cars-G Deployment Testing Script for Linux/Mac
+# Bantay SP Deployment Testing Script for Linux/Mac
 # This script tests all deployment components: Vercel, Render, Supabase, and Cloudinary
 
 # Colors for output
@@ -435,7 +435,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Main execution
-echo -e "${CYAN}🧪 Starting Cars-G Deployment Testing...${NC}"
+echo -e "${CYAN}🧪 Starting Bantay SP Deployment Testing...${NC}"
 
 # Check if curl is available
 if ! command -v curl &> /dev/null; then

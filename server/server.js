@@ -826,7 +826,7 @@ app.post('/api/push/send', async (req, res) => {
       return res.status(503).json({ error: 'Admin privileges required' });
     }
 
-    const { userId, title = 'Cars-G', body = 'Test notification', link } = req.body || {};
+    const { userId, title = 'Bantay SP', body = 'Test notification', link } = req.body || {};
     if (!userId) return res.status(400).json({ error: 'userId is required' });
 
     const { data: subs, error } = await supabaseAdmin
@@ -2207,7 +2207,7 @@ app.post('/api/auth/register', async (req, res) => {
 
         // Send OTP email
         try {
-          const subject = 'Your CARS-G verification code';
+          const subject = 'Your BANTAY SP verification code';
           const html = `
             <div style="font-family: Arial, Helvetica, sans-serif;">
               <p>Hi ${firstName || profilePayload.first_name || 'User'},</p>
@@ -2512,7 +2512,7 @@ app.post('/api/auth/start-email-verification', async (req, res) => {
     setOtpForEmail(normalizedEmail, otpHash, expiryIso, now.toISOString());
 
     try {
-      const subject = 'Your CARS-G verification code';
+      const subject = 'Your BANTAY SP verification code';
       const html = `
         <div style="font-family: Arial, Helvetica, sans-serif;">
           <p>Hi,</p>
@@ -2685,7 +2685,7 @@ app.post('/api/auth/resend-email-otp', async (req, res) => {
       }
 
       try {
-        const subject = 'Your CARS-G verification code';
+        const subject = 'Your BANTAY SP verification code';
         const html = `
           <div style="font-family: Arial, Helvetica, sans-serif;">
             <p>Hi,</p>
@@ -2718,7 +2718,7 @@ app.post('/api/auth/resend-email-otp', async (req, res) => {
     setOtpForEmail(normalizedEmail, otpHash, expiryIso, now.toISOString());
 
     try {
-      const subject = 'Your CARS-G verification code';
+      const subject = 'Your BANTAY SP verification code';
       const html = `
         <div style="font-family: Arial, Helvetica, sans-serif;">
           <p>Hi,</p>
@@ -3284,7 +3284,7 @@ app.post('/api/upload/id-images', upload.fields([
 
     // Upload to Cloudinary instead of Supabase storage
     const cloudName = process.env.VITE_CLOUDINARY_CLOUD_NAME;
-    const uploadPreset = process.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'cars-g-uploads';
+    const uploadPreset = process.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'bantay-sp-uploads';
 
     if (!cloudName) {
       return res.status(500).json({
@@ -3300,7 +3300,7 @@ app.post('/api/upload/id-images', upload.fields([
       contentType: frontImage[0].mimetype
     });
     frontFormData.append('upload_preset', uploadPreset);
-    frontFormData.append('folder', 'cars-g/id-verification');
+    frontFormData.append('folder', 'bantay-sp/id-verification');
 
     const frontResponse = await fetch(
       `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
@@ -3328,7 +3328,7 @@ app.post('/api/upload/id-images', upload.fields([
       contentType: backImage[0].mimetype
     });
     backFormData.append('upload_preset', uploadPreset);
-    backFormData.append('folder', 'cars-g/id-verification');
+    backFormData.append('folder', 'bantay-sp/id-verification');
 
     const backResponse = await fetch(
       `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
@@ -4097,7 +4097,7 @@ const startServer = async () => {
       channel
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, async (payload) => {
           const n = payload.new || {};
-          const title = n.title || 'Cars-G';
+          const title = n.title || 'Bantay SP';
           const body = n.message || '';
           const link = n.link || '/';
           const userId = n.user_id;

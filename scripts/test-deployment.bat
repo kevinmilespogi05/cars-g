@@ -1,8 +1,8 @@
 @echo off
-REM Cars-G Deployment Testing Script for Windows
+REM Bantay SP Deployment Testing Script for Windows
 REM Quick health check for all deployment components
 
-echo 🧪 Starting Cars-G Deployment Testing...
+echo 🧪 Starting Bantay SP Deployment Testing...
 echo.
 
 REM Configuration

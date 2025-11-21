@@ -502,7 +502,7 @@ export function Register() {
 
       // Always redirect to reports page after successful registration
       setSuccess('Registration successful! Redirecting to reports...');
-      try { showToastSuccess('Registration successful! Welcome to Cars-G', 4000); } catch (e) {}
+      try { showToastSuccess('Registration successful! Welcome to Bantay SP', 4000); } catch (e) {}
       
       setTimeout(() => {
         navigate('/reports', { replace: true });
@@ -572,12 +572,12 @@ export function Register() {
             <div className="flex items-center gap-3 mb-4">
               <img 
                 src="/images/logo.jpg" 
-                alt="CARS-G Logo" 
+                alt="Bantay SP Logo" 
                 className="h-12 w-12 object-contain rounded-lg bg-white/10 p-1"
               />
               <div>
                 <h1 className="text-2xl font-bold">Create Your Account</h1>
-                <p className="text-red-100 text-sm">Join the CARS-G community</p>
+                <p className="text-red-100 text-sm">Join the BANTAY SP community</p>
               </div>
             </div>
 
@@ -1524,7 +1524,7 @@ export function Register() {
                 <section>
                   <h3 className="text-xl font-semibold text-gray-900 mb-4">1. Introduction</h3>
                   <p>
-                    Welcome to CARS-G. We respect your privacy and are committed to protecting your personal data. 
+                    Welcome to BANTAY SP. We respect your privacy and are committed to protecting your personal data. 
                     This privacy policy will inform you about how we look after your personal data when you visit our website 
                     and tell you about your privacy rights and how the law protects you.
                   </p>
@@ -1690,7 +1690,7 @@ export function Register() {
                 <section>
                   <h3 className="text-xl font-semibold text-gray-900 mb-4">1. Acceptance of Terms</h3>
                   <p>
-                    By accessing and using CARS-G (Community Assistance Reporting System - Gamified), you accept and agree to be bound by the terms 
+                    By accessing and using BANTAY SP (Bantay San Pablo), you accept and agree to be bound by the terms 
                     and provision of this agreement.
                   </p>
                 </section>
@@ -1760,7 +1760,7 @@ export function Register() {
                 <section>
                   <h3 className="text-xl font-semibold text-gray-900 mb-4">8. Limitation of Liability</h3>
                   <p>
-                    CARS-G is provided "as is" without warranties. We are not liable for indirect, incidental, or consequential damages.
+                    BANTAY SP is provided "as is" without warranties. We are not liable for indirect, incidental, or consequential damages.
                   </p>
                 </section>
 

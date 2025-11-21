@@ -12,7 +12,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-console.log('🚀 Cars-G PWA Testing Script\n');
+console.log('🚀 Bantay SP PWA Testing Script\n');
 
 // Test 1: Check manifest file
 console.log('1. Checking Web App Manifest...');

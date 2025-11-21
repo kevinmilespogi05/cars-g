@@ -1,7 +1,7 @@
-# Cars-G Backend Deployment Script for Render
+# Bantay SP Backend Deployment Script for Render
 # This script helps deploy the updated backend to Render
 
-Write-Host "🚀 Starting Cars-G Backend Deployment to Render..." -ForegroundColor Cyan
+Write-Host "🚀 Starting Bantay SP Backend Deployment to Render..." -ForegroundColor Cyan
 
 # Function to print colored output
 function Write-Status {

@@ -1,7 +1,7 @@
-// Cars-G Deployment E2E Tests
+// Bantay SP Deployment E2E Tests
 // This file contains end-to-end tests for the deployed application
 
-describe('Cars-G Deployment Tests', () => {
+describe('Bantay SP Deployment Tests', () => {
   const FRONTEND_URL = 'https://cars-g.vercel.app'
   const BACKEND_URL = 'https://cars-g-api.onrender.com'
   
@@ -30,7 +30,7 @@ describe('Cars-G Deployment Tests', () => {
 
     it('should have proper page title', () => {
       cy.title().should('not.be.empty')
-      cy.title().should('contain', 'Cars-G')
+      cy.title().should('contain', 'Bantay SP')
     })
 
     it('should load all required assets', () => {

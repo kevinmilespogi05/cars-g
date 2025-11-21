@@ -16,7 +16,7 @@ export function PrivacyPolicy() {
           <section>
             <h2 className="text-xl font-semibold text-gray-900 mb-4">1. Introduction</h2>
             <p>
-              Welcome to Cars G. We respect your privacy and are committed to protecting your personal data. 
+              Welcome to Bantay SP. We respect your privacy and are committed to protecting your personal data. 
               This privacy policy will inform you about how we look after your personal data when you visit our website 
               and tell you about your privacy rights and how the law protects you.
             </p>
@@ -82,7 +82,7 @@ export function PrivacyPolicy() {
             <p>
               If you have any questions about this Privacy Policy, please contact us at:
               <br />
-              Email: support@cars-g.com
+              Email: support@bantay-sp.com
             </p>
           </section>
 

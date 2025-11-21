@@ -73,9 +73,9 @@ To fix Cloudinary upload issues, you need to create an upload preset:
 3. Scroll down to "Upload presets"
 4. Click "Add upload preset"
 5. Configure the preset:
-   - Name: Choose a name (e.g., "cars-g-uploads")
+   - Name: Choose a name (e.g., "bantay-sp-uploads")
    - Signing Mode: "Unsigned" (for client-side uploads)
-   - Folder: "cars-g" (optional)
+   - Folder: "bantay-sp" (optional)
    - Allowed formats: "jpg, png, gif, webp"
    - Max file size: 10MB
 6. Save the preset
@@ -88,7 +88,7 @@ Current upload preset: ${this.uploadPreset}
 
   // Method to try alternative upload presets
   private async tryAlternativePresets(file: File, folder: string): Promise<UploadResult> {
-    const alternativePresets = ['cars-g-uploads', 'cars-g', 'ml_default', 'general'];
+    const alternativePresets = ['bantay-sp-uploads', 'bantay-sp', 'ml_default', 'general'];
     
     for (const preset of alternativePresets) {
       if (preset === this.uploadPreset) continue; // Skip current preset
@@ -135,7 +135,7 @@ Current upload preset: ${this.uploadPreset}
     throw new Error('All upload presets failed. Please create a custom upload preset in your Cloudinary dashboard.');
   }
 
-  async uploadImage(file: File, folder: string = 'cars-g'): Promise<UploadResult> {
+  async uploadImage(file: File, folder: string = 'bantay-sp'): Promise<UploadResult> {
     if (!this.config) {
       throw new Error('Cloudinary is not configured');
     }
@@ -219,7 +219,7 @@ Current upload preset: ${this.uploadPreset}
     }
   }
 
-  async uploadVideo(file: File, folder: string = 'cars-g/videos'): Promise<UploadResult> {
+  async uploadVideo(file: File, folder: string = 'bantay-sp/videos'): Promise<UploadResult> {
     if (!this.config) {
       throw new Error('Cloudinary is not configured');
     }

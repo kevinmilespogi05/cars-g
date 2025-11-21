@@ -130,9 +130,9 @@ export default defineConfig({
         ]
       },
       manifest: {
-        name: 'Cars-G',
-        short_name: 'Cars-G',
-        description: 'Your comprehensive car management and reporting system',
+        name: 'Bantay SP',
+        short_name: 'Bantay SP',
+        description: 'San Pablo community reporting system',
         theme_color: '#800000',
         background_color: '#ffffff',
         display: 'standalone',

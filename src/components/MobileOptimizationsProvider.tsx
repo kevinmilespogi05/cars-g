@@ -1,7 +1,7 @@
 /**
  * Mobile Optimizations Initializer
  * 
- * This module initializes all mobile optimizations for the Cars-G PWA.
+ * This module initializes all mobile optimizations for the Bantay SP PWA.
  * It should be called as early as possible in the application lifecycle.
  */
 

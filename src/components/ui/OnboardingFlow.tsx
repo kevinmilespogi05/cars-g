@@ -244,15 +244,15 @@ export function OnboardingFlow({
 export const defaultOnboardingSteps: OnboardingStep[] = [
   {
     id: 'welcome',
-    title: 'Welcome to CARS-G!',
+    title: 'Welcome to BANTAY SP!',
     description: 'Your community reporting system for a better neighborhood.',
     icon: <MapPin className="h-6 w-6" />,
     content: (
       <div className="space-y-4">
         <div className="p-4 bg-blue-50 rounded-lg">
-          <h3 className="font-semibold text-gray-900 mb-2">What is CARS-G?</h3>
+          <h3 className="font-semibold text-gray-900 mb-2">What is BANTAY SP?</h3>
           <p className="text-sm text-gray-700">
-            CARS-G helps you report community issues, track their resolution, and earn points for your contributions.
+            BANTAY SP helps you report community issues, track their resolution, and earn points for your contributions.
           </p>
         </div>
         <div className="grid grid-cols-2 gap-4">

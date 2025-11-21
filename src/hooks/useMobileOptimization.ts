@@ -24,7 +24,7 @@ interface MobileOptimizationState {
  * useM obileOptimization Hook
  * 
  * Comprehensive mobile device detection and optimization utilities
- * for Cars-G PWA to ensure perfect mobile experience
+ * for Bantay SP PWA to ensure perfect mobile experience
  * 
  * @returns Mobile optimization state and utilities
  */

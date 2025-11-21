@@ -16,24 +16,27 @@ interface ReportStats {
 }
 
 const COLORS = {
-  // Brand colors
-  brandRed: [139, 0, 0], // #8B0000
+  // Brand colors - Updated to match specifications
+  brandRed: [220, 30, 30], // #DC1E1E - BANTAY SP red
+  brandRedDark: [139, 0, 0], // #8B0000 - Deep maroon for gradients
   primaryText: [26, 26, 26], // #1a1a1a
   secondaryText: [102, 102, 102], // #666666
   lightText: [153, 153, 153], // #999999
   bodyText: [51, 51, 51], // #333333
   
-  // Stat colors
-  statBlue: [59, 130, 246], // #3b82f6
-  statAmber: [245, 158, 11], // #f59e0b
+  // Status colors - Updated to match specifications
+  statBlue: [59, 130, 246], // #3B82F6 - In Progress
+  statAmber: [245, 158, 11], // #F59E0B - Pending/Warning
   statPurple: [139, 91, 246], // #8b5cf6
-  statGreen: [16, 185, 129], // #10b981
+  statGreen: [16, 185, 129], // #10B981 - Resolved/Positive
+  statRed: [239, 68, 68], // #EF4444 - Declined/Urgent
   
   // Chart colors
-  chartAmber: [251, 191, 36], // #fbbf24
+  chartAmber: [245, 158, 11], // #F59E0B
   chartPurple: [167, 139, 250], // #a78bfa
-  chartGreen: [134, 239, 172], // #86efac
-  chartRed: [248, 113, 113], // #f87171
+  chartGreen: [16, 185, 129], // #10B981
+  chartRed: [239, 68, 68], // #EF4444
+  chartBlue: [59, 130, 246], // #3B82F6
   
   // Background colors
   bgLight: [248, 249, 250], // #f8f9fa
@@ -58,61 +61,87 @@ export const pdfReportService = {
     const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
     const pw = pdf.internal.pageSize.getWidth();
     const ph = pdf.internal.pageSize.getHeight();
-    // Convert pixels to mm: 20px ≈ 5.3mm, 25px ≈ 6.6mm
     const margin = 7; // ~20px equivalent
     const topMargin = 7; // ~25px equivalent
     const cw = pw - 2 * margin;
 
-    // PAGE 1: Professional Cover Page
-    this.addCoverPage(pdf, `Monthly Report`, `${this.getMonthName(month)} ${year}`, pw, ph, month, year);
+    // PAGE 1: Enhanced Cover Page with Gradient
+    this.addEnhancedCoverPage(pdf, `Monthly Report`, `${this.getMonthName(month)} ${year}`, pw, ph, month, year);
     
     // PAGE 2: Table of Contents
     pdf.addPage();
     this.addTableOfContents(pdf, 'monthly', pw, ph, margin);
     
-    // PAGE 3: Key Metrics + Executive Summary
+    // PAGE 3: Dedicated Executive Summary Page
     pdf.addPage();
-    this.addGradientHeader(pdf, `Monthly Report - ${this.getMonthName(month)} ${year}`, pw, month, year);
-    let currentY = 45; // After header
-    this.addKeyMetricsCards(pdf, validatedStats, currentY, margin, cw);
-    currentY += 35; // After cards
-    this.addEnhancedExecutiveSummary(pdf, validatedStats, month, year, 'monthly', currentY, margin, cw);
+    this.addPageHeader(pdf, pw, month, year, 3);
+    let currentY = topMargin + 12;
+    this.addDedicatedExecutiveSummary(pdf, validatedStats, month, year, currentY, margin, cw, reports);
 
-    // PAGE 4: Key Findings & Metrics
+    // PAGE 4: Enhanced Key Metrics Dashboard
     pdf.addPage();
-    currentY = topMargin;
-    this.addSectionTitle(pdf, 'Key Findings & Metrics', currentY, margin);
+    this.addPageHeader(pdf, pw, month, year, 4);
+    currentY = topMargin + 12;
+    this.addEnhancedMetricsDashboard(pdf, validatedStats, currentY, margin, cw, reports);
+
+    // PAGE 5: Data Visualization - Status Distribution & Category Breakdown
+    pdf.addPage();
+    this.addPageHeader(pdf, pw, month, year, 5);
+    currentY = topMargin + 12;
+    this.addSectionTitle(pdf, 'Status Distribution', currentY, margin);
     currentY += 8;
-    this.addKeyFindings(pdf, validatedStats, currentY, margin, cw);
-
-    // PAGE 5: Status & Category Breakdown
-    pdf.addPage();
-    currentY = topMargin;
-    this.addSectionTitle(pdf, 'Status Overview', currentY, margin);
-    currentY += 8;
-    this.addStatusChart(pdf, validatedStats, currentY, margin, cw);
-    currentY += 35;
-
+    this.addStatusPieChart(pdf, validatedStats, currentY, margin, cw);
+    currentY += 50;
+    
     this.addSectionTitle(pdf, 'Reports by Category', currentY, margin);
     currentY += 8;
     this.addCategoryChart(pdf, validatedStats, currentY, margin, cw);
     
-    // PAGE 6: Trend Analysis (if we have enough data)
+    // PAGE 6: Trend Analysis & Response Time
     if (reports.length > 0) {
       pdf.addPage();
-      currentY = topMargin;
+      this.addPageHeader(pdf, pw, month, year, 6);
+      currentY = topMargin + 12;
       this.addSectionTitle(pdf, 'Report Trends', currentY, margin);
       currentY += 8;
       this.addTrendChart(pdf, reports, currentY, margin, cw, 'monthly');
+      currentY += 50;
+      
+      this.addSectionTitle(pdf, 'Response Time Analysis', currentY, margin);
+      currentY += 8;
+      this.addResponseTimeAnalysis(pdf, reports, currentY, margin, cw);
     }
 
-    // PAGE 7+: Detailed Table
+    // PAGE 7: High-Priority Issues & Top Reporters
+    pdf.addPage();
+    this.addPageHeader(pdf, pw, month, year, 7);
+    currentY = topMargin + 12;
+    this.addHighPriorityIssues(pdf, reports, currentY, margin, cw, ph);
+    
+    // PAGE 8: Geographic Hotspots & Category Insights
     if (reports.length > 0) {
       pdf.addPage();
-      currentY = topMargin;
+      this.addPageHeader(pdf, pw, month, year, 8);
+      currentY = topMargin + 12;
+      this.addGeographicHotspots(pdf, reports, currentY, margin, cw);
+      currentY += 40;
+      this.addCategoryInsights(pdf, validatedStats, currentY, margin, cw);
+    }
+
+    // PAGE 9: Recommendations
+    pdf.addPage();
+    this.addPageHeader(pdf, pw, month, year, 9);
+    currentY = topMargin + 12;
+    this.addRecommendations(pdf, validatedStats, reports, currentY, margin, cw);
+
+    // PAGE 10+: Enhanced Detailed Report Listing
+    if (reports.length > 0) {
+      pdf.addPage();
+      this.addPageHeader(pdf, pw, month, year, 10);
+      currentY = topMargin + 12;
       this.addSectionTitle(pdf, 'Detailed Report Listing', currentY, margin);
       currentY += 8;
-      this.addEnhancedDetailTable(pdf, reports, currentY, margin, cw, ph);
+      this.addEnhancedDetailTable(pdf, reports, currentY, margin, cw, ph, month, year);
     }
 
     this.addEnhancedFooter(pdf, month, year);
@@ -125,7 +154,7 @@ export const pdfReportService = {
     month: number,
     stats: ReportStats
   ): Promise<string> {
-    // Validate stats before generating PDF
+    // Use the same structure as generateMonthlyPDF
     const validatedStats = this.validateStats(stats);
     
     const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
@@ -135,56 +164,83 @@ export const pdfReportService = {
     const topMargin = 7;
     const cw = pw - 2 * margin;
 
-    // PAGE 1: Professional Cover Page
-    this.addCoverPage(pdf, `Monthly Report`, `${this.getMonthName(month)} ${year}`, pw, ph, month, year);
+    // PAGE 1: Enhanced Cover Page with Gradient
+    this.addEnhancedCoverPage(pdf, `Monthly Report`, `${this.getMonthName(month)} ${year}`, pw, ph, month, year);
     
     // PAGE 2: Table of Contents
     pdf.addPage();
     this.addTableOfContents(pdf, 'monthly', pw, ph, margin);
     
-    // PAGE 3: Key Metrics + Executive Summary
+    // PAGE 3: Dedicated Executive Summary Page
     pdf.addPage();
-    this.addGradientHeader(pdf, `Monthly Report - ${this.getMonthName(month)} ${year}`, pw, month, year);
-    let currentY = 45;
-    this.addKeyMetricsCards(pdf, validatedStats, currentY, margin, cw);
-    currentY += 35;
-    this.addEnhancedExecutiveSummary(pdf, validatedStats, month, year, 'monthly', currentY, margin, cw);
+    this.addPageHeader(pdf, pw, month, year, 3);
+    let currentY = topMargin + 12;
+    this.addDedicatedExecutiveSummary(pdf, validatedStats, month, year, currentY, margin, cw, reports);
 
-    // PAGE 4: Key Findings & Metrics
+    // PAGE 4: Enhanced Key Metrics Dashboard
     pdf.addPage();
-    currentY = topMargin;
-    this.addSectionTitle(pdf, 'Key Findings & Metrics', currentY, margin);
+    this.addPageHeader(pdf, pw, month, year, 4);
+    currentY = topMargin + 12;
+    this.addEnhancedMetricsDashboard(pdf, validatedStats, currentY, margin, cw, reports);
+
+    // PAGE 5: Data Visualization - Status Distribution & Category Breakdown
+    pdf.addPage();
+    this.addPageHeader(pdf, pw, month, year, 5);
+    currentY = topMargin + 12;
+    this.addSectionTitle(pdf, 'Status Distribution', currentY, margin);
     currentY += 8;
-    this.addKeyFindings(pdf, validatedStats, currentY, margin, cw);
-
-    // PAGE 5: Status & Category Breakdown
-    pdf.addPage();
-    currentY = topMargin;
-    this.addSectionTitle(pdf, 'Status Overview', currentY, margin);
-    currentY += 8;
-    this.addStatusChart(pdf, validatedStats, currentY, margin, cw);
-    currentY += 35;
-
+    this.addStatusPieChart(pdf, validatedStats, currentY, margin, cw);
+    currentY += 50;
+    
     this.addSectionTitle(pdf, 'Reports by Category', currentY, margin);
     currentY += 8;
     this.addCategoryChart(pdf, validatedStats, currentY, margin, cw);
     
-    // PAGE 6: Trend Analysis
+    // PAGE 6: Trend Analysis & Response Time
     if (reports.length > 0) {
       pdf.addPage();
-      currentY = topMargin;
+      this.addPageHeader(pdf, pw, month, year, 6);
+      currentY = topMargin + 12;
       this.addSectionTitle(pdf, 'Report Trends', currentY, margin);
       currentY += 8;
       this.addTrendChart(pdf, reports, currentY, margin, cw, 'monthly');
+      currentY += 50;
+      
+      this.addSectionTitle(pdf, 'Response Time Analysis', currentY, margin);
+      currentY += 8;
+      this.addResponseTimeAnalysis(pdf, reports, currentY, margin, cw);
     }
 
-    // PAGE 7+: Detailed Table
+    // PAGE 7: High-Priority Issues & Top Reporters
+    pdf.addPage();
+    this.addPageHeader(pdf, pw, month, year, 7);
+    currentY = topMargin + 12;
+    this.addHighPriorityIssues(pdf, reports, currentY, margin, cw, ph);
+    
+    // PAGE 8: Geographic Hotspots & Category Insights
     if (reports.length > 0) {
       pdf.addPage();
-      currentY = topMargin;
+      this.addPageHeader(pdf, pw, month, year, 8);
+      currentY = topMargin + 12;
+      this.addGeographicHotspots(pdf, reports, currentY, margin, cw);
+      currentY += 40;
+      this.addCategoryInsights(pdf, validatedStats, currentY, margin, cw);
+    }
+
+    // PAGE 9: Recommendations
+    pdf.addPage();
+    this.addPageHeader(pdf, pw, month, year, 9);
+    currentY = topMargin + 12;
+    this.addRecommendations(pdf, validatedStats, reports, currentY, margin, cw);
+
+    // PAGE 10+: Enhanced Detailed Report Listing
+    if (reports.length > 0) {
+      pdf.addPage();
+      this.addPageHeader(pdf, pw, month, year, 10);
+      currentY = topMargin + 12;
       this.addSectionTitle(pdf, 'Detailed Report Listing', currentY, margin);
       currentY += 8;
-      this.addEnhancedDetailTable(pdf, reports, currentY, margin, cw, ph);
+      this.addEnhancedDetailTable(pdf, reports, currentY, margin, cw, ph, month, year);
     }
 
     this.addEnhancedFooter(pdf, month, year);
@@ -217,6 +273,7 @@ export const pdfReportService = {
     
     // PAGE 3: Key Metrics + Executive Summary
     pdf.addPage();
+    this.addPageHeader(pdf, pw, 0, year, 3);
     this.addGradientHeader(pdf, `Annual Report - ${year}`, pw, 0, year);
     let currentY = 45;
     this.addKeyMetricsCards(pdf, validatedStats, currentY, margin, cw);
@@ -225,14 +282,16 @@ export const pdfReportService = {
 
     // PAGE 4: Key Findings & Analysis
     pdf.addPage();
-    currentY = topMargin;
+    this.addPageHeader(pdf, pw, 0, year, 4);
+    currentY = topMargin + 12; // Account for page header
     this.addSectionTitle(pdf, 'Key Findings & Analysis', currentY, margin);
     currentY += 8;
     this.addKeyFindings(pdf, validatedStats, currentY, margin, cw);
 
     // PAGE 5: Resolution & Priority Distribution
     pdf.addPage();
-    currentY = topMargin;
+    this.addPageHeader(pdf, pw, 0, year, 5);
+    currentY = topMargin + 12; // Account for page header
     this.addSectionTitle(pdf, 'Resolution Summary', currentY, margin);
     currentY += 8;
     this.addStatusChart(pdf, validatedStats, currentY, margin, cw);
@@ -244,7 +303,8 @@ export const pdfReportService = {
 
     // PAGE 6: Category Analysis
     pdf.addPage();
-    currentY = topMargin;
+    this.addPageHeader(pdf, pw, 0, year, 6);
+    currentY = topMargin + 12; // Account for page header
     this.addSectionTitle(pdf, 'Top Categories by Report Count', currentY, margin);
     currentY += 8;
     this.addCategoryChart(pdf, validatedStats, currentY, margin, cw);
@@ -252,7 +312,8 @@ export const pdfReportService = {
     // PAGE 7: Trend Analysis (monthly breakdown for yearly report)
     if (reports.length > 0) {
       pdf.addPage();
-      currentY = topMargin;
+      this.addPageHeader(pdf, pw, 0, year, 7);
+      currentY = topMargin + 12; // Account for page header
       this.addSectionTitle(pdf, 'Monthly Trends', currentY, margin);
       currentY += 8;
       this.addTrendChart(pdf, reports, currentY, margin, cw, 'yearly');
@@ -261,10 +322,11 @@ export const pdfReportService = {
     // PAGE 8+: Detailed Table
     if (reports.length > 0) {
       pdf.addPage();
-      currentY = topMargin;
+      this.addPageHeader(pdf, pw, 0, year, 8);
+      currentY = topMargin + 12; // Account for page header
       this.addSectionTitle(pdf, 'Complete Report Listing', currentY, margin);
       currentY += 8;
-      this.addEnhancedDetailTable(pdf, reports, currentY, margin, cw, ph);
+      this.addEnhancedDetailTable(pdf, reports, currentY, margin, cw, ph, 0, year);
     }
 
     this.addEnhancedFooter(pdf, 0, year);
@@ -295,6 +357,7 @@ export const pdfReportService = {
     
     // PAGE 3: Key Metrics + Executive Summary
     pdf.addPage();
+    this.addPageHeader(pdf, pw, 0, year, 3);
     this.addGradientHeader(pdf, `Annual Report - ${year}`, pw, 0, year);
     let currentY = 45;
     this.addKeyMetricsCards(pdf, validatedStats, currentY, margin, cw);
@@ -303,14 +366,16 @@ export const pdfReportService = {
 
     // PAGE 4: Key Findings & Analysis
     pdf.addPage();
-    currentY = topMargin;
+    this.addPageHeader(pdf, pw, 0, year, 4);
+    currentY = topMargin + 12; // Account for page header
     this.addSectionTitle(pdf, 'Key Findings & Analysis', currentY, margin);
     currentY += 8;
     this.addKeyFindings(pdf, validatedStats, currentY, margin, cw);
 
     // PAGE 5: Resolution & Priority Distribution
     pdf.addPage();
-    currentY = topMargin;
+    this.addPageHeader(pdf, pw, 0, year, 5);
+    currentY = topMargin + 12; // Account for page header
     this.addSectionTitle(pdf, 'Resolution Summary', currentY, margin);
     currentY += 8;
     this.addStatusChart(pdf, validatedStats, currentY, margin, cw);
@@ -322,7 +387,8 @@ export const pdfReportService = {
 
     // PAGE 6: Category Analysis
     pdf.addPage();
-    currentY = topMargin;
+    this.addPageHeader(pdf, pw, 0, year, 6);
+    currentY = topMargin + 12; // Account for page header
     this.addSectionTitle(pdf, 'Top Categories by Report Count', currentY, margin);
     currentY += 8;
     this.addCategoryChart(pdf, validatedStats, currentY, margin, cw);
@@ -330,7 +396,8 @@ export const pdfReportService = {
     // PAGE 7: Trend Analysis
     if (reports.length > 0) {
       pdf.addPage();
-      currentY = topMargin;
+      this.addPageHeader(pdf, pw, 0, year, 7);
+      currentY = topMargin + 12; // Account for page header
       this.addSectionTitle(pdf, 'Monthly Trends', currentY, margin);
       currentY += 8;
       this.addTrendChart(pdf, reports, currentY, margin, cw, 'yearly');
@@ -339,10 +406,11 @@ export const pdfReportService = {
     // PAGE 8+: Detailed Table
     if (reports.length > 0) {
       pdf.addPage();
-      currentY = topMargin;
+      this.addPageHeader(pdf, pw, 0, year, 8);
+      currentY = topMargin + 12; // Account for page header
       this.addSectionTitle(pdf, 'Complete Report Listing', currentY, margin);
       currentY += 8;
-      this.addEnhancedDetailTable(pdf, reports, currentY, margin, cw, ph);
+      this.addEnhancedDetailTable(pdf, reports, currentY, margin, cw, ph, 0, year);
     }
 
     this.addEnhancedFooter(pdf, 0, year);
@@ -366,7 +434,7 @@ export const pdfReportService = {
     pdf.setFontSize(4.8);
     pdf.setFont('Helvetica', 'normal');
     pdf.setTextColor(COLORS.secondaryText[0], COLORS.secondaryText[1], COLORS.secondaryText[2]);
-    pdf.text('Community Reports Dashboard', pageWidth / 2, yPos, { align: 'center' });
+    pdf.text('San Pablo Community Reports Dashboard', pageWidth / 2, yPos, { align: 'center' });
     yPos += 7.9; // 30px margin
 
     // Red accent line - 4px height (≈1mm)
@@ -392,6 +460,38 @@ export const pdfReportService = {
       ? `${this.getMonthName(month)} ${year}`
       : year ? `${year} Annual Report` : '';
     pdf.text(`Generated: ${dateStr} at ${timeStr} | Time Period: ${periodStr}`, pageWidth / 2, yPos, { align: 'center' });
+  },
+
+  // Add consistent page header to all pages (except cover)
+  addPageHeader(pdf: jsPDF, pageWidth: number, month?: number, year?: number, pageNum?: number): void {
+    const margin = 7;
+    const topMargin = 7;
+    
+    // Top brand bar
+    pdf.setFillColor(COLORS.brandRed[0], COLORS.brandRed[1], COLORS.brandRed[2]);
+    pdf.rect(0, 0, pageWidth, 8, 'F');
+    
+    // Organization name (left)
+    pdf.setFontSize(3.2); // 12px
+    pdf.setFont('Helvetica', 'bold');
+    pdf.setTextColor(255, 255, 255);
+    pdf.text('BANTAY SP', margin, 5.5);
+    
+    // Report title (center)
+    const reportTitle = (month !== undefined && month > 0 && year) 
+      ? `${this.getMonthName(month)} ${year} Report`
+      : year ? `${year} Annual Report` : 'Community Report';
+    pdf.text(reportTitle, pageWidth / 2, 5.5, { align: 'center' });
+    
+    // Page number (right)
+    if (pageNum !== undefined) {
+      pdf.text(`Page ${pageNum}`, pageWidth - margin, 5.5, { align: 'right' });
+    }
+    
+    // Subtle line below header
+    pdf.setDrawColor(COLORS.borderLight[0], COLORS.borderLight[1], COLORS.borderLight[2]);
+    pdf.setLineWidth(0.3);
+    pdf.line(margin, 10, pageWidth - margin, 10);
   },
 
   addKeyMetricsCards(pdf: jsPDF, stats: ReportStats, yPos: number, margin: number, cWidth: number): void {
@@ -664,20 +764,44 @@ export const pdfReportService = {
     const spacing = 9;
     let y = yPos;
 
-    pdf.setFontSize(8);
+    // Chart title with better typography
+    pdf.setFontSize(3.4); // 13px - readable body text
+    pdf.setFont('Helvetica', 'bold');
+    pdf.setTextColor(COLORS.primaryText[0], COLORS.primaryText[1], COLORS.primaryText[2]);
+    pdf.text('Status Distribution', margin, y - 2);
+    y += 3;
+
+    // Legend box
+    const legendY = y;
+    pdf.setFillColor(COLORS.bgOffWhite[0], COLORS.bgOffWhite[1], COLORS.bgOffWhite[2]);
+    pdf.setDrawColor(COLORS.borderLight[0], COLORS.borderLight[1], COLORS.borderLight[2]);
+    pdf.setLineWidth(0.3);
+    pdf.roundedRect(margin, y, cWidth, spacing * items.length + 2, 2, 2, 'FD');
+    y += 2;
+
+    pdf.setFontSize(3.2); // 12px
 
     items.forEach((item) => {
       const pct = ((item.value / total) * 100).toFixed(1);
       const barWidth = (cWidth - 75) * (item.value / total);
 
+      // Color indicator (square)
+      pdf.setFillColor(item.color[0], item.color[1], item.color[2]);
+      pdf.rect(margin + 5, y - 0.5, 2, 2, 'F');
+
       // Label
       pdf.setFont('Helvetica', 'normal');
-      pdf.setTextColor(75, 85, 99);
-      pdf.text(item.label, margin + 5, y + 4);
+      pdf.setTextColor(COLORS.bodyText[0], COLORS.bodyText[1], COLORS.bodyText[2]);
+      pdf.text(item.label, margin + 9, y + 1.2);
 
-      // Value
-      pdf.setTextColor(100, 100, 100);
-      pdf.text(`${item.value} (${pct}%)`, margin + 40, y + 4);
+      // Value with better formatting
+      pdf.setFont('Helvetica', 'bold');
+      pdf.setTextColor(COLORS.primaryText[0], COLORS.primaryText[1], COLORS.primaryText[2]);
+      pdf.text(`${item.value}`, margin + 40, y + 1.2);
+      
+      pdf.setFont('Helvetica', 'normal');
+      pdf.setTextColor(COLORS.secondaryText[0], COLORS.secondaryText[1], COLORS.secondaryText[2]);
+      pdf.text(`(${pct}%)`, margin + 48, y + 1.2);
 
       // Background bar
       pdf.setFillColor(230, 230, 235);
@@ -690,7 +814,7 @@ export const pdfReportService = {
       y += spacing;
     });
 
-    return y;
+    return y + 2;
   },
 
   addPriorityChart(pdf: jsPDF, stats: ReportStats, yPos: number, margin: number, cWidth: number): number {
@@ -831,8 +955,15 @@ export const pdfReportService = {
 
     reports.forEach((r, idx) => {
       if (y > pageHeight - 20) {
+        const currentPage = pdf.getCurrentPageInfo().pageNumber;
         pdf.addPage();
-        y = 20;
+        const pw = pdf.internal.pageSize.getWidth();
+        if (year !== undefined) {
+          // For yearly reports, month is 0; for monthly, month is provided
+          const monthValue = (month !== undefined && month > 0) ? month : 0;
+          this.addPageHeader(pdf, pw, monthValue, year, currentPage + 1);
+        }
+        y = 32; // Account for page header
         drawHeader();
         
         // Add continuation notice
@@ -931,7 +1062,7 @@ export const pdfReportService = {
 
       // Left: Report name
       const reportName = month ? `${this.getMonthName(month)} ${year}` : `${year} Annual Report`;
-      pdf.text('Cars-G Community Reports', margin, ph - topPadding);
+      pdf.text('Bantay SP Community Reports', margin, ph - topPadding);
       
       // Center: Page numbers
       pdf.setFont('Helvetica', 'bold');
@@ -958,6 +1089,33 @@ export const pdfReportService = {
     }
 
     return `Throughout ${year}, the community reported system maintained consistent service delivery with ${stats.total} total cases handled. Annual performance indicators demonstrate a ${rRate}% overall resolution rate, with ${stats.resolved} successfully resolved cases, ${stats.inProgress} in active progress, ${stats.pending} pending resolution, and ${highPriority} flagged as high priority. These metrics underscore effective case management and sustained community engagement throughout the fiscal year.`;
+  },
+
+  // Generate concise bullet-point summary for executive summary
+  generateConciseSummary(stats: ReportStats, month: number, year: number, type: 'monthly' | 'yearly'): string[] {
+    const rRate = stats.total > 0 ? Math.round((stats.resolved / stats.total) * 100) : 0;
+    const highPriority = stats.highPriority || 0;
+    const pendingRate = stats.total > 0 ? Math.round((stats.pending / stats.total) * 100) : 0;
+    const inProgressRate = stats.total > 0 ? Math.round((stats.inProgress / stats.total) * 100) : 0;
+
+    if (type === 'monthly') {
+      const mName = this.getMonthName(month);
+      return [
+        `Processed ${stats.total} total reports during ${mName} ${year}`,
+        `Achieved ${rRate}% resolution rate (${stats.resolved} resolved cases)`,
+        `${stats.inProgress} reports currently in progress (${inProgressRate}%)`,
+        `${stats.pending} reports pending action (${pendingRate}%)`,
+        `${highPriority} high-priority cases requiring immediate attention`
+      ];
+    }
+
+    return [
+      `Handled ${stats.total} total cases throughout ${year}`,
+      `Maintained ${rRate}% overall resolution rate (${stats.resolved} resolved)`,
+      `${stats.inProgress} cases in active progress (${inProgressRate}%)`,
+      `${stats.pending} cases pending resolution (${pendingRate}%)`,
+      `${highPriority} high-priority cases flagged for urgent action`
+    ];
   },
 
   // Validate and normalize stats data
@@ -1037,7 +1195,7 @@ export const pdfReportService = {
     // Organization name
     pdf.setFontSize(8);
     pdf.setTextColor(COLORS.secondaryText[0], COLORS.secondaryText[1], COLORS.secondaryText[2]);
-    pdf.text('Cars-G Community Reporting System', pageWidth / 2, yPos, { align: 'center' });
+    pdf.text('Bantay SP Community Reporting System', pageWidth / 2, yPos, { align: 'center' });
     yPos += 8;
     
     // Generation date
@@ -1094,11 +1252,14 @@ export const pdfReportService = {
       ? [
           { title: 'Cover Page', page: 1 },
           { title: 'Table of Contents', page: 2 },
-          { title: 'Key Metrics & Executive Summary', page: 3 },
-          { title: 'Key Findings & Metrics', page: 4 },
-          { title: 'Status & Category Analysis', page: 5 },
-          { title: 'Report Trends', page: 6 },
-          { title: 'Detailed Report Listing', page: 7 },
+          { title: 'Executive Summary', page: 3 },
+          { title: 'Key Metrics Dashboard', page: 4 },
+          { title: 'Data Visualization', page: 5 },
+          { title: 'Trend Analysis & Response Time', page: 6 },
+          { title: 'High-Priority Issues & Top Reporters', page: 7 },
+          { title: 'Geographic Hotspots & Category Insights', page: 8 },
+          { title: 'Recommendations', page: 9 },
+          { title: 'Detailed Report Listing', page: 10 },
         ]
       : [
           { title: 'Cover Page', page: 1 },
@@ -1120,7 +1281,7 @@ export const pdfReportService = {
     });
   },
 
-  // Enhanced executive summary with KPIs
+  // Enhanced executive summary with KPIs and concise bullet points
   addEnhancedExecutiveSummary(
     pdf: jsPDF,
     stats: ReportStats,
@@ -1178,11 +1339,52 @@ export const pdfReportService = {
       x += cardWidth + 5;
     });
     
-    yPos += cardHeight + 10;
+    yPos += cardHeight + 8;
     
-    // Summary text
-    const summaryText = this.generateSummaryText(stats, month, year, type);
-    this.addParagraph(pdf, summaryText, yPos, margin, cWidth);
+    // Key Insights Callout Box
+    pdf.setFillColor(COLORS.bgSection[0], COLORS.bgSection[1], COLORS.bgSection[2]);
+    pdf.setDrawColor(COLORS.brandRed[0], COLORS.brandRed[1], COLORS.brandRed[2]);
+    pdf.setLineWidth(0.5);
+    const calloutHeight = 20;
+    pdf.roundedRect(margin, yPos, cWidth, calloutHeight, 2, 2, 'FD');
+    
+    // Left accent border
+    pdf.setFillColor(COLORS.brandRed[0], COLORS.brandRed[1], COLORS.brandRed[2]);
+    pdf.rect(margin, yPos, 3, calloutHeight, 'F');
+    
+    // Callout title
+    pdf.setFontSize(4.2); // 16px equivalent
+    pdf.setFont('Helvetica', 'bold');
+    pdf.setTextColor(COLORS.primaryText[0], COLORS.primaryText[1], COLORS.primaryText[2]);
+    pdf.text('Key Insights', margin + 6, yPos + 5);
+    
+    // Bullet points (concise summary)
+    const summaryPoints = this.generateConciseSummary(stats, month, year, type);
+    pdf.setFontSize(3.4); // 13px equivalent - readable body text
+    pdf.setFont('Helvetica', 'normal');
+    pdf.setTextColor(COLORS.bodyText[0], COLORS.bodyText[1], COLORS.bodyText[2]);
+    
+    let bulletY = yPos + 9;
+    const lineHeight = 4.2; // 16px line height
+    const bulletIndent = 5;
+    
+    summaryPoints.slice(0, 3).forEach((point) => {
+      // Bullet point
+      pdf.setFillColor(COLORS.brandRed[0], COLORS.brandRed[1], COLORS.brandRed[2]);
+      pdf.circle(margin + bulletIndent, bulletY - 0.5, 0.8, 'F');
+      
+      // Text
+      const lines = pdf.splitTextToSize(point, cWidth - bulletIndent - 8);
+      pdf.text(lines[0], margin + bulletIndent + 2.5, bulletY);
+      if (lines.length > 1) {
+        pdf.text(lines[1], margin + bulletIndent + 2.5, bulletY + lineHeight);
+        bulletY += lineHeight * 2;
+      } else {
+        bulletY += lineHeight;
+      }
+    });
+    
+    yPos += calloutHeight + 8;
   },
 
   // Trend chart showing reports over time
@@ -1275,24 +1477,29 @@ export const pdfReportService = {
     });
   },
 
-  // Enhanced detail table with more columns
+  // Enhanced detail table with more columns and better formatting
   addEnhancedDetailTable(
     pdf: jsPDF,
     reports: Report[],
     yPos: number,
     margin: number,
     cWidth: number,
-    pageHeight: number
+    pageHeight: number,
+    month?: number,
+    year?: number
   ): void {
     yPos += 6.6;
     
+    // Improved column structure with better widths
     const cols = [
-      { header: '#', key: 'case_number', width: 12 },
-      { header: 'Title', key: 'title', width: 50 },
-      { header: 'Status', key: 'status', width: 20 },
-      { header: 'Priority', key: 'priority', width: 18 },
-      { header: 'Category', key: 'category', width: 25 },
-      { header: 'Date', key: 'created_at', width: 20 },
+      { header: 'Report ID', key: 'case_number', width: 18 },
+      { header: 'Title', key: 'title', width: 45 },
+      { header: 'Category', key: 'category', width: 22 },
+      { header: 'Status', key: 'status', width: 18 },
+      { header: 'Priority', key: 'priority', width: 15 },
+      { header: 'Reporter', key: 'reporter', width: 25 },
+      { header: 'Date Reported', key: 'created_at', width: 22 },
+      { header: 'Days Pending', key: 'days_pending', width: 18 },
     ];
     
     const headerHeight = 8.5;
@@ -1329,8 +1536,15 @@ export const pdfReportService = {
     
     reports.forEach((r, idx) => {
       if (y > pageHeight - 20) {
+        const currentPage = pdf.getCurrentPageInfo().pageNumber;
         pdf.addPage();
-        y = 20;
+        const pw = pdf.internal.pageSize.getWidth();
+        if (year !== undefined) {
+          // For yearly reports, month is 0; for monthly, month is provided
+          const monthValue = (month !== undefined && month > 0) ? month : 0;
+          this.addPageHeader(pdf, pw, monthValue, year, currentPage + 1);
+        }
+        y = 32; // Account for page header
         drawHeader();
         
         pdf.setFontSize(2.6);
@@ -1350,22 +1564,86 @@ export const pdfReportService = {
       
       cols.forEach((col) => {
         let val: string = '';
+        let textColor = COLORS.bodyText;
+        let isBold = false;
         
-        if (col.key === 'created_at') {
+        // Format values based on column type
+        if (col.key === 'case_number') {
+          // Format as #000001
+          const caseNum = r.case_number || r.id.slice(0, 8);
+          val = caseNum.startsWith('#') ? caseNum : `#${caseNum}`;
+          isBold = true;
+        } else if (col.key === 'created_at') {
           const date = new Date(r.created_at);
           val = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        } else if (col.key === 'days_pending') {
+          // Calculate days pending
+          const created = new Date(r.created_at);
+          const daysPending = Math.floor((Date.now() - created.getTime()) / (1000 * 60 * 60 * 24));
+          val = daysPending.toString();
+          
+          // Color code based on days pending
+          if (daysPending > 14) {
+            textColor = COLORS.statRed;
+            isBold = true;
+          } else if (daysPending > 7) {
+            textColor = COLORS.statAmber;
+          } else {
+            textColor = COLORS.statGreen;
+          }
+        } else if (col.key === 'reporter') {
+          // Get reporter name
+          if (r.is_anonymous) {
+            val = 'Anonymous';
+            textColor = COLORS.lightText;
+          } else {
+            val = r.user_profile?.username || `User ${r.user_id.slice(0, 8)}`;
+          }
+        } else if (col.key === 'status') {
+          val = this.normalizeValue(r.status);
+          // Color code status
+          const statusLower = r.status.toLowerCase();
+          if (statusLower === 'resolved') {
+            textColor = COLORS.statGreen;
+          } else if (statusLower === 'pending' || statusLower === 'awaiting_verification') {
+            textColor = COLORS.statAmber;
+          } else if (statusLower === 'in_progress' || statusLower === 'verifying') {
+            textColor = COLORS.statBlue;
+          } else if (statusLower === 'declined' || statusLower === 'rejected') {
+            textColor = COLORS.statRed;
+          }
+        } else if (col.key === 'priority') {
+          val = this.normalizeValue(r.priority || 'medium');
+          // Color code priority
+          const priorityLower = (r.priority || 'medium').toLowerCase();
+          if (priorityLower === 'high') {
+            textColor = COLORS.statRed;
+            isBold = true;
+          } else if (priorityLower === 'medium') {
+            textColor = COLORS.statAmber;
+          } else {
+            textColor = COLORS.statGreen;
+          }
+        } else if (col.key === 'category') {
+          val = this.normalizeValue(r.category);
+        } else if (col.key === 'title') {
+          val = r.title || '';
         } else {
           val = String((r as any)[col.key] || '');
-          if (col.key === 'status' || col.key === 'category' || col.key === 'priority') {
-            val = this.normalizeValue(val);
-          }
         }
         
-        const maxLen = col.key === 'title' ? 40 : 15;
+        // Truncate long text
+        const maxLen = col.key === 'title' ? 35 : col.key === 'reporter' ? 20 : 12;
         if (val.length > maxLen) {
           val = val.substring(0, maxLen - 3) + '...';
         }
         
+        // Set font style
+        pdf.setFont('Helvetica', isBold ? 'bold' : 'normal');
+        pdf.setTextColor(textColor[0], textColor[1], textColor[2]);
+        pdf.setFontSize(2.8); // Slightly smaller for better fit
+        
+        // Draw text
         pdf.text(val, x + cellPadding, y + 5.3, { maxWidth: col.width - cellPadding * 2 });
         
         pdf.setDrawColor(COLORS.borderLight[0], COLORS.borderLight[1], COLORS.borderLight[2]);
@@ -1383,13 +1661,13 @@ export const pdfReportService = {
     });
   },
 
-  // Enhanced footer with better branding
+  // Enhanced footer with better branding, metadata, and contact information
   addEnhancedFooter(pdf: jsPDF, month: number, year: number): void {
     const pCount = pdf.getNumberOfPages();
     const pw = pdf.internal.pageSize.getWidth();
     const ph = pdf.internal.pageSize.getHeight();
     const margin = 7;
-    const footerHeight = 10;
+    const footerHeight = 12; // Increased for more content
     const topPadding = 3.2;
     
     for (let i = 1; i <= pCount; i++) {
@@ -1400,25 +1678,644 @@ export const pdfReportService = {
       pdf.setLineWidth(0.5);
       pdf.line(margin, ph - footerHeight, pw - margin, ph - footerHeight);
       
-      pdf.setFontSize(2.6);
+      pdf.setFontSize(2.4); // Slightly smaller for more content
       pdf.setFont('Helvetica', 'normal');
       pdf.setTextColor(COLORS.lightText[0], COLORS.lightText[1], COLORS.lightText[2]);
       
-      // Left: Organization name
-      pdf.text('Cars-G Community Reports', margin, ph - topPadding);
+      // Left: Organization name and report period
+      const reportName = month ? `${this.getMonthName(month)} ${year}` : `${year} Annual Report`;
+      pdf.text('BANTAY SP Community Reporting System', margin, ph - topPadding - 3);
+      pdf.setFontSize(2.2);
+      pdf.text(reportName, margin, ph - topPadding);
       
       // Center: Page numbers
+      pdf.setFontSize(2.6);
       pdf.setFont('Helvetica', 'bold');
-      pdf.text(`Page ${i} of ${pCount}`, pw / 2, ph - topPadding, { align: 'center' });
+      pdf.setTextColor(COLORS.primaryText[0], COLORS.primaryText[1], COLORS.primaryText[2]);
+      pdf.text(`Page ${i} of ${pCount}`, pw / 2, ph - topPadding - 1.5, { align: 'center' });
       
-      // Right: Generation date and classification
+      // Right: Generation date and metadata
+      pdf.setFontSize(2.2);
       pdf.setFont('Helvetica', 'normal');
-      const genDate = new Date().toLocaleDateString('en-US', {
+      pdf.setTextColor(COLORS.lightText[0], COLORS.lightText[1], COLORS.lightText[2]);
+      const genDate = new Date();
+      const dateStr = genDate.toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'short',
         day: 'numeric'
       });
-      pdf.text(`${genDate} | Confidential`, pw - margin, ph - topPadding, { align: 'right' });
+      const timeStr = genDate.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+      pdf.text(`Generated: ${dateStr} ${timeStr}`, pw - margin, ph - topPadding - 3, { align: 'right' });
+      pdf.text('Confidential - For Internal Use Only', pw - margin, ph - topPadding, { align: 'right' });
+      
+      // Contact information (on first and last pages only)
+      if (i === 1 || i === pCount) {
+        pdf.setFontSize(2.0);
+        pdf.setTextColor(COLORS.secondaryText[0], COLORS.secondaryText[1], COLORS.secondaryText[2]);
+        const contactY = ph - footerHeight - 4;
+        pdf.text('For questions or concerns, contact your system administrator', pw / 2, contactY, { align: 'center' });
+      }
     }
+  },
+
+  // Enhanced cover page with gradient background
+  addEnhancedCoverPage(
+    pdf: jsPDF,
+    reportType: string,
+    period: string,
+    pageWidth: number,
+    pageHeight: number,
+    month?: number,
+    year?: number
+  ): void {
+    // Gradient background (deep red to maroon) - simulated with rectangles
+    const gradientSteps = 20;
+    const stepHeight = pageHeight / gradientSteps;
+    for (let i = 0; i < gradientSteps; i++) {
+      const ratio = i / gradientSteps;
+      const r = Math.round(COLORS.brandRed[0] + (COLORS.brandRedDark[0] - COLORS.brandRed[0]) * ratio);
+      const g = Math.round(COLORS.brandRed[1] + (COLORS.brandRedDark[1] - COLORS.brandRed[1]) * ratio);
+      const b = Math.round(COLORS.brandRed[2] + (COLORS.brandRedDark[2] - COLORS.brandRed[2]) * ratio);
+      pdf.setFillColor(r, g, b);
+      pdf.rect(0, i * stepHeight, pageWidth, stepHeight, 'F');
+    }
+    
+    // Main title area - centered vertically
+    const centerY = pageHeight / 2;
+    let yPos = centerY - 40;
+    
+    // Report type - large, bold, white
+    pdf.setFontSize(20);
+    pdf.setFont('Helvetica', 'bold');
+    pdf.setTextColor(255, 255, 255);
+    pdf.text(reportType, pageWidth / 2, yPos, { align: 'center' });
+    yPos += 12;
+    
+    // Period - medium, white
+    pdf.setFontSize(14);
+    pdf.setFont('Helvetica', 'normal');
+    pdf.text(period, pageWidth / 2, yPos, { align: 'center' });
+    yPos += 10;
+    
+    // Tagline
+    pdf.setFontSize(8);
+    pdf.setTextColor(255, 255, 255);
+    pdf.text('San Pablo Community Reporting System', pageWidth / 2, yPos, { align: 'center' });
+    yPos += 15;
+    
+    // Generation date at bottom
+    const genDate = new Date();
+    const dateStr = genDate.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+    pdf.setFontSize(6);
+    pdf.setTextColor(255, 255, 255);
+    pdf.text(`Generated: ${dateStr}`, pageWidth / 2, pageHeight - 15, { align: 'center' });
+  },
+
+  // Dedicated Executive Summary page
+  addDedicatedExecutiveSummary(
+    pdf: jsPDF,
+    stats: ReportStats,
+    month: number,
+    year: number,
+    yPos: number,
+    margin: number,
+    cWidth: number,
+    reports: Report[]
+  ): void {
+    this.addSectionTitle(pdf, 'Executive Summary', yPos, margin);
+    yPos += 10;
+    
+    // Overview section
+    pdf.setFontSize(4.2);
+    pdf.setFont('Helvetica', 'bold');
+    pdf.setTextColor(COLORS.primaryText[0], COLORS.primaryText[1], COLORS.primaryText[2]);
+    pdf.text('Overview', margin, yPos);
+    yPos += 6;
+    
+    const total = Math.max(stats.total, 1);
+    const resolutionRate = Math.round((stats.resolved / total) * 100);
+    const avgResolutionTime = stats.avgResolutionTime || 0;
+    
+    pdf.setFontSize(3.4);
+    pdf.setFont('Helvetica', 'normal');
+    pdf.setTextColor(COLORS.bodyText[0], COLORS.bodyText[1], COLORS.bodyText[2]);
+    
+    const overviewText = `During ${this.getMonthName(month)} ${year}, the BANTAY SP system processed ${stats.total} community reports with a ${resolutionRate}% resolution rate. The average resolution time was ${avgResolutionTime > 0 ? `${avgResolutionTime.toFixed(1)} days` : 'N/A'}.`;
+    const overviewLines = pdf.splitTextToSize(overviewText, cWidth);
+    overviewLines.forEach((line: string) => {
+      pdf.text(line, margin, yPos);
+      yPos += 4.6;
+    });
+    
+    yPos += 5;
+    
+    // Key Highlights
+    pdf.setFontSize(4.2);
+    pdf.setFont('Helvetica', 'bold');
+    pdf.setTextColor(COLORS.primaryText[0], COLORS.primaryText[1], COLORS.primaryText[2]);
+    pdf.text('Key Highlights', margin, yPos);
+    yPos += 6;
+    
+    const highlights = [
+      { text: `${stats.resolved} reports successfully resolved`, color: COLORS.statGreen },
+      { text: `${stats.inProgress} reports currently in progress`, color: COLORS.statBlue },
+      { text: `${stats.pending} reports pending action`, color: COLORS.statAmber },
+      { text: `${stats.highPriority || 0} high-priority cases requiring attention`, color: COLORS.statRed },
+    ];
+    
+    pdf.setFontSize(3.4);
+    pdf.setFont('Helvetica', 'normal');
+    highlights.forEach((highlight) => {
+      // Color indicator
+      pdf.setFillColor(highlight.color[0], highlight.color[1], highlight.color[2]);
+      pdf.circle(margin + 2, yPos - 0.5, 1, 'F');
+      
+      pdf.setTextColor(COLORS.bodyText[0], COLORS.bodyText[1], COLORS.bodyText[2]);
+      pdf.text(highlight.text, margin + 6, yPos);
+      yPos += 5;
+    });
+    
+    yPos += 5;
+    
+    // Month-over-Month Comparison (if we had previous month data, show trends)
+    pdf.setFontSize(4.2);
+    pdf.setFont('Helvetica', 'bold');
+    pdf.setTextColor(COLORS.primaryText[0], COLORS.primaryText[1], COLORS.primaryText[2]);
+    pdf.text('Performance Indicators', margin, yPos);
+    yPos += 6;
+    
+    pdf.setFontSize(3.4);
+    pdf.setFont('Helvetica', 'normal');
+    pdf.setTextColor(COLORS.bodyText[0], COLORS.bodyText[1], COLORS.bodyText[2]);
+    
+    const performanceText = `Resolution rate: ${resolutionRate}% | Pending rate: ${Math.round((stats.pending / total) * 100)}% | In Progress: ${Math.round((stats.inProgress / total) * 100)}%`;
+    pdf.text(performanceText, margin, yPos);
+  },
+
+  // Enhanced Metrics Dashboard with icons and trend indicators
+  addEnhancedMetricsDashboard(
+    pdf: jsPDF,
+    stats: ReportStats,
+    yPos: number,
+    margin: number,
+    cWidth: number,
+    reports: Report[]
+  ): void {
+    this.addSectionTitle(pdf, 'Key Metrics Dashboard', yPos, margin);
+    yPos += 10;
+    
+    const total = Math.max(stats.total, 1);
+    const resolutionRate = Math.round((stats.resolved / total) * 100);
+    const avgResolutionTime = stats.avgResolutionTime || 0;
+    
+    // Calculate unique reporters
+    const uniqueReporters = new Set(reports.map(r => r.user_id)).size;
+    const categoriesAffected = Object.keys(stats.byCategory || {}).length;
+    
+    const metrics = [
+      { 
+        label: 'Total Reports', 
+        value: stats.total.toString(), 
+        color: COLORS.statBlue,
+        trend: null // No trend data available
+      },
+      { 
+        label: 'Reports Resolved', 
+        value: `${stats.resolved} (${resolutionRate}%)`, 
+        color: COLORS.statGreen 
+      },
+      { 
+        label: 'Pending Reports', 
+        value: stats.pending.toString(), 
+        color: COLORS.statAmber 
+      },
+      { 
+        label: 'Avg Resolution Time', 
+        value: avgResolutionTime > 0 ? `${avgResolutionTime.toFixed(1)} days` : 'N/A', 
+        color: COLORS.statPurple 
+      },
+      { 
+        label: 'Reporter Count', 
+        value: uniqueReporters.toString(), 
+        color: COLORS.statBlue 
+      },
+      { 
+        label: 'Categories Affected', 
+        value: categoriesAffected.toString(), 
+        color: COLORS.statPurple 
+      },
+    ];
+    
+    // 3-column grid
+    const cardWidth = (cWidth - 10) / 3;
+    const cardHeight = 20;
+    let x = margin;
+    let y = yPos;
+    
+    metrics.forEach((metric, index) => {
+      if (index > 0 && index % 3 === 0) {
+        x = margin;
+        y += cardHeight + 5;
+      }
+      
+      // Card background
+      pdf.setFillColor(COLORS.bgLight[0], COLORS.bgLight[1], COLORS.bgLight[2]);
+      pdf.setDrawColor(COLORS.borderLight[0], COLORS.borderLight[1], COLORS.borderLight[2]);
+      pdf.setLineWidth(0.3);
+      pdf.roundedRect(x, y, cardWidth, cardHeight, 2, 2, 'FD');
+      
+      // Left accent
+      pdf.setFillColor(metric.color[0], metric.color[1], metric.color[2]);
+      pdf.rect(x, y, 2, cardHeight, 'F');
+      
+      // Value
+      pdf.setFontSize(10);
+      pdf.setFont('Helvetica', 'bold');
+      pdf.setTextColor(metric.color[0], metric.color[1], metric.color[2]);
+      pdf.text(metric.value, x + cardWidth / 2, y + 10, { align: 'center' });
+      
+      // Label
+      pdf.setFontSize(3.2);
+      pdf.setFont('Helvetica', 'normal');
+      pdf.setTextColor(COLORS.secondaryText[0], COLORS.secondaryText[1], COLORS.secondaryText[2]);
+      pdf.text(metric.label, x + cardWidth / 2, y + 15, { align: 'center' });
+      
+      x += cardWidth + 5;
+    });
+  },
+
+  // Status Distribution Pie Chart
+  addStatusPieChart(
+    pdf: jsPDF,
+    stats: ReportStats,
+    yPos: number,
+    margin: number,
+    cWidth: number
+  ): void {
+    const items = [
+      { label: 'Resolved', value: stats.resolved, color: COLORS.statGreen },
+      { label: 'In Progress', value: stats.inProgress, color: COLORS.statBlue },
+      { label: 'Pending', value: stats.pending, color: COLORS.statAmber },
+      { label: 'Declined', value: stats.declined, color: COLORS.statRed },
+    ].filter(item => item.value > 0);
+    
+    const total = Math.max(stats.total, 1);
+    const centerX = margin + cWidth / 2;
+    const centerY = yPos + 30;
+    const radius = 25;
+    
+    let currentAngle = 0;
+    
+    items.forEach((item) => {
+      const percentage = (item.value / total) * 100;
+      const angle = (item.value / total) * 360;
+      
+      // Draw pie slice
+      this.drawPieSlice(pdf, centerX, centerY, radius, currentAngle, currentAngle + angle, item.color);
+      
+      currentAngle += angle;
+    });
+    
+    // Legend
+    let legendY = yPos + 65;
+    pdf.setFontSize(3.2);
+    items.forEach((item) => {
+      const percentage = ((item.value / total) * 100).toFixed(1);
+      
+      // Color indicator
+      pdf.setFillColor(item.color[0], item.color[1], item.color[2]);
+      pdf.rect(margin + 20, legendY - 1, 3, 3, 'F');
+      
+      // Label and value
+      pdf.setFont('Helvetica', 'normal');
+      pdf.setTextColor(COLORS.bodyText[0], COLORS.bodyText[1], COLORS.bodyText[2]);
+      pdf.text(`${item.label}: ${item.value} (${percentage}%)`, margin + 26, legendY + 1);
+      
+      legendY += 5;
+    });
+  },
+
+  // Response Time Analysis
+  addResponseTimeAnalysis(
+    pdf: jsPDF,
+    reports: Report[],
+    yPos: number,
+    margin: number,
+    cWidth: number
+  ): void {
+    // Calculate average resolution time by category
+    const categoryTimes: Record<string, { total: number; count: number }> = {};
+    
+    reports.forEach((report) => {
+      if (report.status === 'resolved' && report.created_at && report.updated_at) {
+        const created = new Date(report.created_at);
+        const updated = new Date(report.updated_at);
+        const days = (updated.getTime() - created.getTime()) / (1000 * 60 * 60 * 24);
+        
+        if (!categoryTimes[report.category]) {
+          categoryTimes[report.category] = { total: 0, count: 0 };
+        }
+        categoryTimes[report.category].total += days;
+        categoryTimes[report.category].count += 1;
+      }
+    });
+    
+    const avgByCategory = Object.entries(categoryTimes)
+      .map(([category, data]) => ({
+        category: this.normalizeValue(category),
+        avgDays: data.total / data.count,
+        count: data.count
+      }))
+      .sort((a, b) => b.avgDays - a.avgDays)
+      .slice(0, 5);
+    
+    if (avgByCategory.length === 0) {
+      pdf.setFontSize(3.4);
+      pdf.setFont('Helvetica', 'normal');
+      pdf.setTextColor(COLORS.secondaryText[0], COLORS.secondaryText[1], COLORS.secondaryText[2]);
+      pdf.text('No resolved reports available for analysis', margin, yPos);
+      return;
+    }
+    
+    // Draw bar chart
+    const maxDays = Math.max(...avgByCategory.map(item => item.avgDays));
+    const barHeight = 5;
+    const spacing = 8;
+    let y = yPos;
+    
+    avgByCategory.forEach((item) => {
+      const barWidth = ((item.avgDays / maxDays) * (cWidth - 60));
+      
+      // Category label
+      pdf.setFontSize(3.2);
+      pdf.setFont('Helvetica', 'normal');
+      pdf.setTextColor(COLORS.bodyText[0], COLORS.bodyText[1], COLORS.bodyText[2]);
+      pdf.text(item.category, margin, y + 3);
+      
+      // Bar
+      pdf.setFillColor(COLORS.statBlue[0], COLORS.statBlue[1], COLORS.statBlue[2]);
+      pdf.rect(margin + 40, y, barWidth, barHeight, 'F');
+      
+      // Value
+      pdf.setFont('Helvetica', 'bold');
+      pdf.text(`${item.avgDays.toFixed(1)} days`, margin + 40 + barWidth + 3, y + 3);
+      
+      y += spacing;
+    });
+  },
+
+  // High-Priority Issues section
+  addHighPriorityIssues(
+    pdf: jsPDF,
+    reports: Report[],
+    yPos: number,
+    margin: number,
+    cWidth: number,
+    pageHeight: number
+  ): void {
+    this.addSectionTitle(pdf, 'High-Priority Issues', yPos, margin);
+    yPos += 10;
+    
+    // Filter high-priority and pending >14 days
+    const highPriorityReports = reports
+      .filter(r => {
+        const isHighPriority = r.priority === 'high' || (r.priority_level && r.priority_level >= 4);
+        if (!isHighPriority) return false;
+        
+        const created = new Date(r.created_at);
+        const daysPending = (Date.now() - created.getTime()) / (1000 * 60 * 60 * 24);
+        return daysPending > 14 || r.status === 'pending' || r.status === 'in_progress';
+      })
+      .slice(0, 10); // Top 10
+    
+    if (highPriorityReports.length === 0) {
+      pdf.setFontSize(3.4);
+      pdf.setFont('Helvetica', 'normal');
+      pdf.setTextColor(COLORS.secondaryText[0], COLORS.secondaryText[1], COLORS.secondaryText[2]);
+      pdf.text('No high-priority issues pending >14 days', margin, yPos);
+      return;
+    }
+    
+    pdf.setFontSize(3.2);
+    pdf.setFont('Helvetica', 'normal');
+    
+    highPriorityReports.forEach((report, index) => {
+      if (yPos > pageHeight - 30) {
+        pdf.addPage();
+        const pw = pdf.internal.pageSize.getWidth();
+        const currentPage = pdf.getCurrentPageInfo().pageNumber;
+        this.addPageHeader(pdf, pw, undefined, undefined, currentPage);
+        yPos = 32;
+      }
+      
+      const created = new Date(report.created_at);
+      const daysPending = Math.floor((Date.now() - created.getTime()) / (1000 * 60 * 60 * 24));
+      
+      // Report ID and title
+      pdf.setFont('Helvetica', 'bold');
+      pdf.setTextColor(COLORS.primaryText[0], COLORS.primaryText[1], COLORS.primaryText[2]);
+      const reportId = report.case_number || `#${report.id.slice(0, 8)}`;
+      pdf.text(`${reportId}: ${report.title}`, margin, yPos);
+      
+      // Status and days pending
+      pdf.setFont('Helvetica', 'normal');
+      pdf.setTextColor(COLORS.secondaryText[0], COLORS.secondaryText[1], COLORS.secondaryText[2]);
+      pdf.text(`Status: ${this.normalizeValue(report.status)} | Days Pending: ${daysPending}`, margin, yPos + 4);
+      
+      yPos += 8;
+    });
+    
+    yPos += 10;
+    
+    // Top Reporters section
+    this.addSectionTitle(pdf, 'Top Reporters', yPos, margin);
+    yPos += 10;
+    
+    const reporterCounts: Record<string, { count: number; username?: string }> = {};
+    reports.forEach((report) => {
+      const userId = report.user_id;
+      if (!reporterCounts[userId]) {
+        reporterCounts[userId] = { count: 0, username: report.user_profile?.username };
+      }
+      reporterCounts[userId].count += 1;
+    });
+    
+    const topReporters = Object.entries(reporterCounts)
+      .map(([userId, data]) => ({ userId, ...data }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+    
+    pdf.setFontSize(3.2);
+    topReporters.forEach((reporter, index) => {
+      pdf.setFont('Helvetica', 'bold');
+      pdf.setTextColor(COLORS.primaryText[0], COLORS.primaryText[1], COLORS.primaryText[2]);
+      pdf.text(`${index + 1}. ${reporter.username || `User ${reporter.userId.slice(0, 8)}`}`, margin, yPos);
+      
+      pdf.setFont('Helvetica', 'normal');
+      pdf.setTextColor(COLORS.secondaryText[0], COLORS.secondaryText[1], COLORS.secondaryText[2]);
+      pdf.text(`${reporter.count} reports`, margin + 50, yPos);
+      
+      yPos += 6;
+    });
+  },
+
+  // Geographic Hotspots
+  addGeographicHotspots(
+    pdf: jsPDF,
+    reports: Report[],
+    yPos: number,
+    margin: number,
+    cWidth: number
+  ): void {
+    this.addSectionTitle(pdf, 'Geographic Hotspots', yPos, margin);
+    yPos += 10;
+    
+    // Group by location (simplified - using address)
+    const locationCounts: Record<string, number> = {};
+    reports.forEach((report) => {
+      if (report.location_address) {
+        // Extract area/neighborhood from address (simplified)
+        const area = report.location_address.split(',')[0].trim();
+        locationCounts[area] = (locationCounts[area] || 0) + 1;
+      }
+    });
+    
+    const hotspots = Object.entries(locationCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5);
+    
+    if (hotspots.length === 0) {
+      pdf.setFontSize(3.4);
+      pdf.setFont('Helvetica', 'normal');
+      pdf.setTextColor(COLORS.secondaryText[0], COLORS.secondaryText[1], COLORS.secondaryText[2]);
+      pdf.text('No location data available', margin, yPos);
+      return;
+    }
+    
+    pdf.setFontSize(3.2);
+    hotspots.forEach(([area, count], index) => {
+      pdf.setFont('Helvetica', 'bold');
+      pdf.setTextColor(COLORS.primaryText[0], COLORS.primaryText[1], COLORS.primaryText[2]);
+      pdf.text(`${index + 1}. ${area}`, margin, yPos);
+      
+      pdf.setFont('Helvetica', 'normal');
+      pdf.setTextColor(COLORS.secondaryText[0], COLORS.secondaryText[1], COLORS.secondaryText[2]);
+      pdf.text(`${count} reports`, margin + 50, yPos);
+      
+      yPos += 6;
+    });
+  },
+
+  // Category Insights
+  addCategoryInsights(
+    pdf: jsPDF,
+    stats: ReportStats,
+    yPos: number,
+    margin: number,
+    cWidth: number
+  ): void {
+    this.addSectionTitle(pdf, 'Category Insights', yPos, margin);
+    yPos += 10;
+    
+    const categories = Object.entries(stats.byCategory || {})
+      .map(([category, count]) => ({ category: this.normalizeValue(category), count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+    
+    if (categories.length === 0) {
+      pdf.setFontSize(3.4);
+      pdf.setFont('Helvetica', 'normal');
+      pdf.setTextColor(COLORS.secondaryText[0], COLORS.secondaryText[1], COLORS.secondaryText[2]);
+      pdf.text('No category data available', margin, yPos);
+      return;
+    }
+    
+    const total = Math.max(stats.total, 1);
+    pdf.setFontSize(3.2);
+    
+    categories.forEach((item, index) => {
+      const percentage = ((item.count / total) * 100).toFixed(1);
+      
+      pdf.setFont('Helvetica', 'bold');
+      pdf.setTextColor(COLORS.primaryText[0], COLORS.primaryText[1], COLORS.primaryText[2]);
+      pdf.text(`${index + 1}. ${item.category}`, margin, yPos);
+      
+      pdf.setFont('Helvetica', 'normal');
+      pdf.setTextColor(COLORS.secondaryText[0], COLORS.secondaryText[1], COLORS.secondaryText[2]);
+      pdf.text(`${item.count} reports (${percentage}%)`, margin + 50, yPos);
+      
+      yPos += 6;
+    });
+  },
+
+  // Recommendations section
+  addRecommendations(
+    pdf: jsPDF,
+    stats: ReportStats,
+    reports: Report[],
+    yPos: number,
+    margin: number,
+    cWidth: number
+  ): void {
+    this.addSectionTitle(pdf, 'Recommendations', yPos, margin);
+    yPos += 10;
+    
+    const total = Math.max(stats.total, 1);
+    const resolutionRate = Math.round((stats.resolved / total) * 100);
+    const pendingRate = Math.round((stats.pending / total) * 100);
+    const highPriorityCount = stats.highPriority || 0;
+    
+    const recommendations: string[] = [];
+    
+    if (pendingRate > 30) {
+      recommendations.push(`Address ${stats.pending} pending reports (${pendingRate}% of total) to improve response time`);
+    }
+    
+    if (highPriorityCount > 0) {
+      recommendations.push(`Prioritize ${highPriorityCount} high-priority cases requiring immediate attention`);
+    }
+    
+    if (resolutionRate < 70) {
+      recommendations.push(`Focus on improving resolution rate (currently ${resolutionRate}%) through better resource allocation`);
+    }
+    
+    // Find most common category
+    const topCategory = Object.entries(stats.byCategory || {})
+      .sort((a, b) => b[1] - a[1])[0];
+    
+    if (topCategory) {
+      recommendations.push(`Allocate additional resources to "${this.normalizeValue(topCategory[0])}" category (${topCategory[1]} reports)`);
+    }
+    
+    if (recommendations.length === 0) {
+      recommendations.push('Continue maintaining current performance levels');
+    }
+    
+    pdf.setFontSize(3.4);
+    pdf.setFont('Helvetica', 'normal');
+    pdf.setTextColor(COLORS.bodyText[0], COLORS.bodyText[1], COLORS.bodyText[2]);
+    
+    recommendations.forEach((rec, index) => {
+      // Bullet point
+      pdf.setFillColor(COLORS.brandRed[0], COLORS.brandRed[1], COLORS.brandRed[2]);
+      pdf.circle(margin + 2, yPos - 0.5, 1, 'F');
+      
+      const lines = pdf.splitTextToSize(rec, cWidth - 8);
+      pdf.text(lines[0], margin + 6, yPos);
+      if (lines.length > 1) {
+        pdf.text(lines[1], margin + 6, yPos + 4.6);
+        yPos += 4.6;
+      }
+      yPos += 6;
+    });
   },
 };

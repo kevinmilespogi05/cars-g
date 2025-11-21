@@ -61,7 +61,7 @@ const DEFAULT_QUOTES: Quote[] = [
   },
   {
     text: "Your voice matters. Your action counts. Your community needs you.",
-    author: "Cars-G Team"
+    author: "Bantay SP Team"
   },
   {
     text: "Small acts, when multiplied by millions of people, can transform the world.",

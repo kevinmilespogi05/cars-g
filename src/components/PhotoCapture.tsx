@@ -14,7 +14,7 @@ export function PhotoCapture({
   onClose, 
   maxPhotos = 5, 
   currentPhotos = [],
-  folder = 'cars-g/photos'
+  folder = 'bantay-sp/photos'
 }: PhotoCaptureProps) {
   const [capturedPhotos, setCapturedPhotos] = useState<File[]>([]);
   const [localPhotoUrls, setLocalPhotoUrls] = useState<string[]>([]);

@@ -1,5 +1,5 @@
-# Cars-G Deployment Script for Windows
-# This script helps deploy the Cars-G application
+# Bantay SP Deployment Script for Windows
+# This script helps deploy the Bantay SP application
 
 param(
     [switch]$SkipMigrations,
@@ -7,7 +7,7 @@ param(
     [switch]$SkipDeploy
 )
 
-Write-Host "🚀 Starting Cars-G Deployment..." -ForegroundColor Cyan
+Write-Host "🚀 Starting Bantay SP Deployment..." -ForegroundColor Cyan
 
 # Function to print colored output
 function Write-Status {

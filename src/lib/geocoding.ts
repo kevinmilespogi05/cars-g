@@ -28,7 +28,7 @@ export async function geocodeAddress(address: string): Promise<{ lat: number; ln
     const response = await fetch(url, {
       headers: { 
         'Accept': 'application/json',
-        'User-Agent': 'CARS-G-App/1.0' // Nominatim requires a user agent
+        'User-Agent': 'Bantay-SP-App/1.0' // Nominatim requires a user agent
       }
     });
 

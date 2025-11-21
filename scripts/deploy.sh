@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# Cars-G Deployment Script
-# This script helps deploy the Cars-G application
+# Bantay SP Deployment Script
+# This script helps deploy the Bantay SP application
 
 set -e
 
-echo "🚀 Starting Cars-G Deployment..."
+echo "🚀 Starting Bantay SP Deployment..."
 
 # Colors for output
 RED='\033[0;31m'

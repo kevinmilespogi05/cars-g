@@ -301,7 +301,7 @@ export function AdminHistory() {
     } catch {}
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(14);
-    doc.text('CARS-G • Community Assistance & Reporting System', brandX, 22);
+    doc.text('BANTAY SP • San Pablo Community Reporting System', brandX, 22);
     doc.setFontSize(12);
     doc.text(`Generated: ${dateStr}`, pageWidth - margin, 24, { align: 'right' as any });
 
@@ -413,7 +413,7 @@ export function AdminHistory() {
         const str = `Page ${doc.getNumberOfPages()}`;
         doc.setFontSize(10);
         doc.setTextColor(128, 0, 0);
-        doc.text('CARS-G • Reports History', margin, doc.internal.pageSize.getHeight() - 16);
+        doc.text('BANTAY SP • Reports History', margin, doc.internal.pageSize.getHeight() - 16);
         doc.text(str, pageWidth - margin, doc.internal.pageSize.getHeight() - 16, { align: 'right' as any });
       },
       margin: { left: margin, right: margin }

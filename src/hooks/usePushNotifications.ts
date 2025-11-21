@@ -198,7 +198,7 @@ export function usePushNotifications({ userId, enabled = true }: UsePushNotifica
           ];
         }
 
-        const foregroundNotification = new Notification(notification.title || 'Cars-G', notificationOptions);
+        const foregroundNotification = new Notification(notification.title || 'Bantay SP', notificationOptions);
         
         // Handle notification click actions
         foregroundNotification.onclick = (event) => {

@@ -221,13 +221,13 @@ export function LandingPage() {
           <div className="flex justify-between items-center h-16 lg:h-20">
             <Link to="/" className="flex items-center space-x-4 group">
               <div className="relative">
-                <img src="/images/logo.jpg" alt="CARS-G Logo" className="h-14 w-14 lg:h-16 lg:w-16 rounded-full object-cover shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-105 ring-2 ring-white/30 group-hover:ring-white/50" loading="lazy" />
+                <img src="/images/logo.jpg" alt="Bantay SP Logo" className="h-14 w-14 lg:h-16 lg:w-16 rounded-full object-cover shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-105 ring-2 ring-white/30 group-hover:ring-white/50" loading="lazy" />
               </div>
               <div className="flex flex-col justify-center">
                 <span className="text-xl lg:text-2xl font-bold text-white leading-tight">
-                  CARS-G
+                  BANTAY SP
                 </span>
-                <p className="text-[10px] lg:text-xs text-gray-200 leading-tight">Community Safety</p>
+                <p className="text-[10px] lg:text-xs text-gray-200 leading-tight">San Pablo Community</p>
               </div>
             </Link>
             
@@ -533,12 +533,12 @@ export function LandingPage() {
                       >
                         <img 
                           src="/images/logo.jpg" 
-                          alt="CARS-G Logo" 
+                          alt="Bantay SP Logo" 
                           className="h-12 w-12 rounded-full object-cover shadow-lg ring-2 ring-gray-200"
                         />
                         <div>
-                          <h3 className="font-black text-gray-900 text-lg">CARS-G</h3>
-                          <p className="text-xs text-gray-600 font-medium">Community Safety</p>
+                          <h3 className="font-black text-gray-900 text-lg">BANTAY SP</h3>
+                          <p className="text-xs text-gray-600 font-medium">San Pablo Community</p>
                         </div>
                       </motion.div>
                       
@@ -810,7 +810,7 @@ export function LandingPage() {
                 Ready to Get Started?
               </h3>
               <p className="text-gray-600 mb-6 max-w-2xl mx-auto">
-                Join thousands of community members who are already using CARS-G to make their neighborhoods safer.
+                Join thousands of community members who are already using BANTAY SP to make their neighborhoods safer.
               </p>
               <button
                 type="button"
@@ -938,7 +938,7 @@ export function LandingPage() {
               </span>
             </h2>
             <p className="text-xl text-red-100 mb-12 max-w-3xl mx-auto leading-relaxed">
-              Join thousands of community members who are already using CARS-G to make their neighborhoods safer, 
+              Join thousands of community members who are already using BANTAY SP to make their neighborhoods safer, 
               more connected, and better places to live.
             </p>
             

@@ -1,7 +1,7 @@
 {
-  "name": "cars-g-server",
+  "name": "bantay-sp-server",
   "version": "1.0.0",
-  "description": "API server for Cars-G application",
+  "description": "API server for Bantay SP application",
   "main": "server.js",
   "type": "module",
   "scripts": {
@@ -35,10 +35,10 @@
     "nodemon": "^3.0.2"
   },
   "keywords": [
-    "cars-g",
+    "bantay-sp",
     "api",
     "server"
   ],
-  "author": "Cars-G Team",
+  "author": "Bantay SP Team",
   "license": "MIT"
 }

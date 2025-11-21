@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Standalone Warmup Script for CARS-G
+ * Standalone Warmup Script for BANTAY SP
  * Can be run externally via cron jobs, GitHub Actions, or other services
  * to prevent cold starts on serverless deployments
  */
@@ -42,7 +42,7 @@ class StandaloneWarmup {
         ...options,
         signal: controller.signal,
         headers: {
-          'User-Agent': 'CARS-G-Standalone-Warmup/1.0',
+          'User-Agent': 'BANTAY-SP-Standalone-Warmup/1.0',
           'Accept': 'application/json',
           ...options.headers
         }
@@ -106,7 +106,7 @@ class StandaloneWarmup {
   }
 
   async run() {
-    console.log('🚀 CARS-G Standalone Warmup Service');
+    console.log('🚀 BANTAY SP Standalone Warmup Service');
     console.log('===================================');
     console.log(`📅 Started at: ${new Date().toISOString()}`);
     console.log(`🎯 Backend: ${CONFIG.backend}`);
@@ -182,7 +182,7 @@ if (isQuiet) {
 // Show help
 if (args.includes('--help') || args.includes('-h')) {
   console.log(`
-🔥 CARS-G Standalone Warmup Service
+🔥 BANTAY SP Standalone Warmup Service
 
 Usage: node warmup-standalone.js [options]
 

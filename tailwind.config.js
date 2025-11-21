@@ -19,7 +19,7 @@ export default {
         'imageViewer': '5000',
       },
       colors: {
-        // Professional Cars-G Color Palette - Industry Standard Design System
+        // Professional Bantay SP Color Palette - Industry Standard Design System
         primary: {
           50: '#f7f9fb',   // Soft Off-White background
           100: '#e8f2ff',  // Light blue tint

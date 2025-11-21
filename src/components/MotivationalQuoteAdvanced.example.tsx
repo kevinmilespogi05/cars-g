@@ -92,19 +92,19 @@ export function MotivationalQuoteWithAnalytics() {
 export function ContextAwareMotivationalQuote({ context }: { context: 'reports' | 'profile' | 'leaderboard' }) {
   const quoteSets = {
     reports: [
-      { text: "Every report helps build a stronger community.", author: "Cars-G" },
-      { text: "Your voice matters. Speak up, make change.", author: "Cars-G" },
-      { text: "Together we can solve any problem.", author: "Cars-G" }
+      { text: "Every report helps build a stronger community.", author: "Bantay SP" },
+      { text: "Your voice matters. Speak up, make change.", author: "Bantay SP" },
+      { text: "Together we can solve any problem.", author: "Bantay SP" }
     ],
     profile: [
-      { text: "Your contributions make a difference.", author: "Cars-G" },
-      { text: "Growth comes from consistent action.", author: "Cars-G" },
-      { text: "You are valued in this community.", author: "Cars-G" }
+      { text: "Your contributions make a difference.", author: "Bantay SP" },
+      { text: "Growth comes from consistent action.", author: "Bantay SP" },
+      { text: "You are valued in this community.", author: "Bantay SP" }
     ],
     leaderboard: [
-      { text: "Success is measured in impact, not numbers.", author: "Cars-G" },
-      { text: "Compete with yourself, not others.", author: "Cars-G" },
-      { text: "Every contribution counts equally.", author: "Cars-G" }
+      { text: "Success is measured in impact, not numbers.", author: "Bantay SP" },
+      { text: "Compete with yourself, not others.", author: "Bantay SP" },
+      { text: "Every contribution counts equally.", author: "Bantay SP" }
     ]
   };
 
@@ -325,16 +325,16 @@ export function ABTestMotivationalQuote() {
 export function MultiLanguageMotivationalQuote({ language = 'en' }: { language?: 'en' | 'es' | 'tl' }) {
   const quotes = {
     en: [
-      { text: "Together we build a better community.", author: "Cars-G" },
-      { text: "Your voice matters.", author: "Cars-G" }
+      { text: "Together we build a better community.", author: "Bantay SP" },
+      { text: "Your voice matters.", author: "Bantay SP" }
     ],
     es: [
-      { text: "Juntos construimos una mejor comunidad.", author: "Cars-G" },
-      { text: "Tu voz importa.", author: "Cars-G" }
+      { text: "Juntos construimos una mejor comunidad.", author: "Bantay SP" },
+      { text: "Tu voz importa.", author: "Bantay SP" }
     ],
     tl: [
-      { text: "Sama-sama tayong bumubuo ng mas magandang komunidad.", author: "Cars-G" },
-      { text: "Mahalaga ang iyong tinig.", author: "Cars-G" }
+      { text: "Sama-sama tayong bumubuo ng mas magandang komunidad.", author: "Bantay SP" },
+      { text: "Mahalaga ang iyong tinig.", author: "Bantay SP" }
     ]
   };
 
@@ -386,16 +386,16 @@ export function TimeBasedMotivationalQuote() {
 
   const quotes = {
     morning: [
-      { text: "Good morning! Start your day with purpose.", author: "Cars-G" },
-      { text: "Rise and shine! Your community needs you.", author: "Cars-G" }
+      { text: "Good morning! Start your day with purpose.", author: "Bantay SP" },
+      { text: "Rise and shine! Your community needs you.", author: "Bantay SP" }
     ],
     afternoon: [
-      { text: "Keep the momentum going!", author: "Cars-G" },
-      { text: "Every action counts, no matter the time.", author: "Cars-G" }
+      { text: "Keep the momentum going!", author: "Bantay SP" },
+      { text: "Every action counts, no matter the time.", author: "Bantay SP" }
     ],
     evening: [
-      { text: "Reflect on your day's contributions.", author: "Cars-G" },
-      { text: "Rest well, tomorrow brings new opportunities.", author: "Cars-G" }
+      { text: "Reflect on your day's contributions.", author: "Bantay SP" },
+      { text: "Rest well, tomorrow brings new opportunities.", author: "Bantay SP" }
     ]
   };
 
@@ -411,17 +411,17 @@ export function TimeBasedMotivationalQuote() {
 export function ActivityBasedMotivationalQuote({ userReportsCount }: { userReportsCount: number }) {
   const quotes = userReportsCount === 0 
     ? [
-        { text: "Start your journey! File your first report.", author: "Cars-G" },
-        { text: "Every great change starts with a single action.", author: "Cars-G" }
+        { text: "Start your journey! File your first report.", author: "Bantay SP" },
+        { text: "Every great change starts with a single action.", author: "Bantay SP" }
       ]
     : userReportsCount < 5
     ? [
-        { text: "You're making progress! Keep going.", author: "Cars-G" },
-        { text: "Your contributions are building a better community.", author: "Cars-G" }
+        { text: "You're making progress! Keep going.", author: "Bantay SP" },
+        { text: "Your contributions are building a better community.", author: "Bantay SP" }
       ]
     : [
-        { text: "You're a community champion!", author: "Cars-G" },
-        { text: "Your dedication inspires others.", author: "Cars-G" }
+        { text: "You're a community champion!", author: "Bantay SP" },
+        { text: "Your dedication inspires others.", author: "Bantay SP" }
       ];
 
   return <MotivationalQuote customQuotes={quotes} />;

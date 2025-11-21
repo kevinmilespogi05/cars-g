@@ -42,7 +42,7 @@ export function PWAPrompt() {
             <div className="mb-3 p-3 bg-yellow-50 border border-yellow-100 rounded">
               <div className="flex items-start">
                 <div className="flex-1">
-                  <h4 className="text-sm font-semibold text-yellow-800 mb-1">Add Cars-G to your Home Screen</h4>
+                  <h4 className="text-sm font-semibold text-yellow-800 mb-1">Add Bantay SP to your Home Screen</h4>
                   <p className="text-xs text-yellow-900 mb-2">Tap the browser's <strong>Share</strong> button, then select <strong>Add to Home Screen</strong>.</p>
                   <p className="text-xs text-yellow-900">This installs the app shortcut on your iPhone for quick access.</p>
                 </div>
@@ -63,7 +63,7 @@ export function PWAPrompt() {
               <div className="flex-1">
                 <div className="flex items-center space-x-2 mb-2">
                   <Download className="h-5 w-5 text-primary-color" />
-                  <h3 className="text-lg font-semibold text-gray-900">Install Cars-G</h3>
+                  <h3 className="text-lg font-semibold text-gray-900">Install Bantay SP</h3>
                 </div>
                 <p className="text-sm text-gray-600 leading-relaxed">
                   Install our app for a better experience, offline access, and faster loading times.
@@ -97,7 +97,7 @@ export function PWAPrompt() {
                   <h3 className="text-lg font-semibold text-gray-900">Update Available</h3>
                 </div>
                 <p className="text-sm text-gray-600 leading-relaxed">
-                  A new version of Cars-G is available. Update now to get the latest features and improvements.
+                  A new version of Bantay SP is available. Update now to get the latest features and improvements.
                 </p>
               </div>
               <div className="ml-3 flex-shrink-0 flex flex-col space-y-2">

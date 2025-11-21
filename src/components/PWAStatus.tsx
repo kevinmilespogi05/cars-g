@@ -68,7 +68,7 @@ export function PWAStatus({ showDetails = false, className = '' }: PWAStatusProp
               <div className="flex-1">
                 <h4 className="font-medium text-gray-900">Update Available</h4>
                 <p className="text-sm text-gray-600 mt-1">
-                  A new version of Cars-G is available with improvements and bug fixes.
+                  A new version of Bantay SP is available with improvements and bug fixes.
                 </p>
                 <div className="flex space-x-2 mt-3">
                   <button

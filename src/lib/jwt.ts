@@ -22,8 +22,8 @@ interface AuthResponse {
   tokens: TokenPair;
 }
 
-const TOKEN_STORAGE_KEY = 'cars_g_tokens';
-const USER_STORAGE_KEY = 'cars_g_user';
+const TOKEN_STORAGE_KEY = 'bantay_sp_tokens';
+const USER_STORAGE_KEY = 'bantay_sp_user';
 
 /**
  * Store JWT tokens in localStorage

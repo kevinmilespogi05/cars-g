@@ -1,4 +1,4 @@
-# Cars-G Deployment Testing Script for Windows
+# Bantay SP Deployment Testing Script for Windows
 # This script tests all deployment components: Vercel, Render, Supabase, and Cloudinary
 
 param(
@@ -10,7 +10,7 @@ param(
     [switch]$Verbose
 )
 
-Write-Host "Starting Cars-G Deployment Testing..." -ForegroundColor Cyan
+Write-Host "Starting Bantay SP Deployment Testing..." -ForegroundColor Cyan
 
 # Configuration
 $FRONTEND_URL = "cars-g.netlify.app"

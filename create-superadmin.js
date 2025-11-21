@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Script to create a superadmin account in Cars-G
+ * Script to create a superadmin account in Bantay SP
  * 
  * Usage:
  *   node create-superadmin.js <email> <password> [username]

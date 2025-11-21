@@ -1,5 +1,5 @@
 /**
- * Warm-up Service for CARS-G Server
+ * Warm-up Service for BANTAY SP Server
  * Prevents cold starts by keeping the server active with periodic requests
  */
 
@@ -64,7 +64,7 @@ class WarmupService {
         ...options,
         signal: controller.signal,
         headers: {
-          'User-Agent': 'CARS-G-Warmup-Service/1.0',
+          'User-Agent': 'BANTAY-SP-Warmup-Service/1.0',
           'Accept': 'application/json',
           ...options.headers
         }
@@ -173,7 +173,7 @@ class WarmupService {
   }
 
   start() {
-    console.log('\n🚀 Starting CARS-G Warmup Service...');
+    console.log('\n🚀 Starting BANTAY SP Warmup Service...');
     
     // Initial warmup
     setTimeout(async () => {

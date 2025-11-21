@@ -5,7 +5,7 @@ import { config } from './config';
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_TOTAL_SIZE = MAX_FILE_SIZE * 5; // 50MB for multiple uploads
 const ALLOWED_FILE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-const UPLOAD_FOLDER = 'cars-g/reports';
+const UPLOAD_FOLDER = 'bantay-sp/reports';
 const MAX_DIMENSION = 1600; // px
 const JPEG_QUALITY = 0.8; // 80%
 

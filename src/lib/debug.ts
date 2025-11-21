@@ -25,11 +25,11 @@ export const debugApiConfig = (apiBaseUrl?: string) => {
     origin: window.location.origin
   };
 
-  console.log('🔍 Cars-G API Configuration Debug:', debugInfo);
+  console.log('🔍 Bantay SP API Configuration Debug:', debugInfo);
   return debugInfo;
 };
 
 // Make it available globally for debugging
 if (typeof window !== 'undefined') {
-  (window as any).debugCarsGConfig = debugApiConfig;
+  (window as any).debugBantaySPConfig = debugApiConfig;
 }

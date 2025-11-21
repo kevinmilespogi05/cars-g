@@ -1,7 +1,7 @@
 {
-  "name": "Cars-G - Vehicle Incident Reporting System",
-  "short_name": "Cars-G",
-  "description": "Your comprehensive car management and reporting system - report issues, track progress, and manage your fleet efficiently",
+  "name": "Bantay SP - San Pablo Community Reporting System",
+  "short_name": "Bantay SP",
+  "description": "San Pablo community reporting system - report issues, track progress, and engage with your community",
   "theme_color": "#800000",
   "background_color": "#ffffff",
   "display": "standalone",

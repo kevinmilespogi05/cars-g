@@ -1,7 +1,7 @@
 # Start Development Servers
 # This script starts both the frontend (Vite) and backend (Node.js) servers
 
-Write-Host "🚀 Starting Cars-G Development Environment..." -ForegroundColor Green
+Write-Host "🚀 Starting Bantay SP Development Environment..." -ForegroundColor Green
 
 # Function to check if a port is in use
 function Test-Port {

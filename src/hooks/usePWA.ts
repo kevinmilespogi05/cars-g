@@ -46,7 +46,7 @@ export function usePWA(): UsePWAReturn {
         console.log('App is ready for offline use');
         // Show offline ready notification
         if ('Notification' in window && Notification.permission === 'granted') {
-          new Notification('Cars-G is ready offline!', {
+          new Notification('Bantay SP is ready offline!', {
             body: 'You can now use the app without internet connection',
             icon: '/pwa-192x192.png',
             tag: 'offline-ready'

@@ -10,7 +10,7 @@ export function MapTestPage() {
         <h2 className="text-xl font-semibold mb-4">About OpenStreetMap</h2>
         <p className="text-gray-700 mb-4">
           OpenStreetMap is a free, open-source mapping solution that doesn't require an API key or credit card.
-          It's perfect for projects like CARS-G that need mapping functionality without the cost of commercial services.
+          It's perfect for projects like BANTAY SP that need mapping functionality without the cost of commercial services.
         </p>
         <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4">
           <p className="text-blue-700">

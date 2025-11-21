@@ -1,5 +1,5 @@
 @echo off
-echo 🚀 Starting Cars-G Development Environment...
+echo 🚀 Starting Bantay SP Development Environment...
 
 REM Check if servers are already running
 netstat -an | findstr ":5173" >nul

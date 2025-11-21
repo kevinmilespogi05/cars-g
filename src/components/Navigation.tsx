@@ -89,12 +89,12 @@ export function Navigation() {
               <div className="relative flex items-center">
                 <img 
                   src="/images/logo.jpg" 
-                  alt="CARS-G Logo" 
+                  alt="Bantay SP Logo" 
                   className="h-14 w-14 object-cover rounded-full shadow-md group-hover:shadow-lg transition-all duration-200 ring-2 ring-white/30 group-hover:ring-white/50"
                   loading="lazy"
                 />
               </div>
-              <span className="text-2xl font-bold text-white group-hover:text-gray-200 transition-colors leading-tight">CARS-G</span>
+              <span className="text-2xl font-bold text-white group-hover:text-gray-200 transition-colors leading-tight">BANTAY SP</span>
             </Link>
             
             {/* Philippines Date and Time */}

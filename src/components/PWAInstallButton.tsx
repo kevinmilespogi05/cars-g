@@ -78,7 +78,7 @@ export function PWAInstallButton({ className = '', showInstructions = true }: PW
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">Install Cars-G</h3>
+                <h3 className="text-lg font-semibold text-gray-900">Install Bantay SP</h3>
                 <button
                   onClick={handleDismiss}
                   className="text-gray-400 hover:text-gray-600"
@@ -89,7 +89,7 @@ export function PWAInstallButton({ className = '', showInstructions = true }: PW
 
               <div className="mb-6">
                 <p className="text-gray-600 mb-4">
-                  Install Cars-G for a better experience with offline access, faster loading, and native app features.
+                  Install Bantay SP for a better experience with offline access, faster loading, and native app features.
                 </p>
 
                 {showInstructions && (

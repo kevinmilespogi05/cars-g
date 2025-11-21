@@ -29,7 +29,7 @@ self.addEventListener('activate', function() {
 messaging.onBackgroundMessage(function(payload) {
   console.log('Background message received:', payload);
   
-  const notificationTitle = payload.notification?.title || 'Cars-G';
+  const notificationTitle = payload.notification?.title || 'Bantay SP';
   const isChatNotification = payload.data?.type === 'chat' || notificationTitle.includes('message');
   
   const notificationOptions = {
@@ -71,7 +71,7 @@ self.addEventListener('push', function(event) {
     // Normalize payload structure between generic WebPush and FCM
     const n = raw.notification || {};
     const d = raw.data || {};
-    const title = n.title || raw.title || 'Cars-G';
+    const title = n.title || raw.title || 'Bantay SP';
     const body = n.body || raw.body || '';
     const link = (raw.fcmOptions && raw.fcmOptions.link) || d.link || '/';
     const isChatNotification = d.type === 'chat' || title.includes('message');
@@ -108,7 +108,7 @@ self.addEventListener('push', function(event) {
     event.waitUntil(self.registration.showNotification(title, options));
   } catch (err) {
     // Fallback: show minimal notification
-    event.waitUntil(self.registration.showNotification('Cars-G', { body: '' }));
+    event.waitUntil(self.registration.showNotification('Bantay SP', { body: '' }));
   }
 });
 

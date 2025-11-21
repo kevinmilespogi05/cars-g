@@ -57,7 +57,7 @@ export default async function handler(req, res) {
 
     // Send email
     try {
-      const subject = 'Your CARS-G verification code';
+      const subject = 'Your BANTAY SP verification code';
       const html = `
         <div style="font-family: Arial, Helvetica, sans-serif;">
           <p>Hi,</p>

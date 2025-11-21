@@ -27,7 +27,7 @@ export function TermsOfService() {
           <section>
             <h2 className="text-xl font-semibold text-gray-900 mb-4">1. Acceptance of Terms</h2>
             <p>
-              By accessing and using CARS-G (Community Assistance Reporting System - Gamified), you accept and agree to be bound by the terms 
+              By accessing and using BANTAY SP (Bantay San Pablo), you accept and agree to be bound by the terms 
               and provision of this agreement. If you do not agree to abide by the above, please do not use this service.
             </p>
           </section>
@@ -74,7 +74,7 @@ export function TermsOfService() {
           <section>
             <h2 className="text-xl font-semibold text-gray-900 mb-4">5. Content Ownership</h2>
             <p>
-              You retain ownership of the content you submit. However, by submitting content to CARS-G, you grant us a 
+              You retain ownership of the content you submit. However, by submitting content to BANTAY SP, you grant us a 
               worldwide, non-exclusive, royalty-free license to use, reproduce, modify, and display your content for the 
               purpose of operating and improving our service.
             </p>
@@ -114,7 +114,7 @@ export function TermsOfService() {
           <section>
             <h2 className="text-xl font-semibold text-gray-900 mb-4">9. Disclaimer of Warranties</h2>
             <p>
-              CARS-G is provided "as is" and "as available" without warranties of any kind, either express or implied. 
+              BANTAY SP is provided "as is" and "as available" without warranties of any kind, either express or implied. 
               We do not warrant that the service will be uninterrupted, secure, or error-free.
             </p>
           </section>
@@ -122,7 +122,7 @@ export function TermsOfService() {
           <section>
             <h2 className="text-xl font-semibold text-gray-900 mb-4">10. Limitation of Liability</h2>
             <p>
-              To the maximum extent permitted by law, CARS-G shall not be liable for any indirect, incidental, special, 
+              To the maximum extent permitted by law, BANTAY SP shall not be liable for any indirect, incidental, special, 
               consequential, or punitive damages, or any loss of profits or revenues, whether incurred directly or indirectly, 
               or any loss of data, use, goodwill, or other intangible losses.
             </p>
@@ -161,7 +161,7 @@ export function TermsOfService() {
               <strong>Last Updated:</strong> October 14, 2025
             </p>
             <p className="text-sm text-gray-500 mt-2">
-              By using CARS-G, you acknowledge that you have read, understood, and agree to be bound by these Terms of Service.
+              By using BANTAY SP, you acknowledge that you have read, understood, and agree to be bound by these Terms of Service.
             </p>
           </section>
         </div>

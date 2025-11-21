@@ -14,7 +14,7 @@ const getSteps = (userRole?: string) => {
     return [
       {
         id: 1,
-        title: "Welcome to CARS-G Admin!",
+        title: "Welcome to BANTAY SP Admin!",
         description: "Your community safety management platform. Let's get you started with a quick tour.",
         icon: Shield,
         color: "bg-blue-500"
@@ -46,7 +46,7 @@ const getSteps = (userRole?: string) => {
     return [
       {
         id: 1,
-        title: "Welcome to CARS-G Patrol!",
+        title: "Welcome to BANTAY SP Patrol!",
         description: "Your community safety patrol platform. Let's get you started with a quick tour.",
         icon: Shield,
         color: "bg-blue-500"
@@ -67,7 +67,7 @@ const getSteps = (userRole?: string) => {
     return [
       {
         id: 1,
-        title: "Welcome to CARS-G!",
+        title: "Welcome to BANTAY SP!",
         description: "Your community safety platform. Let's get you started with a quick tour.",
         icon: Shield,
         color: "bg-blue-500"

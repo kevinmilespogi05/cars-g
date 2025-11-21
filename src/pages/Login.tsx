@@ -145,7 +145,7 @@ export function Login() {
             <div className="flex items-center gap-3 mb-2">
               <img 
                 src="/images/logo.jpg" 
-                alt="CARS-G Logo" 
+                alt="Bantay SP Logo" 
                 className="h-12 w-12 object-contain rounded-lg bg-white/10 p-1"
               />
               <div>

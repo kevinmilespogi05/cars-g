@@ -1,4 +1,4 @@
-# Netlify configuration for Cars-G
+# Netlify configuration for Bantay SP
 [build]
   # Force install devDependencies so native tools (esbuild, sharp) are available during build
   command = "npm ci --include=dev && npm run build"

@@ -26,7 +26,7 @@ const LoadingSpinner = () => (
   <div className="min-h-screen flex items-center justify-center bg-gray-50">
     <div className="text-center">
       <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-primary-color mx-auto mb-4"></div>
-      <p className="text-gray-600 text-lg">Loading Cars-G...</p>
+      <p className="text-gray-600 text-lg">Loading Bantay SP...</p>
     </div>
   </div>
 );

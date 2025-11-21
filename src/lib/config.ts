@@ -20,7 +20,7 @@ export const config = {
                         (!isLocalhost && !hostname.includes('localhost'));
       
       // Log all environment details for debugging
-      console.log('Cars-G Environment Detection:', {
+      console.log('Bantay SP Environment Detection:', {
         hostname,
         isLocalhost,
         isVercelDev,

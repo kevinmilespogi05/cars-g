@@ -49,7 +49,7 @@ async function run() {
     console.log('Stored OTP hash for', TEST_EMAIL);
 
     // Send email using smtp helper
-    const subject = 'Your CARS-G verification code (test)';
+    const subject = 'Your BANTAY SP verification code (test)';
     const html = `\n      <div style="font-family: Arial, Helvetica, sans-serif;">\n        <p>Hi,</p>\n        <p>Your verification code is:</p>\n        <div style="font-size: 28px; font-weight: 700; letter-spacing: 6px;">${otp}</div>\n        <p>This code expires in 10 minutes.</p>\n      </div>\n    `;
     console.log('Sending email (may take a second)...');
     const info = await smtpMod.sendMail({ to: TEST_EMAIL, subject, html });

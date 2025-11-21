@@ -25,8 +25,8 @@ async function main() {
       return;
     }
 
-    const subject = 'CARS-G email test';
-    const html = `<p>This is a test message from the CARS-G email test script. If you received this, SendGrid sending works.</p>`;
+    const subject = 'BANTAY SP email test';
+    const html = `<p>This is a test message from the BANTAY SP email test script. If you received this, SendGrid sending works.</p>`;
 
     console.log(`Sending test email to: ${to}`);
     const info = await sendMail({ to, subject, html });
