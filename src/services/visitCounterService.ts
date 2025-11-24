@@ -82,7 +82,7 @@ export function markVisitAsTracked(): void {
 /**
  * Track a unique visitor
  */
-export async function trackVisitor(): Promise<{ isNewVisitor: boolean; totalUniqueVisitors: number }> {
+export async function trackVisitor(userId?: string): Promise<{ isNewVisitor: boolean; totalUniqueVisitors: number }> {
   const visitorId = generateVisitorId();
   
   // Check if we've already tracked this session
@@ -102,6 +102,7 @@ export async function trackVisitor(): Promise<{ isNewVisitor: boolean; totalUniq
         visitorId,
         // Optionally include IP hash and user agent for additional tracking
         userAgent: navigator.userAgent,
+        userId: userId || undefined,
       }),
     });
 
@@ -126,6 +127,74 @@ export async function trackVisitor(): Promise<{ isNewVisitor: boolean; totalUniq
     // Return cached count if available, or 0
     const count = await getVisitorCount().catch(() => 0);
     return { isNewVisitor: false, totalUniqueVisitors: count };
+  }
+}
+
+/**
+ * Link current visitor to authenticated user
+ */
+export async function linkVisitorToUser(userId: string): Promise<void> {
+  const visitorId = getVisitorId();
+  
+  if (!visitorId) {
+    console.warn('No visitor ID found, cannot link to user');
+    return;
+  }
+
+  try {
+    const { authenticatedRequest } = await import('../lib/jwt');
+    const response = await authenticatedRequest(getApiUrl('/api/visits/link-user'), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        visitorId,
+        userId,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Failed to link visitor' }));
+      throw new Error(error.error || 'Failed to link visitor to user');
+    }
+  } catch (error) {
+    console.error('Error linking visitor to user:', error);
+    // Don't throw - this is a non-critical operation
+  }
+}
+
+/**
+ * Get visitor statistics (for admin use)
+ */
+export async function getVisitorStats(): Promise<{
+  totalVisitors: number;
+  anonymousVisitors: number;
+  authenticatedVisitors: number;
+  newVisitorsToday: number;
+  newVisitorsThisWeek: number;
+  newVisitorsThisMonth: number;
+  dailyTrends: Record<string, number>;
+}> {
+  try {
+    const { authenticatedRequest } = await import('../lib/jwt');
+    const response = await authenticatedRequest(getApiUrl('/api/admin/visitors/stats'), {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Failed to fetch stats' }));
+      throw new Error(error.error || 'Failed to get visitor stats');
+    }
+
+    const data = await response.json();
+    return data.stats;
+  } catch (error) {
+    console.error('Error getting visitor stats:', error);
+    throw error;
   }
 }
 

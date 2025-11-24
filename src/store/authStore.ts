@@ -570,6 +570,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           user: userObj as User,
           isAuthenticated: true,
         });
+
+        // Link visitor to user account
+        try {
+          const { linkVisitorToUser } = await import('../services/visitCounterService');
+          await linkVisitorToUser(data.user.id);
+        } catch (linkError) {
+          console.warn('Failed to link visitor to user:', linkError);
+          // Non-critical, continue with authentication
+        }
       }
     } catch (error: any) {
       // Enhanced error handling for network issues
@@ -778,6 +787,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           user: response.user,
           isAuthenticated: true,
         });
+
+        // Link visitor to user account
+        try {
+          const { linkVisitorToUser } = await import('../services/visitCounterService');
+          await linkVisitorToUser(response.user.id);
+        } catch (linkError) {
+          console.warn('Failed to link visitor to user:', linkError);
+          // Non-critical, continue with authentication
+        }
       } else {
         throw new Error('Authentication failed');
       }

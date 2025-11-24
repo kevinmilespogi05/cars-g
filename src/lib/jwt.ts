@@ -284,40 +284,53 @@ export async function logoutWithJWT(): Promise<void> {
 
 /**
  * Make authenticated API request with automatic token refresh
+ * Supports both JWT tokens and Supabase session tokens
  */
 export async function authenticatedRequest(
   url: string, 
   options: RequestInit = {}
 ): Promise<Response> {
   const tokens = getStoredTokens();
+  let authToken: string | null = null;
   
-  if (!tokens?.accessToken) {
+  // Try JWT token first
+  if (tokens?.accessToken) {
+    // Check if token is expired
+    if (isTokenExpired(tokens.accessToken)) {
+      console.log('Access token expired, attempting refresh...');
+      const refreshed = await refreshAccessToken();
+      
+      if (refreshed) {
+        const newTokens = getStoredTokens();
+        authToken = newTokens?.accessToken || null;
+      }
+    } else {
+      authToken = tokens.accessToken;
+    }
+  }
+  
+  // Fallback to Supabase session token if JWT is not available
+  if (!authToken) {
+    try {
+      const { supabase } = await import('./supabase');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        authToken = session.access_token;
+      }
+    } catch (error) {
+      console.warn('Failed to get Supabase session:', error);
+    }
+  }
+  
+  if (!authToken) {
     throw new Error('No access token available');
   }
-
-  // Check if token is expired
-  if (isTokenExpired(tokens.accessToken)) {
-    console.log('Access token expired, attempting refresh...');
-    const refreshed = await refreshAccessToken();
-    
-    if (!refreshed) {
-      throw new Error('Failed to refresh token');
-    }
-    
-    // Use new token
-    const newTokens = getStoredTokens();
-    if (!newTokens?.accessToken) {
-      throw new Error('No access token available after refresh');
-    }
-  }
-
-  const currentTokens = getStoredTokens();
   
   const response = await fetch(url, {
     ...options,
     headers: {
       ...options.headers,
-      'Authorization': `Bearer ${currentTokens?.accessToken}`,
+      'Authorization': `Bearer ${authToken}`,
       'Content-Type': 'application/json',
     },
   });
@@ -325,19 +338,43 @@ export async function authenticatedRequest(
   // If unauthorized, try to refresh token once
   if (response.status === 401) {
     console.log('Request unauthorized, attempting token refresh...');
-    const refreshed = await refreshAccessToken();
     
-    if (refreshed) {
-      // Retry the request with new token
-      const newTokens = getStoredTokens();
-      return fetch(url, {
-        ...options,
-        headers: {
-          ...options.headers,
-          'Authorization': `Bearer ${newTokens?.accessToken}`,
-          'Content-Type': 'application/json',
-        },
-      });
+    // Try JWT refresh first
+    if (tokens?.refreshToken) {
+      const refreshed = await refreshAccessToken();
+      if (refreshed) {
+        const newTokens = getStoredTokens();
+        if (newTokens?.accessToken) {
+          // Retry the request with new JWT token
+          return fetch(url, {
+            ...options,
+            headers: {
+              ...options.headers,
+              'Authorization': `Bearer ${newTokens.accessToken}`,
+              'Content-Type': 'application/json',
+            },
+          });
+        }
+      }
+    }
+    
+    // Try Supabase session refresh
+    try {
+      const { supabase } = await import('./supabase');
+      const { data: { session } } = await supabase.auth.refreshSession();
+      if (session?.access_token) {
+        // Retry the request with refreshed Supabase token
+        return fetch(url, {
+          ...options,
+          headers: {
+            ...options.headers,
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+      }
+    } catch (error) {
+      console.warn('Failed to refresh Supabase session:', error);
     }
   }
 

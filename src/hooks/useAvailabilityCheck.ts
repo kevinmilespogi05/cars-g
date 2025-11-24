@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { config } from '../lib/config';
+import { isValidEmail } from '../lib/utils';
 
 interface AvailabilityState {
   isChecking: boolean;
@@ -30,8 +31,7 @@ export function useAvailabilityCheck(
 
     // Validate format before checking
     if (type === 'email') {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(checkValue)) {
+      if (!isValidEmail(checkValue)) {
         setState({
           isChecking: false,
           isAvailable: false,

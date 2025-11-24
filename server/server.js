@@ -1015,6 +1015,124 @@ app.get('/api/visits/count', async (req, res) => {
   }
 });
 
+// Link visitor to authenticated user
+app.post('/api/visits/link-user', authenticateToken, async (req, res) => {
+  try {
+    if (!supabaseAdmin) {
+      return res.status(503).json({ 
+        success: false,
+        error: 'Database connection unavailable' 
+      });
+    }
+
+    const { visitorId, userId } = req.body;
+
+    if (!visitorId || !userId) {
+      return res.status(400).json({
+        success: false,
+        error: 'visitorId and userId are required'
+      });
+    }
+
+    // Verify that the authenticated user matches the userId being linked
+    if (req.user?.id !== userId) {
+      return res.status(403).json({
+        success: false,
+        error: 'Unauthorized: Cannot link visitor to different user'
+      });
+    }
+
+    // Check if visitor exists
+    const { data: existingVisitor, error: checkError } = await supabaseAdmin
+      .from('site_visits')
+      .select('visitor_id, user_id')
+      .eq('visitor_id', visitorId)
+      .single();
+
+    if (checkError && checkError.code !== 'PGRST116') {
+      console.error('Error checking visitor:', checkError);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to check visitor',
+        details: checkError.message
+      });
+    }
+
+    // If visitor doesn't exist, create it
+    if (!existingVisitor) {
+      const { data: newVisitor, error: insertError } = await supabaseAdmin
+        .from('site_visits')
+        .insert({
+          visitor_id: visitorId,
+          user_id: userId,
+          first_visit_at: new Date().toISOString(),
+          last_visit_at: new Date().toISOString(),
+          visit_count: 1
+        })
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error('Error creating visitor:', insertError);
+        return res.status(500).json({
+          success: false,
+          error: 'Failed to create visitor',
+          details: insertError.message
+        });
+      }
+
+      return res.json({
+        success: true,
+        message: 'Visitor linked to user',
+        visitor: newVisitor
+      });
+    }
+
+    // Update existing visitor with user_id if not already linked
+    if (existingVisitor.user_id !== userId) {
+      const { data: updatedVisitor, error: updateError } = await supabaseAdmin
+        .from('site_visits')
+        .update({
+          user_id: userId,
+          updated_at: new Date().toISOString()
+        })
+        .eq('visitor_id', visitorId)
+        .select()
+        .single();
+
+      if (updateError) {
+        console.error('Error updating visitor:', updateError);
+        return res.status(500).json({
+          success: false,
+          error: 'Failed to link visitor to user',
+          details: updateError.message
+        });
+      }
+
+      return res.json({
+        success: true,
+        message: 'Visitor linked to user',
+        visitor: updatedVisitor
+      });
+    }
+
+    // Visitor already linked to this user
+    return res.json({
+      success: true,
+      message: 'Visitor already linked to user',
+      visitor: existingVisitor
+    });
+
+  } catch (error) {
+    console.error('Link visitor to user error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      details: error.message
+    });
+  }
+});
+
 // Test email configuration endpoint
 app.get('/api/test/email', async (req, res) => {
   try {
@@ -1271,6 +1389,192 @@ app.put('/api/admin/announcements/:id', authenticateToken, requireRole('admin'),
   }
 });
 
+// Admin: Get visitor statistics
+app.get('/api/admin/visitors/stats', authenticateToken, requireRole('admin'), async (req, res) => {
+  try {
+    if (!supabaseAdmin) {
+      return res.status(503).json({ success: false, error: 'Admin privileges required' });
+    }
+
+    // Get total visitors
+    const { count: totalVisitors, error: totalError } = await supabaseAdmin
+      .from('site_visits')
+      .select('*', { count: 'exact', head: true });
+
+    if (totalError) {
+      console.error('Error getting total visitors:', totalError);
+      return res.status(500).json({ success: false, error: 'Failed to get visitor stats' });
+    }
+
+    // Get anonymous visitors (no user_id)
+    const { count: anonymousVisitors, error: anonymousError } = await supabaseAdmin
+      .from('site_visits')
+      .select('*', { count: 'exact', head: true })
+      .is('user_id', null);
+
+    if (anonymousError) {
+      console.error('Error getting anonymous visitors:', anonymousError);
+    }
+
+    // Get authenticated visitors (has user_id)
+    const authenticatedVisitors = (totalVisitors || 0) - (anonymousVisitors || 0);
+
+    // Get new visitors today
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const { count: newToday, error: todayError } = await supabaseAdmin
+      .from('site_visits')
+      .select('*', { count: 'exact', head: true })
+      .gte('first_visit_at', today.toISOString());
+
+    if (todayError) {
+      console.error('Error getting new visitors today:', todayError);
+    }
+
+    // Get new visitors this week
+    const weekAgo = new Date();
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    weekAgo.setHours(0, 0, 0, 0);
+    const { count: newWeek, error: weekError } = await supabaseAdmin
+      .from('site_visits')
+      .select('*', { count: 'exact', head: true })
+      .gte('first_visit_at', weekAgo.toISOString());
+
+    if (weekError) {
+      console.error('Error getting new visitors this week:', weekError);
+    }
+
+    // Get new visitors this month
+    const monthAgo = new Date();
+    monthAgo.setMonth(monthAgo.getMonth() - 1);
+    monthAgo.setHours(0, 0, 0, 0);
+    const { count: newMonth, error: monthError } = await supabaseAdmin
+      .from('site_visits')
+      .select('*', { count: 'exact', head: true })
+      .gte('first_visit_at', monthAgo.toISOString());
+
+    if (monthError) {
+      console.error('Error getting new visitors this month:', monthError);
+    }
+
+    // Get daily trends (last 30 days)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    thirtyDaysAgo.setHours(0, 0, 0, 0);
+
+    const { data: dailyData, error: dailyError } = await supabaseAdmin
+      .from('site_visits')
+      .select('first_visit_at')
+      .gte('first_visit_at', thirtyDaysAgo.toISOString());
+
+    const dailyTrends = {};
+    if (dailyData && !dailyError) {
+      dailyData.forEach(visit => {
+        const date = new Date(visit.first_visit_at).toISOString().split('T')[0];
+        dailyTrends[date] = (dailyTrends[date] || 0) + 1;
+      });
+    }
+
+    return res.json({
+      success: true,
+      stats: {
+        totalVisitors: totalVisitors || 0,
+        anonymousVisitors: anonymousVisitors || 0,
+        authenticatedVisitors: authenticatedVisitors,
+        newVisitorsToday: newToday || 0,
+        newVisitorsThisWeek: newWeek || 0,
+        newVisitorsThisMonth: newMonth || 0,
+        dailyTrends: dailyTrends
+      }
+    });
+  } catch (e) {
+    console.error('Admin visitor stats error:', e);
+    return res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+// Admin: Get paginated list of visitors
+app.get('/api/admin/visitors', authenticateToken, requireRole('admin'), async (req, res) => {
+  try {
+    if (!supabaseAdmin) {
+      return res.status(503).json({ success: false, error: 'Admin privileges required' });
+    }
+
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50;
+    const type = req.query.type || 'all';
+    const sortBy = req.query.sortBy || 'last_visit_at';
+    const sortOrder = req.query.sortOrder || 'desc';
+    const search = req.query.search || '';
+
+    const offset = (page - 1) * limit;
+
+    // Build query
+    let query = supabaseAdmin
+      .from('site_visits')
+      .select(`
+        id,
+        visitor_id,
+        first_visit_at,
+        last_visit_at,
+        visit_count,
+        user_agent,
+        user_id,
+        profiles:user_id (
+          id,
+          username,
+          email,
+          first_name,
+          last_name
+        )
+      `, { count: 'exact' });
+
+    // Filter by type
+    if (type === 'anonymous') {
+      query = query.is('user_id', null);
+    } else if (type === 'authenticated') {
+      // Filter for non-null user_id using PostgREST syntax
+      query = query.not('user_id', 'is', null);
+    }
+
+    // Search filter
+    if (search) {
+      query = query.or(`visitor_id.ilike.%${search}%,user_agent.ilike.%${search}%`);
+    }
+
+    // Sorting
+    const validSortFields = ['first_visit_at', 'last_visit_at', 'visit_count', 'created_at'];
+    const sortField = validSortFields.includes(sortBy) ? sortBy : 'last_visit_at';
+    query = query.order(sortField, { ascending: sortOrder === 'asc' });
+
+    // Pagination
+    query = query.range(offset, offset + limit - 1);
+
+    const { data, error, count } = await query;
+
+    if (error) {
+      console.error('Error fetching visitors:', error);
+      return res.status(500).json({ success: false, error: 'Failed to fetch visitors' });
+    }
+
+    const totalPages = Math.ceil((count || 0) / limit);
+
+    return res.json({
+      success: true,
+      data: data || [],
+      pagination: {
+        page,
+        limit,
+        total: count || 0,
+        totalPages
+      }
+    });
+  } catch (e) {
+    console.error('Admin visitors list error:', e);
+    return res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
 // API endpoint to get user's chat messages
 app.get('/api/chat/messages/:userId', async (req, res) => {
   try {
@@ -1431,9 +1735,9 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
 
     // Authenticate with Supabase
     const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    });
+        email,
+        password
+      });
 
     if (authError || !authData.user) {
       // If we have admin privileges, try to give a more helpful error when
@@ -1462,12 +1766,12 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
         }
       }
 
-      // Generic error message to prevent account enumeration
-      return res.status(401).json({
-        success: false,
-        error: 'Invalid credentials. Please check your email and password.',
-        code: 'INVALID_CREDENTIALS'
-      });
+        // Generic error message to prevent account enumeration
+        return res.status(401).json({
+          success: false,
+          error: 'Invalid credentials. Please check your email and password.',
+          code: 'INVALID_CREDENTIALS'
+        });
     }
 
     // Get user profile from Supabase
@@ -2099,11 +2403,11 @@ app.post('/api/auth/register', async (req, res) => {
       return res.status(400).json({ success: false, error: 'An account with this email already exists', code: 'EMAIL_EXISTS' });
     }
 
-    // Create user in Supabase Auth directly (do not auto-confirm email; we'll verify via OTP)
+    // Create user in Supabase Auth directly (auto-confirm email for new registrations)
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email: email,
       password: password,
-      email_confirm: false, // We'll confirm after OTP verification
+      email_confirm: true, // Auto-confirm email for new registrations
       user_metadata: {
         username: username,
         first_name: firstName || '',
@@ -2146,8 +2450,8 @@ app.post('/api/auth/register', async (req, res) => {
     }
 
     // Create profile in profiles table
-    // Note: email_verified is set false until OTP is validated
-    profilePayload.email_verified = false;
+    // Email is automatically verified for new registrations
+    profilePayload.email_verified = true;
     let { error: profileCreateError } = await supabaseAdmin
       .from('profiles')
       .insert(profilePayload);
@@ -2170,19 +2474,11 @@ app.post('/api/auth/register', async (req, res) => {
       });
     }
 
-    // If the client indicates the email was already verified in the email-first flow,
-    // mark the auth user email as confirmed and set profile.email_verified = true.
-    if (skipEmailOtp) {
-      try {
-        // Confirm auth user's email
-        await supabaseAdmin.auth.admin.updateUserById(authData.user.id, { email_confirm: true });
-      } catch (e) {
-        console.warn('Failed to confirm auth user email on create (non-fatal):', e?.message || e);
-      }
-
+    // Email is automatically verified for all new registrations
+    // (Email is already confirmed in Supabase Auth during user creation, and email_verified is set to true in profile)
+    // Just ensure any OTP fields are cleared
       try {
         await supabaseAdmin.from('profiles').update({
-          email_verified: true,
           email_otp_hash: null,
           email_otp_expires: null,
           email_otp_sent_at: null,
@@ -2190,49 +2486,7 @@ app.post('/api/auth/register', async (req, res) => {
           updated_at: new Date().toISOString()
         }).eq('id', authData.user.id);
       } catch (e) {
-        console.warn('Failed to update profile email_verified flag (non-fatal):', e?.message || e);
-      }
-    } else {
-      // Generate OTP, store hashed OTP in profiles, and email the code via SendGrid
-      try {
-        const otp = Math.floor(100000 + Math.random() * 900000).toString();
-        const otpHash = crypto.createHash('sha256').update(String(otp)).digest('hex');
-        const now = new Date();
-        const expiry = new Date(now.getTime() + 10 * 60 * 1000).toISOString();
-
-        const { error: otpUpdateError } = await supabaseAdmin.from('profiles').update({
-          email_otp_hash: otpHash,
-          email_otp_expires: expiry,
-          email_otp_sent_at: now.toISOString(),
-          otp_attempts: 0,
-          updated_at: now.toISOString()
-        }).eq('id', authData.user.id);
-
-        if (otpUpdateError) {
-          console.error('Failed to store OTP in profile:', otpUpdateError);
-        }
-
-        // Send OTP email
-        try {
-          const subject = 'Your BANTAY SP verification code';
-          const html = `
-            <div style="font-family: Arial, Helvetica, sans-serif;">
-              <p>Hi ${firstName || profilePayload.first_name || 'User'},</p>
-              <p>Your verification code is:</p>
-              <div style="font-size: 28px; font-weight: 700; letter-spacing: 6px;">${otp}</div>
-              <p>This code expires in 10 minutes.</p>
-            </div>
-          `;
-
-          await sendMail({ to: email, subject, html });
-          console.log('OTP email sent to', email);
-        } catch (sendErr) {
-          console.error('Failed to send OTP email:', sendErr);
-          // We do not fail registration for email send failures; client will be informed
-        }
-      } catch (err) {
-        console.error('Error generating/sending OTP during registration:', err);
-      }
+      console.warn('Failed to clear OTP fields (non-fatal):', e?.message || e);
     }
 
     // Create verification request if ID images were provided
@@ -2262,10 +2516,10 @@ app.post('/api/auth/register', async (req, res) => {
 
     return res.json({ 
       success: true,
-      message: 'Registration created. An OTP was sent to your email. Please verify to complete registration.',
+      message: 'Registration successful! Your account has been created and email verified.',
       email,
       userId: authData.user.id,
-      requiresEmailOtp: true,
+      requiresEmailOtp: false,
       verificationStatus: 'pending'
     });
 

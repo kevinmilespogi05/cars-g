@@ -78,6 +78,15 @@ export function AuthCallback() {
               // Set user in auth store
               setUser(jwtData.user);
               
+              // Link visitor to user account
+              try {
+                const { linkVisitorToUser } = await import('../services/visitCounterService');
+                await linkVisitorToUser(jwtData.user.id);
+              } catch (linkError) {
+                console.warn('Failed to link visitor to user:', linkError);
+                // Non-critical, continue with authentication
+              }
+              
               // Redirect based on user role from database (treat superadmin as admin)
               if (isAdminLike(jwtData.user.role)) {
                 navigate('/admin', { replace: true });

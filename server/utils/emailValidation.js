@@ -1,23 +1,16 @@
 /**
- * Utility function to merge class names with Tailwind CSS
- * Similar to clsx but optimized for Tailwind
- */
-export function cn(...classes: (string | undefined | null | false)[]): string {
-  return classes.filter(Boolean).join(' ');
-}
-
-/**
- * Email validation utilities with robust validation
+ * Server-side email validation utilities
+ * Provides robust email validation for backend endpoints
  */
 
 /**
  * Validates a general email address format
  * Uses a more robust regex that follows RFC 5322 standards more closely
  * 
- * @param email - The email address to validate
- * @returns true if the email format is valid, false otherwise
+ * @param {string} email - The email address to validate
+ * @returns {boolean} true if the email format is valid, false otherwise
  */
-export function isValidEmail(email: string): boolean {
+function isValidEmail(email) {
   if (!email || typeof email !== 'string') {
     return false;
   }
@@ -72,10 +65,10 @@ export function isValidEmail(email: string): boolean {
 /**
  * Validates if an email is a Gmail address
  * 
- * @param email - The email address to validate
- * @returns true if the email is a valid Gmail address, false otherwise
+ * @param {string} email - The email address to validate
+ * @returns {boolean} true if the email is a valid Gmail address, false otherwise
  */
-export function isValidGmail(email: string): boolean {
+function isValidGmail(email) {
   if (!isValidEmail(email)) {
     return false;
   }
@@ -121,11 +114,11 @@ export function isValidGmail(email: string): boolean {
 /**
  * Validates email and returns a detailed error message if invalid
  * 
- * @param email - The email address to validate
- * @param requireGmail - Whether to require Gmail addresses only
- * @returns Object with isValid boolean and error message string
+ * @param {string} email - The email address to validate
+ * @param {boolean} requireGmail - Whether to require Gmail addresses only
+ * @returns {Object} Object with isValid boolean and error message string
  */
-export function validateEmail(email: string, requireGmail: boolean = false): { isValid: boolean; error: string } {
+function validateEmail(email, requireGmail = false) {
   if (!email || typeof email !== 'string') {
     return { isValid: false, error: 'Email is required' };
   }
@@ -141,7 +134,7 @@ export function validateEmail(email: string, requireGmail: boolean = false): { i
   }
 
   if (!isValidEmail(trimmedEmail)) {
-    return { isValid: false, error: 'Please enter a valid email address' };
+    return { isValid: false, error: 'Invalid email format' };
   }
 
   if (requireGmail && !isValidGmail(trimmedEmail)) {
@@ -150,4 +143,10 @@ export function validateEmail(email: string, requireGmail: boolean = false): { i
 
   return { isValid: true, error: '' };
 }
+
+export {
+  isValidEmail,
+  isValidGmail,
+  validateEmail
+};
 

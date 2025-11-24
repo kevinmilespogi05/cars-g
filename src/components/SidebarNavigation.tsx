@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { FileText, Award, User, LogOut, Shield, Menu, X, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, MapPin, Megaphone, MessageCircle, Clock, Phone, BarChart3, ClipboardList, ShieldCheck, LayoutDashboard, Archive } from 'lucide-react';
+import { FileText, Award, User, LogOut, Shield, Menu, X, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, MapPin, Megaphone, MessageCircle, Clock, Phone, BarChart3, ClipboardList, ShieldCheck, LayoutDashboard, Archive, Eye } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { supabase } from '../lib/supabase';
 import { ChatButton } from './ChatButton';
@@ -116,7 +116,8 @@ export function SidebarNavigation() {
       groupName: 'Content & Analytics',
       items: [
         { section: 'announcements', icon: Megaphone, label: 'Announcements' },
-        { section: 'stats', icon: BarChart3, label: 'Statistics' }
+        { section: 'stats', icon: BarChart3, label: 'Statistics' },
+        { section: 'visitors', icon: Eye, label: 'Visitors' }
       ]
     }
   ];

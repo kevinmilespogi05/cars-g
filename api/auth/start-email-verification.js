@@ -36,14 +36,80 @@ export default async function handler(req, res) {
     }
     if (!email) return res.status(400).json({ success: false, error: 'Email is required' });
 
-    // Check if email already exists in profiles or auth
-    const [profileRes, authRes] = await Promise.all([
-      supabase.from('profiles').select('id').eq('email', email).maybeSingle(),
-      supabase.auth.admin.listUsers({ page: 1, perPage: 1000 })
-    ]);
+    // Check if email already exists in profiles
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, email_verified, email_otp_sent_at')
+      .eq('email', email)
+      .maybeSingle();
 
-    const exists = profileRes.data || authRes.data?.users?.some(u => u.email === email);
-    if (exists) {
+    if (profileError) {
+      console.error('Error checking profile:', profileError);
+      return res.status(500).json({ success: false, error: 'Database error' });
+    }
+
+    // If profile exists, check if email is verified
+    if (profile) {
+      // If email is already verified, reject
+      if (profile.email_verified === true) {
+        return res.status(400).json({ success: false, error: 'Email already registered' });
+      }
+
+      // Email exists but not verified - allow resending OTP
+      // Rate limit: don't resend if last send was < 60s ago
+      const now = new Date();
+      const lastSent = profile.email_otp_sent_at ? new Date(profile.email_otp_sent_at) : null;
+      if (lastSent && (now.getTime() - lastSent.getTime()) < 60 * 1000) {
+        return res.status(429).json({ success: false, error: 'Please wait before requesting a new code' });
+      }
+
+      const otp = generateOTP();
+      const otpHash = hashOtp(otp);
+      const expiry = new Date(now.getTime() + 10 * 60 * 1000).toISOString();
+
+      // Update profile with new OTP hash and sent_at
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({
+          email_otp_hash: otpHash,
+          email_otp_expires: expiry,
+          email_otp_sent_at: now.toISOString(),
+          otp_attempts: 0,
+          updated_at: now.toISOString()
+        })
+        .eq('id', profile.id);
+
+      if (updateError) {
+        console.error('Failed to update profile for OTP resend', updateError);
+        return res.status(500).json({ success: false, error: 'Failed to generate new OTP' });
+      }
+
+      // Send email
+      try {
+        const subject = 'Your BANTAY SP verification code';
+        const html = `
+          <div style="font-family: Arial, Helvetica, sans-serif;">
+            <p>Hi,</p>
+            <p>Your verification code is:</p>
+            <div style="font-size: 28px; font-weight: 700; letter-spacing: 6px;">${otp}</div>
+            <p>This code expires in 10 minutes.</p>
+          </div>
+        `;
+        await sendMail({ to: email, subject, html });
+      } catch (err) {
+        console.error('Failed to send verification email', err);
+        return res.status(500).json({ success: false, error: 'Failed to send verification email' });
+      }
+
+      return res.json({ success: true, message: 'Verification code sent', userId: profile.id });
+    }
+
+    // Email doesn't exist - new registration flow
+    // Also check auth users to be safe
+    const authRes = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    const authUserExists = authRes.data?.users?.some(u => u.email === email);
+    
+    if (authUserExists) {
       return res.status(400).json({ success: false, error: 'Email already registered' });
     }
 

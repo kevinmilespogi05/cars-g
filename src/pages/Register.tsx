@@ -4,6 +4,7 @@ import { useAuthStore } from '../store/authStore';
 import { useToastContext } from '../contexts/ToastContext';
 import { getApiUrl } from '../lib/config';
 import { useAvailabilityCheck } from '../hooks/useAvailabilityCheck';
+import { isValidGmail, validateEmail } from '../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Mail, 
@@ -257,15 +258,11 @@ export function Register() {
 
   const handleSendOtp = async () => {
     resetOtpMessages();
-    if (!email || !email.includes('@')) {
-      setOtpError('Please enter a valid email address.');
-      return;
-    }
-
-    if (!email.toLowerCase().endsWith('@gmail.com')) {
+    const emailValidation = validateEmail(email, true);
+    if (!emailValidation.isValid) {
       setIsGmailValid(false);
-      setGmailError('Only Gmail addresses (@gmail.com) are accepted');
-      setOtpError('Only Gmail addresses (@gmail.com) are accepted for registration.');
+      setGmailError(emailValidation.error);
+      setOtpError(emailValidation.error);
       return;
     }
 
@@ -417,10 +414,11 @@ export function Register() {
       return false;
     }
 
-    if (!email.toLowerCase().endsWith('@gmail.com')) {
-      setError('Only Gmail addresses (@gmail.com) are accepted for registration.');
+    const emailValidation = validateEmail(email, true);
+    if (!emailValidation.isValid) {
+      setError(emailValidation.error);
       setIsGmailValid(false);
-      setGmailError('Only Gmail addresses (@gmail.com) are accepted');
+      setGmailError(emailValidation.error);
       return false;
     }
 
@@ -684,13 +682,9 @@ export function Register() {
                               console.warn(err);
                             }
                             if (value.length > 0) {
-                              const isValid = value.toLowerCase().endsWith('@gmail.com');
-                              setIsGmailValid(isValid);
-                              if (!isValid && value.includes('@')) {
-                                setGmailError('Only Gmail addresses (@gmail.com) are accepted');
-                              } else {
-                                setGmailError('');
-                              }
+                              const emailValidation = validateEmail(value, true);
+                              setIsGmailValid(emailValidation.isValid);
+                              setGmailError(emailValidation.error);
                             } else {
                               setIsGmailValid(true);
                               setGmailError('');
@@ -755,7 +749,7 @@ export function Register() {
                         }}
                         disabled={
                           !email ||
-                          !email.toLowerCase().endsWith('@gmail.com') ||
+                          !isValidGmail(email) ||
                           emailCheck.isAvailable === false ||
                           isSendingOtp ||
                           (otpSent && (isResendingOtp || resendDisabled)) ||
@@ -920,13 +914,9 @@ export function Register() {
                             setEmail(value);
                             
                             if (value.length > 0) {
-                              const isValid = value.toLowerCase().endsWith('@gmail.com');
-                              setIsGmailValid(isValid);
-                              if (!isValid && value.includes('@')) {
-                                setGmailError('Only Gmail addresses (@gmail.com) are accepted');
-                              } else {
-                                setGmailError('');
-                              }
+                              const emailValidation = validateEmail(value, true);
+                              setIsGmailValid(emailValidation.isValid);
+                              setGmailError(emailValidation.error);
                             } else {
                               setIsGmailValid(true);
                               setGmailError('');

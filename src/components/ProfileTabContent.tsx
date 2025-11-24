@@ -35,6 +35,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { authenticatedRequest } from '../lib/jwt';
 import { NotificationPreferences } from './ui/NotificationPreferences';
 import { AnalyticsDashboard } from './ui/AnalyticsDashboard';
+import { validateEmail } from '../lib/utils';
 
 interface ProfileTabContentProps {
   activeTab: string;
@@ -449,9 +450,9 @@ export function ProfileTabContent({
         setSaving(true);
         setError('');
         setSuccess('');
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(value)) {
-          setError('Enter a valid email address');
+        const emailValidation = validateEmail(value, false);
+        if (!emailValidation.isValid) {
+          setError(emailValidation.error);
           setSaving(false);
           return;
         }

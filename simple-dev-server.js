@@ -3,6 +3,7 @@
 // Simple development server for testing OTP endpoints
 import express from 'express';
 import cors from 'cors';
+import { validateEmail } from './server/utils/emailValidation.js';
 
 const app = express();
 const PORT = 3001;
@@ -43,10 +44,11 @@ app.post('/api/auth/register-otp', (req, res) => {
     });
   }
   
-  if (!email.toLowerCase().endsWith('@gmail.com')) {
+  const emailValidation = validateEmail(email, true);
+  if (!emailValidation.isValid) {
     return res.status(400).json({
       success: false,
-      error: 'Only Gmail addresses are allowed for registration',
+      error: emailValidation.error,
       code: 'INVALID_EMAIL_DOMAIN'
     });
   }

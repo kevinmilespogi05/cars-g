@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
-import { 
-  BarChart3, 
+import {
+  BarChart3,
   LayoutDashboard,
   Megaphone,
   Check,
@@ -20,15 +20,16 @@ import { AdminDutySchedule } from '../components/AdminDutySchedule';
 import { AdminVerificationDashboard } from '../components/AdminVerificationDashboard';
 import { AdminArchive } from '../components/AdminArchive';
 import { AdminDashboardOverview } from '../components/AdminDashboardOverview';
+import { AdminVisitors } from '../components/AdminVisitors';
 import { Breadcrumb } from '../components/ui';
 
 export function AdminDashboard() {
   const { user } = useAuthStore();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  
+
   // Get active section from URL query params, default to 'dashboard'
-  const activeSection = (searchParams.get('section') || 'dashboard') as 'dashboard' | 'reports' | 'archive' | 'requests' | 'duty' | 'users' | 'stats' | 'settings' | 'announcements' | 'verification';
+  const activeSection = (searchParams.get('section') || 'dashboard') as 'dashboard' | 'reports' | 'archive' | 'requests' | 'duty' | 'users' | 'stats' | 'settings' | 'announcements' | 'verification' | 'visitors';
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [showInfo, setShowInfo] = useState<boolean>(false);
 
@@ -80,10 +81,10 @@ export function AdminDashboard() {
         <div className="relative w-full px-4 py-4">
           {/* Breadcrumb Navigation */}
           <div className="mb-4">
-            <Breadcrumb 
+            <Breadcrumb
               items={[
                 { label: 'Admin', path: '/admin', icon: <LayoutDashboard className="h-4 w-4" /> },
-                ...(activeSection !== 'dashboard' ? [{ 
+                ...(activeSection !== 'dashboard' ? [{
                   label: activeSection.charAt(0).toUpperCase() + activeSection.slice(1).replace('_', ' '),
                   path: undefined
                 }] : [])
@@ -133,6 +134,11 @@ export function AdminDashboard() {
           {activeSection === 'announcements' && (
             <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3 md:p-4">
               <AnnouncementManagement />
+            </div>
+          )}
+          {activeSection === 'visitors' && (
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3 md:p-4">
+              <AdminVisitors />
             </div>
           )}
         </div>
