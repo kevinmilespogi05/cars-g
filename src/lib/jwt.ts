@@ -1,5 +1,7 @@
 // JWT token management utilities for client-side
 
+import { supabase } from './supabase';
+
 interface TokenPair {
   accessToken: string;
   refreshToken: string;
@@ -312,7 +314,6 @@ export async function authenticatedRequest(
   // Fallback to Supabase session token if JWT is not available
   if (!authToken) {
     try {
-      const { supabase } = await import('./supabase');
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.access_token) {
         authToken = session.access_token;
@@ -360,7 +361,6 @@ export async function authenticatedRequest(
     
     // Try Supabase session refresh
     try {
-      const { supabase } = await import('./supabase');
       const { data: { session } } = await supabase.auth.refreshSession();
       if (session?.access_token) {
         // Retry the request with refreshed Supabase token
