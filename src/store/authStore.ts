@@ -717,11 +717,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return {
         success: true,
         message: result.message || 'Registration successful! Your account is pending ID verification.',
+        verificationMessage: result.verificationMessage || null,
         email: result.email,
         userId: result.userId || null,
         requiresEmailOtp: result.requiresEmailOtp || false,
         requiresVerification: result.requiresVerification || true,
         verificationStatus: result.verificationStatus || 'pending',
+        ocrAttempted: result.ocrAttempted || false,
+        ocrFailed: result.ocrFailed || false,
+        ocrFailureReason: result.ocrFailureReason || null,
         redirectUrl: result.data?.redirectUrl || null
       };
     } catch (error) {

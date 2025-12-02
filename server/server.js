@@ -20,6 +20,9 @@ import { authenticateToken, requireRole, requireVerified } from './middleware/au
 import WarmupService from './warmup.js';
 import { sendMail } from './utils/smtpService.js';
 import { setOtpForEmail, getOtpEntry, incrementAttempts, clearOtp } from './utils/inMemoryOtpStore.js';
+import { processImageWithOCR } from './utils/ocrService.js';
+import { parseIdData } from './utils/idParser.js';
+import { verifyIdData } from './utils/verificationMatcher.js';
 
 // Load environment variables (explicitly from this file's directory so `.env` in the server folder is used
 // even when the process is started from the repo root)
@@ -642,7 +645,7 @@ app.post('/api/reports', authenticateToken, requireVerified(supabaseAdmin), asyn
       can_cancel
     } = req.body || {};
 
-    if (!title || !description || !category || !priority || typeof location_lat !== 'number' || typeof location_lng !== 'number') {
+    if (!title || !description || !category || typeof location_lat !== 'number' || typeof location_lng !== 'number') {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
@@ -659,14 +662,14 @@ app.post('/api/reports', authenticateToken, requireVerified(supabaseAdmin), asyn
       title: String(title).trim(),
       description: String(description).trim(),
       category: String(category),
-      priority: String(priority),
+      priority: priority ? String(priority) : null,
       status: 'verifying',
       location: { lat: location_lat, lng: location_lng },
       location_address: location_address || `${location_lat}, ${location_lng}`,
       images: Array.isArray(images) ? images : [],
       is_anonymous: Boolean(is_anonymous || false), // Anonymous reporting flag
       user_notes_to_admin: user_notes_to_admin || null, // Private notes from reporter to admins
-      priority_level: Number.isFinite(priority_level) ? priority_level : (priority === 'high' ? 5 : priority === 'medium' ? 3 : 1),
+      priority_level: Number.isFinite(priority_level) ? priority_level : (priority ? (priority === 'high' ? 5 : priority === 'medium' ? 3 : 1) : null),
       assigned_group: assigned_group || null,
       can_cancel: can_cancel !== false
     };
@@ -2490,6 +2493,14 @@ app.post('/api/auth/register', async (req, res) => {
     }
 
     // Create verification request if ID images were provided
+    let verificationStatus = 'pending';
+    let verificationRequestId = null;
+    let ocrVerificationDetails = null;
+    let ocrConfidence = null;
+    let ocrAttempted = false;
+    let ocrFailed = false;
+    let ocrFailureReason = null;
+
     if (idFrontImageUrl && idBackImageUrl) {
       try {
         // Create verification request manually since the trigger might not work
@@ -2506,21 +2517,190 @@ app.post('/api/auth/register', async (req, res) => {
 
         if (verificationError) {
           console.error('Error creating verification request:', verificationError);
+        } else {
+          verificationRequestId = verificationRequest?.id;
         }
-        // Note: AI verification is now manual-only through admin dashboard
+
+        // Attempt automated OCR verification
+        try {
+          const ocrApiKey = process.env.OCR_SPACE_API_KEY;
+          
+          if (ocrApiKey) {
+            ocrAttempted = true;
+            console.log(`[OCR] Starting automated ID verification for user ${authData.user.id}`);
+            
+            // Process front ID image with OCR
+            const ocrResult = await processImageWithOCR(idFrontImageUrl, ocrApiKey, 'eng');
+            
+            if (ocrResult.success && ocrResult.text) {
+              // Parse extracted data from OCR text
+              const extractedData = parseIdData(ocrResult.text);
+              
+              // Verify extracted data against registration data
+              const verificationResult = verifyIdData(
+                extractedData,
+                {
+                  firstName: firstName || '',
+                  lastName: lastName || ''
+                },
+                {
+                  nameThreshold: 75, // 75% similarity threshold (lowered for better matching with Philippine IDs)
+                  requireIdNumber: false, // ID number not required for auto-verification
+                  requireLocation: true, // Location is required for auto-verification
+                  requireSanPablo: true // Require San Pablo, Castillejos, Zambales location
+                }
+              );
+
+              // Store OCR verification details
+              ocrVerificationDetails = {
+                extractedName: extractedData.name,
+                extractedNameComponents: extractedData.nameComponents, // Include components for debugging
+                extractedIdNumber: extractedData.idNumber,
+                extractedLocation: extractedData.location,
+                nameMatch: verificationResult.nameMatch,
+                locationMatch: verificationResult.locationMatch, // Include location match details
+                ocrConfidence: ocrResult.confidence,
+                verificationResult: verificationResult,
+                processedAt: new Date().toISOString()
+              };
+              ocrConfidence = verificationResult.confidence;
+
+              // If verification passes, auto-verify the user
+              // Use weighted confidence if available, otherwise use regular confidence
+              const finalConfidence = verificationResult.nameMatch?.weightedConfidence || verificationResult.confidence;
+              if (verificationResult.verified && finalConfidence >= 75) {
+                console.log(`[OCR] Auto-verification successful for user ${authData.user.id} (confidence: ${verificationResult.confidence}%)`);
+                
+                verificationStatus = 'ai_verified'; // Use ai_verified to distinguish automated verification
+
+                // Update user profile to ai_verified status
+                await supabaseAdmin
+                  .from('profiles')
+                  .update({
+                    verification_status: 'ai_verified',
+                    ai_verification_confidence: verificationResult.confidence,
+                    ai_verification_details: ocrVerificationDetails,
+                    verified_at: new Date().toISOString()
+                  })
+                  .eq('id', authData.user.id);
+
+                // Update verification request status
+                if (verificationRequestId) {
+                  await supabaseAdmin
+                    .from('user_verification_requests')
+                    .update({
+                      status: 'approved',
+                      ai_analysis: ocrVerificationDetails,
+                      ai_confidence: verificationResult.confidence,
+                      processed_at: new Date().toISOString()
+                    })
+                    .eq('id', verificationRequestId);
+                }
+              } else {
+                ocrFailed = true;
+                // Create user-friendly failure reason
+                const failureReasons = verificationResult.reasons;
+                if (failureReasons.some(r => r.includes('Location requirement'))) {
+                  ocrFailureReason = 'Your ID address must show that you are a resident of San Pablo, Castillejos, Zambales. Your account will be reviewed manually.';
+                } else if (failureReasons.some(r => r.includes('Name mismatch'))) {
+                  ocrFailureReason = 'The name on your ID does not match the name you provided. Your account will be reviewed manually.';
+                } else {
+                  ocrFailureReason = failureReasons.join('. ') || 'ID verification could not be completed automatically. Your account will be reviewed manually.';
+                }
+                console.log(`[OCR] Auto-verification failed for user ${authData.user.id}. Reasons: ${failureReasons.join(', ')}`);
+                
+                // Store OCR results for admin review even if verification failed
+                if (verificationRequestId) {
+                  await supabaseAdmin
+                    .from('user_verification_requests')
+                    .update({
+                      ai_analysis: ocrVerificationDetails,
+                      ai_confidence: verificationResult.confidence,
+                      status: 'pending' // Keep as pending for admin review
+                    })
+                    .eq('id', verificationRequestId);
+                }
+
+                // Store OCR details in profile for admin reference
+                await supabaseAdmin
+                  .from('profiles')
+                  .update({
+                    ai_verification_confidence: verificationResult.confidence,
+                    ai_verification_details: ocrVerificationDetails
+                  })
+                  .eq('id', authData.user.id);
+              }
+            } else {
+              ocrFailed = true;
+              ocrFailureReason = 'Could not extract text from ID image. The image may be blurry or unreadable.';
+              console.warn(`[OCR] OCR processing returned no text for user ${authData.user.id}`);
+            }
+          } else {
+            console.log('[OCR] OCR_SPACE_API_KEY not configured, skipping automated verification');
+          }
+        } catch (ocrError) {
+          // Log OCR error but don't fail registration
+          ocrFailed = true;
+          ocrFailureReason = ocrError.message.includes('timeout') 
+            ? 'ID verification timed out. Please ensure your ID image is clear and try again.'
+            : 'ID verification service encountered an error. Your account will be reviewed manually.';
+          console.error(`[OCR] Error during automated verification for user ${authData.user.id}:`, ocrError.message);
+          
+          // Store error details for admin review
+          if (verificationRequestId) {
+            try {
+              await supabaseAdmin
+                .from('user_verification_requests')
+                .update({
+                  ai_analysis: {
+                    error: ocrError.message,
+                    processedAt: new Date().toISOString()
+                  },
+                  status: 'pending'
+                })
+                .eq('id', verificationRequestId);
+            } catch (updateError) {
+              console.error('[OCR] Failed to store OCR error details:', updateError);
+            }
+          }
+        }
       } catch (error) {
         console.error('Error creating verification request:', error);
         // Don't fail the registration if verification request creation fails
       }
     }
 
+    // Build appropriate message based on verification status
+    let message = '';
+    let verificationMessage = '';
+    
+    if (verificationStatus === 'ai_verified') {
+      message = 'Registration successful! Your account has been verified automatically via ID verification.';
+    } else if (ocrAttempted && ocrFailed) {
+      // OCR was attempted but failed - provide helpful message
+      message = 'Registration successful! However, we could not automatically verify your ID.';
+      verificationMessage = ocrFailureReason || 'Your ID will be reviewed manually by our team. You will be notified once verification is complete.';
+    } else if (idFrontImageUrl && idBackImageUrl) {
+      // ID images provided but OCR not attempted (no API key or other reason)
+      message = 'Registration successful! Your account has been created and email verified.';
+      verificationMessage = 'Your ID verification is pending admin review. You will be notified once verification is complete.';
+    } else {
+      // No ID images provided
+      message = 'Registration successful! Your account has been created and email verified.';
+      verificationMessage = 'Please complete ID verification to access all features.';
+    }
+
     return res.json({ 
       success: true,
-      message: 'Registration successful! Your account has been created and email verified.',
+      message: message,
+      verificationMessage: verificationMessage,
       email,
       userId: authData.user.id,
       requiresEmailOtp: false,
-      verificationStatus: 'pending'
+      verificationStatus: verificationStatus,
+      ocrAttempted: ocrAttempted,
+      ocrFailed: ocrFailed,
+      ocrFailureReason: ocrFailureReason
     });
 
   } catch (error) {

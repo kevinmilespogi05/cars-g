@@ -36,6 +36,7 @@ interface ProfileData {
   points: number;
   created_at: string;
   email?: string;
+  verification_status?: string | null;
 }
 
 export function Profile({ softBlocked = false }: { softBlocked?: boolean }) {
@@ -235,7 +236,8 @@ export function Profile({ softBlocked = false }: { softBlocked?: boolean }) {
           role,
           points,
           created_at,
-          phone
+          phone,
+          verification_status
         `)
         .eq('id', userId)
         .single();

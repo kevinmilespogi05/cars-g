@@ -496,15 +496,39 @@ export function Register() {
       const { idFrontImageUrl, idBackImageUrl } = await uploadIdImages(idFrontImage!, idBackImage!);
       
       // Register with ID image URLs
-      await signUp(email, password, username, firstName, lastName, phone, confirmPassword, idFrontImageUrl, idBackImageUrl);
+      const signUpResult = await signUp(email, password, username, firstName, lastName, phone, confirmPassword, idFrontImageUrl, idBackImageUrl);
 
-      // Always redirect to reports page after successful registration
-      setSuccess('Registration successful! Redirecting to reports...');
-      try { showToastSuccess('Registration successful! Welcome to Bantay SP', 4000); } catch (e) {}
+      // Show appropriate message based on verification status
+      if (signUpResult.verificationStatus === 'ai_verified') {
+        setSuccess('Registration successful! Your account has been verified automatically.');
+        try { showToastSuccess('Registration successful! Your account is verified.', 4000); } catch (e) {}
+      } else if (signUpResult.ocrFailed || signUpResult.verificationMessage) {
+        // OCR verification failed or pending - show informative message
+        const verificationMsg = signUpResult.verificationMessage || 
+          'We could not automatically verify your ID. Your account is pending manual review. You will be notified once verification is complete.';
+        
+        // Show combined message
+        const displayMessage = `${signUpResult.message || 'Registration successful!'} ${verificationMsg}`;
+        setSuccess(displayMessage);
+        
+        try { 
+          // Show success with verification info
+          showToastSuccess(signUpResult.message || 'Registration successful!', 4000);
+          // Show verification message separately after a brief delay
+          setTimeout(() => {
+            try { 
+              showToastSuccess(verificationMsg, 7000); 
+            } catch (e) {}
+          }, 1500);
+        } catch (e) {}
+      } else {
+        setSuccess('Registration successful! Redirecting to reports...');
+        try { showToastSuccess('Registration successful! Welcome to Bantay SP', 4000); } catch (e) {}
+      }
       
       setTimeout(() => {
         navigate('/reports', { replace: true });
-      }, 1500);
+      }, signUpResult.ocrFailed ? 3000 : 1500); // Give more time if verification message is shown
     } catch (error: any) {
       setError(error.message || 'Registration failed. Please try again.');
       try { showToastError(error.message || 'Registration failed', 5000); } catch (e) {}

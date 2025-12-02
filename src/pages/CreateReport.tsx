@@ -57,11 +57,6 @@ const CATEGORIES = [
   }
 ];
 
-const PRIORITY_OPTIONS = [
-  { value: 'low', label: 'Low', color: 'bg-green-100 text-green-800 border-green-400', description: 'Minor issue, no immediate danger' },
-  { value: 'medium', label: 'Medium', color: 'bg-yellow-100 text-yellow-800 border-yellow-400', description: 'Needs attention, moderate impact' },
-  { value: 'high', label: 'High', color: 'bg-red-100 text-red-800 border-red-400', description: 'Urgent, requires immediate action' }
-];
 
 const MAX_IMAGES = 5;
 
@@ -105,14 +100,12 @@ export function CreateReport() {
     title: string;
     description: string;
     category: string;
-    priority: 'low' | 'medium' | 'high';
     imageUrls: string[];
   } | null>(null);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     category: '',
-    priority: 'medium' as 'low' | 'medium' | 'high',
     user_notes_to_admin: '',
   });
   const [location, setLocation] = useState<{ lat: number; lng: number; address?: string } | null>(null);
@@ -122,8 +115,6 @@ export function CreateReport() {
   const [currentStep, setCurrentStep] = useState<string | null>(null);
   const [isDirty, setIsDirty] = useState(false);
   const [activeFormStep, setActiveFormStep] = useState(1);
-  // Always keep reporter identity hidden from public (Data Privacy Act compliance)
-  const isAnonymous = true;
   const submitButtonRef = React.useRef<HTMLButtonElement | null>(null);
   
   // Calculate word count for description
@@ -153,7 +144,6 @@ export function CreateReport() {
           title: parsedData.title,
           description: parsedData.description,
           category: parsedData.category,
-          priority: parsedData.priority,
         });
         
         // Set image preview URLs from AI-generated data
@@ -193,7 +183,7 @@ export function CreateReport() {
   // Mark dirty on changes
   useEffect(() => {
     setIsDirty(true);
-  }, [formData.title, formData.description, formData.category, formData.priority, location, uploadedImages.length]);
+  }, [formData.title, formData.description, formData.category, location, uploadedImages.length]);
 
   // Warn on navigation if there are unsaved changes
   useEffect(() => {
@@ -328,14 +318,11 @@ export function CreateReport() {
         title: formData.title.trim(),
         description: formData.description.trim(),
         category: formData.category,
-        priority: formData.priority,
-        // auto-derive on client as well for robustness (service also derives)
-        priority_level: (formData.priority === 'high' ? 5 : formData.priority === 'medium' ? 3 : 1),
         location_lat: location.lat,
         location_lng: location.lng,
         location_address: location.address || `${location.lat}, ${location.lng}`,
         images: imageUrls,
-        is_anonymous: true, // Always hide reporter identity from public (Data Privacy Act compliance)
+        is_anonymous: false, // Reporter identity is visible to the user and admins
         user_notes_to_admin: formData.user_notes_to_admin.trim() || null,
         idempotency_key: `rep_${user.id}_${Date.now()}`,
       };
@@ -399,8 +386,6 @@ export function CreateReport() {
           title: formData.title.trim(),
           description: formData.description.trim(),
           category: formData.category,
-          priority: formData.priority,
-          priority_level: (formData.priority === 'high' ? 5 : formData.priority === 'medium' ? 3 : 1),
           location_lat: location!.lat,
           location_lng: location!.lng,
           location_address: location!.address || `${location!.lat}, ${location!.lng}`,
@@ -730,38 +715,6 @@ export function CreateReport() {
                         })}
                       </div>
                     )}
-                  </div>
-                  
-                  {/* Enhanced Priority Selection */}
-                  <div>
-                    <label className="block text-sm font-semibold text-text-primary mb-3">
-                      Priority Level <span className="text-red-500">*</span>
-                    </label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {PRIORITY_OPTIONS.map((option) => {
-                        const isSelected = formData.priority === option.value;
-                        return (
-                          <button
-                            key={option.value}
-                            type="button"
-                            onClick={() => setFormData({ ...formData, priority: option.value as 'low' | 'medium' | 'high' })}
-                            className={`text-center p-2.5 rounded-lg border-2 transition-all duration-200 ${
-                              isSelected
-                                ? `${option.color} border-current shadow-lg ring-2 ring-opacity-50 scale-105`
-                                : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
-                            }`}
-                          >
-                            <div className={`font-bold text-sm ${isSelected ? '' : 'text-gray-700'}`}>
-                              {option.label}
-                              {isSelected && <span className="ml-1">✓</span>}
-                            </div>
-                            <div className={`text-xs mt-0.5 leading-tight ${isSelected ? '' : 'text-gray-600'}`}>
-                              {option.description}
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
                   </div>
                   
                   {/* Enhanced Description with Word Count */}

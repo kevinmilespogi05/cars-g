@@ -54,7 +54,7 @@ export function VerifiedBadge({ isVerified, size = 'sm', className = '' }: Verif
 export function isUserVerified(verificationStatus: string | null | undefined): boolean {
   if (!verificationStatus) return false;
   
-  const status = String(verificationStatus).toLowerCase();
+  const status = String(verificationStatus).trim().toLowerCase();
   return status === 'verified' || status === 'active' || status === 'ai_verified' || status === 'approved';
 }
 

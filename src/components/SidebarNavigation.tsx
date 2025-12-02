@@ -29,6 +29,8 @@ export function SidebarNavigation() {
     return true;
   });
 
+  const userIsVerified = isUserVerified(user?.verification_status);
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       // Close profile menu when clicking outside
@@ -528,7 +530,14 @@ export function SidebarNavigation() {
                       className="h-8 w-8 rounded-full object-cover ring-2 ring-white/30 hover:ring-white/40 transition-all duration-200"
                       loading="lazy"
                     />
-                    <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
+                    {userIsVerified && (
+                      <div className="absolute -bottom-1 -right-1 rounded-full bg-white shadow-sm p-0.5">
+                        <VerifiedBadge 
+                          isVerified={userIsVerified} 
+                          size="sm"
+                        />
+                      </div>
+                    )}
                   </div>
                   {!isCollapsed && (
                     <>
@@ -536,7 +545,7 @@ export function SidebarNavigation() {
                         <div className="flex items-center gap-2">
                           <div className="text-sm font-medium truncate">{user.username}</div>
                           <VerifiedBadge 
-                            isVerified={isUserVerified(user?.verification_status)} 
+                            isVerified={userIsVerified} 
                             size="sm"
                           />
                         </div>
@@ -557,19 +566,29 @@ export function SidebarNavigation() {
                   >
                     <div className="px-4 py-3 border-b border-gray-100">
                       <div className="flex items-center space-x-3">
-                        <img
-                          src={user.avatar_url || '/images/default-avatar.png'}
-                          alt="Profile"
-                          className="h-10 w-10 rounded-full object-cover"
-                          loading="lazy"
-                        />
+                        <div className="relative">
+                          <img
+                            src={user.avatar_url || '/images/default-avatar.png'}
+                            alt="Profile"
+                            className="h-10 w-10 rounded-full object-cover"
+                            loading="lazy"
+                          />
+                          {userIsVerified && (
+                            <div className="absolute -bottom-1 -right-1 rounded-full bg-white shadow-sm p-0.5">
+                              <VerifiedBadge 
+                                isVerified={userIsVerified} 
+                                size="sm"
+                              />
+                            </div>
+                          )}
+                        </div>
                         <div>
                           <div className="flex items-center gap-2">
-                            <div className="text-sm font-medium text-gray-900">{user.username}</div>
-                            <VerifiedBadge 
-                              isVerified={isUserVerified(user?.verification_status)} 
-                              size="sm"
-                            />
+                          <div className="text-sm font-medium text-gray-900">{user.username}</div>
+                          <VerifiedBadge 
+                            isVerified={userIsVerified} 
+                            size="sm"
+                          />
                           </div>
                           <div className="text-xs text-gray-700 capitalize">{user.role}</div>
                         </div>

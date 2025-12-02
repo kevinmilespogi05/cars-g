@@ -179,8 +179,8 @@ export const reportsService = {
               title: (reportData as any).title,
               description: (reportData as any).description,
               category: (reportData as any).category,
-              priority: (reportData as any).priority,
-              priority_level: (reportData as any).priority_level,
+              priority: (reportData as any).priority || null,
+              priority_level: (reportData as any).priority_level || null,
               location_lat: (reportData as any).location_lat,
               location_lng: (reportData as any).location_lng,
               location_address: (reportData as any).location_address,
@@ -219,7 +219,7 @@ export const reportsService = {
         title: (reportData as any).title,
         description: (reportData as any).description,
         category: (reportData as any).category,
-        priority: (reportData as any).priority,
+        priority: (reportData as any).priority || null,
         status: 'verifying',
         location: {
           lat: (reportData as any).location_lat,
@@ -230,7 +230,7 @@ export const reportsService = {
         is_anonymous: (reportData as any).is_anonymous || false, // Anonymous reporting flag
         // Ticketing system fields
         // Auto-derive from priority when not provided
-        priority_level: (reportData as any).priority_level ?? deriveLevelFromPriority((reportData as any).priority),
+        priority_level: (reportData as any).priority_level ?? deriveLevelFromPriority((reportData as any).priority) ?? null,
         assigned_group: (reportData as any).assigned_group || null,
         can_cancel: (reportData as any).can_cancel !== false, // Default to true
         // idempotency_key intentionally omitted: column not present in schema
@@ -254,8 +254,8 @@ export const reportsService = {
                 title: payload.title,
                 description: payload.description,
                 category: payload.category,
-                priority: payload.priority,
-                priority_level: payload.priority_level,
+                priority: payload.priority || null,
+                priority_level: payload.priority_level || null,
                 location_lat: payload.location?.lat,
                 location_lng: payload.location?.lng,
                 location_address: payload.location_address,

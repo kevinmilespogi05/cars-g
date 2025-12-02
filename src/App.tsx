@@ -68,6 +68,7 @@ function AppContentInner() {
 
   // Check if we're on pages that should not show footer
   const isNoFooterPage = location.pathname === '/reports' || 
+                         location.pathname.startsWith('/reports/') ||
                          location.pathname === '/announcements' || 
                          location.pathname === '/emergency-contacts' || 
                          location.pathname === '/leaderboard';

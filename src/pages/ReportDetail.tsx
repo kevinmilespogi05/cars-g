@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { MapPin, Heart, MessageCircle, Send, Loader2, ChevronLeft, ChevronRight, ArrowLeft, X, Reply, Hash, User, Users, ShieldCheck, ChevronDown, ChevronUp, Star } from 'lucide-react';
+import { MapPin, Heart, MessageCircle, Send, Loader2, ChevronLeft, ChevronRight, ArrowLeft, ArrowUp, X, Reply, Hash, User, Users, ShieldCheck, ChevronDown, ChevronUp, Star, FileDown, Calendar, Clock } from 'lucide-react';
 import { getStatusColor as badgeStatusColor, formatStatusForDisplay } from '../lib/badges';
 import { MobileBackToReports } from '../components/MobileBackToReports';
 import { motion } from 'framer-motion';
@@ -80,7 +80,9 @@ export function ReportDetail() {
   const mobileCarouselRef = useRef<HTMLDivElement | null>(null);
   const touchStartXRef = useRef<number | null>(null);
   const touchEndXRef = useRef<number | null>(null);
-  const [activeTab, setActiveTab] = useState<'all' | 'comments' | 'logs'>('all');
+  const [activeTab, setActiveTab] = useState<'timeline' | 'comments'>('timeline');
+  const [relatedReports, setRelatedReports] = useState<Report[]>([]);
+  const [loadingRelated, setLoadingRelated] = useState(false);
 
   // Create a fallback image data URL
   const fallbackImageUrl = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiB2aWV3Qm94PSIwIDAgMjAwIDIwMCI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiNmMGYwZjAiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjE2IiBmaWxsPSIjODg4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5JbWFnZSBub3QgYXZhaWxhYmxlPC90ZXh0Pjwvc3ZnPg==";
@@ -121,6 +123,33 @@ export function ReportDetail() {
     }
   }, [id]);
 
+  // Fetch related reports
+  useEffect(() => {
+    if (report) {
+      fetchRelatedReports();
+    }
+  }, [report?.id, report?.category]);
+
+  const fetchRelatedReports = async () => {
+    if (!report) return;
+    setLoadingRelated(true);
+    try {
+      const reports = await reportsService.getReports({
+        category: report.category,
+        limit: 6
+      });
+      // Filter out current report and get up to 5 related
+      const related = reports
+        .filter(r => r.id !== report.id)
+        .slice(0, 5) as any[];
+      setRelatedReports(related);
+    } catch (error) {
+      console.error('Error fetching related reports:', error);
+    } finally {
+      setLoadingRelated(false);
+    }
+  };
+
   // Reset mobile image index when report changes
   useEffect(() => {
     setMobileImageIndex(0);
@@ -144,7 +173,7 @@ export function ReportDetail() {
     };
   }, [id]);
 
-  // Keyboard shortcuts removed per request
+ 
 
   // Listen for reply like details open requests
   useEffect(() => {
@@ -768,13 +797,68 @@ export function ReportDetail() {
     );
   }
 
+  // Build timeline events for the timeline tab
+  const buildTimelineEvents = (): TimelineEvent[] => {
+    const timelineEvents: TimelineEvent[] = [];
+    
+    // Add initial creation event
+    timelineEvents.push({
+      id: `created-${report.id}`,
+      status: 'pending',
+      timestamp: report.created_at,
+      actor: report.is_anonymous ? undefined : {
+        name: report.user.username,
+        avatar_url: report.user.avatar_url || undefined
+      },
+      note: 'Report created'
+    });
+
+    // Add events from status_update, assignment, and resolution comments
+    reportComments
+      .filter(c => ['status_update', 'assignment', 'resolution'].includes(c.comment_type))
+      .forEach(comment => {
+        let status = report.status;
+        if (comment.comment_type === 'status_update') {
+          const statusMatch = comment.comment.match(/status[:\s]+(\w+)/i);
+          if (statusMatch) {
+            status = statusMatch[1] as any;
+          }
+        } else if (comment.comment_type === 'assignment') {
+          status = 'in_progress';
+        } else if (comment.comment_type === 'resolution') {
+          status = 'resolved';
+        }
+
+        timelineEvents.push({
+          id: comment.id,
+          status: status,
+          timestamp: comment.created_at,
+          actor: comment.user_profile ? {
+            name: comment.user_profile.username,
+            avatar_url: comment.user_profile.avatar_url || undefined,
+            role: comment.comment_type === 'assignment' ? 'Patrol Officer' : 'Administrator'
+          } : undefined,
+          note: comment.comment
+        });
+      });
+
+    // Sort by timestamp (newest first)
+    timelineEvents.sort((a, b) => 
+      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
+
+    return timelineEvents;
+  };
+
+  const timelineEvents = buildTimelineEvents();
+  const effectiveLevel = getEffectiveLevel(report);
+
   return (
     <>
       <MobileBackToReports />
       <div className="w-full max-w-screen-2xl mx-auto px-3 sm:px-4 py-6 sm:py-8">
-      {/* Breadcrumb / Actions */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
-        <div className="flex items-center gap-2 text-sm text-gray-500">
+      {/* Breadcrumb */}
+      <div className="flex items-center gap-2 text-sm text-gray-500 mb-6">
           <button onClick={() => navigate('/reports')} className="inline-flex items-center gap-1 hover:text-gray-700">
             <ArrowLeft className="h-4 w-4" />
             Back to Reports
@@ -782,189 +866,390 @@ export function ReportDetail() {
           <span>/</span>
           <span className="text-gray-700 font-medium line-clamp-1">{report.title}</span>
         </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => commentsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className="px-3 py-1.5 rounded-md text-sm border border-gray-200 hover:bg-gray-50">Comments</button>
-          <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="px-3 py-1.5 rounded-md text-sm border border-gray-200 hover:bg-gray-50">Top</button>
-        </div>
-      </div>
 
-      {/* Responsive layout - Comments left, Main content right on desktop; Main content first, Comments below on mobile */}
-      <div className="flex flex-col lg:flex-row gap-6 mt-0">
-        {/* Comments & Updates - Left on desktop, Below on mobile */}
-        <aside className="lg:w-1/3 order-2 lg:order-1" ref={commentsSectionRef}>
-          {/* Case Information Section - Now at the top */}
-          {(report.case_number || report.assigned_group || report.assigned_patroller_name) && (
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.25 }}
-              className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 mb-4"
-            >
-              <h3 className="text-sm font-semibold text-gray-900 mb-3">Case Information</h3>
-              <div className="space-y-3">
-                {report.case_number && (
-                  <div>
-                    <p className="text-xs font-medium text-gray-500">Case Number</p>
-                    <p className="text-sm text-gray-900 flex items-center"><Hash className="h-4 w-4 mr-1" />{report.case_number}</p>
-                  </div>
-                )}
-                {report.assigned_group && (
-                  <div>
-                    <p className="text-xs font-medium text-gray-500">Assigned Group</p>
-                    <p className="text-sm text-gray-900 flex items-center"><Users className="h-4 w-4 mr-1" />{report.assigned_group}</p>
-                  </div>
-                )}
-                {report.assigned_patroller_name && (
-                  <div>
-                    <p className="text-xs font-medium text-gray-500">Assigned Patroller</p>
-                    <p className="text-sm text-gray-900 flex items-center"><ShieldCheck className="h-4 w-4 mr-1" />{report.assigned_patroller_name}</p>
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          )}
-          
+      {/* 2-Column Layout: Left (Images + Location), Right (Summary Card) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        {/* Left Column: Images + Location */}
+        <div className="space-y-6">
+          {/* Images Section */}
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.25 }}
-            className="bg-white rounded-xl shadow-sm border border-gray-100 lg:sticky lg:top-24 flex flex-col h-[500px] lg:h-[calc(100vh-400px)] mb-32 overflow-hidden"
+            className="bg-white rounded-xl p-4 shadow-sm border border-gray-100"
+          >
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Images</h2>
+            {report.images && report.images.length > 0 ? (
+              <>
+                {/* Main Image */}
+                <div className="mb-4">
+                  <div className="relative aspect-square bg-gray-100 rounded-lg overflow-hidden">
+                    <img
+                      src={getImageUrl(report.images[0])}
+                      alt={`Report image 1`}
+                      className="w-full h-full object-cover cursor-pointer"
+                      loading="lazy"
+                      onClick={() => setSelectedImage({ url: report.images[0], index: 0 })}
+                      onError={(e) => { const imgElement = e.target as HTMLImageElement; imgElement.src = fallbackImageUrl; }}
+                    />
+        </div>
+      </div>
+                {/* Thumbnails */}
+                {report.images.length > 1 && (
+                  <div className="grid grid-cols-4 gap-2">
+                    {report.images.slice(1, 5).map((image, index) => (
+                      <motion.div
+                        key={index + 1}
+                        whileHover={{ scale: 1.05 }}
+                        className="relative aspect-square bg-gray-100 rounded-lg overflow-hidden cursor-pointer"
+                        onClick={() => setSelectedImage({ url: image, index: index + 1 })}
+                      >
+                        <img
+                          src={getImageUrl(image)}
+                          alt={`Report image ${index + 2}`}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                          onError={(e) => { const imgElement = e.target as HTMLImageElement; imgElement.src = fallbackImageUrl; }}
+                        />
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="flex items-center justify-center h-48 rounded-lg border border-dashed border-gray-200 bg-gray-50 text-gray-500">
+                <span className="text-sm">No images attached</span>
+              </div>
+            )}
+          </motion.div>
+
+          {/* Location Card */}
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25, delay: 0.1 }}
+            className="bg-white rounded-xl p-4 shadow-sm border border-gray-100"
+          >
+            <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
+              <MapPin className="h-4 w-4 mr-2 text-gray-600" />
+              Location
+            </h3>
+            <button
+              onClick={async () => {
+                const coords = await getReportCoordinates(report as any);
+                let url: string;
+                if (coords) {
+                  url = `https://www.google.com/maps/search/?api=1&query=${coords.lat},${coords.lng}`;
+                } else {
+                  url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(report.location_address || '')}`;
+                }
+                window.open(url, '_blank', 'noopener,noreferrer');
+              }}
+              className="text-sm text-gray-700 hover:text-gray-900 hover:underline text-left w-full"
+            >
+              {report.location_address}
+            </button>
+          </motion.div>
+        </div>
+
+        {/* Right Column: Summary Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.25, delay: 0.1 }}
+          className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 lg:sticky lg:top-24 h-fit"
+        >
+          {/* Title */}
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">{report.title}</h1>
+          
+          {/* Status and Level Row */}
+          <div className="flex flex-wrap items-center gap-2 mb-4">
+            <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(report.status)}`}>
+              {formatStatusForDisplay(report.status)}
+            </span>
+            {typeof effectiveLevel === 'number' && (
+              <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                effectiveLevel >= 5 ? 'bg-red-100 text-red-800' : 
+                effectiveLevel >= 4 ? 'bg-orange-100 text-orange-800' : 
+                effectiveLevel >= 3 ? 'bg-yellow-100 text-yellow-800' : 
+                effectiveLevel >= 2 ? 'bg-blue-100 text-blue-800' : 
+                'bg-green-100 text-green-800'
+              }`} title={getServiceLevelText(effectiveLevel)}>
+                Level {effectiveLevel} · {getServiceLevelText(effectiveLevel)}
+              </span>
+            )}
+          </div>
+
+          {/* Reporter and Date */}
+          <div className="mb-4 pb-4 border-b border-gray-200">
+            <div className="flex items-center gap-2 text-sm text-gray-600 mb-1">
+              {report.is_anonymous ? (
+                <div className="h-6 w-6 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center border border-blue-200 flex-shrink-0">
+                  <span className="text-blue-600 font-bold text-xs">?</span>
+                </div>
+              ) : (
+                <img 
+                  className="h-6 w-6 rounded-full object-cover border border-gray-200 flex-shrink-0" 
+                  src={report.user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(report.user.username)}`} 
+                  alt={report.user.username}
+                />
+              )}
+              <span>Reported by <span className="font-medium text-gray-900">{report.is_anonymous ? 'Anonymous Reporter' : report.user.username}</span></span>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              <Calendar className="h-4 w-4" />
+              <span>{new Date(report.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+            </div>
+          </div>
+
+          {/* Key Metrics Row */}
+          <div className="grid grid-cols-2 gap-4 mb-6">
+                {report.case_number && (
+                  <div>
+                <p className="text-xs font-medium text-gray-500 mb-1">Case Number</p>
+                <p className="text-sm font-semibold text-gray-900 flex items-center">
+                  <Hash className="h-3 w-3 mr-1" />
+                  {report.case_number}
+                </p>
+                  </div>
+                )}
+            <div>
+              <p className="text-xs font-medium text-gray-500 mb-1">Category</p>
+              <p className="text-sm font-semibold text-gray-900">{capitalize(report.category || 'N/A')}</p>
+            </div>
+                {report.assigned_group && (
+                  <div>
+                <p className="text-xs font-medium text-gray-500 mb-1">Assigned Group</p>
+                <p className="text-sm font-semibold text-gray-900 flex items-center">
+                  <Users className="h-3 w-3 mr-1" />
+                  {report.assigned_group}
+                </p>
+                  </div>
+                )}
+                {report.assigned_patroller_name && (
+                  <div>
+                <p className="text-xs font-medium text-gray-500 mb-1">Assigned Patroller</p>
+                <p className="text-sm font-semibold text-gray-900 flex items-center">
+                  <ShieldCheck className="h-3 w-3 mr-1" />
+                  {report.assigned_patroller_name}
+                </p>
+                  </div>
+                )}
+              </div>
+
+          {/* Location and Service Level */}
+          <div className="space-y-4 pt-4 border-t border-gray-200">
+            {/* Location */}
+            {report.location_address && (
+              <div>
+                <p className="text-xs font-medium text-gray-500 mb-1">Location</p>
+                <p className="text-sm font-semibold text-gray-900 flex items-center">
+                  <MapPin className="h-4 w-4 mr-1.5 text-gray-600" />
+                  {report.location_address}
+                </p>
+              </div>
+            )}
+            
+            {/* Service Level */}
+            {effectiveLevel !== null && (
+              <div>
+                <p className="text-xs font-medium text-gray-500 mb-1">Service Level</p>
+                <p className={`text-sm font-semibold inline-flex items-center px-2.5 py-1 rounded-full ${
+                  effectiveLevel >= 5 ? 'bg-red-100 text-red-800' :
+                  effectiveLevel >= 4 ? 'bg-orange-100 text-orange-800' :
+                  effectiveLevel >= 3 ? 'bg-yellow-100 text-yellow-800' :
+                  effectiveLevel >= 2 ? 'bg-blue-100 text-blue-800' :
+                  'bg-green-100 text-green-800'
+                }`}>
+                  Level {effectiveLevel} · {getServiceLevelText(effectiveLevel)}
+                </p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+      </div>
+
+      {/* Report Description Section */}
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.25, delay: 0.3 }}
+        className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 mb-8"
+      >
+        <h2 className="text-xl font-bold text-gray-900 mb-4">Report Description</h2>
+        <div className="prose prose-sm max-w-none">
+          <p className="text-gray-700 leading-relaxed whitespace-pre-wrap mb-4">{report.description}</p>
+          <div className="flex items-center gap-2 text-sm text-gray-600 pt-4 border-t border-gray-200">
+            {report.is_anonymous ? (
+              <div className="h-5 w-5 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center border border-blue-200 flex-shrink-0">
+                <span className="text-blue-600 font-bold text-xs">?</span>
+              </div>
+            ) : (
+              <img 
+                className="h-5 w-5 rounded-full object-cover border border-gray-200 flex-shrink-0" 
+                src={report.user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(report.user.username)}`} 
+                alt={report.user.username}
+              />
+            )}
+            <span>Reported by <span className="font-medium text-gray-900">{report.is_anonymous ? 'Anonymous Reporter' : report.user.username}</span></span>
+            <span>•</span>
+            <span>{new Date(report.created_at).toLocaleString()}</span>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Tabbed Interface: Timeline & Logs / Comments */}
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.25, delay: 0.4 }}
+        className="bg-white rounded-xl shadow-sm border border-gray-100 mb-8"
+        ref={commentsSectionRef}
           >
             {/* Tab Navigation */}
-            <div className="border-b border-gray-200 flex-shrink-0">
-              <div className="flex space-x-1 p-2">
+        <div className="border-b border-gray-200">
+          <div className="flex">
                 <button
-                  onClick={() => {
-                    setActiveTab('all');
-                    setIsCommentsCollapsed(false);
-                  }}
-                  className={`flex-1 px-3 py-2 text-sm font-semibold rounded-lg transition-colors ${
-                    activeTab === 'all'
-                      ? 'bg-emerald-100 text-emerald-800'
-                      : 'text-gray-600 hover:bg-gray-50'
-                  }`}
-                >
-                  All ({reportComments.length})
+              onClick={() => setActiveTab('timeline')}
+              className={`flex-1 px-6 py-4 text-sm font-semibold transition-colors border-b-2 ${
+                activeTab === 'timeline'
+                  ? 'border-emerald-600 text-emerald-600 bg-emerald-50/50'
+                  : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+              }`}
+            >
+              Timeline & Logs ({reportComments.filter(c => c.comment_type !== 'comment').length})
                 </button>
                 <button
-                  onClick={() => {
-                    setActiveTab('comments');
-                    setIsCommentsCollapsed(false);
-                  }}
-                  className={`flex-1 px-3 py-2 text-sm font-semibold rounded-lg transition-colors ${
+              onClick={() => setActiveTab('comments')}
+              className={`flex-1 px-6 py-4 text-sm font-semibold transition-colors border-b-2 ${
                     activeTab === 'comments'
-                      ? 'bg-gray-100 text-gray-800'
-                      : 'text-gray-600 hover:bg-gray-50'
+                  ? 'border-emerald-600 text-emerald-600 bg-emerald-50/50'
+                  : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                   }`}
                 >
                   Comments ({reportComments.filter(c => c.comment_type === 'comment').length})
                 </button>
-                <button
-                  onClick={() => {
-                    setActiveTab('logs');
-                    setIsCommentsCollapsed(false);
-                  }}
-                  className={`flex-1 px-3 py-2 text-sm font-semibold rounded-lg transition-colors ${
-                    activeTab === 'logs'
-                      ? 'bg-blue-100 text-blue-800'
-                      : 'text-gray-600 hover:bg-gray-50'
-                  }`}
-                >
-                  Logs ({reportComments.filter(c => c.comment_type !== 'comment').length})
-                </button>
               </div>
-              <div className="flex items-center justify-between px-3 pb-2">
-                <div className="flex-1"></div>
-                <button
-                  onClick={() => setIsCommentsCollapsed(!isCommentsCollapsed)}
-                  className="flex items-center space-x-2 text-xs text-gray-600 hover:text-gray-800 transition-colors"
-                >
-                  <span>{isCommentsCollapsed ? 'Show' : 'Hide'}</span>
-                  {isCommentsCollapsed ? (
-                    <ChevronDown className="h-3 w-3" />
-                  ) : (
-                    <ChevronUp className="h-3 w-3" />
-                  )}
-                </button>
               </div>
-            </div>
 
-            {!isCommentsCollapsed && (
-              <>
-                {/* Scrollable container for "All" view */}
-                <div className={`${activeTab === 'all' ? 'overflow-y-scroll flex-1 min-h-0 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 hover:scrollbar-thumb-gray-400' : 'flex-1 min-h-0 flex flex-col'}`}>
-                  {/* User Comments Section */}
-                  {(activeTab === 'all' || activeTab === 'comments') && (
-                    <div className={`${activeTab === 'comments' ? 'overflow-y-scroll flex-1 min-h-0 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 hover:scrollbar-thumb-gray-400' : 'flex-1 min-h-0'}`}>
-                      <div className="p-3 sm:p-4 space-y-0">
-                      {/* Always show header in "All" tab, only in "Comments" tab when filtered */}
-                      {(activeTab === 'all' || activeTab === 'comments') && (
-                        <div className="mb-3 pb-3 border-b border-gray-200">
-                          <h3 className="text-sm font-semibold text-gray-900 flex items-center">
-                            <MessageCircle className="h-4 w-4 mr-2 text-gray-600" />
-                            User Comments
-                            <span className="ml-2 px-2 py-0.5 bg-gray-100 text-gray-700 text-xs font-semibold rounded-full">
-                              {reportComments.filter(c => c.comment_type === 'comment').length}
+        {/* Tab Content */}
+        <div className="p-6">
+          {activeTab === 'timeline' ? (
+            <div className="space-y-6">
+              {/* Status Timeline */}
+              {timelineEvents.length > 1 && (
+                <div>
+                  <StatusTimeline 
+                    events={timelineEvents} 
+                    currentStatus={report.status}
+                  />
+            </div>
+              )}
+              
+              {/* Officer Updates & Logs */}
+              {reportComments.filter(c => c.comment_type !== 'comment').length === 0 ? (
+                <div className="text-center py-12">
+                  <ShieldCheck className="h-12 w-12 text-blue-300 mx-auto mb-3" />
+                  <p className="text-sm text-gray-500">No officer updates yet</p>
+                        </div>
+              ) : (
+                <div className="space-y-4">
+                  {reportComments.filter(c => c.comment_type !== 'comment').map((comment) => (
+                    <motion.div
+                      key={comment.id}
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="border-l-4 border-blue-500 pl-4 py-2"
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-sm">
+                          <ShieldCheck className="h-4 w-4 text-white" />
+                        </div>
+                        <div className="flex-1">
+        <div className="flex items-center gap-2">
+                            <span className="text-sm font-semibold text-blue-900">
+                              {comment.user_profile?.username || 'Unknown'}
                             </span>
-                          </h3>
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-500 text-white">
+                              Official
+                            </span>
+                            {comment.comment_type !== 'comment' && (
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                                comment.comment_type === 'status_update' ? 'bg-blue-100 text-blue-800' :
+                                comment.comment_type === 'assignment' ? 'bg-purple-100 text-purple-800' :
+                                comment.comment_type === 'resolution' ? 'bg-green-100 text-green-800' :
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {comment.comment_type.replace('_', ' ')}
+                              </span>
+                            )}
+        </div>
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            {new Date(comment.created_at).toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                      <p className="text-sm text-gray-700 mt-2 ml-10">{comment.comment}</p>
+                    </motion.div>
+                  ))}
                         </div>
                       )}
-                      {reportComments.filter(c => c.comment_type === 'comment').length === 0 && (
-                        <div className="text-center py-6">
-                          <MessageCircle className="h-8 w-8 text-gray-300 mx-auto mb-2" />
-                          <p className="text-sm text-gray-500">No user comments yet</p>
-                          {activeTab === 'comments' && <p className="text-xs text-gray-400 mt-1">Be the first to comment</p>}
-                        </div>
-                      )}
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {/* Comments Section */}
+              {reportComments.filter(c => c.comment_type === 'comment').length === 0 ? (
+                <div className="text-center py-12">
+                  <MessageCircle className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-sm text-gray-500">No comments yet</p>
+                  <p className="text-xs text-gray-400 mt-1">Be the first to comment</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
                       {reportComments.filter(c => c.comment_type === 'comment').map((comment, index) => (
                       <motion.div
                         key={comment.id}
                         initial={{ opacity: 0, y: 6 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.2 }}
-                        className={`py-3 ${index !== 0 ? 'border-t border-gray-100' : ''}`}
+                      className={`py-4 ${index !== 0 ? 'border-t border-gray-100' : ''}`}
                       >
-                        <div className="flex gap-2">
-                          {/* Profile Picture */}
-                          <div className="flex-shrink-0">
+                      <div className="flex gap-3">
                             <img
-                              className="h-8 w-8 rounded-full object-cover"
+                          className="h-10 w-10 rounded-full object-cover flex-shrink-0"
                               src={comment.user_profile?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(comment.user_profile?.username || 'Unknown')}`}
                               alt={comment.user_profile?.username || 'Unknown'}
                             />
-                          </div>
-                          
-                          {/* Comment Content */}
                           <div className="flex-1 min-w-0">
-                            <div className="inline-block bg-gray-100 rounded-2xl px-3 py-2">
-                              <div className="flex items-center gap-2 mb-0.5">
-                                <span className="text-[13px] font-semibold text-gray-900">
+                          <div className="bg-gray-50 rounded-2xl px-4 py-3">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-sm font-semibold text-gray-900">
                                   {comment.user_profile?.username || 'Unknown'}
                                 </span>
                               </div>
                               {editingCommentId === comment.id ? (
-                                <div className="mt-1">
+                              <div className="mt-2">
                                   <textarea
-                                    className="w-full px-2 py-1 border border-gray-300 rounded-lg text-sm bg-white"
-                                    rows={2}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                                  rows={3}
                                     value={editingText}
                                     onChange={(e) => setEditingText(e.target.value)}
                                   />
                                   <div className="mt-2 flex items-center gap-2">
-                                    <button onClick={submitEdit} className="px-3 py-1 text-xs bg-blue-600 text-white rounded-md hover:bg-blue-700">Save</button>
-                                    <button onClick={cancelEdit} className="px-3 py-1 text-xs text-gray-600 hover:text-gray-800">Cancel</button>
+                                  <button onClick={submitEdit} className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-md hover:bg-blue-700">Save</button>
+                                  <button onClick={cancelEdit} className="px-3 py-1.5 text-xs text-gray-600 hover:text-gray-800">Cancel</button>
                                   </div>
                                 </div>
                               ) : (
-                                <p className="text-[13px] leading-relaxed text-gray-900">
+                              <p className="text-sm leading-relaxed text-gray-900">
                                   {comment.comment}
                                 </p>
                               )}
                             </div>
                             
-                            {/* Action buttons - Facebook style */}
-                            <div className="flex items-center gap-3 mt-1 px-3">
-                              <span className="text-[11px] text-gray-500">
+                          <div className="flex items-center gap-4 mt-2 ml-2">
+                            <span className="text-xs text-gray-500">
                                 {new Date(comment.created_at).toLocaleString('en-US', { 
                                   year: 'numeric',
                                   month: 'short',
@@ -977,10 +1262,10 @@ export function ReportDetail() {
                                 <button 
                                   onClick={() => handleCommentLike(comment.id)} 
                                   disabled={likeLoading}
-                                  className={`text-[12px] font-semibold flex items-center gap-1 ${comment.is_liked ? 'text-red-600' : 'text-gray-600 hover:text-red-600'} transition-colors`}
+                                className={`text-xs font-semibold flex items-center gap-1 ${comment.is_liked ? 'text-red-600' : 'text-gray-600 hover:text-red-600'} transition-colors`}
                                 >
                                   <Heart className={`h-3 w-3 ${comment.is_liked ? 'fill-current' : ''}`} />
-                                  <span>Like</span>
+                                Like
                                 </button>
                                 {comment.likes_count > 0 && (
                                   <button
@@ -991,7 +1276,7 @@ export function ReportDetail() {
                                         reportTitle: `Comment by ${comment.user_profile?.username}`
                                       });
                                     }}
-                                    className="text-[12px] font-semibold text-red-600 hover:underline cursor-pointer"
+                                  className="text-xs font-semibold text-red-600 hover:underline cursor-pointer"
                                   >
                                     {comment.likes_count}
                                   </button>
@@ -999,7 +1284,7 @@ export function ReportDetail() {
                               </div>
                               <button 
                                 onClick={() => setReplyingTo(replyingTo === comment.id ? null : comment.id)}
-                                className="text-[12px] font-semibold text-gray-600 hover:text-gray-800 transition-colors"
+                              className="text-xs font-semibold text-gray-600 hover:text-gray-800 transition-colors"
                               >
                                 Reply
                               </button>
@@ -1007,13 +1292,13 @@ export function ReportDetail() {
                                 <>
                                   <button 
                                     onClick={() => startEdit(comment.id, comment.comment)}
-                                    className="text-[12px] font-semibold text-gray-600 hover:text-gray-800 transition-colors"
+                                  className="text-xs font-semibold text-gray-600 hover:text-gray-800 transition-colors"
                                   >
                                     Edit
                                   </button>
                                   <button 
                                     onClick={() => requestDelete(comment.id)}
-                                    className="text-[12px] font-semibold text-gray-600 hover:text-red-600 transition-colors"
+                                  className="text-xs font-semibold text-gray-600 hover:text-red-600 transition-colors"
                                   >
                                     Delete
                                   </button>
@@ -1021,9 +1306,9 @@ export function ReportDetail() {
                               )}
                             </div>
                             
-                            {/* Facebook-style reply input */}
+                          {/* Reply Input */}
                             {replyingTo === comment.id && user && (
-                              <div className="mt-2 flex gap-2 ml-3">
+                            <div className="mt-3 flex gap-2 ml-2">
                                 <img
                                   className="h-6 w-6 rounded-full object-cover flex-shrink-0"
                                   src={user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.username)}`}
@@ -1067,12 +1352,12 @@ export function ReportDetail() {
                               </div>
                             )}
                             
-                            {/* Nested replies with Facebook-style indentation */}
+                          {/* Nested Replies */}
                             {comment.replies && comment.replies.length > 0 && (
-                              <div className="mt-2 ml-3">
+                            <div className="mt-3 ml-2">
                                 <button 
                                   onClick={() => setExpandedCommentReplies(prev => ({ ...prev, [comment.id]: !prev[comment.id] }))} 
-                                  className="text-[12px] font-semibold text-gray-600 hover:text-gray-800 flex items-center gap-1"
+                                className="text-xs font-semibold text-gray-600 hover:text-gray-800 flex items-center gap-1"
                                 >
                                   <Reply className="h-3 w-3" />
                                   {expandedCommentReplies[comment.id] ? 'Hide' : `View`} {comment.replies.length} {comment.replies.length === 1 ? 'reply' : 'replies'}
@@ -1104,156 +1389,15 @@ export function ReportDetail() {
                         </div>
                       </motion.div>
                       ))}
-                      </div>
                     </div>
                   )}
 
-                  {/* Officer Updates & Logs Section */}
-                  {(activeTab === 'all' || activeTab === 'logs') && (
-                    <div className={`${activeTab === 'logs' ? 'overflow-y-scroll flex-1 min-h-0 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 hover:scrollbar-thumb-gray-400' : ''}`}>
-                    <div className={`p-3 sm:p-4 space-y-0 ${activeTab === 'all' && reportComments.filter(c => c.comment_type === 'comment').length > 0 ? 'pt-0' : ''}`}>
-                      {/* Always show header in "All" tab and "Logs" tab */}
-                      {(activeTab === 'all' || activeTab === 'logs') && (
-                        <div className={`mb-3 pb-3 ${activeTab === 'all' ? 'pt-3 border-t-4 border-blue-200' : ''} border-b border-gray-200`}>
-                          <h3 className="text-sm font-semibold text-gray-900 flex items-center">
-                            <ShieldCheck className="h-4 w-4 mr-2 text-blue-600" />
-                            Officer Updates & Logs
-                            <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full">
-                              {reportComments.filter(c => c.comment_type !== 'comment').length}
-                            </span>
-                          </h3>
-                        </div>
-                      )}
-                      {reportComments.filter(c => c.comment_type !== 'comment').length === 0 && (
-                        <div className="text-center py-6">
-                          <ShieldCheck className="h-8 w-8 text-blue-300 mx-auto mb-2" />
-                          <p className="text-sm text-blue-600">No officer updates yet</p>
-                        </div>
-                      )}
-                      {reportComments.filter(c => c.comment_type !== 'comment').map((comment, index) => (
-                      <motion.div
-                        key={comment.id}
-                        initial={{ opacity: 0, y: 6 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className={`py-3 ${index !== 0 ? 'border-t border-blue-100' : ''}`}
-                      >
-                        <div className="flex gap-2">
-                          {/* Profile Picture */}
-                          <div className="flex-shrink-0">
-                            <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-sm">
-                              <ShieldCheck className="h-4 w-4 text-white" />
-                            </div>
-                          </div>
-                          
-                          {/* Comment Content */}
-                          <div className="flex-1 min-w-0">
-                            <div className="inline-block bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl px-3 py-2">
-                              <div className="flex items-center gap-2 mb-0.5">
-                                <span className="text-[13px] font-semibold text-blue-900">
-                                  {comment.user_profile?.username || 'Unknown'}
-                                </span>
-                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-500 text-white">
-                                  Official
-                                </span>
-                                {comment.comment_type !== 'comment' && (
-                                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${
-                                    comment.comment_type === 'status_update' ? 'bg-blue-100 text-blue-800' :
-                                    comment.comment_type === 'assignment' ? 'bg-purple-100 text-purple-800' :
-                                    comment.comment_type === 'resolution' ? 'bg-green-100 text-green-800' :
-                                    'bg-gray-100 text-gray-800'
-                                  }`}>
-                                    {comment.comment_type.replace('_', ' ')}
-                                  </span>
-                                )}
-                              </div>
-                              {editingCommentId === comment.id ? (
-                                <div className="mt-1">
-                                  <textarea
-                                    className="w-full px-2 py-1 border border-gray-300 rounded-lg text-sm bg-white"
-                                    rows={2}
-                                    value={editingText}
-                                    onChange={(e) => setEditingText(e.target.value)}
-                                  />
-                                  <div className="mt-2 flex items-center gap-2">
-                                    <button onClick={submitEdit} className="px-3 py-1 text-xs bg-blue-600 text-white rounded-md hover:bg-blue-700">Save</button>
-                                    <button onClick={cancelEdit} className="px-3 py-1 text-xs text-gray-600 hover:text-gray-800">Cancel</button>
-                                  </div>
-                                </div>
-                              ) : (
-                                <p className="text-[13px] leading-relaxed text-blue-900 font-medium">
-                                  {comment.comment}
-                                </p>
-                              )}
-                            </div>
-                            
-                            {/* Action buttons - Facebook style */}
-                            <div className="flex items-center gap-3 mt-1 px-3">
-                              <span className="text-[11px] text-blue-600">
-                                {new Date(comment.created_at).toLocaleString('en-US', { 
-                                  year: 'numeric',
-                                  month: 'short',
-                                  day: 'numeric',
-                                  hour: 'numeric', 
-                                  minute: '2-digit' 
-                                })}
-                              </span>
-                              <div className="flex items-center gap-1">
-                                <button 
-                                  onClick={() => handleCommentLike(comment.id)} 
-                                  disabled={likeLoading}
-                                  className={`text-[12px] font-semibold flex items-center gap-1 ${comment.is_liked ? 'text-red-600' : 'text-blue-700 hover:text-red-600'} transition-colors`}
-                                >
-                                  <Heart className={`h-3 w-3 ${comment.is_liked ? 'fill-current' : ''}`} />
-                                  <span>Like</span>
-                                </button>
-                                {comment.likes_count > 0 && (
-                                  <button
-                                    onClick={() => {
-                                      setLikeDetailsModal({ 
-                                        isOpen: true, 
-                                        commentId: comment.id,
-                                        reportTitle: `Comment by ${comment.user_profile?.username}`
-                                      });
-                                    }}
-                                    className="text-[12px] font-semibold text-red-600 hover:underline cursor-pointer"
-                                  >
-                                    {comment.likes_count}
-                                  </button>
-                                )}
-                              </div>
-                              {user?.id === comment.user_id && editingCommentId !== comment.id && (
-                                <>
-                                  <button 
-                                    onClick={() => startEdit(comment.id, comment.comment)}
-                                    className="text-[12px] font-semibold text-blue-700 hover:text-blue-800 transition-colors"
-                                  >
-                                    Edit
-                                  </button>
-                                  <button 
-                                    onClick={() => requestDelete(comment.id)}
-                                    className="text-[12px] font-semibold text-blue-700 hover:text-red-600 transition-colors"
-                                  >
-                                    Delete
-                                  </button>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </motion.div>
-                      ))}
-                    </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Facebook-style comment input - Fixed at bottom */}
+              {/* Comment Input */}
                 {user && (
-                  <div className="p-3 sm:p-4 pt-3 border-t border-gray-200 flex-shrink-0 bg-white">
-                    <div className="flex gap-2">
+                <div className="pt-4 border-t border-gray-200">
+                  <div className="flex gap-3">
                       <img
-                        className="h-8 w-8 rounded-full object-cover flex-shrink-0"
+                      className="h-10 w-10 rounded-full object-cover flex-shrink-0"
                         src={user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.username)}`}
                         alt={user.username}
                       />
@@ -1263,7 +1407,6 @@ export function ReportDetail() {
                             value={commentContent}
                             onChange={(e) => {
                               setCommentContent(e.target.value);
-                              // Auto-resize
                               e.target.style.height = 'auto';
                               e.target.style.height = e.target.scrollHeight + 'px';
                             }}
@@ -1276,16 +1419,16 @@ export function ReportDetail() {
                               }
                             }}
                             placeholder="Write a comment…"
-                            className="w-full px-4 py-2 bg-gray-100 border border-transparent rounded-full focus:bg-white focus:border-gray-300 focus:ring-1 focus:ring-blue-500 text-sm resize-none overflow-hidden transition-all"
+                          className="w-full px-4 py-3 bg-gray-100 border border-transparent rounded-xl focus:bg-white focus:border-gray-300 focus:ring-1 focus:ring-blue-500 text-sm resize-none overflow-hidden transition-all"
                             ref={commentTextareaRef}
                             rows={1}
-                            style={{ minHeight: '36px', maxHeight: '120px' }}
+                          style={{ minHeight: '44px', maxHeight: '120px' }}
                           />
                           {commentContent.trim() && (
                             <button
                               type="submit"
                               disabled={submittingComment}
-                              className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-blue-600 hover:bg-blue-50 rounded-full transition-colors disabled:opacity-50"
+                            className="absolute right-2 bottom-2 p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50"
                             >
                               {submittingComment ? (
                                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -1299,293 +1442,83 @@ export function ReportDetail() {
                     </div>
                   </div>
                 )}
-              </>
-            )}
-
-            {isCommentsCollapsed && (
-              <div className="bg-gray-50 rounded-lg p-4 text-center">
-                <div className="flex items-center justify-center space-x-4 text-sm text-gray-600">
-                  <div className="flex items-center space-x-1">
-                    <MessageCircle className="h-4 w-4 text-blue-600" />
-                    <span>{reportComments.length} Comments & Updates</span>
-                  </div>
-                </div>
-                <p className="text-xs text-gray-500 mt-2">Click "Show" to view all comments</p>
               </div>
             )}
+        </div>
           </motion.div>
-        </aside>
 
-        {/* Main Content - Right on desktop, First on mobile */}
-        <main className="lg:w-2/3 order-1 lg:order-2">
+      {/* Related Reports Section */}
+      {relatedReports.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.25 }}
+          transition={{ duration: 0.25, delay: 0.5 }}
             className="bg-white rounded-xl p-6 shadow-sm border border-gray-100"
           >
-            <h1 className="text-2xl font-bold text-gray-900 mb-1">{report.title}</h1>
-            <div className="flex flex-wrap items-center gap-2 text-sm text-gray-500 mb-4">
-              <span>Reported by <span className="font-medium text-gray-700">{report.is_anonymous ? 'Anonymous Reporter' : report.user.username}</span></span>
-              <span>• {new Date(report.created_at).toLocaleString()}</span>
-              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${getStatusColor(report.status)}`}>{formatStatusForDisplay(report.status)}</span>
-              {(() => { const lvl = getEffectiveLevel(report); return typeof lvl === 'number' ? (
-                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${lvl >= 5 ? 'bg-red-100 text-red-800' : lvl >= 4 ? 'bg-orange-100 text-orange-800' : lvl >= 3 ? 'bg-yellow-100 text-yellow-800' : lvl >= 2 ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}`} title={getServiceLevelText(lvl)}>
-                  Level {lvl} · {getServiceLevelText(lvl)}
-                </span>
-              ) : null; })()}
+          <h2 className="text-xl font-bold text-gray-900 mb-6">Related Reports</h2>
+          {loadingRelated ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
             </div>
-
-            <p className="text-gray-700 mb-4 whitespace-pre-wrap">{report.description}</p>
-            
-            {/* Status Timeline */}
-            {(() => {
-              // Build timeline events from report comments and report creation
-              const timelineEvents: TimelineEvent[] = [];
-              
-              // Add initial creation event
-              timelineEvents.push({
-                id: `created-${report.id}`,
-                status: 'pending',
-                timestamp: report.created_at,
-                actor: report.is_anonymous ? undefined : {
-                  name: report.user.username,
-                  avatar_url: report.user.avatar_url || undefined
-                },
-                note: 'Report created'
-              });
-
-              // Add events from status_update, assignment, and resolution comments
-              reportComments
-                .filter(c => ['status_update', 'assignment', 'resolution'].includes(c.comment_type))
-                .forEach(comment => {
-                  let status = report.status;
-                  if (comment.comment_type === 'status_update') {
-                    // Try to extract status from comment text or use current status
-                    const statusMatch = comment.comment.match(/status[:\s]+(\w+)/i);
-                    if (statusMatch) {
-                      status = statusMatch[1] as any;
-                    }
-                  } else if (comment.comment_type === 'assignment') {
-                    status = 'in_progress';
-                  } else if (comment.comment_type === 'resolution') {
-                    status = 'resolved';
-                  }
-
-                  timelineEvents.push({
-                    id: comment.id,
-                    status: status,
-                    timestamp: comment.created_at,
-                    actor: comment.user_profile ? {
-                      name: comment.user_profile.username,
-                      avatar_url: comment.user_profile.avatar_url || undefined,
-                      role: comment.comment_type === 'assignment' ? 'Patrol Officer' : 'Administrator'
-                    } : undefined,
-                    note: comment.comment
-                  });
-                });
-
-              // Sort by timestamp (newest first for display, but we'll reverse it)
-              timelineEvents.sort((a, b) => 
-                new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-              );
-
-              return timelineEvents.length > 1 ? (
-                <div className="mb-6">
-                  <StatusTimeline 
-                    events={timelineEvents} 
-                    currentStatus={report.status}
-                  />
-                </div>
-              ) : null;
-            })()}
-            
-            <div className="flex items-center text-sm text-gray-700 mb-6">
-              <MapPin className="h-4 w-4 mr-1.5 flex-shrink-0 text-gray-700" />
-              <button
-                onClick={async () => {
-                  const coords = await getReportCoordinates(report as any);
-                  let url: string;
-                  if (coords) {
-                    url = `https://www.google.com/maps/search/?api=1&query=${coords.lat},${coords.lng}`;
-                  } else {
-                    url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(report.location_address || '')}`;
-                  }
-                  window.open(url, '_blank', 'noopener,noreferrer');
-                }}
-                className="hover:underline hover:text-gray-900 text-left"
-              >
-                {report.location_address}
-              </button>
-            </div>
-
-            {report.images && report.images.length > 0 ? (
-              <div className="mt-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-3">Images</h2>
-                {/* Mobile swipe carousel */}
-                <div className="lg:hidden">
-                  <div className="relative">
-                    <div className="overflow-hidden rounded-lg">
-                      <img
-                        src={getImageUrl(report.images[mobileImageIndex])}
-                        alt={`Report image ${mobileImageIndex + 1}`}
-                        className="w-full h-56 object-cover"
-                        loading="lazy"
-                        onClick={() => setSelectedImage({ url: report.images[mobileImageIndex], index: mobileImageIndex })}
-                      />
-                    </div>
-                    {report.images.length > 1 && (
-                      <>
-                        <button
-                          className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-gray-700 rounded-full p-1 shadow"
-                          onClick={() => setMobileImageIndex((mobileImageIndex - 1 + report.images.length) % report.images.length)}
-                          aria-label="Previous image"
-                        >
-                          <ChevronLeft className="w-5 h-5" />
-                        </button>
-                        <button
-                          className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-gray-700 rounded-full p-1 shadow"
-                          onClick={() => setMobileImageIndex((mobileImageIndex + 1) % report.images.length)}
-                          aria-label="Next image"
-                        >
-                          <ChevronRight className="w-5 h-5" />
-                        </button>
-                        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
-                          {report.images.map((_, idx) => (
-                            <button
-                              key={idx}
-                              onClick={() => setMobileImageIndex(idx)}
-                              className={`w-2 h-2 rounded-full ${idx === mobileImageIndex ? 'bg-blue-600' : 'bg-gray-300'}`}
-                              aria-label={`Go to image ${idx + 1}`}
-                            />
-                          ))}
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </div>
-                {/* Desktop grid */}
-                <div className="hidden lg:grid grid-cols-2 sm:grid-cols-3 gap-4">
-                  {report.images.map((image, index) => (
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {relatedReports.map((relatedReport) => (
                     <motion.div
-                      key={index}
+                  key={relatedReport.id}
                       whileHover={{ scale: 1.02 }}
-                      className="relative aspect-square cursor-pointer overflow-hidden bg-gray-100 rounded-lg"
-                      onClick={() => setSelectedImage({ url: image, index })}
-                    >
-                      <img src={getImageUrl(image)} alt={`Report image ${index + 1}`} className="absolute inset-0 h-full w-full object-cover rounded-lg border border-gray-200" loading="lazy" referrerPolicy="no-referrer" crossOrigin="anonymous" onError={(e) => { const imgElement = e.target as HTMLImageElement; imgElement.src = fallbackImageUrl; }} />
+                  className="border border-gray-200 rounded-lg p-4 cursor-pointer hover:shadow-md transition-shadow"
+                  onClick={() => navigate(`/reports/${relatedReport.id}`)}
+                >
+                  <h3 className="font-semibold text-gray-900 mb-2 line-clamp-2">{relatedReport.title}</h3>
+                  <div className="flex items-center gap-2 text-xs text-gray-500 mb-2">
+                    <span className={`px-2 py-0.5 rounded-full ${getStatusColor((relatedReport as any).status)}`}>
+                      {formatStatusForDisplay((relatedReport as any).status)}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-600 line-clamp-2">{relatedReport.description}</p>
                     </motion.div>
                   ))}
-                </div>
-              </div>
-            ) : (
-              <div className="mt-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-3">Images</h2>
-                <div className="flex items-center justify-center h-32 rounded-lg border border-dashed border-gray-200 bg-gray-50 text-gray-500">
-                  <span className="text-sm">No images attached</span>
-                </div>
               </div>
             )}
+        </motion.div>
+      )}
 
-            <div className="border-t border-gray-100 pt-4 mt-6">
-              {/* User Details Row */}
-              <div className="flex items-center gap-3 mb-3 sm:mb-0">
-                {report.is_anonymous ? (
-                  // Anonymous reporter display
-                  <>
-                    <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center border border-blue-200">
-                      <span className="text-blue-600 font-bold text-lg">?</span>
-                    </div>
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">Anonymous Reporter</div>
-                      <p className="text-xs text-gray-700">{new Date(report.created_at).toLocaleString()}</p>
-                    </div>
-                  </>
-                ) : (
-                  // Normal reporter display
-                  <>
-                    <img className="h-10 w-10 rounded-full object-cover border border-gray-200" src={report.user.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(report.user.username)}`} alt={report.user.username} />
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">{report.user.username}</div>
-                      <p className="text-xs text-gray-700">{new Date(report.created_at).toLocaleString()}</p>
-                    </div>
-                  </>
-                )}
-              </div>
-              
-              {/* Action Icons Row - Responsive layout */}
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                {/* Like and Comment Actions */}
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-1.5">
-                    <button onClick={handleLike} disabled={likeLoading} className={`text-sm ${report.is_liked ? 'text-red-500' : 'text-gray-700 hover:text-red-500'} transition-colors`}>
-                      <Heart className={`h-5 w-5 ${report.is_liked ? 'fill-current' : ''}`} />
+      {/* Floating action bar (mobile) */}
+      <div className="lg:hidden fixed left-0 right-0 bottom-0 z-40">
+        <div className="pointer-events-none px-3 pb-[env(safe-area-inset-bottom)]">
+          <div className="pointer-events-auto mx-auto mb-3 max-w-md rounded-full border border-gray-200 bg-white shadow-lg">
+            <div className="flex items-center justify-around px-3 py-2">
+              <button
+                onClick={handleLike}
+                className={`inline-flex items-center gap-1.5 text-sm ${report?.is_liked ? 'text-red-600' : 'text-gray-700'} hover:text-red-600`}
+              >
+                <Heart className={`h-5 w-5 ${report?.is_liked ? 'fill-current' : ''}`} />
+                <span>{report?.likes_count || 0}</span>
                     </button>
-                    <button onClick={() => { if (report.likes_count > 0) { setLikeDetailsModal({ isOpen: true, reportId: report.id, reportTitle: report.title }); } }} className={`text-sm transition-colors ${report.likes_count > 0 ? 'text-gray-700 hover:text-gray-900 cursor-pointer' : 'text-gray-400 cursor-default'}`} disabled={report.likes_count === 0}>
-                      {report.likes_count}
-                    </button>
-                  </div>
-                  <div className="flex items-center gap-1.5 text-sm text-gray-700">
-                    <MessageCircle className="h-5 w-5" />
-                    <span>{report.comments_count}</span>
-                  </div>
-                </div>
-                
-                {/* Average Rating Display - Show if report has ratings */}
-                {typeof (report as any).rating_avg === 'number' && (report as any).rating_count > 0 && (
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center gap-0.5">
-                      {[1,2,3,4,5].map(n => (
-                        <Star
-                          key={n}
-                          className={`w-4 h-4 ${n <= Math.round((report as any).rating_avg) ? 'text-yellow-500 fill-yellow-400' : 'text-gray-300'}`}
-                        />
-                      ))}
-                    </div>
-                    <span className="text-sm font-medium text-gray-700">{(report as any).rating_avg}</span>
-                    <span className="text-xs text-gray-500">({(report as any).rating_count})</span>
-                  </div>
-                )}
-                
-                {/* Rating Stars - Only show if user can rate */}
-                {user?.id && report.status === 'resolved' && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-500">Rate:</span>
-                    <div className="flex items-center gap-1">
-                      {[1,2,3,4,5].map(n => (
+              <div className="h-6 w-px bg-gray-200" />
                         <button
-                          key={n}
-                          onClick={async () => {
-                            if (isPending) {
-                              try { showToastError('Your account is pending verification. Rating reports is disabled until approval.', 5000); } catch {};
-                              return;
-                            }
-                            if (submittingRating) return;
-                            try {
-                              setSubmittingRating(true);
-                              const saved = await caseService.rateReport(report.id, n as any, null);
-                              setMyRating(saved.stars);
-                            } catch (e) {
-                              alert('Failed to submit rating');
-                            } finally {
-                              setSubmittingRating(false);
-                            }
-                          }}
-                          className={`p-0.5 transition-all ${submittingRating ? 'opacity-50' : 'hover:scale-110'}`}
-                          title={`Rate ${n} star${n>1?'s':''}`}
-                          disabled={submittingRating}
-                        >
-                          <Star className={`w-4 h-4 ${myRating && n <= myRating ? 'text-yellow-500 fill-yellow-400' : 'text-gray-400 hover:text-yellow-500'}`} />
+                onClick={() => {
+                  setIsCommentsCollapsed(false);
+                  setTimeout(() => {
+                    commentTextareaRef.current?.focus();
+                    commentTextareaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  }, 10);
+                }}
+                className="inline-flex items-center gap-1.5 text-sm text-gray-700 hover:text-gray-900"
+              >
+                <MessageCircle className="h-5 w-5" />
+                <span>{report?.comments_count || 0}</span>
                         </button>
-                      ))}
+              <div className="h-6 w-px bg-gray-200" />
+              <button
+                onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                className="inline-flex items-center gap-1.5 text-sm text-gray-700 hover:text-gray-900"
+              >
+                <ArrowUp className="h-5 w-5" />
+              </button>
                     </div>
                   </div>
-                )}
               </div>
-            </div>
-          </motion.div>
-        </main>
-
       </div>
 
       {/* Floating action bar (mobile) */}
