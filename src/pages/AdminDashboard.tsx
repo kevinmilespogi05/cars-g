@@ -167,7 +167,7 @@ export function AdminDashboard() {
               <ul className="list-disc pl-5 text-sm text-gray-600 space-y-1">
                 <li>Filter, review, and update report statuses.</li>
                 <li>Assign to patrol officers and view details.</li>
-                <li>Export and audit recent activity.</li>
+                <li>Export monthly/yearly PDF or CSV summaries for auditing.</li>
               </ul>
             </div>
           )}
@@ -227,7 +227,7 @@ export function AdminDashboard() {
               <ul className="list-disc pl-5 text-sm text-gray-600 space-y-1">
                 <li>Track report volumes and categories.</li>
                 <li>Identify hotspots and response times.</li>
-                <li>Download charts for presentations.</li>
+                <li>Download charts and CSV exports for presentations.</li>
               </ul>
             </div>
           )}

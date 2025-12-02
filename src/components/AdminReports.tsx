@@ -15,6 +15,9 @@ import { getReportCoordinates, isValidCoordinates } from '../lib/geocoding';
 import { pdfReportService } from '../services/pdfReportService';
 import { useAuthStore } from '../store/authStore';
 import { AdvancedFilters, type FilterOptions } from './ui/AdvancedFilters';
+import { reportingService } from '../services/reportingService';
+import { buildReportStats, type ReportStats } from '../lib/reportStats';
+import { exportReportsCsv } from '../lib/csvExport';
 
 type StatusFilter = 'All' | 'pending' | 'in_progress' | 'resolved' | 'declined';
 
@@ -347,12 +350,18 @@ export function AdminReports() {
   const [yearValue, setYearValue] = useState<number>(() => now.getFullYear());
 
   const [previewPdfUrl, setPreviewPdfUrl] = useState<string | null>(null);
+  const [monthlyStatsPreview, setMonthlyStatsPreview] = useState<ReportStats | null>(null);
+  const [yearlyStatsPreview, setYearlyStatsPreview] = useState<ReportStats | null>(null);
 
   // Preview data fetching functions
   const fetchMonthlyPreview = async (year: number, month: number) => {
     setPreviewLoading(true);
     try {
-      const all = await caseService.getMonthlyCases(year, month, status);
+      const { reports: all, stats } = await reportingService.getMonthlyReportSummary({
+        year,
+        month,
+        status,
+      });
       if (!all || all.length === 0) {
         showNotification(
           `No reports found for ${new Date(year, month - 1, 1).toLocaleString('en-US', { month: 'long' })} ${year}.`,
@@ -361,7 +370,7 @@ export function AdminReports() {
         setPreviewLoading(false);
         return;
       }
-      const stats = calculateStats(all);
+      setMonthlyStatsPreview(stats);
       const monthName = new Date(year, month - 1, 1).toLocaleString('en-US', { month: 'long' });
       setPreviewTitle(`${monthName} ${year} - Preview`);
       
@@ -382,7 +391,10 @@ export function AdminReports() {
   const fetchYearlyPreview = async (year: number) => {
     setPreviewLoading(true);
     try {
-      const all = await caseService.getYearlyCases(year, status);
+      const { reports: all, stats } = await reportingService.getYearlyReportSummary({
+        year,
+        status,
+      });
       if (!all || all.length === 0) {
         showNotification(
           `No reports found for year ${year}.`,
@@ -391,7 +403,7 @@ export function AdminReports() {
         setPreviewLoading(false);
         return;
       }
-      const stats = calculateStats(all);
+      setYearlyStatsPreview(stats);
       setPreviewTitle(`${year} Annual Report - Preview`);
       
       // Generate PDF and get blob URL
@@ -417,31 +429,6 @@ export function AdminReports() {
     };
   }, [previewPdfUrl]);
 
-  // Calculate statistics for reports
-  const calculateStats = (items: Report[]) => {
-    const stats = {
-      total: items.length,
-      pending: items.filter(r => r.status === 'pending').length,
-      inProgress: items.filter(r => r.status === 'in_progress').length,
-      resolved: items.filter(r => r.status === 'resolved').length,
-      declined: items.filter(r => r.status === 'declined').length,
-      highPriority: items.filter(r => r.priority === 'high').length,
-      byCategory: {} as Record<string, number>,
-      byStatus: {} as Record<string, number>,
-      byPriority: {} as Record<string, number>,
-    };
-
-    items.forEach(r => {
-      stats.byCategory[r.category] = (stats.byCategory[r.category] || 0) + 1;
-      stats.byStatus[r.status] = (stats.byStatus[r.status] || 0) + 1;
-      if (r.priority) {
-        stats.byPriority[r.priority] = (stats.byPriority[r.priority] || 0) + 1;
-      }
-    });
-
-    return stats;
-  };
-
   // Professional PDF export for reporting
   const exportReportsPdf = async (
     items: Report[],
@@ -450,8 +437,9 @@ export function AdminReports() {
     month?: number
   ) => {
     try {
-      const stats = calculateStats(items);
-      
+      // Use centralized stats utility
+      const stats = buildReportStats(items);
+
       if (month) {
         await pdfReportService.generateMonthlyPDF(items, year, month, stats, filename);
       } else {
@@ -921,6 +909,26 @@ export function AdminReports() {
                 onChange={(e) => setMonthValue(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
               />
+              {monthlyStatsPreview && (
+                <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-2">
+                    <div className="text-[10px] uppercase text-gray-500">Total</div>
+                    <div className="text-sm font-semibold text-gray-900">{monthlyStatsPreview.total}</div>
+                  </div>
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-2">
+                    <div className="text-[10px] uppercase text-yellow-700">Pending</div>
+                    <div className="text-sm font-semibold text-yellow-800">{monthlyStatsPreview.pending}</div>
+                  </div>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-2">
+                    <div className="text-[10px] uppercase text-blue-700">In Progress</div>
+                    <div className="text-sm font-semibold text-blue-800">{monthlyStatsPreview.inProgress}</div>
+                  </div>
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-2">
+                    <div className="text-[10px] uppercase text-green-700">Resolved</div>
+                    <div className="text-sm font-semibold text-green-800">{monthlyStatsPreview.resolved}</div>
+                  </div>
+                </div>
+              )}
               <div className="mt-4 flex justify-end gap-2">
                 <button onClick={() => setShowMonthPicker(false)} className="px-3 py-1.5 text-sm rounded border border-gray-300">Cancel</button>
                 <button
@@ -933,6 +941,47 @@ export function AdminReports() {
                   className="px-3 py-1.5 text-sm rounded bg-blue-600 text-white hover:bg-blue-700"
                 >
                   Preview
+                </button>
+                <button
+                  onClick={async () => {
+                    const [yStr, mStr] = (monthValue || '').split('-');
+                    const year = Number(yStr || now.getFullYear());
+                    const month = Number((mStr || String(now.getMonth() + 1)).padStart(2, '0'));
+                    try {
+                      const { reports: all, stats } = await reportingService.getMonthlyReportSummary({
+                        year,
+                        month,
+                        status,
+                      });
+                      if (!all || all.length === 0) {
+                        showNotification(
+                          `No reports found for ${new Date(year, month - 1, 1).toLocaleString('en-US', { month: 'long' })} ${year}.`,
+                          'warning'
+                        );
+                        setShowMonthPicker(false);
+                        return;
+                      }
+                      const monthName = new Date(year, month - 1, 1).toLocaleString('en-US', { month: 'long' });
+                      const statusText = status === 'All' ? 'All' : status;
+                      exportReportsCsv({
+                        reports: all as any,
+                        stats,
+                        filename: `${monthName}_${year}_${statusText}_Report.csv`,
+                      });
+                      showNotification(
+                        `CSV report exported successfully. ${all.length} report(s) included.`,
+                        'success'
+                      );
+                    } catch (e: any) {
+                      showNotification(
+                        e?.message || 'Failed to export monthly CSV. Please try again.',
+                        'error'
+                      );
+                    }
+                  }}
+                  className="px-3 py-1.5 text-sm rounded bg-gray-700 text-white hover:bg-gray-800"
+                >
+                  Export CSV
                 </button>
                 <button
                   onClick={async () => {
@@ -987,6 +1036,26 @@ export function AdminReports() {
                 onChange={(e) => setYearValue(Number(e.target.value) || now.getFullYear())}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
               />
+              {yearlyStatsPreview && (
+                <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-2">
+                    <div className="text-[10px] uppercase text-gray-500">Total</div>
+                    <div className="text-sm font-semibold text-gray-900">{yearlyStatsPreview.total}</div>
+                  </div>
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-2">
+                    <div className="text-[10px] uppercase text-yellow-700">Pending</div>
+                    <div className="text-sm font-semibold text-yellow-800">{yearlyStatsPreview.pending}</div>
+                  </div>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-2">
+                    <div className="text-[10px] uppercase text-blue-700">In Progress</div>
+                    <div className="text-sm font-semibold text-blue-800">{yearlyStatsPreview.inProgress}</div>
+                  </div>
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-2">
+                    <div className="text-[10px] uppercase text-green-700">Resolved</div>
+                    <div className="text-sm font-semibold text-green-800">{yearlyStatsPreview.resolved}</div>
+                  </div>
+                </div>
+              )}
               <div className="mt-4 flex justify-end gap-2">
                 <button onClick={() => setShowYearPicker(false)} className="px-3 py-1.5 text-sm rounded border border-gray-300">Cancel</button>
                 <button
@@ -997,6 +1066,43 @@ export function AdminReports() {
                   className="px-3 py-1.5 text-sm rounded bg-blue-600 text-white hover:bg-blue-700"
                 >
                   Preview
+                </button>
+                <button
+                  onClick={async () => {
+                    const year = yearValue || now.getFullYear();
+                    try {
+                      const { reports: all, stats } = await reportingService.getYearlyReportSummary({
+                        year,
+                        status,
+                      });
+                      if (!all || all.length === 0) {
+                        showNotification(
+                          `No reports found for year ${year}.`,
+                          'warning'
+                        );
+                        setShowYearPicker(false);
+                        return;
+                      }
+                      const statusText = status === 'All' ? 'All' : status;
+                      exportReportsCsv({
+                        reports: all as any,
+                        stats,
+                        filename: `${year}_${statusText}_Annual_Report.csv`,
+                      });
+                      showNotification(
+                        `CSV report exported successfully. ${all.length} report(s) included.`,
+                        'success'
+                      );
+                    } catch (e: any) {
+                      showNotification(
+                        e?.message || 'Failed to export yearly CSV. Please try again.',
+                        'error'
+                      );
+                    }
+                  }}
+                  className="px-3 py-1.5 text-sm rounded bg-gray-700 text-white hover:bg-gray-800"
+                >
+                  Export CSV
                 </button>
                 <button
                   onClick={async () => {

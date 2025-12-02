@@ -57,6 +57,11 @@ Predefined system roles with bundled permissions:
 - **Admin** — Standard admin capabilities, cannot manage other admins
 - **Moderator** — Limited to viewing and moderate actions (ban users, view reports)
 
+#### Reports & analytics exports
+
+- Admins can export report data (PDF or CSV) from the admin reports dashboard.
+- Exports respect the currently selected filters (status, date range) and are intended for auditing and city reporting.
+
 ### 3. Admin Users
 
 The `admin_users` table tracks which users have admin privileges and their assigned role.
