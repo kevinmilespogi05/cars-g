@@ -45,15 +45,15 @@ const TYPOGRAPHY = {
   tiny: 6, // Footer, metadata
 };
 
-// Spacing Scale
-const SPACING = {
-  xs: 2,
-  sm: 4,
-  md: 8,
-  lg: 12,
-  xl: 16,
-  xxl: 24,
-};
+// Spacing Scale (currently unused, kept for future use)
+// const SPACING = {
+//   xs: 2,
+//   sm: 4,
+//   md: 8,
+//   lg: 12,
+//   xl: 16,
+//   xxl: 24,
+// };
 
 export const pdfReportService = {
   async generateMonthlyPDF(
@@ -298,11 +298,11 @@ export const pdfReportService = {
     pageHeight: number
   ): void {
     // Clean white background
-    pdf.setFillColor(...COLORS.backgroundCard);
+    pdf.setFillColor(COLORS.backgroundCard[0], COLORS.backgroundCard[1], COLORS.backgroundCard[2]);
     pdf.rect(0, 0, pageWidth, pageHeight, 'F');
     
     // Top accent bar
-    pdf.setFillColor(...COLORS.primary);
+    pdf.setFillColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
     pdf.rect(0, 0, pageWidth, 12, 'F');
     
     // Organization name in header
@@ -318,26 +318,26 @@ export const pdfReportService = {
     // Report type - large, bold
     pdf.setFontSize(TYPOGRAPHY.h1);
     pdf.setFont('Helvetica', 'bold');
-    pdf.setTextColor(...COLORS.textPrimary);
+    pdf.setTextColor(COLORS.textPrimary[0], COLORS.textPrimary[1], COLORS.textPrimary[2]);
     pdf.text(reportType, pageWidth / 2, yPos, { align: 'center' });
     yPos += 18;
     
     // Period - medium, accent color
     pdf.setFontSize(TYPOGRAPHY.h2);
     pdf.setFont('Helvetica', 'normal');
-    pdf.setTextColor(...COLORS.accent);
+    pdf.setTextColor(COLORS.accent[0], COLORS.accent[1], COLORS.accent[2]);
     pdf.text(period, pageWidth / 2, yPos, { align: 'center' });
     yPos += 20;
     
     // Divider line
-    pdf.setDrawColor(...COLORS.border);
+    pdf.setDrawColor(COLORS.border[0], COLORS.border[1], COLORS.border[2]);
     pdf.setLineWidth(0.5);
     pdf.line(50, yPos, pageWidth - 50, yPos);
     yPos += 15;
     
     // System name
     pdf.setFontSize(TYPOGRAPHY.body);
-    pdf.setTextColor(...COLORS.textSecondary);
+    pdf.setTextColor(COLORS.textSecondary[0], COLORS.textSecondary[1], COLORS.textSecondary[2]);
     pdf.text('Community Reporting System', pageWidth / 2, yPos, { align: 'center' });
     yPos += 25;
     
@@ -350,11 +350,11 @@ export const pdfReportService = {
       day: 'numeric'
     });
     pdf.setFontSize(TYPOGRAPHY.small);
-    pdf.setTextColor(...COLORS.textTertiary);
+    pdf.setTextColor(COLORS.textTertiary[0], COLORS.textTertiary[1], COLORS.textTertiary[2]);
     pdf.text(`Generated: ${dateStr}`, pageWidth / 2, yPos, { align: 'center' });
     
     // Bottom footer bar
-    pdf.setFillColor(...COLORS.primary);
+    pdf.setFillColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
     pdf.rect(0, pageHeight - 12, pageWidth, 12, 'F');
     
     // Confidential notice
@@ -366,7 +366,7 @@ export const pdfReportService = {
   // Modern Page Header
   addPageHeader(pdf: jsPDF, pageWidth: number, month?: number, year?: number, pageNum?: number): void {
     // Top bar
-    pdf.setFillColor(...COLORS.primary);
+    pdf.setFillColor(COLORS.primary[0], COLORS.primary[1], COLORS.primary[2]);
     pdf.rect(0, 0, pageWidth, 8, 'F');
     
     // Organization name
@@ -387,7 +387,7 @@ export const pdfReportService = {
     }
     
     // Subtle line below
-    pdf.setDrawColor(...COLORS.border);
+    pdf.setDrawColor(COLORS.border[0], COLORS.border[1], COLORS.border[2]);
     pdf.setLineWidth(0.3);
     pdf.line(15, 12, pageWidth - 15, 12);
   },
@@ -397,7 +397,7 @@ export const pdfReportService = {
     pdf: jsPDF,
     reportType: 'monthly' | 'yearly',
     pageWidth: number,
-    pageHeight: number,
+    _pageHeight: number,
     margin: number
   ): void {
     let yPos = margin + 20;
@@ -405,12 +405,12 @@ export const pdfReportService = {
     // Title
     pdf.setFontSize(TYPOGRAPHY.h1);
     pdf.setFont('Helvetica', 'bold');
-    pdf.setTextColor(...COLORS.textPrimary);
+    pdf.setTextColor(COLORS.textPrimary[0], COLORS.textPrimary[1], COLORS.textPrimary[2]);
     pdf.text('Table of Contents', pageWidth / 2, yPos, { align: 'center' });
     yPos += 20;
     
     // Divider
-    pdf.setDrawColor(...COLORS.border);
+    pdf.setDrawColor(COLORS.border[0], COLORS.border[1], COLORS.border[2]);
     pdf.setLineWidth(0.5);
     pdf.line(margin, yPos, pageWidth - margin, yPos);
     yPos += 15;
@@ -418,7 +418,7 @@ export const pdfReportService = {
     // Contents
     pdf.setFontSize(TYPOGRAPHY.body);
     pdf.setFont('Helvetica', 'normal');
-    pdf.setTextColor(...COLORS.textPrimary);
+    pdf.setTextColor(COLORS.textPrimary[0], COLORS.textPrimary[1], COLORS.textPrimary[2]);
     
     const contents = reportType === 'monthly' 
       ? [
@@ -445,7 +445,7 @@ export const pdfReportService = {
     
     contents.forEach((item) => {
       pdf.setFont('Helvetica', 'normal');
-      pdf.setTextColor(...COLORS.textPrimary);
+      pdf.setTextColor(COLORS.textPrimary[0], COLORS.textPrimary[1], COLORS.textPrimary[2]);
       pdf.text(item.title, margin + 5, yPos);
       
       // Dotted line
@@ -465,13 +465,13 @@ export const pdfReportService = {
   // Section Title Helper
   addSectionTitle(pdf: jsPDF, title: string, yPos: number, margin: number): void {
     // Left accent bar
-    pdf.setFillColor(...COLORS.accent);
+    pdf.setFillColor(COLORS.accent[0], COLORS.accent[1], COLORS.accent[2]);
     pdf.rect(margin, yPos - 2, 3, 6, 'F');
     
     // Title
     pdf.setFontSize(TYPOGRAPHY.h2);
     pdf.setFont('Helvetica', 'bold');
-    pdf.setTextColor(...COLORS.textPrimary);
+    pdf.setTextColor(COLORS.textPrimary[0], COLORS.textPrimary[1], COLORS.textPrimary[2]);
     pdf.text(title, margin + 6, yPos + 2);
   },
 
@@ -491,7 +491,7 @@ export const pdfReportService = {
     // Overview paragraph
     pdf.setFontSize(TYPOGRAPHY.body);
     pdf.setFont('Helvetica', 'normal');
-    pdf.setTextColor(...COLORS.textPrimary);
+    pdf.setTextColor(COLORS.textPrimary[0], COLORS.textPrimary[1], COLORS.textPrimary[2]);
     
     const total = Math.max(stats.total, 1);
     const resolutionRate = Math.round((stats.resolved / total) * 100);
@@ -521,25 +521,25 @@ export const pdfReportService = {
     
     metrics.forEach((metric) => {
       // Card background
-      pdf.setFillColor(...COLORS.background);
-      pdf.setDrawColor(...COLORS.border);
+      pdf.setFillColor(COLORS.background[0], COLORS.background[1], COLORS.background[2]);
+      pdf.setDrawColor(COLORS.border[0], COLORS.border[1], COLORS.border[2]);
       pdf.setLineWidth(0.3);
       pdf.roundedRect(x, yPos, cardWidth, cardHeight, 2, 2, 'FD');
       
       // Top accent
-      pdf.setFillColor(...metric.color);
+      pdf.setFillColor(metric.color[0], metric.color[1], metric.color[2]);
       pdf.rect(x, yPos, cardWidth, 3, 'F');
       
       // Value
       pdf.setFontSize(TYPOGRAPHY.h3);
       pdf.setFont('Helvetica', 'bold');
-      pdf.setTextColor(...metric.color);
+      pdf.setTextColor(metric.color[0], metric.color[1], metric.color[2]);
       pdf.text(String(metric.value), x + cardWidth / 2, yPos + 12, { align: 'center' });
       
       // Label
       pdf.setFontSize(TYPOGRAPHY.small);
       pdf.setFont('Helvetica', 'normal');
-      pdf.setTextColor(...COLORS.textSecondary);
+      pdf.setTextColor(COLORS.textSecondary[0], COLORS.textSecondary[1], COLORS.textSecondary[2]);
       pdf.text(metric.label, x + cardWidth / 2, yPos + 17, { align: 'center' });
       
       x += cardWidth + 4;
@@ -585,25 +585,25 @@ export const pdfReportService = {
       }
       
       // Card
-      pdf.setFillColor(...COLORS.backgroundCard);
-      pdf.setDrawColor(...COLORS.border);
+      pdf.setFillColor(COLORS.backgroundCard[0], COLORS.backgroundCard[1], COLORS.backgroundCard[2]);
+      pdf.setDrawColor(COLORS.border[0], COLORS.border[1], COLORS.border[2]);
       pdf.setLineWidth(0.3);
       pdf.roundedRect(x, y, cardWidth, cardHeight, 2, 2, 'FD');
       
       // Left accent
-      pdf.setFillColor(...metric.color);
+      pdf.setFillColor(metric.color[0], metric.color[1], metric.color[2]);
       pdf.rect(x, y, 2, cardHeight, 'F');
       
       // Value
       pdf.setFontSize(TYPOGRAPHY.h3);
       pdf.setFont('Helvetica', 'bold');
-      pdf.setTextColor(...COLORS.textPrimary);
+      pdf.setTextColor(COLORS.textPrimary[0], COLORS.textPrimary[1], COLORS.textPrimary[2]);
       pdf.text(metric.value, x + cardWidth / 2, y + 10, { align: 'center' });
       
       // Label
       pdf.setFontSize(TYPOGRAPHY.small);
       pdf.setFont('Helvetica', 'normal');
-      pdf.setTextColor(...COLORS.textSecondary);
+      pdf.setTextColor(COLORS.textSecondary[0], COLORS.textSecondary[1], COLORS.textSecondary[2]);
       pdf.text(metric.label, x + cardWidth / 2, y + 15, { align: 'center' });
       
       x += cardWidth + 4;
@@ -652,8 +652,8 @@ export const pdfReportService = {
     const chartHeight = 50;
     
     // Chart container
-    pdf.setFillColor(...COLORS.background);
-    pdf.setDrawColor(...COLORS.border);
+    pdf.setFillColor(COLORS.background[0], COLORS.background[1], COLORS.background[2]);
+    pdf.setDrawColor(COLORS.border[0], COLORS.border[1], COLORS.border[2]);
     pdf.setLineWidth(0.3);
     pdf.roundedRect(margin, yPos, cWidth, chartHeight, 2, 2, 'FD');
     
@@ -669,14 +669,14 @@ export const pdfReportService = {
       // Label
       pdf.setFontSize(TYPOGRAPHY.body);
       pdf.setFont('Helvetica', 'normal');
-      pdf.setTextColor(...COLORS.textPrimary);
+      pdf.setTextColor(COLORS.textPrimary[0], COLORS.textPrimary[1], COLORS.textPrimary[2]);
       pdf.text(item.label, margin + 5, currentY + 5);
       
       // Value and percentage
       pdf.setFont('Helvetica', 'bold');
       pdf.text(`${item.value}`, margin + 35, currentY + 5);
       pdf.setFont('Helvetica', 'normal');
-      pdf.setTextColor(...COLORS.textSecondary);
+      pdf.setTextColor(COLORS.textSecondary[0], COLORS.textSecondary[1], COLORS.textSecondary[2]);
       pdf.text(`(${percentage.toFixed(1)}%)`, margin + 45, currentY + 5);
       
       // Bar background
@@ -684,7 +684,7 @@ export const pdfReportService = {
       pdf.rect(margin + 60, currentY, cWidth - 65, barHeight, 'F');
       
       // Colored bar
-      pdf.setFillColor(...item.color);
+      pdf.setFillColor(item.color[0], item.color[1], item.color[2]);
       pdf.rect(margin + 60, currentY, barWidth, barHeight, 'F');
       
       currentY += spacing;
@@ -709,8 +709,8 @@ export const pdfReportService = {
     const chartHeight = Math.min(categories.length * 8 + 10, 60);
     
     // Chart container
-    pdf.setFillColor(...COLORS.background);
-    pdf.setDrawColor(...COLORS.border);
+    pdf.setFillColor(COLORS.background[0], COLORS.background[1], COLORS.background[2]);
+    pdf.setDrawColor(COLORS.border[0], COLORS.border[1], COLORS.border[2]);
     pdf.setLineWidth(0.3);
     pdf.roundedRect(margin, yPos, cWidth, chartHeight, 2, 2, 'FD');
     
@@ -737,7 +737,7 @@ export const pdfReportService = {
       // Category name
       pdf.setFontSize(TYPOGRAPHY.body);
       pdf.setFont('Helvetica', 'normal');
-      pdf.setTextColor(...COLORS.textPrimary);
+      pdf.setTextColor(COLORS.textPrimary[0], COLORS.textPrimary[1], COLORS.textPrimary[2]);
       const categoryName = category.length > 20 ? category.substring(0, 17) + '...' : category;
       pdf.text(this.normalizeValue(categoryName), margin + 5, currentY + 4);
       
@@ -745,13 +745,13 @@ export const pdfReportService = {
       pdf.setFont('Helvetica', 'bold');
       pdf.text(`${count}`, margin + 35, currentY + 4);
       pdf.setFont('Helvetica', 'normal');
-      pdf.setTextColor(...COLORS.textSecondary);
+      pdf.setTextColor(COLORS.textSecondary[0], COLORS.textSecondary[1], COLORS.textSecondary[2]);
       pdf.text(`(${percentage}%)`, margin + 45, currentY + 4);
       
       // Bar
       pdf.setFillColor(230, 230, 235);
       pdf.rect(margin + 60, currentY, cWidth - 65, barHeight, 'F');
-      pdf.setFillColor(...color);
+      pdf.setFillColor(color[0], color[1], color[2]);
       pdf.rect(margin + 60, currentY, barWidth, barHeight, 'F');
       
       currentY += spacing;
@@ -785,15 +785,15 @@ export const pdfReportService = {
     
     if (data.length === 0) {
       pdf.setFontSize(TYPOGRAPHY.body);
-      pdf.setTextColor(...COLORS.textSecondary);
+      pdf.setTextColor(COLORS.textSecondary[0], COLORS.textSecondary[1], COLORS.textSecondary[2]);
       pdf.text('No trend data available', margin, yPos);
       return;
     }
     
     // Chart container
     const chartHeight = 50;
-    pdf.setFillColor(...COLORS.background);
-    pdf.setDrawColor(...COLORS.border);
+    pdf.setFillColor(COLORS.background[0], COLORS.background[1], COLORS.background[2]);
+    pdf.setDrawColor(COLORS.border[0], COLORS.border[1], COLORS.border[2]);
     pdf.setLineWidth(0.3);
     pdf.roundedRect(margin, yPos, cWidth, chartHeight, 2, 2, 'FD');
     
@@ -810,17 +810,17 @@ export const pdfReportService = {
       const barHeight = (item.count / maxCount) * chartAreaHeight;
       
       // Bar
-      pdf.setFillColor(...COLORS.chartBlue);
+      pdf.setFillColor(COLORS.chartBlue[0], COLORS.chartBlue[1], COLORS.chartBlue[2]);
       pdf.rect(x, baseY - barHeight, barWidth - 2, barHeight, 'F');
       
       // Label
       pdf.setFontSize(TYPOGRAPHY.small);
-      pdf.setTextColor(...COLORS.textSecondary);
+      pdf.setTextColor(COLORS.textSecondary[0], COLORS.textSecondary[1], COLORS.textSecondary[2]);
       pdf.text(item.label, x + barWidth / 2, baseY + 3, { align: 'center' });
       
       // Value
       pdf.setFontSize(TYPOGRAPHY.tiny);
-      pdf.setTextColor(...COLORS.textPrimary);
+      pdf.setTextColor(COLORS.textPrimary[0], COLORS.textPrimary[1], COLORS.textPrimary[2]);
       pdf.text(String(item.count), x + barWidth / 2, baseY - barHeight - 2, { align: 'center' });
       
       x += barWidth;
@@ -851,7 +851,7 @@ export const pdfReportService = {
     
     if (highPriorityReports.length === 0) {
       pdf.setFontSize(TYPOGRAPHY.body);
-      pdf.setTextColor(...COLORS.textSecondary);
+      pdf.setTextColor(COLORS.textSecondary[0], COLORS.textSecondary[1], COLORS.textSecondary[2]);
       pdf.text('No high-priority issues pending >14 days', margin, yPos);
       return;
     }
@@ -873,24 +873,24 @@ export const pdfReportService = {
       const daysPending = Math.floor((Date.now() - created.getTime()) / (1000 * 60 * 60 * 24));
       
       // Report card
-      pdf.setFillColor(...COLORS.background);
-      pdf.setDrawColor(...COLORS.border);
+      pdf.setFillColor(COLORS.background[0], COLORS.background[1], COLORS.background[2]);
+      pdf.setDrawColor(COLORS.border[0], COLORS.border[1], COLORS.border[2]);
       pdf.setLineWidth(0.3);
       pdf.roundedRect(margin, yPos, cWidth, 12, 2, 2, 'FD');
       
       // Left accent
-      pdf.setFillColor(...COLORS.danger);
+      pdf.setFillColor(COLORS.danger[0], COLORS.danger[1], COLORS.danger[2]);
       pdf.rect(margin, yPos, 2, 12, 'F');
       
       // Report ID and title
       pdf.setFont('Helvetica', 'bold');
-      pdf.setTextColor(...COLORS.textPrimary);
+      pdf.setTextColor(COLORS.textPrimary[0], COLORS.textPrimary[1], COLORS.textPrimary[2]);
       const reportId = report.case_number || `#${report.id.slice(0, 8)}`;
       pdf.text(`${reportId}: ${report.title}`, margin + 5, yPos + 5);
       
       // Status and days
       pdf.setFont('Helvetica', 'normal');
-      pdf.setTextColor(...COLORS.textSecondary);
+      pdf.setTextColor(COLORS.textSecondary[0], COLORS.textSecondary[1], COLORS.textSecondary[2]);
       pdf.text(`Status: ${this.normalizeValue(report.status)} | Days Pending: ${daysPending}`, margin + 5, yPos + 10);
       
       yPos += 15;
@@ -904,7 +904,7 @@ export const pdfReportService = {
     stats: ReportStats,
     yPos: number,
     margin: number,
-    cWidth: number
+    _cWidth: number
   ): void {
     // Geographic Hotspots
     this.addSectionTitle(pdf, 'Geographic Hotspots', yPos, margin);
@@ -926,10 +926,10 @@ export const pdfReportService = {
       pdf.setFontSize(TYPOGRAPHY.body);
       hotspots.forEach(([area, count], index) => {
         pdf.setFont('Helvetica', 'bold');
-        pdf.setTextColor(...COLORS.textPrimary);
+        pdf.setTextColor(COLORS.textPrimary[0], COLORS.textPrimary[1], COLORS.textPrimary[2]);
         pdf.text(`${index + 1}. ${area}`, margin, yPos);
         pdf.setFont('Helvetica', 'normal');
-        pdf.setTextColor(...COLORS.textSecondary);
+        pdf.setTextColor(COLORS.textSecondary[0], COLORS.textSecondary[1], COLORS.textSecondary[2]);
         pdf.text(`${count} reports`, margin + 50, yPos);
         yPos += 6;
       });
@@ -952,10 +952,10 @@ export const pdfReportService = {
       categories.forEach((item, index) => {
         const percentage = ((item.count / total) * 100).toFixed(1);
         pdf.setFont('Helvetica', 'bold');
-        pdf.setTextColor(...COLORS.textPrimary);
+        pdf.setTextColor(COLORS.textPrimary[0], COLORS.textPrimary[1], COLORS.textPrimary[2]);
         pdf.text(`${index + 1}. ${item.category}`, margin, yPos);
         pdf.setFont('Helvetica', 'normal');
-        pdf.setTextColor(...COLORS.textSecondary);
+        pdf.setTextColor(COLORS.textSecondary[0], COLORS.textSecondary[1], COLORS.textSecondary[2]);
         pdf.text(`${item.count} reports (${percentage}%)`, margin + 50, yPos);
         yPos += 6;
       });
@@ -966,7 +966,7 @@ export const pdfReportService = {
   addRecommendations(
     pdf: jsPDF,
     stats: ReportStats,
-    reports: Report[],
+    _reports: Report[],
     yPos: number,
     margin: number,
     cWidth: number
@@ -1006,11 +1006,11 @@ export const pdfReportService = {
     
     pdf.setFontSize(TYPOGRAPHY.body);
     pdf.setFont('Helvetica', 'normal');
-    pdf.setTextColor(...COLORS.textPrimary);
+    pdf.setTextColor(COLORS.textPrimary[0], COLORS.textPrimary[1], COLORS.textPrimary[2]);
     
     recommendations.forEach((rec) => {
       // Bullet point
-      pdf.setFillColor(...COLORS.accent);
+      pdf.setFillColor(COLORS.accent[0], COLORS.accent[1], COLORS.accent[2]);
       pdf.circle(margin + 2, yPos - 1, 1, 'F');
       
       const lines = pdf.splitTextToSize(rec, cWidth - 8);
@@ -1098,22 +1098,22 @@ export const pdfReportService = {
       y += 2;
       
       // Category header background
-      pdf.setFillColor(...COLORS.background);
-      pdf.setDrawColor(...COLORS.border);
+      pdf.setFillColor(COLORS.background[0], COLORS.background[1], COLORS.background[2]);
+      pdf.setDrawColor(COLORS.border[0], COLORS.border[1], COLORS.border[2]);
       pdf.setLineWidth(0.3);
       pdf.rect(margin, y, cWidth, categoryHeaderHeight, 'FD');
       
       // Category label
       pdf.setFontSize(TYPOGRAPHY.body);
       pdf.setFont('Helvetica', 'bold');
-      pdf.setTextColor(...COLORS.textPrimary);
+      pdf.setTextColor(COLORS.textPrimary[0], COLORS.textPrimary[1], COLORS.textPrimary[2]);
       pdf.text(category, margin + 5, y + 5.5);
       
       // Count badge
       const count = groupedReports[category]?.length || 0;
       pdf.setFontSize(TYPOGRAPHY.small);
       pdf.setFont('Helvetica', 'normal');
-      pdf.setTextColor(...COLORS.textSecondary);
+      pdf.setTextColor(COLORS.textSecondary[0], COLORS.textSecondary[1], COLORS.textSecondary[2]);
       pdf.text(`(${count} reports)`, margin + 50, y + 5.5);
       
       y += categoryHeaderHeight;
@@ -1121,7 +1121,7 @@ export const pdfReportService = {
     
     drawHeader();
     
-    pdf.setTextColor(...COLORS.textPrimary);
+    pdf.setTextColor(COLORS.textPrimary[0], COLORS.textPrimary[1], COLORS.textPrimary[2]);
     pdf.setFont('Helvetica', 'normal');
     pdf.setFontSize(TYPOGRAPHY.small);
     
@@ -1173,7 +1173,7 @@ export const pdfReportService = {
           pdf.setFillColor(254, 242, 242); // Light red background
           pdf.rect(margin, y, cWidth, rowHeight, 'F');
         } else if (globalIdx % 2 === 0) {
-          pdf.setFillColor(...COLORS.background);
+          pdf.setFillColor(COLORS.background[0], COLORS.background[1], COLORS.background[2]);
           pdf.rect(margin, y, cWidth, rowHeight, 'F');
         }
         
@@ -1245,7 +1245,7 @@ export const pdfReportService = {
           }
           
           pdf.setFont('Helvetica', isBold ? 'bold' : 'normal');
-          pdf.setTextColor(...textColor);
+          pdf.setTextColor(textColor[0], textColor[1], textColor[2]);
           pdf.text(val, x + cellPadding, textY, { maxWidth: col.width - cellPadding * 2 });
           
           // Priority indicator dot
@@ -1255,12 +1255,12 @@ export const pdfReportService = {
             if (priorityLower === 'high') indicatorColor = COLORS.danger;
             else if (priorityLower === 'medium') indicatorColor = COLORS.warning;
             
-            pdf.setFillColor(...indicatorColor);
+            pdf.setFillColor(indicatorColor[0], indicatorColor[1], indicatorColor[2]);
             pdf.circle(x + cellPadding - 2.5, y + 5, 1.5, 'F');
           }
           
           // Column divider
-          pdf.setDrawColor(...COLORS.border);
+          pdf.setDrawColor(COLORS.border[0], COLORS.border[1], COLORS.border[2]);
           pdf.setLineWidth(0.2);
           pdf.line(x + col.width, y, x + col.width, y + rowHeight);
           
@@ -1268,7 +1268,7 @@ export const pdfReportService = {
         });
         
         // Row border
-        pdf.setDrawColor(...COLORS.border);
+        pdf.setDrawColor(COLORS.border[0], COLORS.border[1], COLORS.border[2]);
         pdf.setLineWidth(0.2);
         pdf.line(margin, y + rowHeight, margin + cWidth, y + rowHeight);
         
@@ -1356,13 +1356,13 @@ export const pdfReportService = {
       pdf.setPage(i);
       
       // Top border
-      pdf.setDrawColor(...COLORS.border);
+      pdf.setDrawColor(COLORS.border[0], COLORS.border[1], COLORS.border[2]);
       pdf.setLineWidth(0.3);
       pdf.line(margin, ph - footerHeight, pw - margin, ph - footerHeight);
       
       pdf.setFontSize(TYPOGRAPHY.tiny);
       pdf.setFont('Helvetica', 'normal');
-      pdf.setTextColor(...COLORS.textTertiary);
+      pdf.setTextColor(COLORS.textTertiary[0], COLORS.textTertiary[1], COLORS.textTertiary[2]);
       
       // Left: Organization
       pdf.text('BANTAY SP Community Reporting System', margin, ph - 6);
@@ -1373,12 +1373,12 @@ export const pdfReportService = {
       // Center: Page numbers
       pdf.setFontSize(TYPOGRAPHY.tiny);
       pdf.setFont('Helvetica', 'bold');
-      pdf.setTextColor(...COLORS.textSecondary);
+      pdf.setTextColor(COLORS.textSecondary[0], COLORS.textSecondary[1], COLORS.textSecondary[2]);
       pdf.text(`Page ${i} of ${pCount}`, pw / 2, ph - 4.5, { align: 'center' });
       
       // Right: Generation date
       pdf.setFont('Helvetica', 'normal');
-      pdf.setTextColor(...COLORS.textTertiary);
+      pdf.setTextColor(COLORS.textTertiary[0], COLORS.textTertiary[1], COLORS.textTertiary[2]);
       const genDate = new Date();
       const dateStr = genDate.toLocaleDateString('en-US', {
         year: 'numeric',
