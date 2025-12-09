@@ -149,10 +149,36 @@ function _createSubscription(channelName: string, events: any[], callback: Funct
   };
 }
 
+// Helper function to log report actions
+async function logReportAction(
+  reportId: string,
+  message: string,
+  commentType: 'status_update' | 'assignment' | 'resolution' | 'priority_update' | 'group_assignment' | 'report_edit' | 'archive' | 'cancellation'
+): Promise<void> {
+  try {
+    await CommentsService.addComment(reportId, message, commentType);
+    console.log(`[Reports Service] Created ${commentType} log entry for report ${reportId}`);
+  } catch (logError) {
+    // Don't fail main operation if logging fails
+    console.warn(`[Reports Service] Failed to create ${commentType} log entry:`, logError);
+  }
+}
+
 export const reportsService = {
   // Create report with optimistic updates
   async createReport(reportData: Omit<Report, 'id' | 'created_at' | 'updated_at' | 'status'> & { idempotency_key?: string }): Promise<Report> {
+    const startTime = Date.now();
     const user = getCurrentUser();
+    console.log(`[Reports Service] Creating new report for user: ${user.id}`);
+    console.log(`[Reports Service] Report data:`, {
+      title: (reportData as any).title,
+      category: (reportData as any).category,
+      priority: (reportData as any).priority,
+      hasImages: Array.isArray((reportData as any).images) ? (reportData as any).images.length : 0,
+      location: (reportData as any).location_lat && (reportData as any).location_lng ? 
+        `${(reportData as any).location_lat}, ${(reportData as any).location_lng}` : 'N/A',
+      isAnonymous: (reportData as any).is_anonymous || false
+    });
 
     // Optimistic update - add to cache immediately
     const optimisticReport: Report = {
@@ -172,6 +198,7 @@ export const reportsService = {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session || !session.user) {
+          console.log(`[Reports Service] No Supabase session found, using backend API endpoint`);
           const url = `${getApiUrl('/api/reports')}`;
           const resp = await authenticatedRequest(url, {
             method: 'POST',
@@ -192,16 +219,22 @@ export const reportsService = {
           });
           if (!resp.ok) {
             const body = await resp.text().catch(() => '');
+            console.error(`[Reports Service] API endpoint failed: HTTP ${resp.status}`, body);
             throw new ReportsServiceError(`Failed to create report (api): HTTP ${resp.status} ${body}`);
           }
           const data = await resp.json();
+          const duration = Date.now() - startTime;
+          console.log(`[Reports Service] Report created successfully via API in ${duration}ms. Report ID: ${data.id}`);
           return {
             ...data,
             likes: { count: 0 },
             comments: { count: 0 }
           } as any;
+        } else {
+          console.log(`[Reports Service] Supabase session found, using direct client insert`);
         }
       } catch (prefetchErr) {
+        console.warn(`[Reports Service] Error checking session, proceeding to client insert:`, prefetchErr);
         // proceed to client insert path
       }
       // Helper: derive priority_level from priority when not explicitly set
@@ -236,16 +269,23 @@ export const reportsService = {
         // idempotency_key intentionally omitted: column not present in schema
       };
 
+      console.log(`[Reports Service] Attempting direct Supabase insert...`);
       const { data, error } = await supabase
         .from('reports')
         .insert([payload])
-        .select('id, user_id, title, description, category, priority, status, location, location_address, images, is_anonymous, user_notes_to_admin, created_at, updated_at, case_number, priority_level, assigned_group, assigned_patroller_name, can_cancel')
+        .select('id, user_id, title, description, category, priority, status, location, location_address, images, is_anonymous, user_notes_to_admin, created_at, updated_at, case_number, priority_level, assigned_group, assigned_patroller_name, can_cancel, approved_at')
         .single();
 
       if (error) {
+        console.warn(`[Reports Service] Direct insert failed:`, {
+          code: (error as any)?.code,
+          message: (error as any)?.message,
+          hint: (error as any)?.hint
+        });
         // Fallback to server endpoint if RLS/401 prevents insert
         const message = (error as any)?.message || '';
         if (message.includes('row-level security') || (error as any)?.code === '42501' || (error as any)?.status === 401) {
+          console.log(`[Reports Service] RLS/auth error detected, falling back to server endpoint...`);
           try {
             const url = `${getApiUrl('/api/reports')}`;
             const resp = await authenticatedRequest(url, {
@@ -292,9 +332,13 @@ export const reportsService = {
         _cacheProfile(data.user_id, optimisticReport.user_profile!);
       }
 
+      const duration = Date.now() - startTime;
+      console.log(`[Reports Service] Report created successfully in ${duration}ms. Report ID: ${data.id}, Case Number: ${data.case_number || 'N/A'}`);
+
       // Create notification asynchronously (guarded by feature flag)
       if (ENABLE_CLIENT_SIDE_NOTIFICATIONS) {
         try {
+          console.log(`[Reports Service] Creating notification for report ${data.id}...`);
           await supabase.from('notifications').insert({
             user_id: payload.user_id,
             title: 'Case Received',
@@ -303,19 +347,23 @@ export const reportsService = {
             link: `/reports/${data.id}`,
             read: false,
           } as any);
+          console.log(`[Reports Service] Notification created successfully`);
         } catch (e) {
-          console.warn('Client-side notification insert failed:', e);
+          console.warn('[Reports Service] Client-side notification insert failed:', e);
         }
       }
 
       // Check for achievements asynchronously
       try {
+        console.log(`[Reports Service] Checking achievements for user ${payload.user_id}...`);
         const newAchievements = await checkAchievements(payload.user_id);
         if (newAchievements.length > 0) {
-          console.log('New achievements unlocked:', newAchievements.map(a => a.title));
+          console.log('[Reports Service] New achievements unlocked:', newAchievements.map(a => a.title));
+        } else {
+          console.log('[Reports Service] No new achievements unlocked');
         }
       } catch (e) {
-        console.warn('Failed to check achievements after report creation:', e);
+        console.warn('[Reports Service] Failed to check achievements after report creation:', e);
       }
 
       return {
@@ -324,6 +372,14 @@ export const reportsService = {
         comments: { count: 0 }
       } as any;
     } catch (error: any) {
+      const duration = Date.now() - startTime;
+      console.error(`[Reports Service] Failed to create report after ${duration}ms:`, error);
+      console.error(`[Reports Service] Error details:`, {
+        message: error?.message || 'Unknown error',
+        code: error?.code,
+        error_description: error?.error_description,
+        stack: error instanceof Error ? error.stack : undefined
+      });
       // Surface Supabase error details when available
       const message = error?.message || (error?.error_description) || 'Unknown error';
       throw new ReportsServiceError(`Failed to create report: ${message}`);
@@ -1332,6 +1388,9 @@ export const reportsService = {
     limit?: number;
     user_id?: string; // Add user_id filter for user-specific reports
   }): Promise<Report[]> {
+    const startTime = Date.now();
+    console.log(`[Reports Service] Fetching reports with filters:`, filters);
+    
     try {
       // Create stable cache key based on explicit filter parts to avoid collisions
       const cacheKeyHash = [
@@ -1348,8 +1407,14 @@ export const reportsService = {
       if (cached) {
         const { data, timestamp } = JSON.parse(cached);
         if (Date.now() - timestamp < 30000) { // 30 second cache
+          const duration = Date.now() - startTime;
+          console.log(`[Reports Service] Returning cached reports (${data.length} reports) in ${duration}ms`);
           return data;
+        } else {
+          console.log(`[Reports Service] Cache expired, fetching fresh data...`);
         }
+      } else {
+        console.log(`[Reports Service] No cache found, fetching from database...`);
       }
 
       let query = supabase
@@ -1581,35 +1646,118 @@ export const reportsService = {
         timestamp: Date.now()
       }));
 
+      const duration = Date.now() - startTime;
+      console.log(`[Reports Service] Successfully fetched ${result.length} reports in ${duration}ms`);
+      console.log(`[Reports Service] Report breakdown:`, {
+        total: result.length,
+        byStatus: result.reduce((acc, r) => {
+          acc[r.status] = (acc[r.status] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>),
+        byCategory: result.reduce((acc, r) => {
+          acc[r.category] = (acc[r.category] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>)
+      });
+
       return result;
     } catch (error) {
+      const duration = Date.now() - startTime;
+      console.error(`[Reports Service] Failed to get reports after ${duration}ms:`, error);
+      console.error(`[Reports Service] Error details:`, {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        filters
+      });
       throw new ReportsServiceError(`Failed to get reports: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   },
 
   // Update report status with optimistic updates
   async updateReportStatus(reportId: string, newStatus: Report['status']): Promise<Report> {
+    const startTime = Date.now();
     const user = getCurrentUser();
+    console.log(`[Reports Service] Updating report ${reportId} status to: ${newStatus} by user: ${user.id}`);
 
     // Validate status
     const validStatuses = ['verifying', 'pending', 'in_progress', 'resolved', 'declined', 'cancelled', 'awaiting_verification'] as const;
     if (!validStatuses.includes(newStatus as any)) {
+      console.error(`[Reports Service] Invalid status value: ${newStatus}`);
       throw new ReportsServiceError(`Invalid status value: ${newStatus}`);
     }
 
+    // Get current report to check if this is an approval (moving from verifying/awaiting_verification to pending/resolved)
+    const { data: currentReport } = await supabase
+      .from('reports')
+      .select('status, approved_at')
+      .eq('id', reportId)
+      .single();
+
+    const oldStatus = currentReport?.status;
+    const isApproval = currentReport && 
+      (currentReport.status === 'verifying' || currentReport.status === 'awaiting_verification') &&
+      (newStatus === 'pending' || newStatus === 'resolved') &&
+      !currentReport.approved_at;
+
+    const updateData: any = {
+      status: newStatus,
+      updated_at: new Date().toISOString()
+    };
+
+    // If this is an approval and approved_at is not already set, set it now
+    if (isApproval) {
+      updateData.approved_at = new Date().toISOString();
+      console.log(`[Reports Service] This is an approval action. Setting approved_at timestamp`);
+    }
+
     // Update report status
+    console.log(`[Reports Service] Executing status update query...`);
     const { data, error } = await supabase
       .from('reports')
-      .update({ 
-        status: newStatus,
-        updated_at: new Date().toISOString()
-      })
+      .update(updateData)
       .eq('id', reportId)
       .select()
       .single();
 
-    if (error) throw new ReportsServiceError(`Failed to update report: ${error.message}`);
-    if (!data) throw new ReportsServiceError('Report not found');
+    if (error) {
+      const duration = Date.now() - startTime;
+      console.error(`[Reports Service] Failed to update report status after ${duration}ms:`, {
+        reportId,
+        newStatus,
+        error: error.message,
+        code: error.code
+      });
+      throw new ReportsServiceError(`Failed to update report: ${error.message}`);
+    }
+    if (!data) {
+      const duration = Date.now() - startTime;
+      console.error(`[Reports Service] Report not found after ${duration}ms:`, reportId);
+      throw new ReportsServiceError('Report not found');
+    }
+    
+    const duration = Date.now() - startTime;
+    console.log(`[Reports Service] Report status updated successfully in ${duration}ms. Report ID: ${data.id}, New Status: ${data.status}`);
+
+    // Create a log entry for the status change
+    if (oldStatus && oldStatus !== newStatus) {
+      try {
+        let statusMessage: string;
+        let commentType: 'status_update' | 'resolution' = 'status_update';
+        
+        if (newStatus === 'resolved') {
+          statusMessage = `Report resolved: Status changed from ${formatStatusForDisplay(oldStatus)} to ${formatStatusForDisplay(newStatus)}`;
+          commentType = 'resolution';
+        } else {
+          statusMessage = `Status updated to ${formatStatusForDisplay(newStatus)}`;
+        }
+        
+        await CommentsService.addComment(reportId, statusMessage, commentType);
+        console.log(`[Reports Service] Created ${commentType} log entry`);
+      } catch (logError) {
+        // Don't fail the status update if log creation fails
+        console.warn(`[Reports Service] Failed to create status update log entry:`, logError);
+      }
+    }
 
     // Notify report owner asynchronously (guarded by feature flag)
     if (ENABLE_CLIENT_SIDE_NOTIFICATIONS) {
@@ -2123,6 +2271,13 @@ export const reportsService = {
     }
   ): Promise<Report> {
     try {
+      // Get current report to compare old vs new values BEFORE updating
+      const { data: currentReport } = await supabase
+        .from('reports')
+        .select('priority_level, assigned_group')
+        .eq('id', reportId)
+        .single();
+
       const { data, error } = await supabase
         .from('reports')
         .update(updates)
@@ -2136,6 +2291,28 @@ export const reportsService = {
         .single();
 
       if (error) throw error;
+
+      // Log priority_level changes
+      if (updates.priority_level !== undefined && currentReport && currentReport.priority_level !== updates.priority_level) {
+        const oldLevel = currentReport.priority_level ?? 'not set';
+        const newLevel = updates.priority_level;
+        await logReportAction(
+          reportId,
+          `Priority level changed from ${oldLevel} to ${newLevel}`,
+          'priority_update'
+        );
+      }
+
+      // Log assigned_group changes
+      if (updates.assigned_group !== undefined && currentReport && currentReport.assigned_group !== updates.assigned_group) {
+        const oldGroup = currentReport.assigned_group || 'unassigned';
+        const newGroup = updates.assigned_group || 'unassigned';
+        await logReportAction(
+          reportId,
+          `Group assignment changed from '${oldGroup}' to '${newGroup}'`,
+          'group_assignment'
+        );
+      }
 
       // Notify report owner about dispatch/assignment change
       if (ENABLE_CLIENT_SIDE_NOTIFICATIONS) {
@@ -2190,14 +2367,11 @@ export const reportsService = {
       // Clear cache to ensure fresh data on next fetch
       this.clearCache();
 
-      // Add a comment about the cancellation if reason provided
-      if (reason) {
-        try {
-          await CommentsService.addComment(reportId, `Report cancelled: ${reason}`, 'status_update');
-        } catch (commentError) {
-          console.warn('Failed to add cancellation comment:', commentError);
-        }
-      }
+      // Log cancellation with reason
+      const cancellationMessage = reason 
+        ? `Report cancelled. Reason: ${reason}`
+        : 'Report cancelled';
+      await logReportAction(reportId, cancellationMessage, 'cancellation');
 
       return data as Report;
     } catch (error) {
@@ -2223,7 +2397,11 @@ export const reportsService = {
 
   // Get a single report by ID
   async getReport(reportId: string): Promise<Report> {
+    const startTime = Date.now();
+    console.log(`[Reports Service] Fetching report: ${reportId}`);
+    
     try {
+      console.log(`[Reports Service] Executing database query for report ${reportId}...`);
       const { data, error } = await supabase
         .from('reports')
         .select(`
@@ -2237,8 +2415,22 @@ export const reportsService = {
         .eq('id', reportId)
         .single();
 
-      if (error) throw error;
-      if (!data) throw new ReportsServiceError('Report not found');
+      if (error) {
+        const duration = Date.now() - startTime;
+        console.error(`[Reports Service] Failed to fetch report after ${duration}ms:`, {
+          reportId,
+          error: error.message,
+          code: error.code
+        });
+        throw error;
+      }
+      if (!data) {
+        const duration = Date.now() - startTime;
+        console.error(`[Reports Service] Report not found after ${duration}ms:`, reportId);
+        throw new ReportsServiceError('Report not found');
+      }
+      
+      console.log(`[Reports Service] Report fetched successfully. Title: ${data.title}, Status: ${data.status}`);
 
       // Get user profile
       const profile = _getCachedProfile(data.user_id);
@@ -2287,8 +2479,17 @@ export const reportsService = {
         rating_count: data.rating_count?.[0]?.count || 0
       };
 
+      const duration = Date.now() - startTime;
+      console.log(`[Reports Service] Report data processed successfully in ${duration}ms`);
       return result as Report;
     } catch (error) {
+      const duration = Date.now() - startTime;
+      console.error(`[Reports Service] Failed to get report after ${duration}ms:`, error);
+      console.error(`[Reports Service] Error details:`, {
+        reportId,
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
+      });
       throw new ReportsServiceError(`Failed to get report: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   },

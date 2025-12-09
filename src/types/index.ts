@@ -48,6 +48,8 @@ export interface Report {
   comment_count?: number;
   rating_avg?: number;
   rating_count?: number;
+  // Verification/Approval tracking
+  approved_at?: string | null; // Timestamp when the report was approved by an admin
 }
 
 export interface ReportComment {
@@ -55,7 +57,7 @@ export interface ReportComment {
   report_id: string;
   user_id: string;
   comment: string;
-  comment_type: 'comment' | 'status_update' | 'assignment' | 'resolution';
+  comment_type: 'comment' | 'status_update' | 'assignment' | 'resolution' | 'priority_update' | 'group_assignment' | 'report_edit' | 'archive' | 'cancellation';
   created_at: string;
   updated_at: string;
   user_profile?: { username: string; avatar_url: string | null };

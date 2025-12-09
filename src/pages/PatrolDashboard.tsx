@@ -563,13 +563,16 @@ export function PatrolDashboard() {
   const handleAssignToGroup = async (reportId: string, group: string) => {
     try {
       setActionLoading(true);
+      // Get current group before update for logging
+      const currentReport = reports.find(r => r.id === reportId);
+      const oldGroup = currentReport?.assigned_group || 'unassigned';
+      
       const updatedReport = await reportsService.updateReportTicketing(reportId, {
         assigned_group: group as any
       });
       handleUpdateReport(updatedReport);
       
-      // Add a comment about the assignment (service handles auth fallback)
-      await CommentsService.addComment(reportId, `Assigned to ${group}`, 'assignment');
+      // Logging is handled by updateReportTicketing, but we can add additional context if needed
     } catch (error) {
       console.error('Error assigning to group:', error);
       alert('Failed to assign to group. Please try again.');
@@ -606,7 +609,7 @@ export function PatrolDashboard() {
       
       // Log cancellation/unaccept in comments (service handles auth fallback)
       try {
-        await CommentsService.addComment(reportId, `Job acceptance cancelled at ${timestamp}`, 'status_update');
+        await CommentsService.addComment(reportId, `Job acceptance cancelled at ${timestamp}`, 'cancellation');
       } catch (logErr) {
         console.warn('Failed to log unaccept comment:', logErr);
       }
@@ -635,22 +638,17 @@ export function PatrolDashboard() {
       if (selectedCaseReport?.id === reportId) {
         setSelectedCaseReport({ ...selectedCaseReport, priority_level: priorityLevel });
       }
+      // Get current priority level before update for logging
+      const currentReport = reports.find(r => r.id === reportId);
+      const oldLevel = currentReport?.priority_level ?? 'not set';
+      
       const updatedReport = await reportsService.updateReportTicketing(reportId, {
         priority_level: priorityLevel
       });
       handleUpdateReport(updatedReport);
       
-      const timestamp = new Date().toLocaleString('en-US', { 
-        month: 'short', 
-        day: 'numeric', 
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-      
-      // Add a comment about the priority change with timestamp (service handles auth fallback)
-      await CommentsService.addComment(reportId, `Priority level set to ${priorityLevel} at ${timestamp}`, 'status_update');
-      showToastSuccess(`Priority level updated to ${priorityLevel} at ${timestamp}`, 3000);
+      // Logging is handled by updateReportTicketing with old → new values
+      showToastSuccess(`Priority level updated to ${priorityLevel}`, 3000);
     } catch (error) {
       console.error('Error setting priority:', error);
       showToastError('Failed to set priority. Please try again.', 4000);
@@ -678,13 +676,7 @@ export function PatrolDashboard() {
       const updatedReport = await reportsService.cancelReport(reportId, reason);
       handleUpdateReport(updatedReport);
       
-      // Log cancellation with timestamp
-      try {
-        await CommentsService.addComment(reportId, `Ticket cancelled at ${timestamp}. Reason: ${reason}`, 'status_update');
-      } catch (logErr) {
-        console.warn('Failed to log cancellation comment:', logErr);
-      }
-      
+      // Logging is handled by cancelReport function
       showToastSuccess(`Ticket cancelled at ${timestamp}`, 3000);
       setShowCaseInfo(false);
     } catch (error) {

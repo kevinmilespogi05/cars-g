@@ -22,7 +22,7 @@ export class CommentsService {
         .from('report_comments')
         .select('*')
         .eq('report_id', reportId)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: true });
 
       if (commentsError) throw commentsError;
 
@@ -109,7 +109,7 @@ export class CommentsService {
   static async addComment(
     reportId: string,
     comment: string,
-    commentType: 'comment' | 'status_update' | 'assignment' | 'resolution' = 'comment'
+    commentType: 'comment' | 'status_update' | 'assignment' | 'resolution' | 'priority_update' | 'group_assignment' | 'report_edit' | 'archive' | 'cancellation' = 'comment'
   ): Promise<ReportComment> {
     try {
       // Try Supabase session first
@@ -258,7 +258,7 @@ export class CommentsService {
         .from('report_comment_edits')
         .select('id, previous_comment, created_at')
         .eq('comment_id', commentId)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: true });
       if (error) throw error;
       return data || [];
     } catch (e) {

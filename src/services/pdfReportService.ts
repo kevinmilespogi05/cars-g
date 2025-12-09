@@ -63,78 +63,128 @@ export const pdfReportService = {
     stats: ReportStats,
     filename: string
   ): Promise<void> {
-    const validatedStats = this.validateStats(stats);
-    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-    const pw = pdf.internal.pageSize.getWidth();
-    const ph = pdf.internal.pageSize.getHeight();
-    const margin = 15; // Increased for better breathing room
-    const cw = pw - 2 * margin;
+    const startTime = Date.now();
+    console.log(`[PDF Report] Starting monthly PDF generation for ${this.getMonthName(month)} ${year}`);
+    console.log(`[PDF Report] Input: ${reports.length} reports, stats:`, {
+      total: stats.total,
+      resolved: stats.resolved,
+      pending: stats.pending,
+      inProgress: stats.inProgress
+    });
 
-    // Cover Page
-    this.addModernCoverPage(pdf, 'Monthly Report', `${this.getMonthName(month)} ${year}`, pw, ph);
-    
-    // Table of Contents
-    pdf.addPage();
-    this.addModernTableOfContents(pdf, 'monthly', pw, ph, margin);
-    
-    // Executive Summary
-    pdf.addPage();
-    this.addPageHeader(pdf, pw, month, year, 3);
-    let yPos = 30;
-    this.addExecutiveSummary(pdf, validatedStats, month, year, yPos, margin, cw);
-    
-    // Key Metrics Dashboard
-    pdf.addPage();
-    this.addPageHeader(pdf, pw, month, year, 4);
-    yPos = 30;
-    this.addMetricsDashboard(pdf, validatedStats, yPos, margin, cw, reports);
-    
-    // Data Visualizations
-    pdf.addPage();
-    this.addPageHeader(pdf, pw, month, year, 5);
-    yPos = 30;
-    this.addDataVisualizations(pdf, validatedStats, yPos, margin, cw);
-    
-    // Trends & Analysis
-    if (reports.length > 0) {
-      pdf.addPage();
-      this.addPageHeader(pdf, pw, month, year, 6);
-      yPos = 30;
-      this.addTrendsAnalysis(pdf, reports, yPos, margin, cw);
-    }
-    
-    // Priority Issues
-    pdf.addPage();
-    this.addPageHeader(pdf, pw, month, year, 7);
-    yPos = 30;
-    this.addPriorityIssues(pdf, reports, yPos, margin, cw, ph);
-    
-    // Geographic & Category Insights
-    if (reports.length > 0) {
-      pdf.addPage();
-      this.addPageHeader(pdf, pw, month, year, 8);
-      yPos = 30;
-      this.addInsights(pdf, reports, validatedStats, yPos, margin, cw);
-    }
-    
-    // Recommendations
-    pdf.addPage();
-    this.addPageHeader(pdf, pw, month, year, 9);
-    yPos = 30;
-    this.addRecommendations(pdf, validatedStats, reports, yPos, margin, cw);
-    
-    // Detailed Report Listing
-    if (reports.length > 0) {
-      pdf.addPage();
-      this.addPageHeader(pdf, pw, month, year, 10);
-      yPos = 30;
-      this.addSectionTitle(pdf, 'Detailed Report Listing', yPos, margin);
-      yPos += 10;
-      this.addModernDetailTable(pdf, reports, yPos, margin, cw, ph, month, year);
-    }
+    try {
+      const validatedStats = this.validateStats(stats);
+      console.log(`[PDF Report] Stats validated successfully`);
 
-    this.addModernFooter(pdf, month, year);
-    pdf.save(filename);
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      const pw = pdf.internal.pageSize.getWidth();
+      const ph = pdf.internal.pageSize.getHeight();
+      const margin = 15; // Increased for better breathing room
+      const cw = pw - 2 * margin;
+      console.log(`[PDF Report] PDF document initialized: ${pw}x${ph}mm, content width: ${cw}mm`);
+
+      // Cover Page
+      console.log(`[PDF Report] Generating cover page...`);
+      this.addModernCoverPage(pdf, 'Monthly Report', `${this.getMonthName(month)} ${year}`, pw, ph);
+      
+      // Table of Contents
+      console.log(`[PDF Report] Generating table of contents...`);
+      pdf.addPage();
+      this.addModernTableOfContents(pdf, 'monthly', pw, ph, margin);
+      
+      // Executive Summary
+      console.log(`[PDF Report] Generating executive summary...`);
+      pdf.addPage();
+      this.addPageHeader(pdf, pw, month, year, 3);
+      let yPos = 30;
+      this.addExecutiveSummary(pdf, validatedStats, month, year, yPos, margin, cw);
+      
+      // Key Metrics Dashboard
+      console.log(`[PDF Report] Generating metrics dashboard...`);
+      pdf.addPage();
+      this.addPageHeader(pdf, pw, month, year, 4);
+      yPos = 30;
+      this.addMetricsDashboard(pdf, validatedStats, yPos, margin, cw, reports);
+      
+      // Data Visualizations
+      console.log(`[PDF Report] Generating data visualizations...`);
+      pdf.addPage();
+      this.addPageHeader(pdf, pw, month, year, 5);
+      yPos = 30;
+      this.addDataVisualizations(pdf, validatedStats, yPos, margin, cw);
+      
+      // Trends & Analysis
+      if (reports.length > 0) {
+        console.log(`[PDF Report] Generating trends analysis...`);
+        pdf.addPage();
+        this.addPageHeader(pdf, pw, month, year, 6);
+        yPos = 30;
+        this.addTrendsAnalysis(pdf, reports, yPos, margin, cw);
+      } else {
+        console.log(`[PDF Report] Skipping trends analysis: no reports available`);
+      }
+      
+      // Priority Issues
+      console.log(`[PDF Report] Generating priority issues section...`);
+      pdf.addPage();
+      this.addPageHeader(pdf, pw, month, year, 7);
+      yPos = 30;
+      this.addPriorityIssues(pdf, reports, yPos, margin, cw, ph);
+      
+      // Geographic & Category Insights
+      if (reports.length > 0) {
+        console.log(`[PDF Report] Generating geographic and category insights...`);
+        pdf.addPage();
+        this.addPageHeader(pdf, pw, month, year, 8);
+        yPos = 30;
+        this.addInsights(pdf, reports, validatedStats, yPos, margin, cw);
+      } else {
+        console.log(`[PDF Report] Skipping insights: no reports available`);
+      }
+      
+      // Recommendations
+      console.log(`[PDF Report] Generating recommendations...`);
+      pdf.addPage();
+      this.addPageHeader(pdf, pw, month, year, 9);
+      yPos = 30;
+      this.addRecommendations(pdf, validatedStats, reports, yPos, margin, cw);
+      
+      // Detailed Report Listing
+      if (reports.length > 0) {
+        console.log(`[PDF Report] Generating detailed report listing with ${reports.length} reports...`);
+        pdf.addPage();
+        this.addPageHeader(pdf, pw, month, year, 10);
+        yPos = 30;
+        this.addSectionTitle(pdf, 'Detailed Report Listing', yPos, margin);
+        yPos += 10;
+        this.addModernDetailTable(pdf, reports, yPos, margin, cw, ph, month, year);
+      } else {
+        console.log(`[PDF Report] Skipping detailed listing: no reports available`);
+      }
+
+      console.log(`[PDF Report] Adding footer to all pages...`);
+      this.addModernFooter(pdf, month, year);
+      
+      const pageCount = pdf.getNumberOfPages();
+      console.log(`[PDF Report] PDF generation complete. Total pages: ${pageCount}, saving as: ${filename}`);
+      
+      pdf.save(filename);
+      
+      const duration = Date.now() - startTime;
+      console.log(`[PDF Report] Monthly PDF saved successfully in ${duration}ms`);
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      console.error(`[PDF Report] Error generating monthly PDF after ${duration}ms:`, error);
+      console.error(`[PDF Report] Error details:`, {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        year,
+        month,
+        reportCount: reports.length,
+        filename
+      });
+      throw error;
+    }
   },
 
   async generateMonthlyPDFPreview(
@@ -143,60 +193,109 @@ export const pdfReportService = {
     month: number,
     stats: ReportStats
   ): Promise<string> {
-    const validatedStats = this.validateStats(stats);
-    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-    const pw = pdf.internal.pageSize.getWidth();
-    const ph = pdf.internal.pageSize.getHeight();
-    const margin = 15;
-    const cw = pw - 2 * margin;
+    const startTime = Date.now();
+    console.log(`[PDF Report Preview] Starting monthly PDF preview generation for ${this.getMonthName(month)} ${year}`);
+    console.log(`[PDF Report Preview] Input: ${reports.length} reports`);
 
-    this.addModernCoverPage(pdf, 'Monthly Report', `${this.getMonthName(month)} ${year}`, pw, ph);
-    pdf.addPage();
-    this.addModernTableOfContents(pdf, 'monthly', pw, ph, margin);
-    pdf.addPage();
-    this.addPageHeader(pdf, pw, month, year, 3);
-    let yPos = 30;
-    this.addExecutiveSummary(pdf, validatedStats, month, year, yPos, margin, cw);
-    pdf.addPage();
-    this.addPageHeader(pdf, pw, month, year, 4);
-    yPos = 30;
-    this.addMetricsDashboard(pdf, validatedStats, yPos, margin, cw, reports);
-    pdf.addPage();
-    this.addPageHeader(pdf, pw, month, year, 5);
-    yPos = 30;
-    this.addDataVisualizations(pdf, validatedStats, yPos, margin, cw);
-    if (reports.length > 0) {
-      pdf.addPage();
-      this.addPageHeader(pdf, pw, month, year, 6);
-      yPos = 30;
-      this.addTrendsAnalysis(pdf, reports, yPos, margin, cw);
-    }
-    pdf.addPage();
-    this.addPageHeader(pdf, pw, month, year, 7);
-    yPos = 30;
-    this.addPriorityIssues(pdf, reports, yPos, margin, cw, ph);
-    if (reports.length > 0) {
-      pdf.addPage();
-      this.addPageHeader(pdf, pw, month, year, 8);
-      yPos = 30;
-      this.addInsights(pdf, reports, validatedStats, yPos, margin, cw);
-    }
-    pdf.addPage();
-    this.addPageHeader(pdf, pw, month, year, 9);
-    yPos = 30;
-    this.addRecommendations(pdf, validatedStats, reports, yPos, margin, cw);
-    if (reports.length > 0) {
-      pdf.addPage();
-      this.addPageHeader(pdf, pw, month, year, 10);
-      yPos = 30;
-      this.addSectionTitle(pdf, 'Detailed Report Listing', yPos, margin);
-      yPos += 10;
-      this.addModernDetailTable(pdf, reports, yPos, margin, cw, ph, month, year);
-    }
+    try {
+      const validatedStats = this.validateStats(stats);
+      console.log(`[PDF Report Preview] Stats validated`);
 
-    this.addModernFooter(pdf, month, year);
-    const blob = pdf.output('blob');
-    return URL.createObjectURL(blob);
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      const pw = pdf.internal.pageSize.getWidth();
+      const ph = pdf.internal.pageSize.getHeight();
+      const margin = 15;
+      const cw = pw - 2 * margin;
+      console.log(`[PDF Report Preview] PDF document initialized`);
+
+      console.log(`[PDF Report Preview] Generating cover page...`);
+      this.addModernCoverPage(pdf, 'Monthly Report', `${this.getMonthName(month)} ${year}`, pw, ph);
+      
+      console.log(`[PDF Report Preview] Generating table of contents...`);
+      pdf.addPage();
+      this.addModernTableOfContents(pdf, 'monthly', pw, ph, margin);
+      
+      console.log(`[PDF Report Preview] Generating executive summary...`);
+      pdf.addPage();
+      this.addPageHeader(pdf, pw, month, year, 3);
+      let yPos = 30;
+      this.addExecutiveSummary(pdf, validatedStats, month, year, yPos, margin, cw);
+      
+      console.log(`[PDF Report Preview] Generating metrics dashboard...`);
+      pdf.addPage();
+      this.addPageHeader(pdf, pw, month, year, 4);
+      yPos = 30;
+      this.addMetricsDashboard(pdf, validatedStats, yPos, margin, cw, reports);
+      
+      console.log(`[PDF Report Preview] Generating data visualizations...`);
+      pdf.addPage();
+      this.addPageHeader(pdf, pw, month, year, 5);
+      yPos = 30;
+      this.addDataVisualizations(pdf, validatedStats, yPos, margin, cw);
+      
+      if (reports.length > 0) {
+        console.log(`[PDF Report Preview] Generating trends analysis...`);
+        pdf.addPage();
+        this.addPageHeader(pdf, pw, month, year, 6);
+        yPos = 30;
+        this.addTrendsAnalysis(pdf, reports, yPos, margin, cw);
+      }
+      
+      console.log(`[PDF Report Preview] Generating priority issues...`);
+      pdf.addPage();
+      this.addPageHeader(pdf, pw, month, year, 7);
+      yPos = 30;
+      this.addPriorityIssues(pdf, reports, yPos, margin, cw, ph);
+      
+      if (reports.length > 0) {
+        console.log(`[PDF Report Preview] Generating insights...`);
+        pdf.addPage();
+        this.addPageHeader(pdf, pw, month, year, 8);
+        yPos = 30;
+        this.addInsights(pdf, reports, validatedStats, yPos, margin, cw);
+      }
+      
+      console.log(`[PDF Report Preview] Generating recommendations...`);
+      pdf.addPage();
+      this.addPageHeader(pdf, pw, month, year, 9);
+      yPos = 30;
+      this.addRecommendations(pdf, validatedStats, reports, yPos, margin, cw);
+      
+      if (reports.length > 0) {
+        console.log(`[PDF Report Preview] Generating detailed listing...`);
+        pdf.addPage();
+        this.addPageHeader(pdf, pw, month, year, 10);
+        yPos = 30;
+        this.addSectionTitle(pdf, 'Detailed Report Listing', yPos, margin);
+        yPos += 10;
+        this.addModernDetailTable(pdf, reports, yPos, margin, cw, ph, month, year);
+      }
+
+      console.log(`[PDF Report Preview] Adding footer...`);
+      this.addModernFooter(pdf, month, year);
+      
+      const pageCount = pdf.getNumberOfPages();
+      console.log(`[PDF Report Preview] PDF preview generated. Total pages: ${pageCount}`);
+      
+      const blob = pdf.output('blob');
+      const blobUrl = URL.createObjectURL(blob);
+      
+      const duration = Date.now() - startTime;
+      console.log(`[PDF Report Preview] Monthly PDF preview created successfully in ${duration}ms`);
+      
+      return blobUrl;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      console.error(`[PDF Report Preview] Error generating monthly PDF preview after ${duration}ms:`, error);
+      console.error(`[PDF Report Preview] Error details:`, {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        year,
+        month,
+        reportCount: reports.length
+      });
+      throw error;
+    }
   },
 
   async generateYearlyPDF(
@@ -205,43 +304,93 @@ export const pdfReportService = {
     stats: ReportStats,
     filename: string
   ): Promise<void> {
-    const validatedStats = this.validateStats(stats);
-    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-    const pw = pdf.internal.pageSize.getWidth();
-    const ph = pdf.internal.pageSize.getHeight();
-    const margin = 15;
-    const cw = pw - 2 * margin;
+    const startTime = Date.now();
+    console.log(`[PDF Report] Starting yearly PDF generation for year ${year}`);
+    console.log(`[PDF Report] Input: ${reports.length} reports, stats:`, {
+      total: stats.total,
+      resolved: stats.resolved,
+      pending: stats.pending,
+      inProgress: stats.inProgress
+    });
 
-    this.addModernCoverPage(pdf, 'Annual Report', `${year}`, pw, ph);
-    pdf.addPage();
-    this.addModernTableOfContents(pdf, 'yearly', pw, ph, margin);
-    pdf.addPage();
-    this.addPageHeader(pdf, pw, 0, year, 3);
-    let yPos = 30;
-    this.addExecutiveSummary(pdf, validatedStats, 0, year, yPos, margin, cw);
-    pdf.addPage();
-    this.addPageHeader(pdf, pw, 0, year, 4);
-    yPos = 30;
-    this.addMetricsDashboard(pdf, validatedStats, yPos, margin, cw, reports);
-    pdf.addPage();
-    this.addPageHeader(pdf, pw, 0, year, 5);
-    yPos = 30;
-    this.addDataVisualizations(pdf, validatedStats, yPos, margin, cw);
-    if (reports.length > 0) {
-      pdf.addPage();
-      this.addPageHeader(pdf, pw, 0, year, 6);
-      yPos = 30;
-      this.addTrendsAnalysis(pdf, reports, yPos, margin, cw);
-    }
-    if (reports.length > 0) {
-      pdf.addPage();
-      this.addPageHeader(pdf, pw, 0, year, 7);
-      yPos = 30;
-      this.addModernDetailTable(pdf, reports, yPos, margin, cw, ph, 0, year);
-    }
+    try {
+      const validatedStats = this.validateStats(stats);
+      console.log(`[PDF Report] Stats validated successfully`);
 
-    this.addModernFooter(pdf, 0, year);
-    pdf.save(filename);
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      const pw = pdf.internal.pageSize.getWidth();
+      const ph = pdf.internal.pageSize.getHeight();
+      const margin = 15;
+      const cw = pw - 2 * margin;
+      console.log(`[PDF Report] PDF document initialized: ${pw}x${ph}mm`);
+
+      console.log(`[PDF Report] Generating cover page...`);
+      this.addModernCoverPage(pdf, 'Annual Report', `${year}`, pw, ph);
+      
+      console.log(`[PDF Report] Generating table of contents...`);
+      pdf.addPage();
+      this.addModernTableOfContents(pdf, 'yearly', pw, ph, margin);
+      
+      console.log(`[PDF Report] Generating executive summary...`);
+      pdf.addPage();
+      this.addPageHeader(pdf, pw, 0, year, 3);
+      let yPos = 30;
+      this.addExecutiveSummary(pdf, validatedStats, 0, year, yPos, margin, cw);
+      
+      console.log(`[PDF Report] Generating metrics dashboard...`);
+      pdf.addPage();
+      this.addPageHeader(pdf, pw, 0, year, 4);
+      yPos = 30;
+      this.addMetricsDashboard(pdf, validatedStats, yPos, margin, cw, reports);
+      
+      console.log(`[PDF Report] Generating data visualizations...`);
+      pdf.addPage();
+      this.addPageHeader(pdf, pw, 0, year, 5);
+      yPos = 30;
+      this.addDataVisualizations(pdf, validatedStats, yPos, margin, cw);
+      
+      if (reports.length > 0) {
+        console.log(`[PDF Report] Generating trends analysis...`);
+        pdf.addPage();
+        this.addPageHeader(pdf, pw, 0, year, 6);
+        yPos = 30;
+        this.addTrendsAnalysis(pdf, reports, yPos, margin, cw);
+      } else {
+        console.log(`[PDF Report] Skipping trends analysis: no reports available`);
+      }
+      
+      if (reports.length > 0) {
+        console.log(`[PDF Report] Generating detailed report listing with ${reports.length} reports...`);
+        pdf.addPage();
+        this.addPageHeader(pdf, pw, 0, year, 7);
+        yPos = 30;
+        this.addModernDetailTable(pdf, reports, yPos, margin, cw, ph, 0, year);
+      } else {
+        console.log(`[PDF Report] Skipping detailed listing: no reports available`);
+      }
+
+      console.log(`[PDF Report] Adding footer to all pages...`);
+      this.addModernFooter(pdf, 0, year);
+      
+      const pageCount = pdf.getNumberOfPages();
+      console.log(`[PDF Report] PDF generation complete. Total pages: ${pageCount}, saving as: ${filename}`);
+      
+      pdf.save(filename);
+      
+      const duration = Date.now() - startTime;
+      console.log(`[PDF Report] Yearly PDF saved successfully in ${duration}ms`);
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      console.error(`[PDF Report] Error generating yearly PDF after ${duration}ms:`, error);
+      console.error(`[PDF Report] Error details:`, {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        year,
+        reportCount: reports.length,
+        filename
+      });
+      throw error;
+    }
   },
 
   async generateYearlyPDFPreview(
@@ -249,44 +398,86 @@ export const pdfReportService = {
     year: number,
     stats: ReportStats
   ): Promise<string> {
-    const validatedStats = this.validateStats(stats);
-    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-    const pw = pdf.internal.pageSize.getWidth();
-    const ph = pdf.internal.pageSize.getHeight();
-    const margin = 15;
-    const cw = pw - 2 * margin;
+    const startTime = Date.now();
+    console.log(`[PDF Report Preview] Starting yearly PDF preview generation for year ${year}`);
+    console.log(`[PDF Report Preview] Input: ${reports.length} reports`);
 
-    this.addModernCoverPage(pdf, 'Annual Report', `${year}`, pw, ph);
-    pdf.addPage();
-    this.addModernTableOfContents(pdf, 'yearly', pw, ph, margin);
-    pdf.addPage();
-    this.addPageHeader(pdf, pw, 0, year, 3);
-    let yPos = 30;
-    this.addExecutiveSummary(pdf, validatedStats, 0, year, yPos, margin, cw);
-    pdf.addPage();
-    this.addPageHeader(pdf, pw, 0, year, 4);
-    yPos = 30;
-    this.addMetricsDashboard(pdf, validatedStats, yPos, margin, cw, reports);
-    pdf.addPage();
-    this.addPageHeader(pdf, pw, 0, year, 5);
-    yPos = 30;
-    this.addDataVisualizations(pdf, validatedStats, yPos, margin, cw);
-    if (reports.length > 0) {
-      pdf.addPage();
-      this.addPageHeader(pdf, pw, 0, year, 6);
-      yPos = 30;
-      this.addTrendsAnalysis(pdf, reports, yPos, margin, cw);
-    }
-    if (reports.length > 0) {
-      pdf.addPage();
-      this.addPageHeader(pdf, pw, 0, year, 7);
-      yPos = 30;
-      this.addModernDetailTable(pdf, reports, yPos, margin, cw, ph, 0, year);
-    }
+    try {
+      const validatedStats = this.validateStats(stats);
+      console.log(`[PDF Report Preview] Stats validated`);
 
-    this.addModernFooter(pdf, 0, year);
-    const blob = pdf.output('blob');
-    return URL.createObjectURL(blob);
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      const pw = pdf.internal.pageSize.getWidth();
+      const ph = pdf.internal.pageSize.getHeight();
+      const margin = 15;
+      const cw = pw - 2 * margin;
+      console.log(`[PDF Report Preview] PDF document initialized`);
+
+      console.log(`[PDF Report Preview] Generating cover page...`);
+      this.addModernCoverPage(pdf, 'Annual Report', `${year}`, pw, ph);
+      
+      console.log(`[PDF Report Preview] Generating table of contents...`);
+      pdf.addPage();
+      this.addModernTableOfContents(pdf, 'yearly', pw, ph, margin);
+      
+      console.log(`[PDF Report Preview] Generating executive summary...`);
+      pdf.addPage();
+      this.addPageHeader(pdf, pw, 0, year, 3);
+      let yPos = 30;
+      this.addExecutiveSummary(pdf, validatedStats, 0, year, yPos, margin, cw);
+      
+      console.log(`[PDF Report Preview] Generating metrics dashboard...`);
+      pdf.addPage();
+      this.addPageHeader(pdf, pw, 0, year, 4);
+      yPos = 30;
+      this.addMetricsDashboard(pdf, validatedStats, yPos, margin, cw, reports);
+      
+      console.log(`[PDF Report Preview] Generating data visualizations...`);
+      pdf.addPage();
+      this.addPageHeader(pdf, pw, 0, year, 5);
+      yPos = 30;
+      this.addDataVisualizations(pdf, validatedStats, yPos, margin, cw);
+      
+      if (reports.length > 0) {
+        console.log(`[PDF Report Preview] Generating trends analysis...`);
+        pdf.addPage();
+        this.addPageHeader(pdf, pw, 0, year, 6);
+        yPos = 30;
+        this.addTrendsAnalysis(pdf, reports, yPos, margin, cw);
+      }
+      
+      if (reports.length > 0) {
+        console.log(`[PDF Report Preview] Generating detailed listing...`);
+        pdf.addPage();
+        this.addPageHeader(pdf, pw, 0, year, 7);
+        yPos = 30;
+        this.addModernDetailTable(pdf, reports, yPos, margin, cw, ph, 0, year);
+      }
+
+      console.log(`[PDF Report Preview] Adding footer...`);
+      this.addModernFooter(pdf, 0, year);
+      
+      const pageCount = pdf.getNumberOfPages();
+      console.log(`[PDF Report Preview] PDF preview generated. Total pages: ${pageCount}`);
+      
+      const blob = pdf.output('blob');
+      const blobUrl = URL.createObjectURL(blob);
+      
+      const duration = Date.now() - startTime;
+      console.log(`[PDF Report Preview] Yearly PDF preview created successfully in ${duration}ms`);
+      
+      return blobUrl;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      console.error(`[PDF Report Preview] Error generating yearly PDF preview after ${duration}ms:`, error);
+      console.error(`[PDF Report Preview] Error details:`, {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        year,
+        reportCount: reports.length
+      });
+      throw error;
+    }
   },
 
   // Modern Cover Page

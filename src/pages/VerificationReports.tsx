@@ -567,17 +567,26 @@ export function VerificationReports() {
                   </div>
 
                   {/* Meta Information */}
-                  <div className="flex items-center justify-between text-xs text-gray-500 mb-2.5">
-                    <div className="flex items-center gap-1">
-                      <User className="h-3 w-3" />
-                      <span className="truncate max-w-[80px]">
-                        {report.is_anonymous ? 'Anonymous Reporter' : (report.user_profile?.username || 'Anonymous')}
-                      </span>
+                  <div className="flex flex-col gap-1.5 text-xs text-gray-500 mb-2.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1">
+                        <User className="h-3 w-3" />
+                        <span className="truncate max-w-[80px]">
+                          {report.is_anonymous ? 'Anonymous Reporter' : (report.user_profile?.username || 'Anonymous')}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1 text-gray-400">
+                        <Calendar className="h-3 w-3" />
+                        <span className="text-xs">{new Date(report.created_at).toLocaleDateString()}</span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1 text-gray-400">
-                      <Calendar className="h-3 w-3" />
-                      <span className="text-xs">{new Date(report.created_at).toLocaleDateString()}</span>
-                    </div>
+                    {/* Approval Timestamp */}
+                    {report.approved_at && (
+                      <div className="flex items-center gap-1 text-green-600 bg-green-50 px-2 py-1 rounded text-xs">
+                        <Shield className="h-3 w-3" />
+                        <span>Approved: {new Date(report.approved_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Actions */}

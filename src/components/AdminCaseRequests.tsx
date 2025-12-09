@@ -58,41 +58,61 @@ export function AdminCaseRequests() {
   useEffect(() => { load(); }, [load]);
 
   const accept = async (reportId: string) => {
+    const startTime = Date.now();
+    const approvalTimestamp = new Date().toISOString();
+    console.log(`[Admin Case Requests] Approving report ${reportId} at ${approvalTimestamp}`);
+    
     try {
       const report = reports.find(r => r.id === reportId);
+      if (!report) {
+        console.error(`[Admin Case Requests] Report not found: ${reportId}`);
+        throw new Error('Report not found');
+      }
+      
       const newStatus = report?.status === 'awaiting_verification' ? 'resolved' : 'pending';
       const message = newStatus === 'resolved' ? 'Report marked as resolved' : 'Report marked as pending';
       
-      // Clear user notes to admin when report is accepted
+      console.log(`[Admin Case Requests] Moving report from ${report.status} to ${newStatus}`);
+      
+      // Clear user notes to admin and set approved_at timestamp when report is accepted
       const { error: updateError } = await (supabase as any)
         .from('reports')
         .update({ 
           user_notes_to_admin: null,
+          approved_at: approvalTimestamp,
           updated_at: new Date().toISOString()
         })
         .eq('id', reportId);
       
       if (updateError) {
-        console.error('Error clearing user notes:', updateError);
+        console.error('[Admin Case Requests] Error updating report with approval timestamp:', updateError);
         // Continue with acceptance even if clearing notes fails
+      } else {
+        console.log(`[Admin Case Requests] Report ${reportId} approved_at timestamp set to: ${approvalTimestamp}`);
       }
       
       // Award points to reporter when report is verified/accepted
       if (report?.user_id) {
         try {
+          console.log(`[Admin Case Requests] Awarding points to reporter ${report.user_id}`);
           const { awardPoints } = await import('../lib/points');
           await awardPoints(report.user_id, 'REPORT_VERIFIED', reportId);
-          console.log('🎯 Points awarded for verified report');
+          console.log('[Admin Case Requests] ✅ Points awarded for verified report');
         } catch (error) {
-          console.error('❌ Error awarding points:', error);
+          console.error('[Admin Case Requests] ❌ Error awarding points:', error);
           // Don't fail the whole operation if points fail
         }
       }
       
       setReports(prev => prev.filter(r => r.id !== reportId));
       await reportsService.updateReportStatus(reportId, newStatus);
+      
+      const duration = Date.now() - startTime;
+      console.log(`[Admin Case Requests] Report ${reportId} approved successfully in ${duration}ms. Approved at: ${approvalTimestamp}`);
       showToast(message, 'success');
     } catch (e) {
+      const duration = Date.now() - startTime;
+      console.error(`[Admin Case Requests] Failed to accept report after ${duration}ms:`, e);
       await load();
       showToast('Failed to accept report', 'error');
     }

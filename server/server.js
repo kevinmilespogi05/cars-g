@@ -619,15 +619,22 @@ app.post('/api/reports/:reportId/replies', authenticateToken, requireVerified(su
 
 // Reports: create via service role to avoid client RLS/session issues
 app.post('/api/reports', authenticateToken, requireVerified(supabaseAdmin), async (req, res) => {
+  const startTime = Date.now();
+  console.log('[API Reports] POST /api/reports - Creating new report');
+  
   try {
     if (!supabaseAdmin) {
+      console.error('[API Reports] Admin privileges required but not available');
       return res.status(503).json({ error: 'Admin privileges required' });
     }
 
     const userId = req.user?.id;
     if (!userId) {
+      console.error('[API Reports] Authentication required but user ID missing');
       return res.status(401).json({ error: 'Authentication required' });
     }
+
+    console.log(`[API Reports] Request from user: ${userId}`);
 
     const {
       title,
@@ -645,7 +652,23 @@ app.post('/api/reports', authenticateToken, requireVerified(supabaseAdmin), asyn
       can_cancel
     } = req.body || {};
 
+    console.log(`[API Reports] Report data:`, {
+      title: title?.substring(0, 50),
+      category,
+      priority,
+      hasLocation: typeof location_lat === 'number' && typeof location_lng === 'number',
+      imageCount: Array.isArray(images) ? images.length : 0,
+      isAnonymous: is_anonymous || false
+    });
+
     if (!title || !description || !category || typeof location_lat !== 'number' || typeof location_lng !== 'number') {
+      console.error('[API Reports] Missing required fields:', {
+        hasTitle: !!title,
+        hasDescription: !!description,
+        hasCategory: !!category,
+        hasLat: typeof location_lat === 'number',
+        hasLng: typeof location_lng === 'number'
+      });
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
@@ -654,6 +677,7 @@ app.post('/api/reports', authenticateToken, requireVerified(supabaseAdmin), asyn
         location_lat === 0 && location_lng === 0 ||
         location_lat < -90 || location_lat > 90 ||
         location_lng < -180 || location_lng > 180) {
+      console.error('[API Reports] Invalid location coordinates:', { location_lat, location_lng });
       return res.status(400).json({ error: 'Invalid location coordinates' });
     }
 
@@ -674,6 +698,7 @@ app.post('/api/reports', authenticateToken, requireVerified(supabaseAdmin), asyn
       can_cancel: can_cancel !== false
     };
 
+    console.log(`[API Reports] Inserting report into database...`);
     const { data, error } = await supabaseAdmin
       .from('reports')
       .insert([payload])
@@ -681,12 +706,27 @@ app.post('/api/reports', authenticateToken, requireVerified(supabaseAdmin), asyn
       .single();
 
     if (error) {
+      const duration = Date.now() - startTime;
+      console.error(`[API Reports] Database insert failed after ${duration}ms:`, {
+        code: error.code,
+        message: error.message,
+        hint: error.hint,
+        details: error.details
+      });
       return res.status(500).json({ error: error.message || 'Failed to create report' });
     }
 
+    const duration = Date.now() - startTime;
+    console.log(`[API Reports] Report created successfully in ${duration}ms. Report ID: ${data.id}, Case Number: ${data.case_number || 'N/A'}`);
     res.json(data);
   } catch (e) {
-    console.error('Create report error:', e);
+    const duration = Date.now() - startTime;
+    console.error(`[API Reports] Create report error after ${duration}ms:`, e);
+    console.error('[API Reports] Error details:', {
+      message: e?.message || 'Unknown error',
+      stack: e?.stack,
+      userId: req.user?.id
+    });
     res.status(500).json({ error: 'Failed to create report' });
   }
 });
@@ -3184,39 +3224,63 @@ app.post('/api/auth/resend-email-otp', async (req, res) => {
 
 // Reports: like/unlike using service role (supports JWT-authenticated users)
 app.post('/api/reports/:reportId/likes', authenticateToken, async (req, res) => {
+  const startTime = Date.now();
+  const { reportId } = req.params;
+  const userId = req.user.id;
+  console.log(`[API Reports] POST /api/reports/${reportId}/likes - User ${userId} liking report`);
+  
   try {
     if (!supabaseAdmin) {
+      console.error('[API Reports] Admin privileges required but not available');
       return res.status(503).json({ success: false, error: 'Admin privileges required' });
     }
 
-    const { reportId } = req.params;
-    const userId = req.user.id;
-
     // Upsert-like behavior: ensure unique (report_id, user_id)
+    console.log(`[API Reports] Upserting like for report ${reportId}...`);
     const { error } = await supabaseAdmin
       .from('likes')
       .upsert({ report_id: reportId, user_id: userId }, { onConflict: 'report_id,user_id', ignoreDuplicates: false });
 
     if (error) {
+      const duration = Date.now() - startTime;
+      console.error(`[API Reports] Failed to like report after ${duration}ms:`, {
+        code: error.code,
+        message: error.message,
+        reportId,
+        userId
+      });
       return res.status(500).json({ success: false, error: error.message, code: error.code });
     }
 
+    const duration = Date.now() - startTime;
+    console.log(`[API Reports] Report liked successfully in ${duration}ms`);
     return res.json({ success: true, liked: true });
   } catch (e) {
-    console.error('Like report error:', e);
+    const duration = Date.now() - startTime;
+    console.error(`[API Reports] Like report error after ${duration}ms:`, e);
+    console.error('[API Reports] Error details:', {
+      message: e?.message || 'Unknown error',
+      stack: e?.stack,
+      reportId,
+      userId
+    });
     return res.status(500).json({ success: false, error: 'Failed to like report' });
   }
 });
 
 app.delete('/api/reports/:reportId/likes', authenticateToken, async (req, res) => {
+  const startTime = Date.now();
+  const { reportId } = req.params;
+  const userId = req.user.id;
+  console.log(`[API Reports] DELETE /api/reports/${reportId}/likes - User ${userId} unliking report`);
+  
   try {
     if (!supabaseAdmin) {
+      console.error('[API Reports] Admin privileges required but not available');
       return res.status(503).json({ success: false, error: 'Admin privileges required' });
     }
 
-    const { reportId } = req.params;
-    const userId = req.user.id;
-
+    console.log(`[API Reports] Deleting like for report ${reportId}...`);
     const { error } = await supabaseAdmin
       .from('likes')
       .delete()
@@ -3224,27 +3288,47 @@ app.delete('/api/reports/:reportId/likes', authenticateToken, async (req, res) =
       .eq('user_id', userId);
 
     if (error) {
+      const duration = Date.now() - startTime;
+      console.error(`[API Reports] Failed to unlike report after ${duration}ms:`, {
+        code: error.code,
+        message: error.message,
+        reportId,
+        userId
+      });
       return res.status(500).json({ success: false, error: error.message, code: error.code });
     }
 
+    const duration = Date.now() - startTime;
+    console.log(`[API Reports] Report unliked successfully in ${duration}ms`);
     return res.json({ success: true, liked: false });
   } catch (e) {
-    console.error('Unlike report error:', e);
+    const duration = Date.now() - startTime;
+    console.error(`[API Reports] Unlike report error after ${duration}ms:`, e);
+    console.error('[API Reports] Error details:', {
+      message: e?.message || 'Unknown error',
+      stack: e?.stack,
+      reportId,
+      userId
+    });
     return res.status(500).json({ success: false, error: 'Failed to unlike report' });
   }
 });
 
 // Toggle like (server decides insert/delete based on current state)
 app.post('/api/reports/:reportId/likes/toggle', authenticateToken, async (req, res) => {
+  const startTime = Date.now();
+  const { reportId } = req.params;
+  const userId = req.user.id;
+  console.log(`[API Reports] POST /api/reports/${reportId}/likes/toggle - User ${userId} toggling like`);
+  
   try {
     if (!supabaseAdmin) {
+      console.error('[API Reports] Admin privileges required but not available');
       return res.status(503).json({ success: false, error: 'Admin privileges required' });
     }
 
-    const { reportId } = req.params;
-    const userId = req.user.id;
-
     // Check existing
+    console.log(`[API Reports] Checking existing like for report ${reportId}...`);
     const { data: existing, error: checkError } = await supabaseAdmin
       .from('likes')
       .select('id')
@@ -3253,29 +3337,59 @@ app.post('/api/reports/:reportId/likes/toggle', authenticateToken, async (req, r
       .maybeSingle();
 
     if (checkError) {
+      const duration = Date.now() - startTime;
+      console.error(`[API Reports] Failed to check existing like after ${duration}ms:`, {
+        code: checkError.code,
+        message: checkError.message,
+        reportId,
+        userId
+      });
       return res.status(500).json({ success: false, error: checkError.message, code: checkError.code });
     }
 
     if (existing) {
+      console.log(`[API Reports] Like exists, removing like...`);
       const { error: delErr } = await supabaseAdmin
         .from('likes')
         .delete()
         .eq('id', existing.id);
       if (delErr) {
+        const duration = Date.now() - startTime;
+        console.error(`[API Reports] Failed to delete like after ${duration}ms:`, {
+          code: delErr.code,
+          message: delErr.message
+        });
         return res.status(500).json({ success: false, error: delErr.message, code: delErr.code });
       }
+      const duration = Date.now() - startTime;
+      console.log(`[API Reports] Like removed successfully in ${duration}ms`);
       return res.json({ success: true, liked: false });
     }
 
+    console.log(`[API Reports] Like does not exist, adding like...`);
     const { error: insErr } = await supabaseAdmin
       .from('likes')
       .insert({ report_id: reportId, user_id: userId });
     if (insErr) {
+      const duration = Date.now() - startTime;
+      console.error(`[API Reports] Failed to insert like after ${duration}ms:`, {
+        code: insErr.code,
+        message: insErr.message
+      });
       return res.status(500).json({ success: false, error: insErr.message, code: insErr.code });
     }
+    const duration = Date.now() - startTime;
+    console.log(`[API Reports] Like added successfully in ${duration}ms`);
     return res.json({ success: true, liked: true });
   } catch (e) {
-    console.error('Toggle like error:', e);
+    const duration = Date.now() - startTime;
+    console.error(`[API Reports] Toggle like error after ${duration}ms:`, e);
+    console.error('[API Reports] Error details:', {
+      message: e?.message || 'Unknown error',
+      stack: e?.stack,
+      reportId,
+      userId
+    });
     return res.status(500).json({ success: false, error: 'Failed to toggle like' });
   }
 });

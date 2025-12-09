@@ -18,6 +18,7 @@ import { AdvancedFilters, type FilterOptions } from './ui/AdvancedFilters';
 import { reportingService } from '../services/reportingService';
 import { buildReportStats, type ReportStats } from '../lib/reportStats';
 import { exportReportsCsv } from '../lib/csvExport';
+import { CommentsService } from '../services/commentsService';
 
 type StatusFilter = 'All' | 'pending' | 'in_progress' | 'resolved' | 'declined';
 
@@ -485,6 +486,13 @@ export function AdminReports() {
       
       await reportsService.updateReportStatus(reportId, 'in_progress');
       
+      // Create assignment log entry
+      try {
+        await CommentsService.addComment(reportId, `Assigned to ${assignee}`, 'assignment');
+      } catch (logError) {
+        console.warn('Failed to create assignment log entry:', logError);
+      }
+      
       // Show success toast
       showNotification(`✓ Report successfully assigned to ${assignee}`, 'success');
       
@@ -519,6 +527,17 @@ export function AdminReports() {
       await reportsService.updateReportTicketing(reportId, {
         assigned_patroller_name: '' as any,
       });
+      
+      // Log assignment removal
+      try {
+        await CommentsService.addComment(
+          reportId,
+          `Assignment removed: ${officerName} was unassigned from this report`,
+          'assignment'
+        );
+      } catch (logError) {
+        console.warn('Failed to log assignment removal:', logError);
+      }
       
       // Reload reports to confirm changes persisted
       await loadReports();
@@ -685,6 +704,18 @@ export function AdminReports() {
     
     setSaving(true);
     try {
+      // Track changes for logging
+      const changes: string[] = [];
+      if (selectedReport.title !== editForm.title.trim()) {
+        changes.push(`Title: '${selectedReport.title}' → '${editForm.title.trim()}'`);
+      }
+      if (selectedReport.description !== editForm.description.trim()) {
+        changes.push(`Description: '${selectedReport.description.substring(0, 50)}${selectedReport.description.length > 50 ? '...' : ''}' → '${editForm.description.trim().substring(0, 50)}${editForm.description.trim().length > 50 ? '...' : ''}'`);
+      }
+      if (selectedReport.category !== editForm.category.trim()) {
+        changes.push(`Category: '${selectedReport.category}' → '${editForm.category.trim()}'`);
+      }
+
       const updateData = {
         title: editForm.title.trim(),
         description: editForm.description.trim(),
@@ -697,6 +728,19 @@ export function AdminReports() {
         .eq('id', selectedReport.id);
 
       if (error) throw error;
+
+      // Log changes if any
+      if (changes.length > 0) {
+        try {
+          await CommentsService.addComment(
+            selectedReport.id,
+            `Report details updated: ${changes.join('; ')}`,
+            'report_edit' as const
+          );
+        } catch (logError) {
+          console.warn('Failed to log report edit:', logError);
+        }
+      }
 
       // Update local state
       setReports(prev => prev.map(r => 
@@ -771,6 +815,16 @@ export function AdminReports() {
           ));
         }
         throw error;
+      }
+
+      // Log archiving action
+      try {
+        const archiveMessage = archiveReason 
+          ? `Report archived. Reason: ${archiveReason}`
+          : 'Report archived';
+        await CommentsService.addComment(reportId, archiveMessage, 'archive' as const);
+      } catch (logError) {
+        console.warn('Failed to log archive action:', logError);
       }
       
       showNotification(

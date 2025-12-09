@@ -43,6 +43,8 @@ interface Report {
   assigned_patroller_name?: string;
   patrol_user_id?: string;
   can_cancel?: boolean;
+  // Verification/Approval tracking
+  approved_at?: string | null; // Timestamp when the report was approved by an admin
 }
 
 export function ReportDetail() {
@@ -263,7 +265,7 @@ export function ReportDetail() {
         .from('comments')
         .select('*')
         .eq('report_id', id)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: true });
 
       if (commentsError) throw commentsError;
 
@@ -813,9 +815,9 @@ export function ReportDetail() {
       note: 'Report created'
     });
 
-    // Add events from status_update, assignment, and resolution comments
+    // Add events from all log comment types
     reportComments
-      .filter(c => ['status_update', 'assignment', 'resolution'].includes(c.comment_type))
+      .filter(c => ['status_update', 'assignment', 'resolution', 'priority_update', 'group_assignment', 'report_edit', 'archive', 'cancellation'].includes(c.comment_type))
       .forEach(comment => {
         let status = report.status;
         if (comment.comment_type === 'status_update') {
@@ -842,9 +844,9 @@ export function ReportDetail() {
         });
       });
 
-    // Sort by timestamp (newest first)
+    // Sort by timestamp (oldest first)
     timelineEvents.sort((a, b) => 
-      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
     );
 
     return timelineEvents;
@@ -996,10 +998,23 @@ export function ReportDetail() {
               )}
               <span>Reported by <span className="font-medium text-gray-900">{report.is_anonymous ? 'Anonymous Reporter' : report.user.username}</span></span>
             </div>
-            <div className="flex items-center gap-2 text-sm text-gray-600">
+            <div className="flex items-center gap-2 text-sm text-gray-600 mb-2">
               <Calendar className="h-4 w-4" />
-              <span>{new Date(report.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+              <span>Reported: {new Date(report.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
             </div>
+            {/* Approval Timestamp */}
+            {report.approved_at && (
+              <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 px-3 py-2 rounded-lg border border-green-200">
+                <ShieldCheck className="h-4 w-4" />
+                <span className="font-medium">Approved by admin on {new Date(report.approved_at).toLocaleDateString('en-US', { 
+                  year: 'numeric', 
+                  month: 'long', 
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}</span>
+              </div>
+            )}
           </div>
 
           {/* Key Metrics Row */}
@@ -1179,9 +1194,14 @@ export function ReportDetail() {
                                 comment.comment_type === 'status_update' ? 'bg-blue-100 text-blue-800' :
                                 comment.comment_type === 'assignment' ? 'bg-purple-100 text-purple-800' :
                                 comment.comment_type === 'resolution' ? 'bg-green-100 text-green-800' :
+                                comment.comment_type === 'priority_update' ? 'bg-orange-100 text-orange-800' :
+                                comment.comment_type === 'group_assignment' ? 'bg-indigo-100 text-indigo-800' :
+                                comment.comment_type === 'report_edit' ? 'bg-yellow-100 text-yellow-800' :
+                                comment.comment_type === 'archive' ? 'bg-gray-100 text-gray-800' :
+                                comment.comment_type === 'cancellation' ? 'bg-red-100 text-red-800' :
                                 'bg-gray-100 text-gray-800'
                               }`}>
-                                {comment.comment_type.replace('_', ' ')}
+                                {comment.comment_type.replace(/_/g, ' ')}
                               </span>
                             )}
         </div>
