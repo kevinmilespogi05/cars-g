@@ -42,33 +42,33 @@ export function AdminDashboard() {
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Page header */}
       <div className="relative z-10 border-b border-gray-200 bg-white/80 supports-[backdrop-filter]:bg-white/70 backdrop-blur">
-        <div className="w-full px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="h-8 w-8 rounded-xl bg-blue-600 flex items-center justify-center shadow-sm">
-                <LayoutDashboard className="w-5 h-5 text-white" />
+        <div className="w-full px-3 sm:px-4 py-3 sm:py-4">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+              <div className="h-7 w-7 sm:h-8 sm:w-8 rounded-xl bg-blue-600 flex items-center justify-center shadow-sm flex-shrink-0">
+                <LayoutDashboard className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
               </div>
-              <div>
-                <nav aria-label="Breadcrumb" className="text-xs text-gray-500">
+              <div className="min-w-0 flex-1">
+                <nav aria-label="Breadcrumb" className="text-xs text-gray-500 hidden sm:block">
                   <ol className="flex items-center space-x-1">
                     <li>Admin</li>
                     <li className="text-gray-300">/</li>
                     <li className="font-medium text-gray-700">Dashboard</li>
                   </ol>
                 </nav>
-                <h1 className="text-lg sm:text-xl font-bold text-gray-900">Admin • Dashboard</h1>
-                <p className="text-sm text-gray-600">Manage reports, users, stats, and announcements</p>
+                <h1 className="text-base sm:text-lg md:text-xl font-bold text-gray-900 truncate">Admin • Dashboard</h1>
+                <p className="text-xs sm:text-sm text-gray-600 hidden sm:block">Manage reports, users, stats, and announcements</p>
               </div>
             </div>
-            <div className="hidden sm:flex items-center gap-2">
+            <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
               <button
                 onClick={() => setShowInfo(!showInfo)}
-                className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium border border-gray-200 rounded-lg bg-white hover:bg-gray-50"
+                className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium border border-gray-200 rounded-lg bg-white hover:bg-gray-50 min-h-[44px]"
                 aria-pressed={showInfo}
                 title="Toggle info drawer"
               >
                 <Info className="w-4 h-4" />
-                Info
+                <span className="hidden md:inline">Info</span>
               </button>
             </div>
           </div>
@@ -78,7 +78,7 @@ export function AdminDashboard() {
 
       {/* Main Content */}
       <main className="flex-1 overflow-hidden">
-        <div className="relative w-full px-4 py-4">
+        <div className="relative w-full px-3 sm:px-4 py-3 sm:py-4">
           {/* Breadcrumb Navigation */}
           <div className="mb-4">
             <Breadcrumb
@@ -146,10 +146,16 @@ export function AdminDashboard() {
 
       {/* Right-side Info Drawer */}
       {showInfo && (
-        <aside className="fixed right-0 top-20 sm:top-24 bottom-0 w-80 max-w-[85vw] bg-white border-l border-gray-200 shadow-xl z-[2200] p-4 overflow-y-auto">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-gray-900">Section Info</h3>
-            <button onClick={() => setShowInfo(false)} className="px-2 py-1 text-sm rounded-md border border-gray-200 hover:bg-gray-50">Close</button>
+        <aside className="fixed right-0 top-0 bottom-0 w-full sm:w-80 max-w-[100vw] sm:max-w-[85vw] bg-white border-l border-gray-200 shadow-xl z-[2200] p-3 sm:p-4 overflow-y-auto safe-top safe-bottom">
+          <div className="flex items-center justify-between mb-3 pb-3 border-b border-gray-200">
+            <h3 className="text-sm sm:text-base font-semibold text-gray-900">Section Info</h3>
+            <button 
+              onClick={() => setShowInfo(false)} 
+              className="px-3 py-2 text-sm rounded-md border border-gray-200 hover:bg-gray-50 min-h-[44px] min-w-[44px] flex items-center justify-center"
+              aria-label="Close info drawer"
+            >
+              Close
+            </button>
           </div>
           {activeSection === 'dashboard' && (
             <div>

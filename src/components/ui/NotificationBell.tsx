@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Bell, X, Check, CheckCheck, FileText, Shield, CheckCircle, AlertCircle, MessageSquare, Megaphone, ArrowRight } from 'lucide-react';
+import { Bell, X, Check, CheckCheck, FileText, Shield, CheckCircle, AlertCircle, MessageSquare, Megaphone, ArrowRight, Search, Filter, Trash2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { useNotifications } from '../../lib/notifications';
+import { useNotifications, NotificationFilters } from '../../lib/notifications';
 import { useAuthStore } from '../../store/authStore';
 import { Link, useNavigate } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
@@ -19,18 +19,31 @@ export function NotificationBell({ className, showDropdown = true }: Notificatio
   const [hasNewNotification, setHasNewNotification] = useState(false);
   const [shouldPulse, setShouldPulse] = useState(false);
   const [shouldShake, setShouldShake] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterType, setFilterType] = useState<string | undefined>(undefined);
+  const [showFilters, setShowFilters] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const previousUnreadCountRef = useRef(0);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const filters: NotificationFilters = {
+    search: searchQuery || undefined,
+    type: filterType as any,
+  };
 
   const {
     notifications,
+    groupedNotifications,
     unreadCount,
     loading,
     markAsRead,
     markAllAsRead,
-    deleteNotification
-  } = useNotifications(user?.id || '');
+    deleteNotification,
+    deleteAllRead,
+    loadMore,
+    hasMore
+  } = useNotifications(user?.id || '', { limit: 10, filters, autoFetch: isOpen });
 
   // Detect new notifications and trigger animations
   useEffect(() => {
@@ -127,8 +140,15 @@ export function NotificationBell({ className, showDropdown = true }: Notificatio
     }
   };
 
-  // Limit notifications to 5 for dropdown
-  const displayNotifications = notifications.slice(0, 5);
+  // Focus search input when filters are shown
+  useEffect(() => {
+    if (showFilters && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [showFilters]);
+
+  // Display notifications (use grouped if available, otherwise flat list)
+  const displayNotifications = notifications.slice(0, 10);
 
   return (
     <div className={cn('relative', className)}>
@@ -193,44 +213,134 @@ export function NotificationBell({ className, showDropdown = true }: Notificatio
             aria-label="Notifications"
           >
             {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50">
-              <div className="flex items-center gap-2">
-                <Bell className="h-5 w-5 text-gray-700" />
-                <h3 className="text-lg font-semibold text-gray-900">
-                  Notifications
-                </h3>
-                {unreadCount > 0 && (
-                  <span className="ml-2 px-2 py-0.5 bg-[#ef4444] text-white text-xs font-bold rounded-full">
-                    {unreadCount}
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                {unreadCount > 0 && (
+            <div className="flex flex-col border-b border-gray-200 bg-gray-50">
+              <div className="flex items-center justify-between p-4">
+                <div className="flex items-center gap-2">
+                  <Bell className="h-5 w-5 text-gray-700" />
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Notifications
+                  </h3>
+                  {unreadCount > 0 && (
+                    <span className="ml-2 px-2 py-0.5 bg-[#ef4444] text-white text-xs font-bold rounded-full">
+                      {unreadCount}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
                   <button
-                    onClick={async () => {
-                      await markAllAsRead();
-                    }}
-                    className="p-1.5 rounded-lg hover:bg-gray-200 transition-colors"
-                    aria-label="Mark all as read"
-                    title="Mark all as read"
+                    onClick={() => setShowFilters(!showFilters)}
+                    className={cn(
+                      "p-1.5 rounded-lg transition-colors",
+                      showFilters ? "bg-blue-100 text-blue-600" : "hover:bg-gray-200 text-gray-600"
+                    )}
+                    aria-label="Toggle filters"
+                    title="Filter notifications"
                   >
-                    <CheckCheck className="h-4 w-4 text-gray-600" />
+                    <Filter className="h-4 w-4" />
                   </button>
-                )}
-                <button
-                  onClick={() => setIsOpen(false)}
-                  className="p-1.5 rounded-lg hover:bg-gray-200 transition-colors"
-                  aria-label="Close notifications"
-                >
-                  <X className="h-4 w-4 text-gray-600" />
-                </button>
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={async () => {
+                        await markAllAsRead();
+                      }}
+                      className="p-1.5 rounded-lg hover:bg-gray-200 transition-colors"
+                      aria-label="Mark all as read"
+                      title="Mark all as read"
+                    >
+                      <CheckCheck className="h-4 w-4 text-gray-600" />
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setIsOpen(false)}
+                    className="p-1.5 rounded-lg hover:bg-gray-200 transition-colors"
+                    aria-label="Close notifications"
+                  >
+                    <X className="h-4 w-4 text-gray-600" />
+                  </button>
+                </div>
               </div>
+
+              {/* Search and Filter Bar */}
+              <AnimatePresence>
+                {showFilters && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="overflow-hidden px-4 pb-4 space-y-3"
+                  >
+                    {/* Search Input */}
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <input
+                        ref={searchInputRef}
+                        type="text"
+                        placeholder="Search notifications..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                      {searchQuery && (
+                        <button
+                          onClick={() => setSearchQuery('')}
+                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Type Filter */}
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={() => setFilterType(undefined)}
+                        className={cn(
+                          "px-3 py-1 text-xs font-medium rounded-full transition-colors",
+                          !filterType
+                            ? "bg-blue-600 text-white"
+                            : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                        )}
+                      >
+                        All
+                      </button>
+                      {['info', 'success', 'warning', 'error', 'chat'].map((type) => (
+                        <button
+                          key={type}
+                          onClick={() => setFilterType(filterType === type ? undefined : type)}
+                          className={cn(
+                            "px-3 py-1 text-xs font-medium rounded-full transition-colors capitalize",
+                            filterType === type
+                              ? "bg-blue-600 text-white"
+                              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                          )}
+                        >
+                          {type}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Quick Actions */}
+                    {notifications.some(n => n.read) && (
+                      <button
+                        onClick={async () => {
+                          if (confirm('Delete all read notifications?')) {
+                            await deleteAllRead();
+                          }
+                        }}
+                        className="flex items-center gap-2 text-xs text-red-600 hover:text-red-700 font-medium"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                        Delete all read
+                      </button>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
             {/* Notifications List */}
             <div className="flex-1 overflow-y-auto">
-              {loading ? (
+              {loading && notifications.length === 0 ? (
                 <div className="p-8 text-center">
                   <div className="animate-spin h-6 w-6 border-2 border-blue-600 border-t-transparent rounded-full mx-auto mb-2" />
                   <p className="text-sm text-gray-500">Loading notifications...</p>
@@ -238,8 +348,25 @@ export function NotificationBell({ className, showDropdown = true }: Notificatio
               ) : displayNotifications.length === 0 ? (
                 <div className="p-8 text-center">
                   <Bell className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                  <p className="text-sm font-medium text-gray-900 mb-1">All caught up!</p>
-                  <p className="text-xs text-gray-500">No new notifications</p>
+                  <p className="text-sm font-medium text-gray-900 mb-1">
+                    {searchQuery || filterType ? 'No matching notifications' : 'All caught up!'}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {searchQuery || filterType 
+                      ? 'Try adjusting your filters' 
+                      : 'No new notifications'}
+                  </p>
+                  {(searchQuery || filterType) && (
+                    <button
+                      onClick={() => {
+                        setSearchQuery('');
+                        setFilterType(undefined);
+                      }}
+                      className="mt-3 text-xs text-blue-600 hover:text-blue-700 font-medium"
+                    >
+                      Clear filters
+                    </button>
+                  )}
                 </div>
               ) : (
                 <div className="divide-y divide-gray-100">
@@ -322,6 +449,24 @@ export function NotificationBell({ className, showDropdown = true }: Notificatio
                       </div>
                     </motion.div>
                   ))}
+                </div>
+              )}
+              
+              {/* Load More Button */}
+              {hasMore && !loading && (
+                <div className="p-4 text-center border-t border-gray-200">
+                  <button
+                    onClick={loadMore}
+                    className="text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors"
+                  >
+                    Load more notifications
+                  </button>
+                </div>
+              )}
+              
+              {loading && notifications.length > 0 && (
+                <div className="p-4 text-center">
+                  <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full mx-auto" />
                 </div>
               )}
             </div>

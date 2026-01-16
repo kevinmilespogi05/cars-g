@@ -241,10 +241,14 @@ function AppContentInner() {
           <main 
             id="main-content"
             role="main"
-            className={isLandingPage ? 'pt-0' : isAuthPage ? 'relative min-h-screen' : 'relative min-h-screen'}
+            className={`${isLandingPage ? 'pt-0' : isAuthPage ? 'relative min-h-screen' : 'relative min-h-screen'} safe-top safe-bottom`}
             style={!isLandingPage && !isAuthPage ? ({
               marginLeft: isDesktop ? 'var(--app-left-offset)' : undefined,
-              transition: 'margin-left 250ms cubic-bezier(0.4, 0, 0.2, 1)'
+              transition: 'margin-left 250ms cubic-bezier(0.4, 0, 0.2, 1)',
+              paddingLeft: isDesktop ? undefined : '0',
+              paddingRight: '0',
+              width: isDesktop ? undefined : '100%',
+              maxWidth: isDesktop ? undefined : '100%'
             } as React.CSSProperties) : undefined}
             tabIndex={-1}
           >

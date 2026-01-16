@@ -61,24 +61,24 @@ export function ConfirmationDialog({
   const Icon = styles.icon;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 animate-fade-in">
-      <div className="bg-white rounded-xl max-w-md w-full shadow-xl transform transition-all animate-slide-up">
-        <div className="p-6">
-          <div className="flex items-start space-x-4">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-3 sm:p-4 z-50 animate-fade-in safe-top safe-bottom">
+      <div className="bg-white rounded-xl max-w-md w-full max-h-[90vh] shadow-xl transform transition-all animate-slide-up flex flex-col overflow-hidden">
+        <div className="p-4 sm:p-6 flex-1 overflow-y-auto">
+          <div className="flex items-start gap-3 sm:gap-4">
             <div className={`flex-shrink-0 rounded-full p-2 ${styles.bg}`}>
-              <Icon className={`h-6 w-6 ${styles.text}`} />
+              <Icon className={`h-5 w-5 sm:h-6 sm:w-6 ${styles.text}`} />
             </div>
             <div className="flex-1 min-w-0">
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">{title}</h3>
-              <p className="text-sm text-gray-600">{message}</p>
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2 break-words">{title}</h3>
+              <p className="text-sm sm:text-base text-gray-600 break-words">{message}</p>
             </div>
           </div>
           
-          <div className="mt-6 flex justify-end space-x-3">
+          <div className="mt-4 sm:mt-6 flex flex-col sm:flex-row justify-end gap-2 sm:gap-3 sm:space-x-0">
             <button
               type="button"
               onClick={onClose}
-              className="btn btn-outline"
+              className="btn btn-outline w-full sm:w-auto min-h-[44px] order-2 sm:order-1"
             >
               {cancelText}
             </button>
@@ -88,7 +88,7 @@ export function ConfirmationDialog({
                 onConfirm();
                 onClose();
               }}
-              className={`btn ${styles.button}`}
+              className={`btn ${styles.button} w-full sm:w-auto min-h-[44px] order-1 sm:order-2`}
             >
               {confirmText}
             </button>

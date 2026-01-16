@@ -26,6 +26,7 @@ const VerificationReports = lazy(() => import('../pages/VerificationReports').th
 const Announcements = lazy(() => import('../pages/Announcements').then(module => ({ default: module.Announcements })));
 const EmergencyContacts = lazy(() => import('../pages/EmergencyContacts').then(module => ({ default: module.EmergencyContacts })));
 const CaseDetailsPage = lazy(() => import('../pages/CaseDetailsPage').then(module => ({ default: module.CaseDetailsPage })));
+const Notifications = lazy(() => import('../pages/Notifications').then(module => ({ default: module.Notifications })));
 
 export const publicRoutes: RouteObject[] = [
   {
@@ -94,6 +95,10 @@ export const protectedRoutes: RouteObject[] = [
   {
     path: '/emergency-contacts',
     element: <ProtectedRoute><EmergencyContacts /></ProtectedRoute>
+  },
+  {
+    path: '/notifications',
+    element: <ProtectedRoute><Notifications /></ProtectedRoute>
   }
 ];
 

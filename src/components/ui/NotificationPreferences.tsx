@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, Mail, Smartphone, CheckCircle, X } from 'lucide-react';
+import { Bell, Mail, Smartphone, CheckCircle, X, Volume2, VolumeX, Moon, Sun } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../store/authStore';
@@ -61,6 +61,24 @@ export function NotificationPreferences({ className, onClose }: NotificationPref
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  
+  // Sound and quiet hours settings
+  const [soundEnabled, setSoundEnabled] = useState(() => {
+    const saved = localStorage.getItem('notification_sound_enabled');
+    return saved !== 'false';
+  });
+  const [quietHoursEnabled, setQuietHoursEnabled] = useState(() => {
+    const saved = localStorage.getItem('notification_quiet_hours_enabled');
+    return saved === 'true';
+  });
+  const [quietHoursStart, setQuietHoursStart] = useState(() => {
+    const saved = localStorage.getItem('notification_quiet_hours_start') || '22:00';
+    return saved;
+  });
+  const [quietHoursEnd, setQuietHoursEnd] = useState(() => {
+    const saved = localStorage.getItem('notification_quiet_hours_end') || '08:00';
+    return saved;
+  });
 
   useEffect(() => {
     if (user) {
@@ -105,11 +123,22 @@ export function NotificationPreferences({ className, onClose }: NotificationPref
 
     try {
       setSaving(true);
+      
+      // Save sound and quiet hours to localStorage
+      localStorage.setItem('notification_sound_enabled', soundEnabled.toString());
+      localStorage.setItem('notification_quiet_hours_enabled', quietHoursEnabled.toString());
+      localStorage.setItem('notification_quiet_hours_start', quietHoursStart);
+      localStorage.setItem('notification_quiet_hours_end', quietHoursEnd);
+      
       const { error } = await supabase
         .from('user_notification_preferences')
         .upsert({
           user_id: user.id,
           preferences: preferences,
+          sound_enabled: soundEnabled,
+          quiet_hours_enabled: quietHoursEnabled,
+          quiet_hours_start: quietHoursStart,
+          quiet_hours_end: quietHoursEnd,
           updated_at: new Date().toISOString()
         }, {
           onConflict: 'user_id'
@@ -190,6 +219,98 @@ export function NotificationPreferences({ className, onClose }: NotificationPref
 
       {/* Content */}
       <div className="p-6 space-y-6 max-h-[600px] overflow-y-auto">
+        {/* Sound Settings */}
+        <div className="border border-gray-200 rounded-lg p-4">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              {soundEnabled ? (
+                <Volume2 className="h-5 w-5 text-blue-600" />
+              ) : (
+                <VolumeX className="h-5 w-5 text-gray-400" />
+              )}
+              <div>
+                <h3 className="font-semibold text-gray-900">Notification Sounds</h3>
+                <p className="text-xs text-gray-500">Play sound when notifications arrive</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setSoundEnabled(!soundEnabled)}
+              className={cn(
+                'relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+                soundEnabled ? 'bg-blue-600' : 'bg-gray-300'
+              )}
+              role="switch"
+              aria-checked={soundEnabled}
+            >
+              <span
+                className={cn(
+                  'inline-block h-4 w-4 transform rounded-full bg-white transition-transform',
+                  soundEnabled ? 'translate-x-6' : 'translate-x-1'
+                )}
+              />
+            </button>
+          </div>
+        </div>
+
+        {/* Quiet Hours */}
+        <div className="border border-gray-200 rounded-lg p-4">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              {quietHoursEnabled ? (
+                <Moon className="h-5 w-5 text-blue-600" />
+              ) : (
+                <Sun className="h-5 w-5 text-gray-400" />
+              )}
+              <div>
+                <h3 className="font-semibold text-gray-900">Quiet Hours</h3>
+                <p className="text-xs text-gray-500">Mute notifications during specified hours</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setQuietHoursEnabled(!quietHoursEnabled)}
+              className={cn(
+                'relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+                quietHoursEnabled ? 'bg-blue-600' : 'bg-gray-300'
+              )}
+              role="switch"
+              aria-checked={quietHoursEnabled}
+            >
+              <span
+                className={cn(
+                  'inline-block h-4 w-4 transform rounded-full bg-white transition-transform',
+                  quietHoursEnabled ? 'translate-x-6' : 'translate-x-1'
+                )}
+              />
+            </button>
+          </div>
+          
+          {quietHoursEnabled && (
+            <div className="mt-4 space-y-3 pl-8">
+              <div className="flex items-center gap-4">
+                <label className="text-sm font-medium text-gray-700 w-20">Start:</label>
+                <input
+                  type="time"
+                  value={quietHoursStart}
+                  onChange={(e) => setQuietHoursStart(e.target.value)}
+                  className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div className="flex items-center gap-4">
+                <label className="text-sm font-medium text-gray-700 w-20">End:</label>
+                <input
+                  type="time"
+                  value={quietHoursEnd}
+                  onChange={(e) => setQuietHoursEnd(e.target.value)}
+                  className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                Notifications will be muted between {quietHoursStart} and {quietHoursEnd}
+              </p>
+            </div>
+          )}
+        </div>
+
         {/* Quick Actions */}
         <div className="flex items-center gap-2 p-4 bg-gray-50 rounded-lg">
           <span className="text-sm font-medium text-gray-700">Quick Actions:</span>
